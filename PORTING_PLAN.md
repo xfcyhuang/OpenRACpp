@@ -290,7 +290,7 @@ OpenRAC/
 - `core/` 基础库:定点原语(WPos/WVec/WDist/WAngle/WRot/CPos/MPos/int2/BitSet——照抄各 .cs 的整数实现)、MersenneTwister、CRC32/SHA1、日志、内存分配器(arena/帧分配器)、容器宏模板、`ora_thread`。
 - 第三方子树接入(SDL2/OpenAL/freetype/lua/miniz)。
 - **验收**:定点原语与 C# 版随机输入对拍(WAngle.Sin/Cos 查表全值扫描比对);MersenneTwister 同种子前 10⁶ 输出一致;ASan 干净。【单测】
-- **当前状态**:`CMakeLists.txt` 与 `tools/c23_probe.c` 已就绪并通过(全部特性 + 确定性前提 + Win32 线程后端,ctest 绿)。
+- **当前状态**:`CMakeLists.txt` 与 `tools/c23_probe.c` 已就绪并通过(全部特性 + 确定性前提 + Win32 线程后端,ctest 绿)。**定点原语与 MersenneTwister 已完成并通过对拍**:`src/core/ora_primitives.h`(int2/CVec/CPos/MPos/PPos/WDist/WAngle/WPos/WVec/WRot/Int32Matrix4x4/Rectangle)、`ora_math.h`(ISqrt)、`ora_random.h`(MT19937);黄金对拍 `tests/golden_core.c` vs `tools/golden_gen`(C# 副本):**60,883 行全部一致**(WAngle 全角度 sin/cos/tan、ArcSin/ArcCos 全量、ArcTan 网格、MT 3 种子全序列、WVec/WPos 4000 随机组含 LerpQuadratic、WRot 4913 网格 + SLerp、CPos 等距换算、FromPDF),ASan+UBSan 干净。BitSet/CRC32/SHA1/log/arena 留待 Phase 1 前补齐。
 
 ### Phase 1 — MiniYaml + FileSystem(约 2~3 周)
 
@@ -406,7 +406,7 @@ OpenRAC/
 ## 10. 起步行动清单(本周)
 
 1. ~~初始化 `OpenRAC` 仓库结构 + CMake C23 基线~~ **已完成**:`CMakeLists.txt`(cmake + clang/`gnu23` + ninja,含 `-fwrapv` 确定性基线与 ASan/UBSan 开关)+ `tools/c23_probe.c` 特性探针,构建与 ctest 全绿。
-2. 移植 `core/` 定点原语与 MersenneTwister,完成与 C# 的首轮对拍。
+2. ~~移植 `core/` 定点原语与 MersenneTwister,完成与 C# 的首轮对拍~~ **已完成**:60,883 行黄金对拍全部一致(见 Phase 0 状态)。关键语义发现:WPos.LerpQuadratic 的 decimal 跨零截断问题(trunc(x)+z ≠ trunc(x+z)),已用 `__int128` 通分除法精确复刻。
 3. 移植 MiniYaml 解析器(Phase 1 核心),接入 759 文件解析冒烟。
 4. 搭 `tools/schema_dumper` 骨架:先导出 interfaces.h 与 Health/Mobile/Armament 三个 trait 的字段表,打通"yaml → C 结构体"最小闭环。
 5. 建 `tools/replaydiff` 骨架(解析 replay 元数据 + 逐帧 SyncHash 提取),提前于 Phase 3 就绪。

@@ -36,3 +36,8 @@ cmake_install.cmake
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# dotnet 工具中间产物(golden_gen 等离线工具)
+tools/*/bin/
+tools/*/obj/
+

@@ -47,5 +47,10 @@ endif()
 # —— c23_probe:Phase 0 验收物,验证特性白名单与确定性前提 ——
 add_executable(c23_probe tools/c23_probe.c)
 
+# —— golden_core:Phase 0 定点原语/MersenneTwister 黄金对拍(与 C# 版逐行比对)——
+add_executable(golden_core tests/golden_core.c)
+target_include_directories(golden_core PRIVATE src/core)
+
 enable_testing()
 add_test(NAME c23_probe COMMAND c23_probe)
+add_test(NAME golden_core COMMAND golden_core ${CMAKE_SOURCE_DIR}/tests/golden_core.txt)
