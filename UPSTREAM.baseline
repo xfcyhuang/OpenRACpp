@@ -1,0 +1,7 @@
+# 上游语义基线(PORTING_PLAN §7.1)——所有移植与黄金数据以此为锚
+repo=Z:/source_code/OpenRA
+commit=7d57605bca2cbe963068d42505e00072afe19868
+short=7d57605bca
+# 黄金数据 tests/golden_core.txt 由该 commit 的 C# 实现
+# (tools/golden_gen/Program.cs 内嵌的 OpenRA 原语逐字副本)生成,与被测语言无关。
+# 上游更新流程:checkout 新 commit → 重新生成黄金数据 → C++ 重跑对拍 → 更新本文件。

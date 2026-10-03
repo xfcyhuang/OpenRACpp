@@ -1,1 +1,4 @@
 PORTING_PLAN.md
+.ref/
+build/
+build-asan/
