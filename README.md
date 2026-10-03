@@ -10,7 +10,14 @@
 
 ## 状态
 
-早期规划阶段，尚未开始代码移植。
+**Phase 0 完成**（C++26 工程骨架 + 定点原语）：
+
+- 工程基线：clang `-std=c++26` + `import std;`（std.cppm 预编译 PCM）+ CMake/Ninja + ctest；确定性选项 `-fwrapv -fno-strict-aliasing`
+- `src/core/` 12 个头文件：定点原语（WPos/WVec/WAngle/WRot/WDist/CPos/CVec/MPos/int2/Rectangle/Int32Matrix4x4/ISqrt）与 MersenneTwister，全部按上游源码逐语义重写，`constexpr` 全面化，文件头带 `// UPSTREAM:` 溯源标注
+- 验收：与 C# 版黄金数据 **60,883 行逐行对拍 100% 一致**（覆盖全角度三角学、ArcSin/ArcCos 全量、MT19937 全序列、LerpQuadratic 的 decimal 截断语义等），ASan+UBSan 与 Release 双构建全绿
+- 上游同步机制就位：`UPSTREAM.baseline`（基线 commit `7d57605bca`）+ `docs/COVERAGE.md` 覆盖登记 + `tools/upstream_check.py` 校验器
+
+下一阶段（Phase 1）：MiniYaml 解析与文件系统——759 个上游 yaml 逐文件对拍的第一关卡。
 
 ## 许可证与归属
 
@@ -35,7 +42,14 @@ The engine is rewritten from scratch to match the exact semantics of the upstrea
 
 ## Status
 
-Early planning stage; code porting has not started yet.
+**Phase 0 complete** (C++26 skeleton + fixed-point primitives):
+
+- Toolchain baseline: clang `-std=c++26` + `import std;` (precompiled std.cppm PCM) + CMake/Ninja + ctest; determinism flags `-fwrapv -fno-strict-aliasing`
+- 12 headers in `src/core/`: fixed-point primitives (WPos/WVec/WAngle/WRot/WDist/CPos/CVec/MPos/int2/Rectangle/Int32Matrix4x4/ISqrt) and MersenneTwister, rewritten statement-by-statement from upstream sources, fully `constexpr`, each file carrying a `// UPSTREAM:` provenance tag
+- Acceptance: **60,883 lines of golden differential testing match the C# output 100%** (covering full-circle trigonometry, exhaustive ArcSin/ArcCos, full MT19937 sequences, and the decimal truncation semantics of LerpQuadratic); clean under both ASan+UBSan and Release builds
+- Upstream sync mechanism in place: `UPSTREAM.baseline` (commit `7d57605bca`), coverage registry in `docs/COVERAGE.md`, and the `tools/upstream_check.py` validator
+
+Next up (Phase 1): MiniYaml parser and file system — the first milestone gated by byte-exact comparison across all 759 upstream yaml files.
 
 ## License & Attribution
 
