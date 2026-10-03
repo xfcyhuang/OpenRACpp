@@ -34,6 +34,15 @@ FileSystem::FileSystem(std::vector<std::unique_ptr<IPackageLoader>> packageLoade
   vec_packageLoaders_.push_back(std::make_unique<ZipFileLoader>());
 }
 
+void FileSystem::SetPathResolver(std::function<std::string(const std::string&)> fn_resolve) {
+  fn_pathResolver_ = std::move(fn_resolve);
+}
+
+void FileSystem::SetModPackageResolver(
+    std::function<IReadOnlyPackage*(const std::string&)> fn_resolve_mod) {
+  fn_modResolver_ = std::move(fn_resolve_mod);
+}
+
 bool FileSystem::TryParsePackage(std::span<const char> bytes, const std::string& filename,
                                  std::unique_ptr<IReadOnlyPackage>& package) {
   package.reset();
@@ -44,15 +53,17 @@ bool FileSystem::TryParsePackage(std::span<const char> bytes, const std::string&
 }
 
 std::unique_ptr<IReadOnlyPackage> FileSystem::OpenPackage(const std::string& filename) {
-  // 裸目录最常见,优先尝试(FileSystem.cs L64-67;Platform.ResolvePath 属
-  // Game 层,Phase 1 直接使用原名,已登记 COVERAGE)
+  // 裸目录最常见,优先尝试(FileSystem.cs L64-67;ResolvePath 经可安装
+  // 解析器,Game 层注入 '^EngineDir' 等前缀语义)
   // Raw directories are the most common case, try them first (FileSystem.cs
-  // L64-67; Platform.ResolvePath belongs to the Game layer — Phase 1 uses the
-  // name as-is, registered in COVERAGE).
-  const bool hasExplicitSplit = filename.find('|') != std::string::npos;
+  // L64-67; ResolvePath goes through the installable resolver carrying the
+  // '^EngineDir' etc. prefixes injected by the Game layer).
+  const std::string resolvedPath =
+      fn_pathResolver_ ? fn_pathResolver_(filename) : filename;
+  const bool hasExplicitSplit = resolvedPath.find('|') != std::string::npos;
   std::error_code ec;
-  if (!hasExplicitSplit && stdfs::is_directory(stdfs::path{filename}, ec))
-    return std::make_unique<Folder>(filename);
+  if (!hasExplicitSplit && stdfs::is_directory(stdfs::path{resolvedPath}, ec))
+    return std::make_unique<Folder>(resolvedPath);
 
   // 其他包的子路径需特殊处理
   // Children of another package need special handling.
@@ -81,12 +92,20 @@ void FileSystem::Mount(const std::string& name, const std::string& explicitName)
 
   try {
     if (!realName.empty() && realName[0] == '$') {
-      // 已登记偏离:'$' mod 引用挂载需 installedMods/Manifest(Phase 2)
-      // Registered deviation: the '$' mod-reference mount needs
-      // installedMods/Manifest (Phase 2).
-      throw std::runtime_error{std::format(
-          "Could not load mod '{}': '$' mounts require Manifest support (Phase 2).",
-          realName.substr(1))};
+      // '$mod' 引用挂载(FileSystem.cs L93-102):借 InstalledMods 的
+      // Manifest.Package,不转移所有权
+      // The '$mod' reference mount (FileSystem.cs L93-102): borrows the
+      // Manifest.Package of InstalledMods without transferring ownership.
+      const std::string str_mod = realName.substr(1);
+      if (!fn_modResolver_)
+        throw std::runtime_error{std::format(
+            "Could not load mod '{}': no InstalledMods resolver installed.", str_mod)};
+      IReadOnlyPackage* pkg_mod = fn_modResolver_(str_mod);
+      if (pkg_mod == nullptr)
+        throw std::runtime_error{
+            std::format("Could not load mod '{}'.", str_mod)};
+      MountBorrowed(pkg_mod, explicitName);
+      return;
     }
 
     auto package = OpenPackage(realName);
@@ -99,6 +118,31 @@ void FileSystem::Mount(const std::string& name, const std::string& explicitName)
   } catch (...) {
     if (!optional)
       throw;
+  }
+}
+
+void FileSystem::MountBorrowed(IReadOnlyPackage* package, const std::string& explicitName) {
+  // '$mod' 挂载:仅登记引用(不进 vec_owned_;Unmount 计数归零时也不释放)
+  // The '$mod' mount: registers the reference only (never enters
+  // vec_owned_; Unmount never frees it at zero count either).
+  const bool alreadyMounted =
+      std::find(vec_mounted_.begin(), vec_mounted_.end(), package) != vec_mounted_.end();
+  if (!alreadyMounted) {
+    vec_mounted_.push_back(package);
+    if (!explicitName.empty())
+      map_explicitMounts_.emplace(explicitName, package);
+    for (const std::string& fn : package->Contents())
+      map_fileIndex_[fn].push_back(package);
+  } else {
+    // 已挂载:计数 +1 语义(索引中提升优先级,与 Mount(unique_ptr) 一致)
+    // Already mounted: +1 count semantics (priority bump in the index,
+    // identical to Mount(unique_ptr)).
+    vec_mounted_.push_back(package);
+    for (const std::string& fn : package->Contents()) {
+      auto& list = map_fileIndex_[fn];
+      list.erase(std::remove(list.begin(), list.end(), package), list.end());
+      list.push_back(package);
+    }
   }
 }
 

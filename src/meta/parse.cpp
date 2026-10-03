@@ -3,6 +3,8 @@
 //          Implementation of parse.hpp (BCL semantics documented in the header).
 import std;
 #include "parse.hpp"
+#include "core/cell_pos.hpp"
+#include "core/cvec.hpp"
 #include "core/text.hpp"
 
 namespace ora::meta {
@@ -195,6 +197,36 @@ std::vector<std::string_view> SplitComma(std::string_view sv) {
     int4_begin = int4_comma + 1;
   }
   return vec_ret;
+}
+
+bool TryParseCPosNet(std::string_view sv, CPos& cpos_out) {
+  if (sv.empty())
+    return false;
+  const std::vector<std::string_view> vec_parts = SplitCommaTrimmed(sv);
+  std::int32_t int4_x{}, int4_y{};
+  if (vec_parts.size() == 3) {
+    std::uint8_t uint1_layer{};
+    if (TryParseInt32Invariant(vec_parts[0], int4_x) &&
+        TryParseInt32Invariant(vec_parts[1], int4_y) &&
+        TryParseByteInvariant(vec_parts[2], uint1_layer)) {
+      cpos_out = CPos{int4_x, int4_y, uint1_layer};
+      return true;
+    }
+    return false;
+  }
+  if (vec_parts.size() == 2 && TryParseInt32Invariant(vec_parts[0], int4_x) &&
+      TryParseInt32Invariant(vec_parts[1], int4_y)) {
+    cpos_out = CPos{int4_x, int4_y};
+    return true;
+  }
+  return false;
+}
+
+bool TryParseCVecNet(std::string_view sv, CVec& cvec_out) {
+  const auto fn_int = [](std::string_view sv_p, std::int32_t& int4_v) {
+    return TryParseInt32Invariant(sv_p, int4_v);
+  };
+  return TryParseTuple2(sv, fn_int, cvec_out);
 }
 
 void RegisterEnum(std::string_view enum_full_name, std::span<const EnumMemberDesc> members) {

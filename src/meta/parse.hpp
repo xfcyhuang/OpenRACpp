@@ -49,6 +49,58 @@ std::vector<std::string_view> SplitCommaTrimmed(std::string_view sv);
 /// segments (for array parsing).
 std::vector<std::string_view> SplitComma(std::string_view sv);
 
+}  // namespace ora::meta
+
+namespace ora {
+struct CPos;  // core/cell_pos.hpp(实现侧包含)/ core/cell_pos.hpp
+              // (included by the implementation side).
+struct CVec;  // core/cvec.hpp
+}  // namespace ora
+
+namespace ora::meta {
+
+/// 三元组公共骨架(WVec L235-249 / WPos L284-298 / WRot L307-321):
+/// 恰 3 段且逐段可解析;fn_make 由调用方完成目标构造
+/// Common 3-tuple skeleton (WVec L235-249 / WPos L284-298 / WRot L307-321):
+/// exactly 3 segments, each parseable; fn_make assembles the target.
+template <class ParseElem, class Make>
+std::optional<std::invoke_result_t<Make, std::int32_t, std::int32_t, std::int32_t>>
+TryParseTuple3(std::string_view sv, const ParseElem& fn_parse, const Make& fn_make) {
+  if (sv.empty())
+    return std::nullopt;
+  const std::vector<std::string_view> vec_parts = SplitCommaTrimmed(sv);
+  if (vec_parts.size() != 3)
+    return std::nullopt;
+  std::array<std::int32_t, 3> arr_e{};
+  for (std::size_t int4_i{}; int4_i < 3; int4_i++)
+    if (!fn_parse(vec_parts[int4_i], arr_e[int4_i]))
+      return std::nullopt;
+  return fn_make(arr_e[0], arr_e[1], arr_e[2]);
+}
+
+/// 二元组公共骨架(CVec L377-390 / Int2 L516-529 / Size L501-514 / Vector2 L531-544)
+/// Common 2-tuple skeleton (CVec L377-390 / Int2 L516-529 / Size L501-514 /
+/// Vector2 L531-544).目标类型需有 .X/.Y 公有成员
+/// The target type needs public .X/.Y members.
+template <class T, class ParseElem>
+bool TryParseTuple2(std::string_view sv, const ParseElem& fn_parse, T& out_t) {
+  if (sv.empty())
+    return false;
+  const std::vector<std::string_view> vec_parts = SplitCommaTrimmed(sv);
+  if (vec_parts.size() != 2)
+    return false;
+  if (!fn_parse(vec_parts[0], out_t.X) || !fn_parse(vec_parts[1], out_t.Y))
+    return false;
+  return true;
+}
+
+/// ParseCPos(L323-342):3 段(x,y,layer-byte)或 2 段(x,y)
+/// ParseCPos (L323-342): 3 segments (x,y,layer-byte) or 2 (x,y).
+bool TryParseCPosNet(std::string_view sv, CPos& cpos_out);
+
+/// ParseCVec(L377-390)
+bool TryParseCVecNet(std::string_view sv, CVec& cvec_out);
+
 /// Enum.TryParse(fieldType, value, true, out) 的 C++ 等价:
 /// 按枚举注册表解析(名字不分大小写 / 有符号十进制数值 / 逗号分隔名字按位或)
 /// The C++ equivalent of Enum.TryParse(fieldType, value, true, out):

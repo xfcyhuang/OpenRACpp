@@ -128,6 +128,14 @@ constexpr FieldDesc ElemOf(FieldType type, std::string_view str_type_name = {}) 
 struct RecordDesc {
   std::string_view str_name;    // 类名(如 "HealthInfo";注册键)
                                 // Class name (e.g. "HealthInfo"; registry key).
+  std::string_view str_full_name;  // C# 全名(如 "OpenRA.Mods.Common.Traits.
+                                   // HealthInfo";嵌套同名类的精确寻址副键,
+                                   // 生成器填充;可为空)
+                                   // The C# full name (e.g. "OpenRA.Mods.
+                                   // Common.Traits.HealthInfo"; the exact
+                                   // addressing secondary key for nested
+                                   // same-named classes, filled by the
+                                   // generator; may be empty).
   std::string_view str_base;    // 直接基类名("" = 根)
                                 // Direct base class name ("" = root).
   std::span<const FieldDesc> fields;  // 本类自有字段(不含继承;加载沿 base 链拼接,
@@ -137,6 +145,14 @@ struct RecordDesc {
                                       // order: base-most fields first).
   std::span<const std::string_view> requires_types;    // Requires<XInfo>(构造序依赖)
   std::span<const std::string_view> not_before_types;  // NotBefore<XInfo>
+  std::span<const std::string_view> interfaces;  // 实现的接口全名(含基类链;
+                                                  // IRulesetLoaded 查询/后续接口
+                                                  // ID 表的生成源)
+                                                  // Implemented interface full
+                                                  // names (base chain included;
+                                                  // the IRulesetLoaded queries
+                                                  // and the source of the later
+                                                  // interface-ID tables).
 };
 
 /// 描述表字段声明宏:填偏移并保持名字/类型/required 与 C# 侧一一对应。

@@ -30,6 +30,20 @@ class FileSystem final {
   /// Extra package loaders (the built-in zip loader is appended last).
   explicit FileSystem(std::vector<std::unique_ptr<IPackageLoader>> packageLoaders = {});
 
+  /// Platform.ResolvePath 的可安装等价(Game 层启动时注入;'^EngineDir|' 等
+  /// 前缀替换。默认恒等 —— Phase 1 行为)
+  /// The installable Platform.ResolvePath equivalent (injected at Game-layer
+  /// startup; the '^EngineDir|' etc. prefix rewriting. Identity by default —
+  /// the Phase 1 behaviour).
+  void SetPathResolver(std::function<std::string(const std::string&)> fn_resolve);
+  /// '$mod' 引用挂载解析器:$name → 该 mod 的 Package(非拥有;Game 层的
+  /// InstalledMods 表查询)。未安装时 '$' 挂载保持抛错(Phase 1 行为)
+  /// The '$mod' reference-mount resolver: $name → that mod's Package
+  /// (non-owning; the Game-layer InstalledMods lookup). Uninstalled, a '$'
+  /// mount keeps throwing (the Phase 1 behaviour).
+  void SetModPackageResolver(
+      std::function<IReadOnlyPackage*(const std::string&)> fn_resolve_mod);
+
   bool TryParsePackage(std::span<const char> bytes, const std::string& filename,
                        std::unique_ptr<IReadOnlyPackage>& package);
 
@@ -43,8 +57,13 @@ class FileSystem final {
   /// '~' optional prefix, in which case errors are swallowed).
   void Mount(const std::string& name, const std::string& explicitName = "");
   /// 具名挂载已打开的包(所有权移交 FileSystem)
-  /// Mounts an already-opened package (ownership transfers to the FileSystem).
+  /// Mounts an already-open package (ownership transfers to the FileSystem).
   void Mount(std::unique_ptr<IReadOnlyPackage> package, const std::string& explicitName = "");
+  /// 借用挂载('$mod' 引用:FileSystem 不拥有,析构不释放 —— C# modPackages
+  /// 语义,FileSystem.cs L93-102)
+  /// Borrowed mount (the '$mod' reference: not owned by the FileSystem, never
+  /// freed on unmount — the C# modPackages semantics, FileSystem.cs L93-102).
+  void MountBorrowed(IReadOnlyPackage* package, const std::string& explicitName = "");
 
   bool Unmount(const IReadOnlyPackage* package);
   void UnmountAll();
@@ -70,6 +89,8 @@ class FileSystem final {
   std::optional<std::vector<char>> GetFromCache(const std::string& filename) const;
 
   std::vector<std::unique_ptr<IPackageLoader>> vec_packageLoaders_;
+  std::function<std::string(const std::string&)> fn_pathResolver_;  // 见 SetPathResolver / see SetPathResolver
+  std::function<IReadOnlyPackage*(const std::string&)> fn_modResolver_;  // 见 SetModPackageResolver / see SetModPackageResolver
 
   /// 所有权 + 挂载序;vec_mounted_ 展开重复挂载(每引用一次一个槽,
   /// 对应 C# Dictionary<IReadOnlyPackage,int> 的计数)

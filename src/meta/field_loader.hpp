@@ -124,6 +124,13 @@ std::vector<const FieldDesc*> CollectFields(const RecordDesc& desc);
 void RegisterBitSet(std::string_view str_tag,
                     std::function<std::uint64_t(std::span<const std::string>)> fn_get_bits,
                     std::function<std::vector<std::string>(std::uint64_t)> fn_get_strings);
+
+/// gen/ 源用:注册一个按"字符串首遇序"分配位的运行时标签
+/// (BitSet.cs BitSetAllocator<T> 语义的字符串键形态;位互转经该表)
+/// For gen/ sources: register a runtime tag whose bits allocate in
+/// first-appearance order (the string-keyed form of the BitSetAllocator<T>
+/// semantics of BitSet.cs; bit↔string conversions go through the table).
+void RegisterRuntimeBitSet(std::string_view str_tag);
 /// 标签 → 位(ParseBitSet 的字符串列表路径;未注册标签 = 生成器错误,abort)
 /// Tag → bits (the string-list path of ParseBitSet; an unregistered tag is a
 /// generator error and aborts).

@@ -98,3 +98,43 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D14 | src/meta VariableExpression | 错误消息 index 按 UTF-8 字节计(C# 按 UTF-16 code unit) | ASCII 输入下完全一致;mods 表达式均为 ASCII |
 | D15 | src/core/bitset.hpp | 位图 uint64(≤64 字符串/标签,超出 abort) | C# BigInteger 无界;实际 mods 最多约 20 种 |
 | D16 | src/meta Hotkey/DateTime/Size/Rectangle | 解析器占位(未知字段路径) | 加载链无使用点(--scan 验证);widget/settings 阶段落地 |
+
+## src/game/ + gen/ — 加载链与权威 schema 导出(Phase 2 续,2026-10-03)
+
+| C++ 文件 | 上游文件 | 覆盖范围 | 状态 |
+|---|---|---|---|
+| gen/types_gen.cpp 等 | 上游程序集反射(--gen) | 680 类型(Trait/Warhead/Projectile + 抽象基类闭包 + 嵌套记录)字段描述表 + 默认值(实例化读取)+ Requires/NotBefore + 接口全名集;37 枚举成员表;9 BitSet 标签 | 快照对拍 |
+| src/meta/generic_record.hpp/.cpp | (生成类型运行时载体) | GenericValue 值袋(variant 载荷族)、GeneratedRecord、LoadValueIntoValue(唯一解析实现)、AssignToMemory/ReadFromMemory(双向 typed 内存变换)、生成 loader 注册表 | 单测+快照 |
+| src/meta/dump_format.hpp/.cpp | (dump 协议;与 C# Program.cs DumpValue 分支对齐) | FormatValue(含 .NET float ToString 阈值复刻、WDist "NcM"、字典稳定排序键、"(null)"/"(empty)" 约定) | 快照对拍 |
+| src/game/platform.hpp/.cpp | OpenRA.Game/Platform.cs L288-312 | ResolvePath(^EngineDir/^SupportDir/^BinDir 前缀替换;尾分隔符规范化对齐 BinDir 语义) | 单测(经加载链) |
+| src/game/manifest.hpp/.cpp | OpenRA.Game/Manifest.cs L21-206 | mod.yaml + Include 展开 + Merge 继承 + 全节解析(Metadata 走 FieldLoader;FileSystem 必需节缺失异常文本逐字) | 快照对拍(经加载链) |
+| src/game/actor_info.hpp/.cpp | OpenRA.Game/GameRules/ActorInfo.cs L18-201 | TraitName@Instance 拼名实例化、junk 值检查、MissingFields 头部文本逐字、Requires/NotBefore 拓扑序(接口依赖含泛型接口匹配;异常文本逐字) | 单测(game_test) |
+| src/game/game_records.hpp/.cpp | WeaponInfo.cs L74-175 + SoundInfo.cs + MusicInfo.cs | WeaponInfo(武器级继承 Merge 前置 + 17 字段 + 双 loader)、SoundInfo(8 字段)、MusicInfo(手读构造) | 单测(game_test SCUD 链) |
+| src/game/ruleset.hpp/.cpp | Ruleset.cs L23-281 + ActorInfoDictionary.cs L18-55 | MergeOrDefault(小写键/首键优先/'^' 过滤)、SystemActors 补空 | 快照对拍 |
+| src/game/mod_data.hpp/.cpp | ModData.cs L29-233(Phase 2 最小集)+ Default/ContentInstallerFileSystemLoader | InstalledMods 目录发现、'$mod' 借用挂载、SystemPackages 必挂/ContentPackages 逐项容错 | 快照对拍(经加载链) |
+| src/game/loaders.cpp | 24 处 [FieldLoader.LoadUsing] 逐语义 | LoadSpeeds×3/Footprint×3/ResourceTypes×3(声明类复合名归一)/InitialSmudges/Shape(反射闭包全部 IHitShape 实现)/Decisions/Consideration/Options/FluentReferences/Choices/Parameters/Weapon 双 loader | 快照对拍+game_test |
+| src/fs/file_system.hpp/.cpp(增补) | FileSystem.cs L84-115 '$' 分支 | '$mod' 引用挂载(借用不拥有)+ PathResolver 可安装解析器(D7 落地) | 单测(fs_test)+加载链 |
+| tests/golden_rules.cpp | (Phase 2 验收关卡) | 三 mod 全规则深度解析 dump(ra 80,274 / cnc 49,416 / d2k 35,833 行;307 actors@ra)逐字节快照回归 | 已固化 |
+| tests/game_test.cpp | (R2 对冲) | 三代表 trait 端到端:Health(HP/默认值)、Mobile(^Vehicle 继承链/表达式文本)、Armament(枚举位/默认值)、SCUD 武器(继承+弱删除+Projectile 换型+Warhead)、拓扑序、SystemActors | 全部断言通过 |
+
+### Phase 2 续验证锚点(2026-10-03)
+
+1. **C++ 快照对拍**:三 mod 全量 dump 逐字节回归(上游 @7d57605bca 数据;黄金文件
+   `tests/golden_rules_{ra,cnc,d2k}.txt` 由 golden_rules 固化,首次快照经人工抽检
+   + game_test 语义锚点核对);ASan+UBSan 与 Release 双构建 ctest 10/10。
+2. **上游权威验证**:`OpenRA.Utility.exe ra --check-yaml` 在上游基线 commit 下
+   exit=0(全部规则加载成功且通过 lint)。
+3. **game_test 语义锚点**:期望值人工对照上游源码行号(见测试头注)。
+
+### 已登记偏离(PORTING_PLAN §7.5,Phase 2 续新增)
+
+| # | 位置 | 偏离 | 理由 |
+|---|---|---|---|
+| D17 | src/game Ruleset 构造器 | IRulesetLoaded 回调(145 处 RulesetLoaded)不执行 | 回调只做跨引用校验与非 yaml 属性缓存,不影响 dump 数据面;行为面 Phase 5 起随 trait 落地。dump 侧 C# 工具受 ALC 程序集副本干扰同样跳过(见 tools/schema_dumper --dump 注记) |
+| D18 | src/game 未知 trait | 抛 YamlException(C# 为 InvalidOperationException 同点位) | 引擎路径(非 linter)语义等价:加载失败即中止;消息文本走 C++ 侧格式 |
+| D19 | gen/ 嵌套记录默认值 | ResourceTypeInfo 族/SupportPowerDecision/MapGenerator Option 无默认构造 → 全 null 默认 | 这些记录仅由 loader 手工构造(必填字段经描述表校验),默认值不可达 |
+| D20 | gen/ 同名嵌套类 | 简单名键后者覆盖(ResourceLayerInfo+ResourceTypeInfo vs ResourceRendererInfo+);loader 侧经全名键精确寻址 | 上游 FindType 同名时取首个命名空间命中(近似);对拍面(loader 值)不受影响 |
+| D21 | LoadUsing 复合名 | str_loader = "声明类.loader"(上游按类型上下文 GetMethod 解析) | C++ 全局注册表需复合键区分同族异构 loader(TS/D2k 继承基类 loader 归一声明类) |
+| D22 | MapGeneratorDropdownChoice.Parameters | 值袋以 WriteToString 规范化文本承载(C# 为 ImmutableArray<MiniYamlNode>) | dump 协议两侧同源(文本形式);地图生成器行为面 Phase 8 |
+| D23 | dump 协议 float | C++ 复刻 .NET ToString(Invariant) 阈值记法(定点当且仅当指数 ∈[-4,6]) | 黄金侧为 C# 原生 ToString;快照固化后为回归基准,后续如有角差异按快照校准 |
+| D24 | tests/golden_rules | 黄金数据由 C++ 首次快照固化(非 C# 反射逐字段导出) | C# --dump 受 ALC 环境制约(见 tools/schema_dumper 注记);以 game_test 语义锚点 + 上游 --check-yaml 补偿锚定;C# 侧恢复后可再对拍校准 |
