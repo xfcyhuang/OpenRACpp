@@ -1,4 +1,5 @@
 PORTING_PLAN.md
+docs/OPTIMIZATION_TRACKER.md
 .ref/
 build/
 build-asan/
