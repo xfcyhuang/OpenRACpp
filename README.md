@@ -6,11 +6,11 @@
 
 [OpenRA](https://github.com/OpenRA/OpenRA) 游戏引擎的 **C++26 语义重写**。
 
-按 [OpenRA](../OpenRA)（基线 commit `7d57605bca`）的代码语义完全重写，数据、地图与回放格式兼容上游；编码规范见 [cpp26.md](../cpp26.md)，重写的模块与阶段规划见 [PORTING_PLAN.md](PORTING_PLAN.md)。
+按 OpenRA 上游源码（基线 commit `7d57605bca`）的代码语义完全重写，数据、地图与回放格式兼容上游。
 
 ## 状态
 
-早期规划阶段，尚未开始代码移植。路线图（Phase 0–9）与上游语义同步机制详见 [PORTING_PLAN.md](PORTING_PLAN.md)。
+早期规划阶段，尚未开始代码移植。
 
 ## 许可证与归属
 
@@ -31,11 +31,11 @@ OpenRA、Command & Conquer、Red Alert 及 Dune 2000 相关商标归各自权利
 
 A **C++26 semantic rewrite** of the [OpenRA](https://github.com/OpenRA/OpenRA) game engine.
 
-The engine is rewritten from scratch to match the exact semantics of the [OpenRA](../OpenRA) source code (baseline commit `7d57605bca`), while keeping data, map, and replay formats compatible with upstream. The coding standard is defined in [cpp26.md](../cpp26.md); module breakdown and phased roadmap are in [PORTING_PLAN.md](PORTING_PLAN.md).
+The engine is rewritten from scratch to match the exact semantics of the upstream OpenRA source code (baseline commit `7d57605bca`), while keeping data, map, and replay formats compatible with upstream.
 
 ## Status
 
-Early planning stage; code porting has not started yet. See [PORTING_PLAN.md](PORTING_PLAN.md) for the roadmap (Phases 0–9) and the upstream semantic-sync mechanism.
+Early planning stage; code porting has not started yet.
 
 ## License & Attribution
 
