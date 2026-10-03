@@ -195,6 +195,16 @@ target_link_libraries(golden_core PRIVATE ora_core)
 ora_link_std(golden_core)
 add_test(NAME golden_core COMMAND golden_core ${CMAKE_SOURCE_DIR}/tests/golden_core.txt)
 
+# core 基础设施单测(percent_modifiers 的 decimal 语义 + arena 内存分区;
+# docs/OPTIMIZATION_TRACKER.md OPT-A1/OPT-INFRA)
+# Core infrastructure unit tests (the decimal semantics of
+# percent_modifiers + the arena memory regions; see
+# docs/OPTIMIZATION_TRACKER.md OPT-A1/OPT-INFRA).
+add_executable(core_test tests/core_test.cpp)
+target_link_libraries(core_test PRIVATE ora_core)
+ora_link_std(core_test)
+add_test(NAME core_test COMMAND core_test)
+
 add_executable(mini_yaml_test tests/mini_yaml_test.cpp)
 target_link_libraries(mini_yaml_test PRIVATE ora_yaml)
 ora_link_std(mini_yaml_test)
