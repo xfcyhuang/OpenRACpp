@@ -1,7 +1,10 @@
 // UPSTREAM: OpenRA.Game/Primitives/Rectangle.cs @7d57605 L17-129(除浮点/Size 依赖部分)
 // 轴对齐整数矩形。字段/方法名保留 C# 原名以保持审计对照。
+// Axis-aligned integer rectangle. Field/method names keep the C# originals for audit cross-reference.
 // 未移植:Location/Size 属性与 int2,Size 构造(依赖 Size 类型,后续图形阶段补);
+// Not ported: Location/Size properties and the int2,Size constructor (depend on the Size type, to be added in the later graphics stage);
 //        Clamp(Vector2)(浮点,仅渲染域)。int2::Clamp(Rectangle) 的定义在本文件尾部。
+//        Clamp(Vector2) (float, rendering domain only). int2::Clamp(Rectangle) is defined at the end of this file.
 #pragma once
 import std;
 
@@ -10,11 +13,12 @@ import std;
 namespace ora {
 
 /// 轴对齐整数矩形(Rectangle.cs L17)
+/// Axis-aligned integer rectangle (Rectangle.cs L17)
 struct Rectangle {
-  std::int32_t X{0};       // 左上角横坐标(保留上游字段名)
-  std::int32_t Y{0};       // 左上角纵坐标
-  std::int32_t Width{0};   // 宽度
-  std::int32_t Height{0};  // 高度
+  std::int32_t X{0};       // 左上角横坐标(保留上游字段名) | Top-left horizontal coordinate (upstream field name kept)
+  std::int32_t Y{0};       // 左上角纵坐标 | Top-left vertical coordinate
+  std::int32_t Width{0};   // 宽度 | Width
+  std::int32_t Height{0};  // 高度 | Height
 
   constexpr Rectangle() = default;
   constexpr Rectangle(std::int32_t int4_x, std::int32_t int4_y,
@@ -24,18 +28,21 @@ struct Rectangle {
   static constexpr Rectangle Empty() { return Rectangle{}; }
 
   /// 由左/上/右/下边界构造(Rectangle.cs L28-31)
+  /// Construct from left/top/right/bottom edges (Rectangle.cs L28-31)
   static constexpr Rectangle FromLTRB(std::int32_t int4_left, std::int32_t int4_top,
                                       std::int32_t int4_right, std::int32_t int4_bottom) {
     return Rectangle{int4_left, int4_top, int4_right - int4_left, int4_bottom - int4_top};
   }
 
   /// 两矩形并集包围盒(Rectangle.cs L33-36)
+  /// Bounding box of the union of two rectangles (Rectangle.cs L33-36)
   static constexpr Rectangle Union(Rectangle rect_a, Rectangle rect_b) {
     return FromLTRB(std::min(rect_a.Left(), rect_b.Left()), std::min(rect_a.Top(), rect_b.Top()),
                     std::max(rect_a.Right(), rect_b.Right()), std::max(rect_a.Bottom(), rect_b.Bottom()));
   }
 
   /// 两矩形交集;无相交返回 Empty(Rectangle.cs L118-122)
+  /// Intersection of two rectangles; returns Empty when disjoint (Rectangle.cs L118-122)
   static constexpr Rectangle Intersect(Rectangle rect_a, Rectangle rect_b) {
     if (!rect_a.IntersectsWithInclusive(rect_b))
       return Empty();
@@ -44,10 +51,10 @@ struct Rectangle {
                     std::min(rect_a.Right(), rect_b.Right()), std::min(rect_a.Bottom(), rect_b.Bottom()));
   }
 
-  constexpr std::int32_t Left() const { return X; }      // 左边界 = X(Rectangle.cs L62)
-  constexpr std::int32_t Right() const { return X + Width; }   // 右边界 = X + Width(L62)
-  constexpr std::int32_t Top() const { return Y; }       // 上边界 = Y(L63)
-  constexpr std::int32_t Bottom() const { return Y + Height; } // 下边界 = Y + Height(L63)
+  constexpr std::int32_t Left() const { return X; }      // 左边界 = X(Rectangle.cs L62) | Left edge = X (Rectangle.cs L62)
+  constexpr std::int32_t Right() const { return X + Width; }   // 右边界 = X + Width(L62) | Right edge = X + Width (L62)
+  constexpr std::int32_t Top() const { return Y; }       // 上边界 = Y(L63) | Top edge = Y (L63)
+  constexpr std::int32_t Bottom() const { return Y + Height; } // 下边界 = Y + Height(L63) | Bottom edge = Y + Height (L63)
   constexpr bool IsEmpty() const { return X == 0 && Y == 0 && Width == 0 && Height == 0; }
 
   constexpr int2 TopLeft() const { return int2{X, Y}; }
@@ -56,6 +63,7 @@ struct Rectangle {
   constexpr int2 BottomRight() const { return int2{X + Width, Y + Height}; }
 
   /// 开区间右下 Contains(Rectangle.cs L74-77):x ∈ [Left, Right), y ∈ [Top, Bottom)
+  /// Contains with exclusive Right/Bottom (Rectangle.cs L74-77): x ∈ [Left, Right), y ∈ [Top, Bottom)
   constexpr bool Contains(std::int32_t int4_x, std::int32_t int4_y) const {
     return int4_x >= Left() && int4_x < Right() && int4_y >= Top() && int4_y < Bottom();
   }
@@ -65,18 +73,21 @@ struct Rectangle {
   }
 
   /// 开区间相交测试(Rectangle.cs L107-110)
+  /// Exclusive-interval intersection test (Rectangle.cs L107-110)
   constexpr bool IntersectsWith(Rectangle const& rect_r) const {
     return Left() < rect_r.Right() && Right() > rect_r.Left() &&
            Top() < rect_r.Bottom() && Bottom() > rect_r.Top();
   }
 
   /// 闭区间相交测试(上游 private,Intersect 内部用,Rectangle.cs L112-115)
+  /// Inclusive-interval intersection test (private upstream, used internally by Intersect, Rectangle.cs L112-115)
   constexpr bool IntersectsWithInclusive(Rectangle const& rect_r) const {
     return Left() <= rect_r.Right() && Right() >= rect_r.Left() &&
            Top() <= rect_r.Bottom() && Bottom() >= rect_r.Top();
   }
 
   /// 上游 GetHashCode(L102-104):Height + Width ^ X + Y(C# 运算优先级:先 + 后 ^)
+  /// Upstream GetHashCode (L102-104): Height + Width ^ X + Y (C# operator precedence: + binds before ^)
   constexpr std::int32_t Hash() const { return Height + Width ^ X + Y; }
 
   friend constexpr Rectangle operator*(std::int32_t int4_a, Rectangle rect_b) {  // L128
@@ -90,6 +101,7 @@ struct Rectangle {
 };
 
 /// int2.Clamp(Rectangle)(int2.cs L87-91):Min(Right, Max(v, Left))
+/// int2.Clamp(Rectangle) (int2.cs L87-91): Min(Right, Max(v, Left))
 constexpr int2 int2::Clamp(Rectangle const& rect_r) const {
   return int2{std::min(rect_r.Right(), std::max(X, rect_r.Left())),
               std::min(rect_r.Bottom(), std::max(Y, rect_r.Top()))};

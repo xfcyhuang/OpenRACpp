@@ -3,6 +3,11 @@
 // 上游 x/y/z/w 为 private;C++ 侧公开——黄金对拍与后续序列化需要读取四元数分量,
 // 只读约束以命名与注释约定(修改四元数而不重导欧拉角会破坏不变量)。
 // WVec::Rotate(WRot) 的定义在本文件尾部(依赖 WRot 完整类型)。
+// 3D world rotation: public Euler angles (Roll/Pitch/Yaw) + internal integer quaternion (1024 == 1.0).
+// Upstream x/y/z/w are private; exposed on the C++ side -- golden-differential testing and later
+// serialization need to read the quaternion components, so the read-only constraint is upheld by
+// naming and comment convention (mutating the quaternion without re-deriving the Euler angles breaks the invariant).
+// WVec::Rotate(WRot) is defined at the end of this file (requires the complete WRot type).
 #pragma once
 import std;
 
@@ -13,16 +18,18 @@ import std;
 namespace ora {
 
 /// 三维世界旋转(WRot.cs L19)
+/// 3D world rotation (WRot.cs L19)
 struct WRot {
-  WAngle Roll{0};   // 欧拉滚转(直观公开表示,保留上游字段名)
-  WAngle Pitch{0};  // 欧拉俯仰
-  WAngle Yaw{0};    // 欧拉偏航
-  std::int32_t x{0};  // 四元数分量(上游 private;1024 == 1.0,勿直接改写)
+  WAngle Roll{0};   // 欧拉滚转(直观公开表示,保留上游字段名) | Euler roll (intuitive public representation; upstream field name kept)
+  WAngle Pitch{0};  // 欧拉俯仰 | Euler pitch
+  WAngle Yaw{0};    // 欧拉偏航 | Euler yaw
+  std::int32_t x{0};  // 四元数分量(上游 private;1024 == 1.0,勿直接改写) | Quaternion component (upstream private; 1024 == 1.0, do not write directly)
   std::int32_t y{0};
   std::int32_t z{0};
   std::int32_t w{0};
 
   /// 欧拉角构造(WRot.cs L30-52):角度顺时针增加,四元数归一化到 1024 == 1.0
+  /// Euler-angle constructor (WRot.cs L30-52): angles increase clockwise, quaternion normalized to 1024 == 1.0
   constexpr WRot(WAngle roll_ang, WAngle pitch_ang, WAngle yaw_ang)
       : Roll{roll_ang}, Pitch{pitch_ang}, Yaw{yaw_ang} {
     const WAngle q_roll{-Roll.Angle / 2};
@@ -42,6 +49,7 @@ struct WRot {
   }
 
   /// 轴角构造(WRot.cs L58-67):axis 须归一化到长度 1024
+  /// Axis-angle constructor (WRot.cs L58-67): axis must be normalized to length 1024
   constexpr WRot(WVec axis_v, WAngle angle_ang) {
     const WAngle half_ang{-angle_ang.Angle / 2};
     x = axis_v.X * half_ang.Sin() / 1024;
@@ -56,6 +64,7 @@ struct WRot {
   }
 
   /// 四元数直入构造(WRot.cs L69-77,上游 private):重导欧拉角
+  /// Direct-quaternion constructor (WRot.cs L69-77, upstream private): re-derives the Euler angles
   constexpr WRot(std::int32_t int4_x, std::int32_t int4_y, std::int32_t int4_z, std::int32_t int4_w)
       : x{int4_x}, y{int4_y}, z{int4_z}, w{int4_w} {
     const EulerAngles euler_a{QuaternionToEuler(x, y, z, w)};
@@ -65,6 +74,7 @@ struct WRot {
   }
 
   /// 六分量直组装构造(WRot.cs L97-106,上游 private,一元负使用):不重导欧拉
+  /// Six-component direct-assembly constructor (WRot.cs L97-106, upstream private, used by unary minus): no Euler re-derivation
   constexpr WRot(std::int32_t int4_x, std::int32_t int4_y, std::int32_t int4_z, std::int32_t int4_w,
                  WAngle roll_ang, WAngle pitch_ang, WAngle yaw_ang)
       : Roll{roll_ang}, Pitch{pitch_ang}, Yaw{yaw_ang},
@@ -81,6 +91,7 @@ struct WRot {
   constexpr WRot WithYaw(WAngle yaw_ang) const { return WRot{Roll, Pitch, yaw_ang}; }
 
   /// 四元数乘法复合旋转(WRot.cs L116-130):long 中间量,整除 1024
+  /// Quaternion-multiplication rotation composition (WRot.cs L116-130): long intermediates, integer division by 1024
   constexpr WRot Rotate(WRot const& rot_r) const {
     if (*this == None())
       return rot_r;
@@ -102,8 +113,9 @@ struct WRot {
   }
 
   /// 定点旋转矩阵(WRot.cs L154-180):四元数 10 位,无溢出风险
+  /// Fixed-point rotation matrix (WRot.cs L154-180): 10-bit quaternion, no overflow risk
   constexpr Int32Matrix4x4 AsMatrix() const {
-    const std::int32_t int4_lsq{x * x + y * y + z * z + w * w};  // 理论 1024²,舍入可略偏
+    const std::int32_t int4_lsq{x * x + y * y + z * z + w * w};  // 理论 1024²,舍入可略偏 | nominally 1024², may deviate slightly due to rounding
 
     return Int32Matrix4x4(
         int4_lsq - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w), 0,
@@ -113,11 +125,12 @@ struct WRot {
   }
 
   /// 球面线性插值(WRot.cs L195-220):整数四元数 slerp,末尾重归一化到 1024 == 1.0
+  /// Spherical linear interpolation (WRot.cs L195-220): integer-quaternion SLerp, renormalized to 1024 == 1.0 at the end
   static constexpr WRot SLerp(WRot r_a, WRot r_b, std::int32_t int4_mul, std::int32_t int4_div) {
     const std::int32_t int4_dot{r_a.x * r_b.x + r_a.y * r_b.y + r_a.z * r_b.z + r_a.w * r_b.w};
     const std::int32_t int4_flip{int4_dot >= 0 ? 1 : -1};
 
-    if (int4_flip * int4_dot >= 1024 * 1024)  // 同一旋转
+    if (int4_flip * int4_dot >= 1024 * 1024)  // 同一旋转 | same rotation
       return r_a;
 
     const WAngle theta_ang{WAngle::ArcCos(int4_dot / 1024)};
@@ -138,19 +151,22 @@ struct WRot {
   }
 
   /// 上游 GetHashCode(WRot.cs L188)
+  /// Upstream GetHashCode (WRot.cs L188)
   constexpr std::int32_t Hash() const { return Roll.Hash() ^ Pitch.Hash() ^ Yaw.Hash(); }
 
-  friend constexpr WRot operator+(WRot r_a, WRot r_b) {  // 欧拉域相加(WRot.cs L112)
+  friend constexpr WRot operator+(WRot r_a, WRot r_b) {  // 欧拉域相加(WRot.cs L112) | addition in the Euler domain (WRot.cs L112)
     return WRot{r_a.Roll + r_b.Roll, r_a.Pitch + r_b.Pitch, r_a.Yaw + r_b.Yaw};
   }
-  friend constexpr WRot operator-(WRot r_a, WRot r_b) {  // 欧拉域相减(WRot.cs L113)
+  friend constexpr WRot operator-(WRot r_a, WRot r_b) {  // 欧拉域相减(WRot.cs L113) | subtraction in the Euler domain (WRot.cs L113)
     return WRot{r_a.Roll - r_b.Roll, r_a.Pitch - r_b.Pitch, r_a.Yaw - r_b.Yaw};
   }
   /// 一元负(WRot.cs L114):直接翻转四元数 xyz 与欧拉角,w 保留,不重导
+  /// Unary minus (WRot.cs L114): directly negates quaternion xyz and the Euler angles, keeps w, no re-derivation
   friend constexpr WRot operator-(WRot r_a) {
     return WRot{-r_a.x, -r_a.y, -r_a.z, r_a.w, -r_a.Roll, -r_a.Pitch, -r_a.Yaw};
   }
   /// 相等比较仅看欧拉角(WRot.cs L132-135)
+  /// Equality compares the Euler angles only (WRot.cs L132-135)
   friend constexpr bool operator==(WRot r_a, WRot r_b) {
     return r_a.Roll == r_b.Roll && r_a.Pitch == r_b.Pitch && r_a.Yaw == r_b.Yaw;
   }
@@ -158,6 +174,7 @@ struct WRot {
 
  private:
   /// 四元数 → 欧拉角元组(WRot.cs L79-95)
+  /// Quaternion -> Euler-angle tuple (WRot.cs L79-95)
   struct EulerAngles {
     WAngle Roll;
     WAngle Pitch;
@@ -184,6 +201,7 @@ struct WRot {
 };
 
 /// WVec::Rotate(WRot)(WVec.cs L49-53):经旋转矩阵
+/// WVec::Rotate(WRot) (WVec.cs L49-53): goes through the rotation matrix
 inline WVec WVec::Rotate(WRot const& rot_r) const { return Rotate(rot_r.AsMatrix()); }
 
 }  // namespace ora

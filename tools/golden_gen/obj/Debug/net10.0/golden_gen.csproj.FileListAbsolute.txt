@@ -1,0 +1,15 @@
+Z:\source_code\OpenRACpp\tools\golden_gen\obj\Debug\net10.0\golden_gen.GeneratedMSBuildEditorConfig.editorconfig
+Z:\source_code\OpenRACpp\tools\golden_gen\obj\Debug\net10.0\golden_gen.AssemblyInfoInputs.cache
+Z:\source_code\OpenRACpp\tools\golden_gen\obj\Debug\net10.0\golden_gen.AssemblyInfo.cs
+Z:\source_code\OpenRACpp\tools\golden_gen\obj\Debug\net10.0\golden_gen.csproj.CoreCompileInputs.cache
+Z:\source_code\OpenRACpp\tools\golden_gen\obj\Debug\net10.0\golden_gen.sourcelink.json
+Z:\source_code\OpenRACpp\tools\golden_gen\bin\Debug\net10.0\golden_gen.exe
+Z:\source_code\OpenRACpp\tools\golden_gen\bin\Debug\net10.0\golden_gen.deps.json
+Z:\source_code\OpenRACpp\tools\golden_gen\bin\Debug\net10.0\golden_gen.runtimeconfig.json
+Z:\source_code\OpenRACpp\tools\golden_gen\bin\Debug\net10.0\golden_gen.dll
+Z:\source_code\OpenRACpp\tools\golden_gen\bin\Debug\net10.0\golden_gen.pdb
+Z:\source_code\OpenRACpp\tools\golden_gen\obj\Debug\net10.0\golden_gen.dll
+Z:\source_code\OpenRACpp\tools\golden_gen\obj\Debug\net10.0\refint\golden_gen.dll
+Z:\source_code\OpenRACpp\tools\golden_gen\obj\Debug\net10.0\golden_gen.pdb
+Z:\source_code\OpenRACpp\tools\golden_gen\obj\Debug\net10.0\golden_gen.genruntimeconfig.cache
+Z:\source_code\OpenRACpp\tools\golden_gen\obj\Debug\net10.0\ref\golden_gen.dll

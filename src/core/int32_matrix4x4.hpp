@@ -1,17 +1,21 @@
 // UPSTREAM: OpenRA.Game/Primitives/Int32Matrix4x4.cs @7d57605 L16-66(全类型)
 // 32 位整数 4×4 矩阵,WRot 的旋转矩阵表示(定点数,1024 == 1.0)。
 // 字段名保留 C# 原名(M11..M44)以保持审计对照;ToString 上游为字符串拼接,移植为 format。
+// 32-bit integer 4x4 matrix, the rotation-matrix representation of WRot (fixed-point, 1024 == 1.0).
+// Field names keep the C# originals (M11..M44) for audit cross-reference; upstream ToString is string
+// concatenation, ported as format.
 #pragma once
 import std;
 
 namespace ora {
 
 /// 整数 4×4 矩阵(Int32Matrix4x4.cs L16)
+/// Integer 4x4 matrix (Int32Matrix4x4.cs L16)
 struct Int32Matrix4x4 {
-  std::int32_t M11{0}, M12{0}, M13{0}, M14{0};  // 第一行(行主序,保留上游字段名)
-  std::int32_t M21{0}, M22{0}, M23{0}, M24{0};  // 第二行
-  std::int32_t M31{0}, M32{0}, M33{0}, M34{0};  // 第三行
-  std::int32_t M41{0}, M42{0}, M43{0}, M44{0};  // 第四行
+  std::int32_t M11{0}, M12{0}, M13{0}, M14{0};  // 第一行(行主序,保留上游字段名) | first row (row-major; upstream field names kept)
+  std::int32_t M21{0}, M22{0}, M23{0}, M24{0};  // 第二行 | second row
+  std::int32_t M31{0}, M32{0}, M33{0}, M34{0};  // 第三行 | third row
+  std::int32_t M41{0}, M42{0}, M43{0}, M44{0};  // 第四行 | fourth row
 
   constexpr Int32Matrix4x4() = default;
 
@@ -26,6 +30,7 @@ struct Int32Matrix4x4 {
         M41{int4_m41}, M42{int4_m42}, M43{int4_m43}, M44{int4_m44} {}
 
   /// 上游 GetHashCode(L58):M11 ^ M22 ^ M33 ^ M44
+  /// Upstream GetHashCode (L58): M11 ^ M22 ^ M33 ^ M44
   constexpr std::int32_t Hash() const { return M11 ^ M22 ^ M33 ^ M44; }
 
   friend constexpr bool operator==(Int32Matrix4x4 const& mtx_a, Int32Matrix4x4 const& mtx_b) {

@@ -4,10 +4,66 @@
 // 输出与 C 侧 tests/golden_core.c 完全相同的行序列,逐行比对即为移植验收
 // (PORTING_PLAN.md §Phase 0:定点原语与 C# 对拍)。
 //
-// 用法: dotnet run -- <输出路径>
+// 用法:
+//   dotnet run [-- <输出路径>]                        → 定点原语黄金(golden_core.txt)
+//   dotnet run -- yaml <输出路径> <OpenRA 仓库根>     → MiniYaml 黄金(golden_yaml.txt,
+//     PORTING_PLAN.md §Phase 1:mods/**/*.yaml 全量解析 + WriteToString 规范化输出)
+//
+// MiniYaml 黄金帧格式(\x01 为帧控制符,yaml 内容不会出现):
+//   \x01F <相对路径>     文件条目开始
+//   \x01M keep|discard   模式块(discardCommentsAndWhitespace)
+//   <规范化输出行...>    WriteToString 输出,或
+//   \x01E <异常消息>     解析抛错时
+//   \x01X                文件条目结束
 
+using System.Buffers;
 using System.Globalization;
 using System.Text;
+
+if (args.Length > 0 && args[0] == "yaml")
+{
+    var outPathY = args.Length > 1 ? args[1] : "golden_yaml.txt";
+    var repoRoot = args.Length > 2 ? args[2] : ".";
+    var modsRoot = Path.Combine(repoRoot, "mods");
+
+    // 与 C++ 侧一致的枚举序:相对路径(以 / 分隔)按 ordinal 排序
+    var files = Directory.EnumerateFiles(modsRoot, "*.yaml", SearchOption.AllDirectories)
+        .Where(p => p.EndsWith(".yaml", StringComparison.Ordinal))
+        .Select(p => Path.GetRelativePath(repoRoot, p).Replace('\\', '/'))
+    .OrderBy(p => p, StringComparer.Ordinal)
+        .ToList();
+
+    var sbY = new StringBuilder();
+    foreach (var rel in files)
+    {
+        sbY.Append("\u0001F ").Append(rel).Append('\n');
+        foreach (var keepComments in new[] { false, true })
+        {
+            sbY.Append(keepComments ? "\u0001M keep\n" : "\u0001M discard\n");
+            try
+            {
+                // name(位置标注)统一用相对路径,与 C++ 侧一致
+                using var s = File.OpenRead(Path.Combine(repoRoot, rel));
+                var nodes = OpenRA.MiniYaml.FromStream(s, rel, discardCommentsAndWhitespace: keepComments);
+                var output = OpenRA.MiniYamlExts.WriteToString(nodes);
+                if (output.Contains('\u0001'))
+                    throw new InvalidOperationException($"yaml 输出含帧控制符: {rel}");
+                sbY.Append(output);
+            }
+            catch (Exception ex)
+            {
+                sbY.Append("\u0001E ").Append(ex.GetType().Name).Append(": ").Append(ex.Message).Append('\n');
+            }
+        }
+
+        sbY.Append("\u0001X\n");
+    }
+
+    File.WriteAllText(outPathY, sbY.ToString());
+    Console.WriteLine($"golden yaml written: {outPathY} ({files.Count} files)");
+    return;
+}
+
 
 // ————————————————————————————————————————————————————————————————
 // 以下为 OpenRA 原语的逐字副本(运算逻辑不做任何改动)
@@ -151,13 +207,6 @@ for (int i = 0; i < 4000; i++)
     var mul = s * a;
     L($"WV i={i} addx={add.X} addy={add.Y} addz={add.Z} subx={sub.X} suby={sub.Y} subz={sub.Z} negx={neg.X} negy={neg.Y} negz={neg.Z} divx={div.X} divy={div.Y} divz={div.Z} mulx={mul.X} muly={mul.Y} mulz={mul.Z}");
     L($"WVL i={i} dot={OpenRA.WVec.Dot(a, b)} lsq={a.LengthSquared} len={a.Length} hlsq={a.HorizontalLengthSquared} hlen={a.HorizontalLength} vlsq={a.VerticalLengthSquared} vlen={a.VerticalLength} yaw={a.Yaw.Angle}");
-    var ler = OpenRA.WVec.Lerp(a, b, m, d);
-    var lq = OpenRA.WVec.LerpQuadratic(a, b, new(p), m, d);
-    L($"WVLQ i={i} lx={ler.X} ly={ler.Y} lz={ler.Z} qx={lq.X} qy={lq.Y} qz={lq.Z}");
-    var pa = new OpenRA.WPos(ax, ay, az);
-    var pb = new OpenRA.WPos(bx, by, bz);
-    var pler = OpenRA.WPos.Lerp(pa, pb, m, d);
-    var plq = OpenRA.WPos.LerpQuadratic(pa, pb, new(p), m, d);
     var ler = OpenRA.WVec.Lerp(a, b, m, d);
     var lq = OpenRA.WVec.LerpQuadratic(a, b, new(p), m, d);
     L($"WVLQ i={i} lx={ler.X} ly={ler.Y} lz={ler.Z} qx={lq.X} qy={lq.Y} qz={lq.Z}");
@@ -894,6 +943,66 @@ namespace OpenRA
                 return max;
             return val;
         }
+
+        // OpenRA.Game/Exts.cs L383-386(逐字)
+        public static string JoinWith<T>(this IEnumerable<T> ts, string j)
+        {
+            return string.Join(j, ts);
+        }
+
+        // OpenRA.Game/Exts.cs L414-467(逐字;MiniYaml.Merge 的冲突日志依赖)
+        public static void IntoDictionaryWithConflictLog<TSource, TKey, TElement>(
+            this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TElement> elementSelector,
+            string debugName, Dictionary<TKey, TElement> output,
+            Func<TKey, string> logKey = null, Func<TElement, string> logValue = null)
+        {
+            // Fall back on ToString() if null functions are provided:
+            logKey ??= s => s.ToString();
+            logValue ??= s => s.ToString();
+
+            // Try to build a dictionary and log all duplicates found (if any):
+            Dictionary<TKey, List<string>> dupKeys = null;
+            var capacity = source is ICollection<TSource> collection ? collection.Count : 0;
+            output.Clear();
+            output.EnsureCapacity(capacity);
+            foreach (var item in source)
+            {
+                var key = keySelector(item);
+                var element = elementSelector(item);
+
+                // Discard elements with null keys
+                if (!typeof(TKey).IsValueType && key == null)
+                    continue;
+
+                // Check for a key conflict:
+                if (!output.TryAdd(key, element))
+                {
+                    dupKeys ??= [];
+                    if (!dupKeys.TryGetValue(key, out var dupKeyMessages))
+                    {
+                        // Log the initial conflicting value already inserted:
+                        dupKeyMessages =
+                        [
+                            logValue(output[key])
+                        ];
+                        dupKeys.Add(key, dupKeyMessages);
+                    }
+
+                    // Log this conflicting value:
+                    dupKeyMessages.Add(logValue(element));
+                }
+            }
+
+            // If any duplicates were found, throw a descriptive error
+            if (dupKeys != null)
+            {
+                var badKeysFormatted = new StringBuilder(
+                    $"{debugName}, duplicate values found for the following keys: ");
+                foreach (var p in dupKeys)
+                    badKeysFormatted.Append(CultureInfo.InvariantCulture, $"{logKey(p.Key)}: [{string.Join(",", p.Value)}]");
+                throw new ArgumentException(badKeysFormatted.ToString());
+            }
+        }
     }
 
     // OpenRA.Game/Primitives/MapGrid.cs 中的枚举(值仅作判别)
@@ -973,6 +1082,832 @@ namespace OpenRA
             var x = V - y;
             return new CPos(x, y);
         }
+    }
+}
+
+namespace OpenRA
+{
+    using System.Collections.Immutable;
+
+    // OpenRA.Game/StreamExts.cs L200-248(逐字;MiniYaml.FromStream 的行切分语义)
+    public static class StreamExts
+    {
+        /// <summary>
+        /// Streams each line of characters from a stream, exposing the line as <see cref="ReadOnlyMemory{T}"/>.
+        /// The memory lifetime is only valid during that iteration. Advancing the iteration invalidates the memory.
+        /// Consumers should call <see cref="ReadOnlyMemory{T}.Span"/> on each line and otherwise avoid operating on
+        /// the memory to ensure they meet the lifetime restrictions.
+        /// </summary>
+        public static IEnumerable<ReadOnlyMemory<char>> ReadAllLinesAsMemory(this Stream s)
+        {
+            var buffer = ArrayPool<char>.Shared.Rent(128);
+            try
+            {
+                using (var sr = new StreamReader(s))
+                {
+                    var offset = 0;
+                    int read;
+                    while ((read = sr.Read(buffer, offset, buffer.Length - offset)) != 0)
+                    {
+                        offset += read;
+
+                        var consumedIndex = 0;
+                        int newlineIndex;
+                        while ((newlineIndex = Array.IndexOf(buffer, '\n', offset - read, read)) != -1)
+                        {
+                            if (newlineIndex > 0 && buffer[newlineIndex - 1] == '\r')
+                                yield return buffer.AsMemory(consumedIndex, newlineIndex - consumedIndex - 1);
+                            else
+                                yield return buffer.AsMemory(consumedIndex, newlineIndex - consumedIndex);
+
+                            var afterNewlineIndex = newlineIndex + 1;
+                            read = offset - afterNewlineIndex;
+                            consumedIndex = afterNewlineIndex;
+                        }
+
+                        if (consumedIndex > 0)
+                        {
+                            Array.Copy(buffer, consumedIndex, buffer, 0, offset - consumedIndex);
+                            offset = read;
+                        }
+
+                        if (offset == buffer.Length)
+                        {
+                            var newBuffer = ArrayPool<char>.Shared.Rent(buffer.Length * 2);
+                            Array.Copy(buffer, newBuffer, buffer.Length);
+                            ArrayPool<char>.Shared.Return(buffer);
+                            buffer = newBuffer;
+                        }
+                    }
+
+                    if (offset > 0)
+                        yield return buffer.AsMemory(0, offset);
+                }
+            }
+            finally
+            {
+                ArrayPool<char>.Shared.Return(buffer);
+            }
+        }
+    }
+
+    // OpenRA.Game/MiniYaml.cs L22-791(逐字;仅剥离 Load 方法及其
+    // using OpenRA.FileSystem / FieldLoader 依赖 —— 该路径由 C++ 侧集成测试覆盖)
+    public static class MiniYamlExts
+    {
+        public static void WriteToFile(this IEnumerable<MiniYamlNode> y, string filename)
+        {
+            File.WriteAllLines(filename, y.ToLines().Select(x => x.TrimEnd()).ToArray());
+        }
+
+        public static string WriteToString(this IEnumerable<MiniYamlNode> y)
+        {
+            // Remove all trailing newlines and restore the final EOF newline
+            return y.ToLines().JoinWith("\n").TrimEnd('\n') + "\n";
+        }
+
+        public static IEnumerable<string> ToLines(this IEnumerable<MiniYamlNode> y)
+        {
+            foreach (var kv in y)
+                foreach (var line in kv.Value.ToLines(kv.Key, kv.Comment))
+                    yield return line;
+        }
+
+        public static void WriteToFile(this IEnumerable<MiniYamlNodeBuilder> y, string filename)
+        {
+            File.WriteAllLines(filename, y.ToLines().Select(x => x.TrimEnd()).ToArray());
+        }
+
+        public static string WriteToString(this IEnumerable<MiniYamlNodeBuilder> y)
+        {
+            // Remove all trailing newlines and restore the final EOF newline
+            return y.ToLines().JoinWith("\n").TrimEnd('\n') + "\n";
+        }
+
+        public static IEnumerable<string> ToLines(this IEnumerable<MiniYamlNodeBuilder> y)
+        {
+            foreach (var kv in y)
+                foreach (var line in kv.Value.ToLines(kv.Key, kv.Comment))
+                    yield return line;
+        }
+    }
+
+    public sealed class MiniYamlNode
+    {
+        public readonly struct SourceLocation(string name, int line)
+        {
+            public readonly string Name = name;
+            public readonly int Line = line;
+
+            public override string ToString() { return $"{Name}:{Line}"; }
+        }
+
+        public readonly SourceLocation Location;
+        public readonly string Key;
+        public readonly MiniYaml Value;
+        public readonly string Comment;
+
+        public MiniYamlNode WithValue(MiniYaml value)
+        {
+            if (Value == value)
+                return this;
+            return new MiniYamlNode(Key, value, Comment, Location);
+        }
+
+        public MiniYamlNode(string k, MiniYaml v, string c = null)
+        {
+            Key = k;
+            Value = v;
+            Comment = c;
+        }
+
+        public MiniYamlNode(string k, MiniYaml v, string c, SourceLocation loc)
+            : this(k, v, c)
+        {
+            Location = loc;
+        }
+
+        public MiniYamlNode(string k, string v, string c = null)
+            : this(k, new MiniYaml(v, []), c) { }
+
+        public MiniYamlNode(string k, string v, IEnumerable<MiniYamlNode> n)
+            : this(k, new MiniYaml(v, n), null) { }
+
+        public override string ToString()
+        {
+            return $"{{YamlNode: {Key} @ {Location}}}";
+        }
+    }
+
+    public sealed class MiniYaml
+    {
+        const int SpacesPerLevel = 4;
+        static readonly Func<string, string> StringIdentity = s => s;
+        static readonly Func<MiniYaml, MiniYaml> MiniYamlIdentity = my => my;
+        static readonly Lock ConflictScratchLock = new();
+        static readonly Dictionary<string, MiniYamlNode> ConflictScratch = [];
+
+        public readonly string Value;
+        public readonly ImmutableArray<MiniYamlNode> Nodes;
+
+        public MiniYaml WithValue(string value)
+        {
+            if (Value == value)
+                return this;
+            return new MiniYaml(value, Nodes);
+        }
+
+        public MiniYaml WithNodes(IEnumerable<MiniYamlNode> nodes)
+        {
+            if (nodes is ImmutableArray<MiniYamlNode> n && Nodes == n)
+                return this;
+            return new MiniYaml(Value, nodes);
+        }
+
+        public MiniYaml WithNodesAppended(IEnumerable<MiniYamlNode> nodes)
+        {
+            var newNodes = Nodes.AddRange(nodes);
+            if (Nodes == newNodes)
+                return this;
+            return new MiniYaml(Value, newNodes);
+        }
+
+        public MiniYamlNode NodeWithKey(string key)
+        {
+            var result = NodeWithKeyOrDefault(key);
+            if (result == null)
+                throw new InvalidDataException($"No node with key '{key}'");
+            return result;
+        }
+
+        public MiniYamlNode NodeWithKeyOrDefault(string key)
+        {
+            // PERF: Avoid LINQ.
+            var first = true;
+            MiniYamlNode result = null;
+            foreach (var node in Nodes)
+            {
+                if (node.Key != key)
+                    continue;
+
+                if (!first)
+                    throw new InvalidDataException($"Duplicate key '{node.Key}' in {node.Location}");
+
+                first = false;
+                result = node;
+            }
+
+            return result;
+        }
+
+        public Dictionary<string, MiniYaml> ToDictionary()
+        {
+            return ToDictionary(MiniYamlIdentity);
+        }
+
+        public Dictionary<string, TElement> ToDictionary<TElement>(Func<MiniYaml, TElement> elementSelector)
+        {
+            return ToDictionary(StringIdentity, elementSelector);
+        }
+
+        public Dictionary<TKey, TElement> ToDictionary<TKey, TElement>(
+            Func<string, TKey> keySelector, Func<MiniYaml, TElement> elementSelector)
+        {
+            var ret = new Dictionary<TKey, TElement>(Nodes.Length);
+            foreach (var y in Nodes)
+            {
+                var key = keySelector(y.Key);
+                var element = elementSelector(y.Value);
+                if (!ret.TryAdd(key, element))
+                    throw new InvalidDataException($"Duplicate key '{y.Key}' in {y.Location}");
+            }
+
+            return ret;
+        }
+
+        public MiniYaml(string value)
+            : this(value, []) { }
+
+        public MiniYaml(string value, IEnumerable<MiniYamlNode> nodes)
+        {
+            Value = value;
+            Nodes = nodes.ToImmutableArray();
+        }
+
+        static IEnumerable<MiniYamlNode> FromLines(
+            IEnumerable<ReadOnlyMemory<char>> lines, string name, bool discardCommentsAndWhitespace, HashSet<string> stringPool)
+        {
+            // YAML config often contains repeated strings for key, values, comments.
+            // Pool these strings so we only need one copy of each unique string.
+            // This saves on long-term memory usage as parsed values can often live a long time.
+            // A caller can also provide a pool as input, allowing de-duplication across multiple parses.
+            stringPool ??= [];
+            var stringPoolLookup = stringPool.GetAlternateLookup<ReadOnlySpan<char>>();
+
+            var result = new List<List<MiniYamlNode>>
+            {
+                new()
+            };
+            var parsedLines = new List<(int Level, string Key, string Value, string Comment, MiniYamlNode.SourceLocation Location)>();
+
+            var lineNo = 0;
+            foreach (var ll in lines)
+            {
+                var line = ll.Span;
+                ++lineNo;
+
+                var keyStart = 0;
+                var level = 0;
+                var spaces = 0;
+                var textStart = false;
+
+                ReadOnlySpan<char> key = default;
+                ReadOnlySpan<char> value = default;
+                ReadOnlySpan<char> comment = default;
+                var location = new MiniYamlNode.SourceLocation(name, lineNo);
+
+                if (line.Length > 0)
+                {
+                    var currChar = line[keyStart];
+
+                    while (!(currChar == '\n' || currChar == '\r') && keyStart < line.Length && !textStart)
+                    {
+                        currChar = line[keyStart];
+                        switch (currChar)
+                        {
+                            case ' ':
+                                spaces++;
+                                if (spaces >= SpacesPerLevel)
+                                {
+                                    spaces = 0;
+                                    level++;
+                                }
+
+                                keyStart++;
+                                break;
+                            case '\t':
+                                level++;
+                                keyStart++;
+                                break;
+                            default:
+                                textStart = true;
+                                break;
+                        }
+                    }
+
+                    // Extract key, value, comment from line as `<key>: <value>#<comment>`
+                    // The # character is allowed in the value if escaped (\#).
+                    // Leading and trailing whitespace is always trimmed from keys.
+                    // Leading and trailing whitespace is trimmed from values unless they
+                    // are marked with leading or trailing backslashes
+                    var keyLength = line.Length - keyStart;
+                    var valueStart = -1;
+                    var valueLength = 0;
+                    var commentStart = -1;
+                    for (var i = 0; i < line.Length; i++)
+                    {
+                        if (valueStart < 0 && line[i] == ':')
+                        {
+                            valueStart = i + 1;
+                            keyLength = i - keyStart;
+                            valueLength = line.Length - i - 1;
+                        }
+
+                        if (commentStart < 0 && line[i] == '#' && (i == 0 || line[i - 1] != '\\'))
+                        {
+                            commentStart = i + 1;
+                            if (i <= keyStart + keyLength)
+                                keyLength = i - keyStart;
+                            else
+                                valueLength = i - valueStart;
+
+                            break;
+                        }
+                    }
+
+                    if (keyLength > 0)
+                        key = line.Slice(keyStart, keyLength).Trim();
+
+                    if (valueStart >= 0)
+                    {
+                        var trimmed = line.Slice(valueStart, valueLength).Trim();
+                        if (trimmed.Length > 0)
+                            value = trimmed;
+                    }
+
+                    if (commentStart >= 0 && !discardCommentsAndWhitespace)
+                        comment = line[commentStart..];
+
+                    if (value.Length > 1)
+                    {
+                        // Remove leading/trailing whitespace guards
+                        var trimLeading = value[0] == '\\' && (value[1] == ' ' || value[1] == '\t') ? 1 : 0;
+                        var trimTrailing = value[^1] == '\\' && (value[^2] == ' ' || value[^2] == '\t') ? 1 : 0;
+                        if (trimLeading + trimTrailing > 0)
+                            value = value.Slice(trimLeading, value.Length - trimLeading - trimTrailing);
+
+                        // Remove escape characters from #
+                        if (value.Contains("\\#", StringComparison.Ordinal))
+                            value = value.ToString().Replace("\\#", "#");
+                    }
+                }
+
+                if (!key.IsEmpty || !discardCommentsAndWhitespace)
+                {
+                    if (parsedLines.Count > 0 && parsedLines[^1].Level < level - 1)
+                        throw new YamlException($"Bad indent in miniyaml at {location}");
+
+                    while (parsedLines.Count > 0 && parsedLines[^1].Level > level)
+                        BuildCompletedSubNode(level);
+
+                    string GetOrAdd(ReadOnlySpan<char> value)
+                    {
+                        if (stringPoolLookup.TryGetValue(value, out var result))
+                            return result;
+                        stringPool.Add(result = value.ToString());
+                        return result;
+                    }
+
+                    var keyString = key.IsEmpty ? null : GetOrAdd(key);
+                    var valueString = value.IsEmpty ? null : GetOrAdd(value);
+
+                    // Note: We need to support empty comments here to ensure that empty comments
+                    // (i.e. a lone # at the end of a line) can be correctly re-serialized
+                    var commentString = comment == ReadOnlySpan<char>.Empty ? null : GetOrAdd(comment);
+
+                    parsedLines.Add((level, keyString, valueString, commentString, location));
+                }
+
+                foreach (var topLevelNode in result[0])
+                    yield return topLevelNode;
+                result[0].Clear();
+            }
+
+            if (parsedLines.Count > 0)
+            {
+                BuildCompletedSubNode(0);
+                foreach (var topLevelNode in result[0])
+                    yield return topLevelNode;
+                result[0].Clear();
+            }
+
+            void BuildCompletedSubNode(int level)
+            {
+                var lastLevel = parsedLines[^1].Level;
+                while (lastLevel >= result.Count)
+                    result.Add([]);
+
+                while (parsedLines.Count > 0 && parsedLines[^1].Level >= level)
+                {
+                    var parent = parsedLines[^1];
+                    var startOfRange = parsedLines.Count - 1;
+                    while (startOfRange > 0 && parsedLines[startOfRange - 1].Level == parent.Level)
+                        startOfRange--;
+
+                    for (var i = startOfRange; i < parsedLines.Count - 1; i++)
+                    {
+                        var sibling = parsedLines[i];
+                        result[parent.Level].Add(
+                            new MiniYamlNode(sibling.Key, new MiniYaml(sibling.Value), sibling.Comment, sibling.Location));
+                    }
+
+                    var childNodes = parent.Level + 1 < result.Count ? result[parent.Level + 1] : null;
+                    result[parent.Level].Add(new MiniYamlNode(
+                        parent.Key,
+                        new MiniYaml(parent.Value, childNodes ?? Enumerable.Empty<MiniYamlNode>()),
+                        parent.Comment,
+                        parent.Location));
+                    childNodes?.Clear();
+
+                    parsedLines.RemoveRange(startOfRange, parsedLines.Count - startOfRange);
+                }
+            }
+        }
+
+        public static IEnumerable<MiniYamlNode> FromFile(string path, bool discardCommentsAndWhitespace = true, HashSet<string> stringPool = null)
+        {
+            return FromStream(File.OpenRead(path), path, discardCommentsAndWhitespace, stringPool);
+        }
+
+        public static IEnumerable<MiniYamlNode> FromStream(Stream s, string name, bool discardCommentsAndWhitespace = true, HashSet<string> stringPool = null)
+        {
+            return FromLines(s.ReadAllLinesAsMemory(), name, discardCommentsAndWhitespace, stringPool);
+        }
+
+        public static IEnumerable<MiniYamlNode> FromString(string text, string name, bool discardCommentsAndWhitespace = true, HashSet<string> stringPool = null)
+        {
+            return FromLines(text.Split(["\r\n", "\n"], StringSplitOptions.None).Select(s => s.AsMemory()), name, discardCommentsAndWhitespace, stringPool);
+        }
+
+        public static List<MiniYamlNode> Merge(IEnumerable<IEnumerable<MiniYamlNode>> sources)
+        {
+            var sourcesList = sources.ToList();
+            if (sourcesList.Count == 0)
+                return [];
+
+            var tree = sourcesList
+                .Where(s => s != null)
+                .Select(s => s as IReadOnlyCollection<MiniYamlNode> ?? s.ToList())
+                .Select(MergeSelfPartial)
+                .Aggregate(MergePartial)
+                .Where(n => n.Key != null)
+                .ToDictionary(n => n.Key, n => n.Value);
+
+            var resolved = new Dictionary<string, MiniYaml>(tree.Count);
+            foreach (var kv in tree)
+            {
+                // Inheritance is tracked from parent->child, but not from child->parentsiblings.
+                var inherited = ImmutableDictionary<string, MiniYamlNode.SourceLocation>.Empty.Add(kv.Key, default);
+                var children = ResolveInherits(kv.Value, tree, inherited);
+                resolved.Add(kv.Key, new MiniYaml(kv.Value.Value, children));
+            }
+
+            // Resolve any top-level removals (e.g. removing whole actor blocks)
+            var nodes = new MiniYaml("", resolved.Select(kv => new MiniYamlNode(kv.Key, kv.Value)));
+            var result = ResolveInherits(nodes, tree, []);
+            return result as List<MiniYamlNode> ?? result.ToList();
+        }
+
+        static void MergeIntoResolved(MiniYamlNode overrideNode, List<MiniYamlNode> existingNodes, HashSet<string> existingNodeKeys,
+            Dictionary<string, MiniYaml> tree, ImmutableDictionary<string, MiniYamlNode.SourceLocation> inherited)
+        {
+            var existingNodeIndex = -1;
+            MiniYamlNode existingNode = null;
+            if (!existingNodeKeys.Add(overrideNode.Key))
+            {
+                existingNodeIndex = IndexOfKey(existingNodes, overrideNode.Key);
+                existingNode = existingNodes[existingNodeIndex];
+            }
+
+            var value = MergePartial(existingNode?.Value, overrideNode.Value);
+            var nodes = ResolveInherits(value, tree, inherited);
+            if (!value.Nodes.SequenceEqual(nodes))
+                value = value.WithNodes(nodes);
+
+            if (existingNode != null)
+                existingNodes[existingNodeIndex] = existingNode.WithValue(value);
+            else
+                existingNodes.Add(overrideNode.WithValue(value));
+        }
+
+        static IReadOnlyCollection<MiniYamlNode> ResolveInherits(
+            MiniYaml node, Dictionary<string, MiniYaml> tree, ImmutableDictionary<string, MiniYamlNode.SourceLocation> inherited)
+        {
+            if (node.Nodes.Length == 0)
+                return node.Nodes;
+
+            var resolved = new List<MiniYamlNode>(node.Nodes.Length);
+            var resolvedKeys = new HashSet<string>(node.Nodes.Length);
+
+            foreach (var n in node.Nodes)
+            {
+                if (n.Key == "Inherits" || n.Key.StartsWith("Inherits@", StringComparison.Ordinal))
+                {
+                    if (!tree.TryGetValue(n.Value.Value, out var parent))
+                        throw new YamlException(
+                            $"{n.Location}: Parent type `{n.Value.Value}` not found");
+
+                    try
+                    {
+                        inherited = inherited.Add(n.Value.Value, n.Location);
+                    }
+                    catch (ArgumentException)
+                    {
+                        throw new YamlException(
+                            $"{n.Location}: Parent type `{n.Value.Value}` was already inherited by this yaml tree at {inherited[n.Value.Value]} (note: may be from a derived tree)");
+                    }
+
+                    foreach (var r in ResolveInherits(parent, tree, inherited))
+                        MergeIntoResolved(r, resolved, resolvedKeys, tree, inherited);
+                }
+                else if (n.Key.StartsWith('-'))
+                {
+                    var removed = n.Key[1..];
+                    if (resolved.RemoveAll(r => r.Key == removed) == 0)
+                        throw new YamlException($"{n.Location}: There are no elements with key `{removed}` to remove");
+                    resolvedKeys.Remove(removed);
+                }
+                else
+                    MergeIntoResolved(n, resolved, resolvedKeys, tree, inherited);
+            }
+
+            return resolved;
+        }
+
+        /// <summary>
+        /// Merges any duplicate keys that are defined within the same set of nodes.
+        /// Does not resolve inheritance or node removals.
+        /// </summary>
+        static IReadOnlyCollection<MiniYamlNode> MergeSelfPartial(IReadOnlyCollection<MiniYamlNode> existingNodes)
+        {
+            if (existingNodes.Count == 0)
+                return existingNodes;
+
+            var keys = new HashSet<string>(existingNodes.Count);
+            var ret = new List<MiniYamlNode>(existingNodes.Count);
+            foreach (var n in existingNodes)
+            {
+                if (n.Key == null)
+                    continue;
+
+                if (keys.Add(n.Key))
+                    ret.Add(n);
+                else
+                {
+                    // Node with the same key has already been added: merge new node over the existing one
+                    var originalIndex = IndexOfKey(ret, n.Key);
+                    var original = ret[originalIndex];
+                    ret[originalIndex] = original.WithValue(MergePartial(original.Value, n.Value));
+                }
+            }
+
+            return ret;
+        }
+
+        static IReadOnlyList<MiniYamlNode> WeakResolveRemovals(IReadOnlyList<MiniYamlNode> nodes)
+        {
+            if (nodes == null || nodes.Count == 0)
+                return nodes;
+
+            List<MiniYamlNode> ret = null;
+            for (var i = 0; i < nodes.Count; i++)
+            {
+                var node = nodes[i];
+                if (node.Key == null)
+                    continue;
+
+                if (node.Key.StartsWith('-'))
+                {
+                    if (ret == null)
+                    {
+                        ret ??= new List<MiniYamlNode>(nodes.Count);
+                        ret.AddRange(nodes.Take(i));
+                    }
+
+                    // Apply the removal node - but "weakly" - don't throw if there is no prior node to remove.
+                    var removed = node.Key[1..];
+                    ret.RemoveAll(r => r.Key == removed);
+                }
+                else
+                {
+                    ret?.Add(node);
+                }
+            }
+
+            return ret ?? nodes;
+        }
+
+        static MiniYaml MergePartial(MiniYaml existingNodes, MiniYaml overrideNodes)
+        {
+            var resolvedExistingNodes = WeakResolveRemovals(existingNodes?.Nodes);
+            var resolvedOverrideNodes = WeakResolveRemovals(overrideNodes?.Nodes);
+
+            lock (ConflictScratchLock)
+            {
+                try
+                {
+                    // PERF: Reuse ConflictScratch for all conflict checks to avoid allocations.
+                    resolvedExistingNodes?.IntoDictionaryWithConflictLog(
+                        n => n.Key, n => n, "MiniYaml.Merge", ConflictScratch, k => k, n => $"{n.Key} (at {n.Location})");
+                    resolvedOverrideNodes?.IntoDictionaryWithConflictLog(
+                        n => n.Key, n => n, "MiniYaml.Merge", ConflictScratch, k => k, n => $"{n.Key} (at {n.Location})");
+                    ConflictScratch.Clear();
+                }
+                catch (ArgumentException ex)
+                {
+                    throw new YamlException(ex.Message);
+                }
+            }
+
+            if (existingNodes == null)
+                return overrideNodes;
+
+            if (overrideNodes == null)
+                return existingNodes;
+
+            return new MiniYaml(overrideNodes.Value ?? existingNodes.Value, MergePartial(existingNodes.Nodes, overrideNodes.Nodes));
+        }
+
+        static IReadOnlyCollection<MiniYamlNode> MergePartial(IReadOnlyCollection<MiniYamlNode> existingNodes, IReadOnlyCollection<MiniYamlNode> overrideNodes)
+        {
+            if (existingNodes.Count == 0)
+                return overrideNodes;
+
+            if (overrideNodes.Count == 0)
+                return existingNodes;
+
+            var ret = new List<MiniYamlNode>(existingNodes.Count + overrideNodes.Count);
+            var plainKeys = new HashSet<string>(existingNodes.Count + overrideNodes.Count);
+
+            foreach (var node in existingNodes)
+                MergeNode(node);
+            foreach (var node in overrideNodes)
+                MergeNode(node);
+
+            void MergeNode(MiniYamlNode node)
+            {
+                if (node.Key == null)
+                    return;
+
+                // Append Removal nodes to the result.
+                // Therefore: we know the remainder of the method deals with a plain node.
+                if (node.Key.StartsWith('-'))
+                {
+                    ret.Add(node);
+                    return;
+                }
+
+                // If no previous node with this key is present, it is new and can just be appended.
+                if (plainKeys.Add(node.Key))
+                {
+                    ret.Add(node);
+                    return;
+                }
+
+                // A Removal node is closer than the previous node.
+                // We should not merge the new node, as the data being merged will jump before the Removal.
+                // Instead, append it so the previous node is applied, then removed, then the new node is applied.
+                var previousNodeIndex = LastIndexOfKey(ret, node.Key);
+                var previousRemovalNodeIndex = LastIndexOfKey(ret, $"-{node.Key}");
+                if (previousRemovalNodeIndex != -1 && previousRemovalNodeIndex > previousNodeIndex)
+                {
+                    ret.Add(node);
+                    return;
+                }
+
+                // A previous node is present with no intervening Removal.
+                // We should merge the new one into it, in place.
+                ret[previousNodeIndex] = node.WithValue(MergePartial(ret[previousNodeIndex].Value, node.Value));
+            }
+
+            return ret;
+        }
+
+        static int IndexOfKey(List<MiniYamlNode> nodes, string key)
+        {
+            // PERF: Avoid LINQ.
+            for (var i = 0; i < nodes.Count; i++)
+                if (nodes[i].Key == key)
+                    return i;
+            return -1;
+        }
+
+        static int LastIndexOfKey(List<MiniYamlNode> nodes, string key)
+        {
+            // PERF: Avoid LINQ.
+            for (var i = nodes.Count - 1; i >= 0; i--)
+                if (nodes[i].Key == key)
+                    return i;
+            return -1;
+        }
+
+        public IEnumerable<string> ToLines(string key, string comment = null)
+        {
+            var hasKey = !string.IsNullOrEmpty(key);
+            var hasValue = !string.IsNullOrEmpty(Value);
+            var hasComment = comment != null;
+            yield return (hasKey ? key + ":" : "")
+                + (hasValue ? " " + Value.Replace("#", "\\#") : "")
+                + (hasComment ? (hasKey || hasValue ? " " : "") + "#" + comment : "");
+
+            if (Nodes != null)
+                foreach (var line in Nodes.ToLines())
+                    yield return "\t" + line;
+        }
+
+        // Load(MiniYaml.cs L684-698)依赖 IReadOnlyFileSystem/FieldLoader,不入本
+        // oracle —— 由 C++ 侧集成测试(Phase 1 后半 FileSystem 就位后)覆盖
+    }
+
+    public sealed class MiniYamlNodeBuilder
+    {
+        public MiniYamlNode.SourceLocation Location;
+        public string Key;
+        public MiniYamlBuilder Value;
+        public string Comment;
+
+        public MiniYamlNodeBuilder(MiniYamlNode node)
+        {
+            Location = node.Location;
+            Key = node.Key;
+            Value = new MiniYamlBuilder(node.Value);
+            Comment = node.Comment;
+        }
+
+        public MiniYamlNodeBuilder(string k, MiniYamlBuilder v, string c = null)
+        {
+            Key = k;
+            Value = v;
+            Comment = c;
+        }
+
+        public MiniYamlNodeBuilder(string k, MiniYamlBuilder v, string c, MiniYamlNode.SourceLocation loc)
+            : this(k, v, c)
+        {
+            Location = loc;
+        }
+
+        public MiniYamlNodeBuilder(string k, string v, string c = null)
+            : this(k, new MiniYamlBuilder(v, null), c) { }
+
+        public MiniYamlNodeBuilder(string k, string v, List<MiniYamlNode> n)
+            : this(k, new MiniYamlBuilder(v, n), null) { }
+
+        public MiniYamlNode Build()
+        {
+            return new MiniYamlNode(Key, Value.Build(), Comment, Location);
+        }
+    }
+
+    public sealed class MiniYamlBuilder
+    {
+        public string Value;
+        public List<MiniYamlNodeBuilder> Nodes;
+
+        public MiniYamlBuilder(MiniYaml yaml)
+        {
+            Value = yaml.Value;
+            Nodes = yaml.Nodes.Select(n => new MiniYamlNodeBuilder(n)).ToList();
+        }
+
+        public MiniYamlBuilder(string value)
+            : this(value, null) { }
+
+        public MiniYamlBuilder(string value, List<MiniYamlNode> nodes)
+        {
+            Value = value;
+            Nodes = nodes == null ? [] : nodes.ConvertAll(x => new MiniYamlNodeBuilder(x));
+        }
+
+        public MiniYaml Build()
+        {
+            return new MiniYaml(Value, Nodes.Select(n => n.Build()));
+        }
+
+        public IEnumerable<string> ToLines(string key, string comment = null)
+        {
+            var hasKey = !string.IsNullOrEmpty(key);
+            var hasValue = !string.IsNullOrEmpty(Value);
+            var hasComment = comment != null;
+            yield return (hasKey ? key + ":" : "")
+                + (hasValue ? " " + Value.Replace("#", "\\#") : "")
+                + (hasComment ? (hasKey || hasValue ? " " : "") + "#" + comment : "");
+
+            if (Nodes != null)
+                foreach (var line in Nodes.ToLines())
+                    yield return "\t" + line;
+        }
+
+        public MiniYamlNodeBuilder NodeWithKeyOrDefault(string key)
+        {
+            return Nodes.SingleOrDefault(n => n.Key == key);
+        }
+    }
+
+    public class YamlException : Exception
+    {
+        public YamlException(string s)
+            : base(s) { }
     }
 }
 

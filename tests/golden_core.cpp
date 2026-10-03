@@ -1,12 +1,17 @@
 // golden_core — Phase 0 定点原语黄金对拍测试(C++26 版)
+// golden_core — Phase 0 fixed-point primitives golden differential test (C++26 version)
 //
 // 以与 tools/golden_gen/Program.cs 严格一致的输入序列(独立 LCG)驱动 ora:: 实现,
+// Drives the ora:: implementation with an input sequence strictly identical to tools/golden_gen/Program.cs (independent LCG),
 // 逐行生成文本并与 C# 生成的黄金文件比对;任何一行不一致即失败。
+// Generates text line by line and compares it against the C#-generated golden file; any single mismatching line is a failure.
 // 黄金数据由上游 OpenRA 原语的 C# 逐字副本生成,与被测语言无关——是 Phase 0 验收关卡。
+// The golden data is produced by a verbatim C# copy of the upstream OpenRA primitives and is independent of the language under test — it is the Phase 0 acceptance gate.
 //
 // 用法: golden_core <golden_core.txt>
+// Usage: golden_core <golden_core.txt>
 import std;
-#include <cstdio>  // stderr 为宏,不穿越 import 边界(规范允许的并用正形态)
+#include <cstdio>  // stderr 为宏,不穿越 import 边界(规范允许的并用正形态) | stderr is a macro and does not cross the import boundary (a spec-sanctioned mixed form)
 
 #include "core/cell_pos.hpp"
 #include "core/cvec.hpp"
@@ -23,13 +28,15 @@ import std;
 namespace {
 
 // ———— 黄金文件逐行读取(整个文件驻留内存) ————
-std::string str_golden;                 // 黄金文件全文
-std::size_t size_golden_pos{0};         // 当前读取偏移
-std::size_t size_golden_line{0};        // 当前行号(1 起)
-std::int32_t int4_failures{0};          // 差异计数
-std::size_t size_total{0};              // 已比对行数
+// ———— Golden file line-by-line reading (whole file resident in memory) ————
+std::string str_golden;                 // 黄金文件全文 | Entire golden file contents
+std::size_t size_golden_pos{0};         // 当前读取偏移 | Current read offset
+std::size_t size_golden_line{0};        // 当前行号(1 起) | Current line number (1-based)
+std::int32_t int4_failures{0};          // 差异计数 | Mismatch count
+std::size_t size_total{0};              // 已比对行数 | Lines compared so far
 
 /// 取下一行(剥离 \n 与 \r);文件耗尽返回 false
+/// Fetch the next line (strips \n and \r); returns false when the file is exhausted
 bool NextGoldenLine(std::string_view& sv_line) {
   if (size_golden_pos >= str_golden.size())
     return false;
@@ -49,6 +56,7 @@ bool NextGoldenLine(std::string_view& sv_line) {
 }
 
 /// 比对一行:与黄金行完全一致则通过;超 10 处差异中止
+/// Compare one line: passes only if it exactly matches the golden line; aborts after more than 10 mismatches
 void Check(std::string_view sv_line) {
   size_total++;
   std::string_view sv_golden;
@@ -68,6 +76,7 @@ void Check(std::string_view sv_line) {
 }
 
 // ———— 与 C# 侧一致的独立 LCG 输入流 ————
+// ———— Independent LCG input stream identical to the C# side ————
 std::uint64_t uint8_lcg{0x9E3779B97F4A7C15ULL};
 std::int32_t Rand() {
   uint8_lcg = uint8_lcg * 6364136223846793005ULL + 1442695040888963407ULL;
@@ -83,6 +92,7 @@ int main(int argc, char** argv_argv) {
   }
 
   // 读入黄金文件
+  // Read in the golden file
   std::ifstream ifs_golden{argv_argv[1], std::ios::binary};
   if (!ifs_golden) {
     std::println(stderr, "无法打开 golden 文件: {}", argv_argv[1]);
@@ -95,6 +105,7 @@ int main(int argc, char** argv_argv) {
   using namespace ora;
 
   // 1) ISqrt:0..4096 全量 + 2^k 边界
+  // 1) ISqrt: full 0..4096 sweep + 2^k boundaries
   for (std::uint32_t uint4_n{0}; uint4_n <= 4096; uint4_n++)
     Check(std::format("ISQ n={} v={}", uint4_n, ISqrt(uint4_n)));
   for (std::int32_t int4_k{0}; int4_k <= 32; int4_k++) {
@@ -106,6 +117,7 @@ int main(int argc, char** argv_argv) {
   }
 
   // 2) WAngle 全量 sin/cos/tan
+  // 2) WAngle full sin/cos/tan sweep
   for (std::int32_t int4_a{0}; int4_a < 1024; int4_a++) {
     const WAngle wa_ang{int4_a};
     Check(std::format("WA a={} sin={} cos={} tan={} facing={}", int4_a, wa_ang.Sin(),
@@ -119,12 +131,14 @@ int main(int argc, char** argv_argv) {
     Check(std::format("WAD d={} a={}", int4_d, WAngle::FromDegrees(int4_d).Angle));
 
   // 4) ArcSin / ArcCos 全量
+  // 4) ArcSin / ArcCos full sweep
   for (std::int32_t int4_d{-1024}; int4_d <= 1024; int4_d++) {
     Check(std::format("ASIN d={} a={}", int4_d, WAngle::ArcSin(int4_d).Angle));
     Check(std::format("ACOS d={} a={}", int4_d, WAngle::ArcCos(int4_d).Angle));
   }
 
   // 5) ArcTan 网格(含轴与特殊分支)
+  // 5) ArcTan grid (including axes and special branches)
   for (std::int32_t int4_y{-613}; int4_y <= 613; int4_y += 61)
     for (std::int32_t int4_x{-613}; int4_x <= 613; int4_x += 61)
       Check(std::format("ATAN y={} x={} a={}", int4_y, int4_x, WAngle::ArcTan(int4_y, int4_x).Angle));
@@ -198,6 +212,7 @@ int main(int argc, char** argv_argv) {
   }
 
   // 9) WVec/WPos 随机运算(值域贴近真实游戏,避开 90° 渐近线邻域)
+  // 9) WVec/WPos random operations (ranges close to real gameplay, avoiding the 90° asymptote neighborhood)
   for (std::int32_t int4_i{0}; int4_i < 4000; int4_i++) {
     const std::int32_t int4_ax{Rand() % 200001 - 100000};
     const std::int32_t int4_ay{Rand() % 200001 - 100000};
@@ -211,7 +226,7 @@ int main(int argc, char** argv_argv) {
         static_cast<std::int32_t>(static_cast<std::uint32_t>(Rand()) % static_cast<std::uint32_t>(int4_d))};
     std::int32_t int4_p{static_cast<std::int32_t>(Rand() % 1024)};
     if ((int4_p & 511) >= 254 && (int4_p & 511) <= 258)
-      int4_p = (int4_p + 8) & 1023;  // 避开 90°/270° 渐近线邻域
+      int4_p = (int4_p + 8) & 1023;  // 避开 90°/270° 渐近线邻域 | avoid the 90°/270° asymptote neighborhood
 
     const WVec v_a{int4_ax, int4_ay, int4_az};
     const WVec v_b{int4_bx, int4_by, int4_bz};
@@ -249,6 +264,7 @@ int main(int argc, char** argv_argv) {
   }
 
   // 10) WRot 全网格构造 + 矩阵 + Rotate/Neg + SLerp
+  // 10) WRot full-grid construction + matrix + Rotate/Neg + SLerp
   for (std::int32_t int4_r{0}; int4_r < 1024; int4_r += 64)
     for (std::int32_t int4_p{0}; int4_p < 1024; int4_p += 64)
       for (std::int32_t int4_y{0}; int4_y < 1024; int4_y += 64) {
@@ -284,6 +300,7 @@ int main(int argc, char** argv_argv) {
   }
 
   // 11) CPos/CVec/MPos 网格
+  // 11) CPos/CVec/MPos grid
   {
     constexpr std::array<std::uint8_t, 3> arr_layers{0, 1, 255};
     for (std::int32_t int4_x{-2048}; int4_x <= 2047; int4_x += 131)
@@ -307,6 +324,7 @@ int main(int argc, char** argv_argv) {
   }
 
   // 12) CVec 运算采样
+  // 12) CVec operations sampling
   for (std::int32_t int4_i{0}; int4_i < 2000; int4_i++) {
     const std::int32_t int4_ax{Rand() % 4001 - 2000};
     const std::int32_t int4_ay{Rand() % 4001 - 2000};
@@ -331,6 +349,7 @@ int main(int argc, char** argv_argv) {
   }
 
   // golden 是否有剩余行
+  // Whether the golden file still has leftover lines
   std::string_view sv_tail;
   if (NextGoldenLine(sv_tail) && !sv_tail.empty()) {
     std::println("FAIL: C++ 输出已结束但 golden 还有剩余(行 {} 起): {}", size_golden_line, sv_tail);
