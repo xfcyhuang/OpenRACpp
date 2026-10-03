@@ -2,3 +2,6 @@ PORTING_PLAN.md
 .ref/
 build/
 build-asan/
+
+tools/golden_gen/bin/
+tools/golden_gen/obj/
