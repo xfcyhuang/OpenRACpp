@@ -10,13 +10,25 @@
 
 ## 状态
 
+**Phase 3 完成**(仿真核心 + Order/锁步;2026-10-03):
+
+- `src/sim/` 10 文件:TraitDictionary(平行数组二分,载荷 = gen 导出的 TypeId 上行转换表)、Actor(条件系统/Initialize 观察者链/Dispose 帧末幂等)、World(Tick 序/SyncHash n 连续公式)、Activity 状态机逐行、Sync 哈希协议(含 bool 字段 IL 可达语义)、Target/Player/Effects/TypeDictionary/ActorInitializer
+- `src/net/` 8 文件:Order 逐字节序列化(构造期望字节逐位断言 + 往返恒等)、OrderPacket/OrderIO、EchoConnection、OrderManager 锁步全文(TryTick 三段/IsNetFrame 节流/帧号校验)、UnitOrders 可运行子集
+- 验收:EchoConnection 单机 **10⁶ tick 双构建(ASan+UBSan/Release)通过,无泄漏无 desync**;全套 ctest 11/11 双构建;UPSTREAM 标注 85 条校验通过;偏离 D25~D34 登记于 docs/COVERAGE.md
+
+**Phase 2 完成**(元数据框架 + 数据加载链;2026-10-03):
+
+- `tools/schema_dumper --gen` 权威导出:680 类型(601 可加载)+ 37 枚举 + 9 BitSet 标签 + TypeId 键空间(6048 类型)+ [VerifySync] 成员表(84 类型);`src/meta/` GenericValue/GeneratedRecord 值袋 + 双向 typed 内存变换
+- 加载链全通:Manifest → ModData → Ruleset → ActorInfo(`@` 实例名/接口依赖拓扑序)→ WeaponInfo;24 个 LoadUsing loader 逐语义移植
+- 验收:三 mod 全量深度解析 dump **逐字节快照回归**(ra 80,274 / cnc 49,416 / d2k 35,833 行);上游 `--check-yaml` exit=0 佐证;偏离 D10~D24 登记
+
 **Phase 1 完成**(MiniYaml + 文件系统;2026-10-03):
 
 - `src/yaml/`:上游 MiniYaml.cs(791 行)逐语义重写——行状态机(4 空格/1 tab 层级、`\#` 转义、`\ ` 空白守护)、字符串池 interning、`Merge`/继承解析/`-Key` 弱删除、规范化序列化、可变 Builder;`src/core/text.hpp` 复刻 .NET `char.IsWhiteSpace`/`Trim` 的 UTF-8 语义
 - `src/fs/`:FileSystem(挂载顺序 = 覆盖优先级、`'|'` 显式挂载、大小写规整解析)、Folder(读写)、ZipFile(只读,SharpZipLib→**miniz**,含子目录视图与嵌套 zip)、`MiniYaml::Load`
-- **第一关卡验收:上游 mods/ 全部 759 个 yaml × 双模式(丢弃/保留注释),`FromStream→WriteToString` 输出与 C# oracle 逐字节 100% 一致**(13.5MB 黄金数据,`tests/golden_yaml.txt`);上游 MiniYamlTest.cs 28 用例断言文本逐字移植全绿(测试字面量从上游源码按字节程序化提取);fs_test 24 断言全绿
-- 工程门禁:`import std;` 严控(禁传统 std 头引入,`tools/std_import_check.py` 强制)、函数级裁剪(`-ffunction-sections -fdata-sections` + `--gc-sections`)、UPSTREAM 溯源标注(`tools/upstream_check.py`,23 条)、全代码中英双语注释
-- 双构建(ASan+UBSan 与 Release)ctest 5/5 全绿;偏离 9 项登记于 docs/COVERAGE.md
+- **第一关卡验收:上游 mods/ 全部 759 个 yaml × 双模式(丢弃/保留注释),`FromStream→WriteToString` 输出与 C# oracle 逐字节 100% 一致**(13.5MB 黄金数据,`tests/golden_yaml.txt`);上游 MiniYamlTest.cs 28 用例断言文本逐字移植全绿;fs_test 24 断言全绿
+- 工程门禁:`import std;` 严控(禁传统 std 头引入,`tools/std_import_check.py` 强制)、函数级裁剪(`-ffunction-sections -fdata-sections` + `--gc-sections`)、UPSTREAM 溯源标注(`tools/upstream_check.py`)、全代码中英双语注释
+- 双构建(ASan+UBSan 与 Release)ctest 全绿;偏离 9 项登记于 docs/COVERAGE.md
 
 **Phase 0 完成**(C++26 工程骨架 + 定点原语):
 
@@ -25,7 +37,40 @@
 - 验收:与 C# 版黄金数据 **60,883 行逐行对拍 100% 一致**(覆盖全角度三角学、ArcSin/ArcCos 全量、MT19937 全序列、LerpQuadratic 的 decimal 截断语义等),ASan+UBSan 与 Release 双构建全绿
 - 上游同步机制就位:`UPSTREAM.baseline`(基线 commit `7d57605bca`)+ `docs/COVERAGE.md` 覆盖登记 + `tools/upstream_check.py` 校验器
 
-下一阶段(Phase 2):元数据框架 + 数据加载链(schema_dumper → gen/ 描述表、FieldLoader、Manifest/Ruleset 加载,三 mod resolved-rules 对拍)。
+**core 基础设施增补**(2026-10-04,随上游审阅落地):
+
+- `src/core/percent_modifiers.hpp`:上游 `ApplyPercentageModifiers` 的 C# decimal(128 位软十进制,22 个 sim 调用文件)以 `__int128` 精确复刻——分子累积 × 分母 `100^k`,整除 = `(int)decimal` 向零截断
+- `src/core/arena.hpp`:PORTING_PLAN §4.5 内存分区落地——FrameArena(帧临时,仅平凡可析构)/ WorldArena(整局,析构逆序登记、Destroy 幂等、Reset 复用)
+- `tests/core_test.cpp`:decimal 语义断言(含早截断分歧底线用例)+ arena 生命周期断言;双构建 ctest 12/12
+
+下一阶段(Phase 4):平台层 + 渲染(SDL2/glad/OpenAL/FreeType、三级合成、Westwood 文件格式)。
+
+## 与上游的差异(优化点与偏离登记)
+
+本项目以**语义等价**为第一原则(黄金对拍验证),在此基础上于 C++ 侧做有意优化;凡无法或有意不逐语义等价处,在 [docs/COVERAGE.md](docs/COVERAGE.md) 登记偏离(**未登记的偏离视为 bug**)。
+
+### 有意优化(C++ 侧)
+
+| 层面 | 上游 C# | C++ 侧 |
+|---|---|---|
+| 数据反射链 | `FieldLoader`/`ObjectCreator` 运行时反射 + `TypeDescriptor` 转换器兜底 | `gen/` 编译期描述表(680 可加载类型,由 schema_dumper 从 C# 反射权威导出)+ 注册表工厂,无运行时反射 |
+| 类型/接口查询 | `Dictionary<Type,…>` 哈希 + `GetInterfaces()` 反射枚举 | TypeId 键空间(6048 类型全名 → `uint16`,gen 导出)+ 平行数组二分 |
+| SyncHash | `Reflection.Emit` 运行时生成 IL 哈希 + `ConcurrentCache` 委托链 | `gen/sync_gen.cpp` 编译期生成(84 类型),零反射零委托间接 |
+| 数值修正链 | `ApplyPercentageModifiers` 的 C# `decimal`(软十进制,比 int64 慢一个数量级) | `__int128` 精确复刻(整除 = `(int)decimal` 向零截断;等价域论证见 `src/core/percent_modifiers.hpp` 文件头) |
+| 内存管理 | GC(每帧 LINQ/闭包/装箱分配) | 分区 arena:`FrameArena`(帧末重置)+ `WorldArena`(整局 bump + 析构登记);同步路径禁 `shared_ptr` |
+| 集合参数 | `IEnumerable<int>`(LINQ 链 + 枚举器分配) | `std::span` 直传(首批落地点即数值修正链) |
+| 枚举/异常 | 字符串 switch / 异常类型分散 | `enum class` + 集中 `YamlException`(消息文本仍逐字对齐) |
+
+后续大项(渲染命令缓冲替代装箱消息队列、寻路世代标记免清零、条件系统 intern 化、空间索引 ActorID 数组化等,共 40+ 项)按 Phase 随移植同批落地;完整审阅证据(上游 file:line 锚点)见 [docs/UPSTREAM_CPP_REVIEW.md](docs/UPSTREAM_CPP_REVIEW.md)。
+
+### 与上游不同步处(偏离登记摘要)
+
+当前登记 **D1~D34**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
+
+- **yaml/fs(D1~D9)**:异常类型统一为 YamlException(消息文本逐字一致)、惰性枚举物化为 vector、null/"" 键合流等——合法输入下行为等价或不可观测;
+- **meta/加载链(D10~D24)**:TypeConverter 兜底未实现(实际字段类型已全覆盖,不可达)、字典字段为插入序 vector(dump 协议按键排序)、三 mod 解析快照以 C++ 侧固化(D24:C# `--dump` 工具受 ALC 程序集副本环境制约,恢复后可再对拍校准)等;
+- **sim/net(D25~D34)**:Initialize 观察者去重形态差异(受端幂等)、**trait 工厂与所有权待 Phase 5 随 World arena 接线(D26/D27)**、`Target.FromCell` 以 square 网格公式桩换算(D28,Phase 5 接 Map)、UI/大厅命令族静默吞并(D29,Phase 6/7 接线)、SyncReport 未接(D30,上游默认关闭)等;
+- **整体未同步**:渲染/平台层、主循环、mods 运行时 trait、UI、服务器、Lua 脚本(Phase 4-8 范围)尚未移植——见上方状态节。
 
 ## 许可证与归属
 
@@ -50,13 +95,25 @@ The engine is rewritten from scratch to match the exact semantics of the upstrea
 
 ## Status
 
+**Phase 3 complete** (simulation core + orders/lockstep; 2026-10-03):
+
+- `src/sim/`, 10 files: TraitDictionary (parallel arrays with binary search, payloads keyed by the gen-exported TypeId upcast tables), Actor (condition system / Initialize observer chains / idempotent frame-end Dispose), World (tick ordering / the n-consecutive SyncHash formula), a line-by-line Activity state machine, the Sync hash protocol (including the IL-reachable bool semantics), Target/Player/Effects/TypeDictionary/ActorInitializer
+- `src/net/`, 8 files: byte-exact Order serialization (expected-byte bit assertions + round-trip identity), OrderPacket/OrderIO, EchoConnection, the full OrderManager lockstep (three-stage TryTick / IsNetFrame throttling / frame validation), and a runnable UnitOrders subset
+- Acceptance: EchoConnection **10⁶ ticks on both builds (ASan+UBSan / Release), leak-free and desync-free**; the full ctest suite 11/11 on both builds; 85 UPSTREAM tags validated; deviations D25–D34 registered
+
+**Phase 2 complete** (metadata framework + the data-loading chain; 2026-10-03):
+
+- `tools/schema_dumper --gen` authoritative export: 680 types (601 loadable) + 37 enums + 9 BitSet tagsets + the TypeId key space (6048 full type names) + the [VerifySync] member tables (84 types); `src/meta/` GenericValue/GeneratedRecord value bags with two-way typed memory transforms
+- The full loading chain: Manifest → ModData → Ruleset → ActorInfo (`@` instance names / interface-dependency topological order) → WeaponInfo; all 24 LoadUsing loaders ported semantically
+- Acceptance: three-mod deep-parse dumps **compared byte-for-byte as frozen snapshots** (ra 80,274 / cnc 49,416 / d2k 35,833 lines); upstream `--check-yaml` exit=0 as corroboration; deviations D10–D24 registered
+
 **Phase 1 complete** (MiniYaml + file system; 2026-10-03):
 
 - `src/yaml/`: a statement-by-statement rewrite of upstream MiniYaml.cs (791 lines) — the line state machine (4-space/1-tab levels, `\#` escaping, `\ ` whitespace guards), string-pool interning, merge/inheritance resolution/`-Key` weak removals, normalized serialization, and the mutable builders; `src/core/text.hpp` replicates the .NET `char.IsWhiteSpace`/`Trim` semantics over UTF-8
 - `src/fs/`: FileSystem (mount order as override priority, `'|'` explicit mounts, case-insensitive path resolution), Folder (read/write), ZipFile (read-only, SharpZipLib→**miniz**, with the subfolder view and nested zips), and `MiniYaml::Load`
-- **First-gate acceptance: all 759 upstream mods yaml files × both modes (discard/keep comments) match the C# oracle byte-for-byte on `FromStream→WriteToString` output** (13.5 MB golden data in `tests/golden_yaml.txt`); all 28 upstream MiniYamlTest.cs cases ported with verbatim assertion texts (test literals extracted byte-exactly from the upstream source); fs_test's 24 assertions all green
-- Project gates: strict `import std;` enforcement (no classic std-header includes, forced by `tools/std_import_check.py`), function-level dead-code elimination (`-ffunction-sections -fdata-sections` + `--gc-sections`), UPSTREAM provenance tags (`tools/upstream_check.py`, 23 tags), bilingual (Chinese/English) comments throughout
-- Both build flavors (ASan+UBSan and Release) pass ctest 5/5; 9 registered deviations in docs/COVERAGE.md
+- **First-gate acceptance: all 759 upstream mods yaml files × both modes (discard/keep comments) match the C# oracle byte-for-byte on `FromStream→WriteToString` output** (13.5 MB golden data in `tests/golden_yaml.txt`); all 28 upstream MiniYamlTest.cs cases ported with verbatim assertion texts; fs_test's 24 assertions all green
+- Project gates: strict `import std;` enforcement (no classic std-header includes, forced by `tools/std_import_check.py`), function-level dead-code elimination (`-ffunction-sections -fdata-sections` + `--gc-sections`), UPSTREAM provenance tags (`tools/upstream_check.py`), bilingual (Chinese/English) comments throughout
+- Both build flavors (ASan+UBSan and Release) pass ctest; 9 registered deviations in docs/COVERAGE.md
 
 **Phase 0 complete** (C++26 skeleton + fixed-point primitives):
 
@@ -65,7 +122,40 @@ The engine is rewritten from scratch to match the exact semantics of the upstrea
 - Acceptance: **60,883 lines of golden differential testing match the C# output 100%** (covering full-circle trigonometry, exhaustive ArcSin/ArcCos, full MT19937 sequences, and the decimal truncation semantics of LerpQuadratic); clean under both ASan+UBSan and Release builds
 - Upstream sync mechanism in place: `UPSTREAM.baseline` (commit `7d57605bca`), coverage registry in `docs/COVERAGE.md`, and the `tools/upstream_check.py` validator
 
-Next up (Phase 2): the metadata framework + data-loading chain (schema_dumper → gen/ descriptor tables, FieldLoader, Manifest/Ruleset loading, and the three-mod resolved-rules comparison).
+**Core infrastructure additions** (2026-10-04, landed alongside the upstream review):
+
+- `src/core/percent_modifiers.hpp`: the upstream `ApplyPercentageModifiers` C# `decimal` chain (128-bit soft decimal, 22 sim call files) reproduced exactly with `__int128` — accumulated numerator over denominator `100^k`, integer division = `(int)decimal` truncation towards zero
+- `src/core/arena.hpp`: the PORTING_PLAN §4.5 memory regions — FrameArena (frame-transient, trivially destructible only) / WorldArena (per-world, reverse-order destructor records, idempotent Destroy, Reset reuse)
+- `tests/core_test.cpp`: decimal-semantics assertions (including the early-truncation divergence floor case) + arena lifecycle assertions; ctest 12/12 on both builds
+
+Next up (Phase 4): the platform layer + rendering (SDL2/glad/OpenAL/FreeType, the three-stage composite, Westwood file formats).
+
+## Differences from upstream (optimizations & registered deviations)
+
+Semantic equivalence is this project's first principle (verified by golden differentials); on top of that, deliberate C++-side optimizations are made. Wherever exact semantic equivalence is impossible or intentionally forgone, a deviation is registered in [docs/COVERAGE.md](docs/COVERAGE.md) (**an unregistered deviation is treated as a bug**).
+
+### Deliberate optimizations (C++ side)
+
+| Area | Upstream C# | C++ side |
+|---|---|---|
+| Data reflection chain | `FieldLoader`/`ObjectCreator` runtime reflection + `TypeDescriptor` converter fallback | `gen/` compile-time descriptor tables (680 loadable types, exported authoritatively from C# reflection by schema_dumper) + registry factories; no runtime reflection |
+| Type/interface queries | `Dictionary<Type,…>` hashing + `GetInterfaces()` reflection | the TypeId key space (6048 full names → `uint16`, gen-exported) + parallel-array binary search |
+| SyncHash | `Reflection.Emit` runtime IL generation + a `ConcurrentCache` delegate chain | `gen/sync_gen.cpp` generated at compile time (84 types), zero reflection, zero delegate indirection |
+| Percentage modifiers | the C# `decimal` chain of `ApplyPercentageModifiers` (soft decimal, an order of magnitude slower than int64) | exact `__int128` reproduction (integer division = `(int)decimal` truncation towards zero; the equivalence-domain argument is in the `src/core/percent_modifiers.hpp` header) |
+| Memory management | GC (per-frame LINQ/closure/boxing allocations) | partitioned arenas: `FrameArena` (frame-end reset) + `WorldArena` (per-world bump + destructor records); no `shared_ptr` on the synced path |
+| Collection parameters | `IEnumerable<int>` (LINQ chains + enumerator allocations) | direct `std::span` (the numeric-modifier chain is the first landing point) |
+| Enums / exceptions | string switches / scattered exception types | `enum class` + a unified `YamlException` (message texts still match verbatim) |
+
+The bigger items ahead (a render command buffer replacing the boxing message queue, generation-stamped pathfinding state, condition-name interning, ActorID-array spatial indexes, and 40+ more) land per phase together with their ports; the full review evidence (upstream file:line anchors) is in [docs/UPSTREAM_CPP_REVIEW.md](docs/UPSTREAM_CPP_REVIEW.md).
+
+### Not-yet-synced with upstream (registered-deviation summary)
+
+Currently **D1–D34** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
+
+- **yaml/fs (D1–D9)**: exception types unified into YamlException (message texts verbatim), lazy enumerations materialized into vectors, null/"" key coalescing, etc. — behavior-equivalent or unobservable for valid inputs;
+- **meta/loading chain (D10–D24)**: the TypeConverter fallback not implemented (actual field types are fully covered, unreachable), dictionary fields as insertion-ordered vectors (dump protocol sorts by key), the three-mod parse snapshots frozen on the C++ side (D24: the C# `--dump` tool is constrained by the ALC assembly-copy environment; re-differential once restored), etc.;
+- **sim/net (D25–D34)**: the Initialize observer-dedup shape differs (receiving ends are idempotent), **the trait factory and ownership await Phase 5 wiring into the World arena (D26/D27)**, `Target.FromCell` stubbed with the square-grid formula (D28, Map lands in Phase 5), UI/lobby command families silently swallowed (D29, wired in Phase 6/7), SyncReport not wired (D30, off by default upstream), etc.;
+- **Wholesale not yet synced**: the render/platform layer, main loop, runtime mods traits, UI, server, and Lua scripting (Phases 4–8) are not ported yet — see the status section above.
 
 ## License & Attribution
 
