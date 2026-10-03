@@ -3,8 +3,4 @@ PORTING_PLAN.md
 build/
 build-asan/
 
-tools/golden_gen/bin/
-tools/golden_gen/obj/
-
-tools/schema_dumper/bin/
-tools/schema_dumper/obj/
+tools/

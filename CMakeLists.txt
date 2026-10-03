@@ -113,10 +113,18 @@ target_link_libraries(ora_meta PUBLIC ora_yaml)
 ora_link_std(ora_meta)
 
 # ———— 工具与测试 / Tools & tests
-add_executable(cpp26_probe tools/cpp26_probe.cpp)
-target_link_libraries(cpp26_probe PRIVATE ora_core)
-ora_link_std(cpp26_probe)
-add_test(NAME cpp26_probe COMMAND cpp26_probe)
+# tools/ 已移出仓库跟踪(.gitignore):本地开发工具(探针/校验器/oracle 生成器)
+# 不再随库分发;引用其源文件的目标在文件存在时才构建,克隆环境自动跳过
+# tools/ is no longer tracked (.gitignore): local development tools (probes/
+# validators/oracle generators) are not distributed with the repo; targets
+# referencing their sources build only when the files exist, so fresh clones
+# simply skip them.
+if(EXISTS ${CMAKE_SOURCE_DIR}/tools/cpp26_probe.cpp)
+  add_executable(cpp26_probe tools/cpp26_probe.cpp)
+  target_link_libraries(cpp26_probe PRIVATE ora_core)
+  ora_link_std(cpp26_probe)
+  add_test(NAME cpp26_probe COMMAND cpp26_probe)
+endif()
 
 add_executable(golden_core tests/golden_core.cpp)
 target_link_libraries(golden_core PRIVATE ora_core)
