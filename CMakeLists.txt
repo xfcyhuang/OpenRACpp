@@ -100,6 +100,18 @@ add_library(ora_fs STATIC
 target_link_libraries(ora_fs PUBLIC ora_yaml PRIVATE ora_miniz)
 ora_link_std(ora_fs)
 
+# 元数据框架:FieldLoader/FieldSaver 等价 + 类型注册表 + 变量表达式
+# (PORTING_PLAN §Phase 2)
+# Metadata framework: the FieldLoader/FieldSaver equivalents + the type
+# registry + variable expressions (PORTING_PLAN §Phase 2).
+add_library(ora_meta STATIC
+  src/meta/parse.cpp
+  src/meta/variable_expression.cpp
+  src/meta/type_registry.cpp
+  src/meta/field_loader.cpp)
+target_link_libraries(ora_meta PUBLIC ora_yaml)
+ora_link_std(ora_meta)
+
 # ———— 工具与测试 / Tools & tests
 add_executable(cpp26_probe tools/cpp26_probe.cpp)
 target_link_libraries(cpp26_probe PRIVATE ora_core)
@@ -134,3 +146,9 @@ add_executable(fs_test tests/fs_test.cpp)
 target_link_libraries(fs_test PRIVATE ora_fs ora_miniz)  # 测试直接用 miniz 造 zip 夹具 / the test drives miniz directly for zip fixtures
 ora_link_std(fs_test)
 add_test(NAME fs_test COMMAND fs_test)
+
+# 元数据框架单测(PORTING_PLAN §Phase 2)/ Metadata-framework unit tests (§Phase 2)
+add_executable(meta_test tests/meta_test.cpp)
+target_link_libraries(meta_test PRIVATE ora_meta)
+ora_link_std(meta_test)
+add_test(NAME meta_test COMMAND meta_test)

@@ -66,3 +66,35 @@ CPos 打包/解包与等距换算、CVec 2000 采样。
 | D9 | src/fs FileSystem.OpenPackage | Platform.ResolvePath(Game 层 '~' 展开等)未引入,Phase 1 按原名 | Game 层依赖,Phase 2 随 Manifest 落地 |
 
 \* 已对拍(星号)= 经行为级断言/集成路径覆盖;专用逐字节黄金关卡仅 mini_yaml 与 golden_core 具备。
+
+## src/core/ 补充原语 与 src/meta/ — 元数据框架(Phase 2,2026-10-03 进行中)
+
+| C++ 文件 | 上游文件 | 覆盖范围 | 状态 |
+|---|---|---|---|
+| src/core/bitset.hpp | OpenRA.Game/Primitives/BitSet.cs | BitSetAllocator(插入序分配、uint64 承载)、BitSet 全集合运算、FromStringsNoAlloc、ToString 分配序 | 单测 |
+| src/core/color.hpp | OpenRA.Game/Primitives/Color.cs L20-232,374 | ARGB 值类型、FromArgb、TryParse(6/8 位十六进制)、ToString(RRGGBB[AA]);HSV/HSL 属 Phase 4 | 单测 |
+| src/core/vector_n.hpp | OpenRA.Game/FieldLoader.cs L531-566 | Vector2/Vector3 数据语义(解析/序列化往返) | 单测 |
+| src/meta/parse.hpp/.cpp | OpenRA.Game/Exts.cs L485-566 + FieldLoader.cs L146-591 | TryParse*Invariant 家族(NumberStyles.Integer/Float 语义、% 缩放)、TryParseBoolNet、SplitComma(Trimmed)、Enum.TryParse/ToString(flags 分解、剩余位十进制) | 单测 |
+| src/meta/variable_expression.hpp/.cpp | OpenRA.Game/Support/VariableExpression.cs L22-983 | 全文件:tokenizer(字符类/空白守护/错误消息逐字)、token 流校验、调度场后缀化、求值栈机(int↔bool 互转、除零/模零得 0、非短路 And/Or) | 单测 |
+| src/meta/field_desc.hpp | OpenRA.Game/FieldLoader.cs L937-1032 + ObjectCreator.cs | FieldType 标签集(schema_dumper 普查 103 种归一化)、FieldDesc/RecordDesc、ORA_FIELD 宏(__builtin_offsetof:offsetof 宏不穿越 import std;) | 单测* |
+| src/meta/field_loader.hpp/.cpp | OpenRA.Game/FieldLoader.cs L27-1032 | Load 主循环(MissingFieldsException 消息逐字)、GetValue 分派(标量/元组/容器/字典/Nullable/BitSet)、分组数组特化、LoadUsing 注册表、InvalidValue/UnknownFieldAction 逐字消息 | 单测 |
+| src/meta/type_registry.hpp/.cpp | OpenRA.Game/ObjectCreator.cs L21-168 | FindType/CreateObject/注册表(等价程序集反射扫描) | 单测* |
+
+### meta_test 断言集(2026-10-03)
+
+解析器边界(空白/符号/溢出/百分比/逗号)、枚举(大小写/数值/逗号列表/flags ToString 剩余位)、
+表达式(优先级/短路语义/除零/11 条构造期错误消息逐字)、FieldLoader 端到端(默认值保持/
+MissingFields 消息/InvalidValue 消息逐字/容器/字典/Nullable/BitSet/枚举字段)、Color/BitSet。
+ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
+
+### 已登记偏离(PORTING_PLAN §7.5,Phase 2 新增)
+
+| # | 位置 | 偏离 | 理由 |
+|---|---|---|---|
+| D10 | src/meta string 字段 | C# string null 与 "" 合流(std::string) | dump/FormatValue 层两者均输出 "";运行时 null 判断在 trait 移植时以 empty() 等价改写 |
+| D11 | src/meta TypeConverter 兜底 | 未实现 GetValue 的 TypeDescriptor 转换分支 | trait/weapon 加载链字段类型已被 TypeParsers+枚举全覆盖,兜底不可达 |
+| D12 | src/meta 字典字段 | C++ vector<pair>(插入序);FrozenDictionary 的 .NET 枚举序≠插入序,dump 协议按键排序 | 运行时遍历序差异 Phase 5 评估 |
+| D13 | src/meta 字典重复键 | 抛 YamlException 同文本(C# 经反射包装为 TargetInvocationException) | 消息文本一致,异常类型差异不可观测(上游加载链不捕获该类型) |
+| D14 | src/meta VariableExpression | 错误消息 index 按 UTF-8 字节计(C# 按 UTF-16 code unit) | ASCII 输入下完全一致;mods 表达式均为 ASCII |
+| D15 | src/core/bitset.hpp | 位图 uint64(≤64 字符串/标签,超出 abort) | C# BigInteger 无界;实际 mods 最多约 20 种 |
+| D16 | src/meta Hotkey/DateTime/Size/Rectangle | 解析器占位(未知字段路径) | 加载链无使用点(--scan 验证);widget/settings 阶段落地 |

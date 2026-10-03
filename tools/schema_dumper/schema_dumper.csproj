@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>schema_dumper</AssemblyName>
+    <RootNamespace>schema_dumper</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="OpenRA.Game">
+      <HintPath>..\..\..\OpenRA\bin\OpenRA.Game.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenRA.Mods.Common">
+      <HintPath>..\..\..\OpenRA\bin\OpenRA.Mods.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenRA.Mods.Cnc">
+      <HintPath>..\..\..\OpenRA\bin\OpenRA.Mods.Cnc.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenRA.Mods.D2k">
+      <HintPath>..\..\..\OpenRA\bin\OpenRA.Mods.D2k.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenRA.Platforms.Default">
+      <HintPath>..\..\..\OpenRA\bin\OpenRA.Platforms.Default.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
