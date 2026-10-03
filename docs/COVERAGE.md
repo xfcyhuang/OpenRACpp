@@ -138,3 +138,56 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D22 | MapGeneratorDropdownChoice.Parameters | 值袋以 WriteToString 规范化文本承载(C# 为 ImmutableArray<MiniYamlNode>) | dump 协议两侧同源(文本形式);地图生成器行为面 Phase 8 |
 | D23 | dump 协议 float | C++ 复刻 .NET ToString(Invariant) 阈值记法(定点当且仅当指数 ∈[-4,6]) | 黄金侧为 C# 原生 ToString;快照固化后为回归基准,后续如有角差异按快照校准 |
 | D24 | tests/golden_rules | 黄金数据由 C++ 首次快照固化(非 C# 反射逐字段导出) | C# --dump 受 ALC 环境制约(见 tools/schema_dumper 注记);以 game_test 语义锚点 + 上游 --check-yaml 补偿锚定;C# 侧恢复后可再对拍校准 |
+
+## src/sim/ + src/net/ — 仿真核心 + Order/锁步(Phase 3,2026-10-03 主体完成)
+
+| C++ 文件 | 上游文件 | 覆盖范围 | 状态 |
+|---|---|---|---|
+| src/sim/trait_interfaces.hpp | OpenRA.Game/Traits/TraitsInterfaces.cs L29-666 | 仿真核心接口族(ITick/INotify*/IObservesVariables/IResolveOrder/ICreationActivity/IHealth/IOccupySpace/IFacing/ITargetable/…)+ DamageState/SubCell/WinState 枚举 + TraitBase/upcast 表机制(ORA_TRAIT_INTERFACES);渲染/UI 接口 Phase 4/6 | 单测 |
+| src/sim/type_dictionary.hpp/.cpp | OpenRA.Game/Primitives/TypeDictionary.cs L19-183 | Type 键 → gen::TypeId;Add/Get/GetOrDefault/WithInterface/Remove(异常消息逐字) | 单测 |
+| src/sim/actor_init.hpp/.cpp | OpenRA.Game/Map/ActorInitializer.cs L21-262 | ActorInitializer 查询族(InstanceName 匹配 LastOrDefault 语义)、ValueActorInit/LocationInit/OwnerInit | 单测 |
+| src/sim/activity.hpp/.cpp | OpenRA.Game/Activities/Activity.cs L21-295 + Traits/ActivityUtils.cs L17-38 | 状态机全文:TickOuter/lastRun/finishing/免延迟分支、SkipDoneActivities、Cancel(Queued→Done)、Queue/QueueChild、ActivitiesImplementing、RunActivity 循环 | 单测 |
+| src/sim/sync_hash.hpp/.cpp | OpenRA.Game/Sync.cs L23-211 | 哈希函数族(int2/CPos/CVec/WDist/WAngle/WPos/WVec/WRot/Actor/Player/Target + bool IL 可达语义 (b?1:0)^0xAAA)、XOR 组合协议、成员注册表、RunUnsynced/AssertUnsynced 门禁 | 单测(公式手算) |
+| src/sim/target.hpp/.cpp | OpenRA.Game/Traits/Target.cs L18-293 | 值语义核心:Type 有效性判定(出世界/死亡/换代)、FromPos/FromActor/FromSerialized*、SerializableState、IsInRange;FrozenActor 面 Phase 5 | 单测 |
+| src/sim/actor.hpp/.cpp | OpenRA.Game/Actor.cs L27-651 | 条件系统全文(Grant/Revoke/TokenValid/UpdateConditionState + 观察者收集/初始通知)、Initialize(INotifyCreated→观察者→ICreationActivity→Add)、Tick(wasIdle 双跑)、Dispose(帧末任务幂等)、ChangeOwner(Sync)、trait 查询转发;渲染/Lua 面 Phase 4/8 | 单测 |
+| src/sim/trait_dictionary.hpp/.cpp | OpenRA.Game/TraitDictionary.cs L21-329 | 平行数组按 ActorID 有序 + BinarySearchMany(actorID+1 追加/区间删除)全文;Get/GetOrDefault(唯一性)/GetMultiple/Actors 去重/ApplyToAll;键 = gen::TypeId,载荷 = upcast 子对象指针 | 单测 |
+| src/sim/effects.hpp/.cpp | OpenRA.Game/Effects/IEffect.cs + DelayedAction.cs | IEffect/ISpatiallyPartitionable/DelayedAction(帧末"移除后触发") | 单测 |
+| src/sim/player.hpp | OpenRA.Game/Player.cs L27-337 | SyncHash/Order 反序列化最小面(PlayerActor/WinState/UnlockedRenderPlayer/PlayerMask);完整构造 Phase 5 | 单测(经 SyncHash) |
+| src/sim/world.hpp/.cpp | OpenRA.Game/World.cs L28-650 | 仿真核心:Tick 序(actor→ITick traits→effects→帧末 drain)、Add/Remove、SyncHash 公式(n 连续跨段/回绕)、NextAID、帧末任务队列、effects 三视图 + 单所有权、trait 工厂注入面(Phase 5 接 game 加载链);完整构造(GameSpeed/LobbyInfo/Map/ScreenMap)Phase 5 | 单测 |
+| src/net/byte_io.hpp | OpenRA.Game/Network/Order.cs L345-487 | BinaryWriter/Reader 兼容(小端 + 7-bit string 前缀 + UTF-8) | 单测(字节级) |
+| src/net/order.hpp/.cpp | OpenRA.Game/Network/Order.cs L18-495 | OrderType/OrderFields 位掩码;Serialize/Deserialize 逐字节(字段序/位判定/Target Actor|Terrain(cell/pos/-1 短路)|FrozenActor 槽位);命名构造族(Chat/Command/StartProduction/FromGroupedOrder…) | 单测(往返逐字节) |
+| src/net/order_io.hpp/.cpp | OpenRA.Game/Network/OrderIO.cs L18-212 | OrderPacket(立即序列化语义)+ TryParse* 全家(Sync/Ping/Ack/Disconnect/TickScale/OrderPacket;server-only 门槛) | 单测 |
+| src/net/session.hpp | OpenRA.Game/Network/Session.cs L1-286 | GlobalSettings/Client/ClientWithIndex/OptionOrDefault 最小面;完整序列化 Phase 7 | 单测(经锁步) |
+| src/net/tick_time.hpp | OpenRA.Game/Network/TickTime.cs L16-60 | ShouldAdvance/AdvanceTickTime(JankThreshold=250 内联;时钟注入) | 未直接 |
+| src/net/connection.hpp/.cpp | OpenRA.Game/Network/Connection.cs L24-97 | IConnection + EchoConnection 全文(空帧注入/投影 +1/immediate 优先/disposed 逃生) | 单测(10⁶ tick) |
+| src/net/order_manager.hpp/.cpp | OpenRA.Game/Network/OrderManager.cs L22-334 | 锁步全文:StartGame/IssueOrder/TickImmediate/TryTick(shouldTick→SendOrders→IsReady→ProcessOrders)/IsNetFrame 节流/帧号校验异常逐字/disconnect 标记/defeat 位图/SendSync;SyncReport/TextNotifications/Game 静态面注入 | 单测 |
+| src/net/unit_orders.hpp/.cpp | OpenRA.Game/Network/UnitOrders.cs L48-431 | 可运行子集:default→IValidateOrder→Subject.ResolveOrder 分发 + Grouped 展开 + PauseGame;UI/大厅命令族 Phase 6/7 | 单测(经锁步) |
+| gen/interfaces_gen.h | 上游程序集反射(--gen) | TypeId 键空间 6048(全程序集类型全名 ordinal 排序;枚举名消毒;FindTypeIdByFullName 二分) | 编译期锚定 |
+| gen/sync_gen.cpp | 上游程序集反射(--gen) | [VerifySync] 成员表 84 类型(成员名/类型/属性位/声明类;序 = GetFields 后 GetProperties) | 编入 ora_sim |
+| tests/sim_test.cpp | (§Phase 3 验收) | 哈希族公式手算/Order 字节级构造+往返/OrderIO 魔数与门槛/EchoConnection 锁步 100+10⁶ tick(NetFrameInterval=3 节律 35/38/333335 推导断言)/条件系统(令牌唯一/计数缓存/重复撤销异常)/Activity 生命周期/TraitDictionary(多实例异常/注册序/去重/Dispose 摘除)/DelayedAction/空世界 SyncHash==RNG.Last | 全部通过 |
+
+### Phase 3 验证锚点(2026-10-03)
+
+1. **EchoConnection 单机 10⁶ tick**(OrderManager+World 全链,TickImmediate→TryTick→world.Tick 主循环节律):
+   ASan+UBSan 与 Release 双构建通过,无泄漏无 desync(NetFrame 333335 与
+   NetFrameInterval=3 节律推导一致)。
+2. **字节级对拍面**:Order 序列化构造期望字节逐位核对(flags 位值/7-bit
+   前缀/小端/-1 短路),serialize→deserialize→serialize 往返逐字节恒等。
+3. **异常文本逐字**:No rules definition for unit X / TypeDictionary
+   does not contain / has multiple traits / Attempted to process orders
+   from client …(消息形态差异见偏离表)。
+
+### 已登记偏离(PORTING_PLAN §7.5,Phase 3 新增)
+
+| # | 位置 | 偏离 | 理由 |
+|---|---|---|---|
+| D25 | src/sim Initialize 初始通知 | C# HashSet<delegate> 去重(方法+目标)不可在 std::function 上复刻 → 逐 observer 条目序通知(与 UpdateConditionState 的重复调用语义一致) | 受端幂等是 trait 契约;Phase 5 trait 对拍复核 |
+| D26 | src/sim trait 创建 | traitInfo.Create(init) 工厂面经 World 注入(Phase 5 接 game::ActorInfo + gen 工厂);name 小写/查表/异常文本在工厂闭合 | 运行时 trait 类 Phase 5 起手;Actor 侧循环形态保持 |
+| D27 | src/sim trait 所有权 | 计划 §4.5 World arena 未落地,trait 对象由 World 级 unique_ptr 表持有,actor Dispose 只摘字典引用 | Phase 5 arena 替换;行为面等价(GC 语义) |
+| D28 | src/net Target.FromCell | Map.CenterOfSubCell 依赖 Phase 5;默认 square 网格公式(x*1024+512)桩换算,可注入精确实现 | Order 反序列化 TargetIsCell 分支占位;Phase 5 接 Map |
+| D29 | src/net UnitOrders | 仅 default→ResolveOrder + PauseGame 落地;其余 15 命令(Message/Chat/StartGame/SyncLobby*/Handshake…)为 UI/大厅面,静默吞并 | Phase 6/7 接线;上游多数分支本就是 UI 通知 |
+| D30 | src/net OrderManager | SyncReport(dump/Update)与 TextNotificationsManager 通知未接;generateSyncReport 恒 false(上游默认) | Phase 6/7;默认路径行为一致 |
+| D31 | src/sim LocalRandom | C# 无参构造用 Environment.TickCount;C++ 显式种子 0(UI 域 RNG,不进同步面) | 同步路径禁隐式播种(Phase 0 既定) |
+| D32 | src/sim Player | 最小面(见覆盖表);UnlockedRenderPlayer 恒走 WinState 分支(IUnlocksRenderPlayer trait 族 Phase 5) | SyncHash 消费字段集完整;其余 Phase 5 |
+| D33 | gen/interfaces_gen.h | 编译器合成类型(<>f__AnonymousType 等)收编为消毒枚举名;枚举名仅锚定注释用(查询走 FindTypeIdByFullName) | 键空间完整性优先;名字无语义载荷 |
+| D34 | src/net Order 异常 | Deserialize 的 catch(std::exception) 面不含 TextNotificationsManager 提示;unknown order 的 Log 走 stderr | 日志通道 Phase 5;返回 null 语义一致 |

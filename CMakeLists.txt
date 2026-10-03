@@ -141,6 +141,41 @@ add_library(ora_game STATIC
 target_link_libraries(ora_game PUBLIC ora_gen PRIVATE ora_fs)
 ora_link_std(ora_game)
 
+# 仿真核心:Actor/World/TraitDictionary/Activity/条件系统/SyncHash/Effects
+# (PORTING_PLAN §Phase 3)
+# The simulation core: Actor/World/TraitDictionary/Activity/condition
+# system/SyncHash/Effects (PORTING_PLAN §Phase 3).
+add_library(ora_sim STATIC
+  gen/sync_gen.cpp
+  src/sim/trait_dictionary.cpp
+  src/sim/sync_hash.cpp
+  src/sim/type_dictionary.cpp
+  src/sim/activity.cpp
+  src/sim/actor_init.cpp
+  src/sim/actor.cpp
+  src/sim/target.cpp
+  src/sim/effects.cpp
+  src/sim/world.cpp)
+# gen/interfaces_gen.h 位于仓库根(gen/ 目录),TypeId 头需根 include
+# gen/interfaces_gen.h lives at the repo root (gen/); the TypeId header
+# needs the root on the include path.
+target_include_directories(ora_sim PUBLIC ${CMAKE_SOURCE_DIR})
+target_link_libraries(ora_sim PUBLIC ora_gen)
+ora_link_std(ora_sim)
+
+# 网络层:Order 序列化/OrderIO 线协议/OrderManager 锁步/EchoConnection
+# (PORTING_PLAN §Phase 3)
+# The network layer: Order serialization / the OrderIO wire protocol / the
+# OrderManager lockstep / EchoConnection (PORTING_PLAN §Phase 3).
+add_library(ora_net STATIC
+  src/net/order.cpp
+  src/net/order_io.cpp
+  src/net/connection.cpp
+  src/net/order_manager.cpp
+  src/net/unit_orders.cpp)
+target_link_libraries(ora_net PUBLIC ora_sim)
+ora_link_std(ora_net)
+
 # ———— 工具与测试 / Tools & tests
 # tools/ 已移出仓库跟踪(.gitignore):本地开发工具(探针/校验器/oracle 生成器)
 # 不再随库分发;引用其源文件的目标在文件存在时才构建,克隆环境自动跳过
@@ -197,6 +232,16 @@ add_executable(game_test tests/game_test.cpp)
 target_link_libraries(game_test PRIVATE ora_game)
 ora_link_std(game_test)
 add_test(NAME game_test COMMAND game_test ${ORA_UPSTREAM_ROOT})
+
+# 仿真核心单测(PORTING_PLAN §Phase 3 验收:TraitDictionary/Activity/条件
+# 系统/Order 字节级序列化/OrderIO/EchoConnection 锁步 10⁶ tick)
+# The sim-core unit tests (the PORTING_PLAN §Phase 3 acceptance:
+# TraitDictionary/Activity/condition system/byte-level Order serialization/
+# OrderIO/EchoConnection lockstep with 10⁶ ticks).
+add_executable(sim_test tests/sim_test.cpp)
+target_link_libraries(sim_test PRIVATE ora_net)
+ora_link_std(sim_test)
+add_test(NAME sim_test COMMAND sim_test)
 
 # 规则深度解析对拍(§Phase 2 验收关卡;黄金文件由 schema_dumper --dump 再生)
 # The deep-parse rules comparison (the §Phase 2 gate; regenerate goldens with
