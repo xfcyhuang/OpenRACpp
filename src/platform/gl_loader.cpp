@@ -63,6 +63,8 @@ GlLoadResult LoadGl(void* (*fn_load)(const char* name)) {
   ORA_GL_LOAD(AttachShader);
   ORA_GL_LOAD(GetShaderInfoLog);
   ORA_GL_LOAD(LinkProgram);
+  ORA_GL_LOAD(DeleteProgram);
+  ORA_GL_LOAD(DeleteShader);
   ORA_GL_LOAD(GetProgramInfoLog);
   ORA_GL_LOAD(GetUniformLocation);
   ORA_GL_LOAD(GetActiveUniform);

@@ -3,7 +3,7 @@
 // GL 调用装箱成消息 + 全局锁 + Monitor.Pulse(每帧几十到几百次堆分配),本实现改为
 // **定长值类型命令 + 内联载荷 blob** 的字节流,SPSC(Lamport)无锁环形缓冲传递:
 //   - 零装箱、零委托、零锁(仅空/满时的 atomic wait 唤醒);
-//   - 记录布局 [u32 record_size][GfxCmd 定长 40B][payload…(align8)];
+//   - 记录布局 [u32 record_size][对齐垫 4B][GfxCmd 定长 48B][payload…(align8)];
 //   - 单调递增字节偏移 + 2 的幂容量:写者只发布 head,读者只发布 tail;
 //   - 环尾放不下整条时写 4B pad 记录跳到环首;
 //   - 同步往返(读回/资源名)内嵌 binary_semaphore 指针于命令。
@@ -16,7 +16,7 @@
 // lock-free ring:
 //   - zero boxing, zero delegates, zero locks (atomic-wait wakeups only when
 //     empty/full);
-//   - record layout [u32 record_size][fixed 40-byte GfxCmd][payload… (align8)];
+//   - record layout [u32 record_size][4-byte alignment pad][fixed 48-byte GfxCmd][payload… (align8)];
 //   - monotonically increasing byte offsets over a power-of-two capacity: the
 //     writer publishes only head, the reader only tail;
 //   - a 4-byte pad record jumps to the ring start when the tail lacks room;
@@ -53,8 +53,8 @@ enum class GfxCmdKind : std::uint8_t {
   BindVertexArray,   // uint4_a = id
   GenTextures,       // uint4_a = n;往返同 GenBuffers
   DeleteTextures,    // payload = u32[]
-  TexImage2D,        // target(uint4_a),w/h(uint4_b/c),internal(uint4_d);fmt/type 固定 RGBA/UB;payload = 字节
-  TexSubImage2D,     // target(uint4_a),x/y/w(uint4_b/c/d),h(float_a 位模式);fmt/type 固定;payload = 字节
+  TexImage2D,        // target(uint4_a),w/h(uint4_b/c),internal(uint4_d),fmt(float_a 位模式,默认 RGBA);payload = 字节
+  TexSubImage2D,     // target(uint4_a),x/y/w(uint4_b/c/d),h 与 fmt(float_a/b 位模式);payload = 字节
   GenFramebuffers,   // uint4_a = n;往返同 GenBuffers
   DeleteFramebuffers,
   FramebufferTexture2D,  // uint4_a = fbo,uint4_b = attachment,uint4_c = tex id
@@ -68,7 +68,8 @@ enum class GfxCmdKind : std::uint8_t {
   LinkProgram,       // uint4_a = program
   GetProgramStatus,  // uint4_a = program;往返出 link status
   GetUniformLocation, // uint4_a = program;payload = NUL 结尾名字;往返出 location
-  VertexAttribPointer, // uint4_a = index,uint4_b = size,类型(uint4_c);归一化(b_depth);stride/offset(float_a/b 位模式)
+  VertexAttribPointer, // uint4_a = index,uint4_b = size,类型(uint4_c);归一化(b_depth);stride(uint4_d)/offset(float_a 位模式)
+  VertexAttribIPointer,  // 同上,整数属性路径(无归一化)| as above, the integer-attribute path (no normalization)
   EnableVertexAttribArray,  // uint4_a = index
   DisableVertexAttribArray, // uint4_a = index
   QueryFboStatus,    // 往返出 CheckFramebufferStatus(GL_FRAMEBUFFER) 结果
@@ -77,6 +78,22 @@ enum class GfxCmdKind : std::uint8_t {
   ReadPixels,        // x/y/w/h(uint4_a..d);ptr_sync → 读回请求(目标指针 + 信号量)
   Finish,            // 哨兵:ptr_sync → sem(同步点)
   Shutdown,          // 渲染线程退出
+  // —— 第二批(Shader/Texture 封装)追加 ——
+  // —— Appended in the second batch (the Shader/Texture wrappers) ——
+  Uniform1f,         // int(uint4_a) = location,float_a
+  Uniform3f,         // int(uint4_a) = location,float_a/b/c
+  Uniform1fv,        // int(uint4_a) = location,uint4_b = count;payload = float[]
+  Uniform2fv,        // 同上 | as above
+  Uniform3fv,        // 同上 | as above
+  PixelStorei,       // uint4_a = pname,uint4_b = param
+  TexParameteri,     // uint4_a = pname,uint4_b = param(target 固定 TEXTURE_2D,上游 Texture.cs 如此)
+  CopyTexImage2D,    // x/y(uint4_a/b),w/h(uint4_c/d),internal(float_a 位模式)
+  GetTexImage,       // ptr_sync → 读回请求(桌面 glGetTexImage,BGRA/UB,纹理尺寸由调用方保证)
+  GetProgramActiveUniforms,   // uint4_a = program;往返出 active uniform 数
+  GetActiveUniformAt,  // uint4_a = program,uint4_b = index;ptr_sync → GfxUniformRequest
+  BindFragDataLocation,  // uint4_a = program,uint4_b = colorNumber;payload = NUL 结尾名字
+  DeleteProgram,     // uint4_a = id
+  DeleteShader,      // uint4_a = id
 };
 
 /// 定长命令记录(48B;可变数据在 payload)。
@@ -131,6 +148,16 @@ class GfxCommandQueue {
   /// while waiting for the reader to free space.
   GfxCmd* Reserve(GfxCmdKind kind, std::uint16_t size_payload) {
     const std::size_t size_payload_aligned = (size_payload + 7) & ~std::size_t{7};
+    // 记录 = 8B header(4B 尺寸 + 4B 对齐垫)+ 48B GfxCmd + payload(align8),
+    // 总长恒为 8 的倍数 ⇒ 每条记录起点(含环回后)8 对齐 ⇒ GfxCmd/payload
+    // 落点 8 对齐(第二批复核修正:第一批 4B header 使 GfxCmd 落点失配 ——
+    // Ubsan 实证 UB,Release 向量化后段错误)。
+    // Record = an 8-byte header (4-byte size + 4-byte alignment pad) + the
+    // 48-byte GfxCmd + payload (align8); the total is always a multiple of 8
+    // ⇒ every record start (including after wrap) is 8-aligned ⇒ the
+    // GfxCmd/payload landing spots are 8-aligned (second-batch review fix:
+    // the first batch's 4-byte header misaligned the GfxCmd spot — UB per
+    // Ubsan, segfaulting Release once vectorized).
     const std::size_t size_record = kSizeHeader + sizeof(GfxCmd) + size_payload_aligned;
     assert(size_record <= vec_bytes_.size());  // 单条记录必须能进环 | a record must fit in the ring
 
@@ -146,11 +173,11 @@ class GfxCommandQueue {
 
       if (!b_fits_tail_room && vec_bytes_.size() - size_offset >= kSizeHeader &&
           (uint8_head - uint8_tail) + kSizeHeader <= vec_bytes_.size()) {
-        // 环尾放不下整条:写 4B pad 记录并把 head 跳到环首(保持单调),发布后重试
-        // Record cannot fit at the ring end: write a 4-byte pad record, jump
+        // 环尾放不下整条:写 8B pad 记录并把 head 跳到环首(保持单调),发布后重试
+        // Record cannot fit at the ring end: write an 8-byte pad record, jump
         // head to the ring start (staying monotonic), publish, and retry.
         const std::uint32_t uint4_pad = kSizeHeader;
-        std::memcpy(vec_bytes_.data() + size_offset, &uint4_pad, kSizeHeader);
+        std::memcpy(vec_bytes_.data() + size_offset, &uint4_pad, 4);
         const std::uint64_t uint8_head_jumped = (uint8_head + kSizeHeader + size_mask_) & ~static_cast<std::uint64_t>(size_mask_);
         uint8_head_.store(uint8_head_jumped, std::memory_order_release);
         uint8_head_.notify_one();
@@ -167,7 +194,7 @@ class GfxCommandQueue {
 
     const std::size_t size_offset = uint8_head & size_mask_;
     const std::uint32_t uint4_record_size = static_cast<std::uint32_t>(size_record);
-    std::memcpy(vec_bytes_.data() + size_offset, &uint4_record_size, kSizeHeader);
+    std::memcpy(vec_bytes_.data() + size_offset, &uint4_record_size, 4);  // 尺寸 4B;垫 4B 不必写 | size is 4 bytes; the pad need not be written
 
     GfxCmd* ptr_cmd = std::launder(reinterpret_cast<GfxCmd*>(vec_bytes_.data() + size_offset + kSizeHeader));
     *ptr_cmd = GfxCmd{};
@@ -205,7 +232,7 @@ class GfxCommandQueue {
       if (uint8_head != uint8_tail) {
         const std::size_t size_offset = uint8_tail & size_mask_;
         std::uint32_t uint4_size = 0;
-        std::memcpy(&uint4_size, vec_bytes_.data() + size_offset, kSizeHeader);
+        std::memcpy(&uint4_size, vec_bytes_.data() + size_offset, 4);
         if (uint4_size == kSizeHeader) {
           // pad 记录:无命令体;tail 与写侧对称跳到环首(单调绝对偏移取整)
           // Pad record: no command body; tail jumps to the ring start
@@ -257,7 +284,7 @@ class GfxCommandQueue {
   std::uint64_t size_consumed() const { return uint8_tail_.load(std::memory_order_acquire); }
 
  private:
-  static constexpr std::size_t kSizeHeader = 4;
+  static constexpr std::size_t kSizeHeader = 8;  // 4B 记录尺寸 + 4B 对齐垫 | record size + alignment pad
 
   std::vector<std::byte> vec_bytes_;
   std::size_t size_mask_;

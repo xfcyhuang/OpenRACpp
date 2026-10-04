@@ -129,6 +129,12 @@ void* Sdl2Window::CreateGlContext() {
     std::println(stderr, "SDL_GL_CreateContext 失败 | SDL_GL_CreateContext failed: {}", SDL_GetError());
     return nullptr;
   }
+  // 记录到成员:窗口析构时删除(第二批复核修正 —— 第一批漏存,上下文
+  // 泄漏悬挂于已销毁窗口,后续上下文创建时驱动崩)。
+  // Record on the member so the window destructor deletes it (second-batch
+  // review fix — the first batch never stored it; the leaked context dangled
+  // off a destroyed window and crashed the driver on later context creation).
+  ptr_gl_context_ = ptr_context;
   return ptr_context;
 }
 
@@ -153,23 +159,48 @@ bool Sdl2Window::PumpEvents() {
         b_quit = true;
         break;
       case SDL_WINDOWEVENT:
-        // 几何变化即更新快照(OPT-B5:事件线程写,渲染/逻辑线程无锁读)
-        // Geometry changes update the snapshot immediately (OPT-B5: written by
-        // the eventing thread, read lock-free by the render/logic threads).
-        if (event_sdl.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
-            event_sdl.window.event == SDL_WINDOWEVENT_RESIZED) {
-          int int4_win_w = 0, int4_win_h = 0, int4_draw_w = 0, int4_draw_h = 0;
-          SDL_GetWindowSize(static_cast<SDL_Window*>(ptr_window_), &int4_win_w, &int4_win_h);
-          SDL_GL_GetDrawableSize(static_cast<SDL_Window*>(ptr_window_), &int4_draw_w, &int4_draw_h);
-          const float float_scale = int4_win_w > 0 ? static_cast<float>(int4_draw_w) / int4_win_w : 1.0f;
-          uint8_geom_.store(PackGeom(int4_win_w, int4_win_h, float_scale), std::memory_order_relaxed);
-        }
+        HandleWindowEvent(event_sdl.window.event);
         break;
       default:
-        break;  // 输入映射(键盘/鼠标 → 引擎键码)随 Phase 4 输入批次落地 | input mapping lands with the Phase 4 input batch
+        break;  // 输入映射由 Sdl2Input::PumpInput 承担 | input mapping is Sdl2Input::PumpInput's job
     }
   }
   return b_quit;
+}
+
+void Sdl2Window::HandleWindowEvent(std::uint8_t uint1_event_id) {
+  // Sdl2PlatformWindow.cs L81-112 的状态面(几何/焦点/挂起)
+  // The state plane of Sdl2PlatformWindow.cs L81-112 (geometry/focus/suspend).
+  switch (uint1_event_id) {
+    case SDL_WINDOWEVENT_FOCUS_LOST:
+      b_input_focus_.store(false, std::memory_order_relaxed);
+      break;
+    case SDL_WINDOWEVENT_FOCUS_GAINED:
+      b_input_focus_.store(true, std::memory_order_relaxed);
+      break;
+    // 显示器间移动引发的 DPI 变化(Sdl2Input.cs L93-95)
+    // DPI changes from moving between displays (Sdl2Input.cs L93-95).
+    case SDL_WINDOWEVENT_SIZE_CHANGED: {
+      int int4_win_w = 0, int4_win_h = 0, int4_draw_w = 0, int4_draw_h = 0;
+      SDL_GetWindowSize(static_cast<SDL_Window*>(ptr_window_), &int4_win_w, &int4_win_h);
+      SDL_GL_GetDrawableSize(static_cast<SDL_Window*>(ptr_window_), &int4_draw_w, &int4_draw_h);
+      const float float_scale = int4_win_w > 0 ? static_cast<float>(int4_draw_w) / int4_win_w : 1.0f;
+      uint8_geom_.store(PackGeom(int4_win_w, int4_win_h, float_scale), std::memory_order_relaxed);
+      break;
+    }
+    case SDL_WINDOWEVENT_HIDDEN:
+    case SDL_WINDOWEVENT_MINIMIZED:
+      b_suspended_.store(true, std::memory_order_relaxed);
+      break;
+    case SDL_WINDOWEVENT_EXPOSED:
+    case SDL_WINDOWEVENT_SHOWN:
+    case SDL_WINDOWEVENT_MAXIMIZED:
+    case SDL_WINDOWEVENT_RESTORED:
+      b_suspended_.store(false, std::memory_order_relaxed);
+      break;
+    default:
+      break;
+  }
 }
 
 WindowGeomSnapshot Sdl2Window::Geom() const {

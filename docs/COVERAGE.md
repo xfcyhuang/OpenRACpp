@@ -217,3 +217,26 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D38 | src/platform/sdl2_window | 窗口几何 getter 为打包 atomic<u64> 快照(OPT-B5),非上游每 getter 一把 lock | 单写(事件线程)多读;快照语义与上游 lock 读等价(几何只在窗口事件变化) |
 | D39 | src/platform/gl_loader | 无每次调用的 CheckGLError 轮询;Debug 构建注册 KHR_debug 回调,Release 零错误检查 | 上游 OpenGL.cs L740-767 的轮询在 KHR_debug 时代冗余;错误发现面不减(回调含全部 HIGH/通知) |
 | D40 | src/platform/sdl2_window | GL 上下文由渲染线程创建/持有(D36 的组成部分);窗口事件泵在主线程 | 上游上下文在主线程创建后移交;SDL2 允许创建线程即持有,省一次 MakeCurrent 迁移 |
+
+### Phase 4 第二批(2026-10-05):输入层 + Shader/Texture 封装
+
+**移植面**:Keycode 枚举(238 条逐值照搬,SDL 头对照断言);Sdl2Input 事件泵(修饰符/按钮换算、motion 合并、X1X2 伪键盘、滚轮、文本输入、退出上报)+ MultiTapDetection/TapHistory(三槽 250ms/位移 4);Sdl2Window 增焦点/挂起原子状态(HandleWindowEvent 共用);gfx_command 增 13 命令(uniform 直连/PixelStorei/TexParameteri/CopyTexImage2D/GetTexImage/active-uniform 往返/Delete* 等;TexImage2D 带 fmt/type 字段);Shader 封装({VERSION} 替换、属性循环、fragColor、链接后 active-uniform 枚举 + sampler 单元分配、Bind/PrepareRender/Set* 族);Texture 封装(BGRA 上传/UNPACK 行打包/RGBA16F/读回/ScaleFilter,RAII)。
+
+**验收(2026-10-05)**
+
+- platform_test 纯逻辑:TapHistory 时序/距离边界(ISqrt 语义)、(键,修饰符) 独立缓存、MakeButton/MakeModifiers 位组合、ScaleAwayFromZero 截断边界(含 ±0.5 前置的向零截断用例)、Keycode × SDL 头 34 项对照;
+- 合成事件泵(SDL_PushEvent):双击 MultiTap 1→2、三条 motion 合并为一(位置 = 末事件、delta = 末相对量)、滚轮 Delta=(0,1)、文本输入、SDL_QUIT 上报、ModifierKeys 泵前一次;
+- GL 封装集成:NPOT(5×3)BGRA 全量上传 glGetTexImage 逐字节往返、SetSubData 行距位图子窗(其余像素不变量)、过滤切换幂等、{VERSION} 占位编译、active uniform 枚举(Location 三态断言)、sampler 采样链(白纹理 × 红 uColor → 像素级红/绿断言)、RAII 析构后管线照常;
+- 双构建 ctest 13/13;门禁 102 标注 / 112 文件 PASS。
+
+**实现过程修出三个真 bug(全部由测试暴露)**:SPSC 记录 4B header 致 GfxCmd 落点失配(Ubsan 实证 UB,Release 向量化后段错误 —— header 扩 8B 记录恒 8 对齐);CreateGlContext 漏存成员致 GL 上下文泄漏悬挂(驱动崩于后续上下文创建);Shader::SetVecAt 的 Uniform4fv payload 只申请 4B(渲染线程越界读)。
+
+### 已登记偏离(PORTING_PLAN §7.5,第二批新增)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D41 | src/platform/sdl2_input | PumpInput 内 Game.Exit() 改为返回 b_quit_requested(退出编排归 Phase 5 调用方);TapHistory/MultiTapDetection 的 DateTime.Now 改 steady_clock 毫秒注入;键盘缓存键 (Keycode, Modifiers) 元组打包为 u64;X1X2 伪键的 IsRepeat 恒 false(上游读 e.key.repeat 于鼠标事件 = which 第二字节的 union 覆盖,实际恒 0) | 形态适配不可观测;steady 单调优于上游 DateTime.Now 的可回退;IsRepeat 对伪键无可观察消费方(热键系统不读它) |
+| D42 | src/gfx/shader | Shader::SetTexture 的纹理生命周期契约:Texture 须存活至被替换或 Shader 析构(引擎内 Sheet 纹理由 SpriteCache 持有,天然满足) | 替代上游 PrepareRender 每帧 glIsTexture 逐纹理驱逐(Shader.cs L159-165,O(绑定数) 的 GL 查询/flush);命令队列模式下该驱逐需同步往返,代价不可接受 |
+| D43 | src/gfx/shader | 链接成功后即刻 DeleteShader 两个编译对象(上游保留) | 已链接 program 内嵌产物,GL 规范允许;省显存与驱动对象数,无行为差异 |
+| D44 | src/gfx/texture | Texture RAII:析构异步发 DeleteTextures(命令序保证晚于既有引用);SetData/SetEmpty/SetFloatData 无 pow2 校验(D37 的组成部分,上表已登记此处为封装层落点) | 上游手动 Dispose + 泄漏容忍;OPT-B1 的引擎级 NPOT 决策 |
+| D45 | src/gfx/shader | Shader::Bind() 重播属性指针时同时 EnableVertexAttribArray(上游构造期一次 enable,全局单 VAO 模型) | C++ 侧 VAO 化后 enable 状态属各 VAO;Bind 语义 = "该 VAO 上属性状态完备",与上游可观察行为等价(VAO 缓存随 SpriteRenderer 批次,tracker OPT-A6 注) |

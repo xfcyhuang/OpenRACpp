@@ -186,19 +186,26 @@ target_include_directories(ora_sdl2 INTERFACE ${CMAKE_SOURCE_DIR}/third_party/SD
 target_link_libraries(ora_sdl2 INTERFACE ${CMAKE_SOURCE_DIR}/third_party/SDL2/lib/libSDL2.dll.a)
 
 # 平台层:GL 类型/常量 + 加载器(OPT-A6)+ SDL2 窗口与原子几何快照(OPT-B5)
-# The platform layer: GL types/constants + loader (OPT-A6) and the SDL2
-# window with the atomic geometry snapshot (OPT-B5).
+# + 输入泵(Keycode 枚举/修饰符/多击/motion 合并)
+# The platform layer: GL types/constants + loader (OPT-A6), the SDL2
+# window with the atomic geometry snapshot (OPT-B5), and the input pump
+# (the Keycode enum/modifiers/multi-tap/motion coalescing).
 add_library(ora_platform STATIC
   src/platform/gl_loader.cpp
+  src/platform/sdl2_input.cpp
   src/platform/sdl2_window.cpp)
 target_link_libraries(ora_platform PUBLIC ora_core ora_sdl2)
 ora_link_std(ora_platform)
 
 # 渲染核心:值类型命令 + SPSC 无锁队列(OPT-A5)+ 渲染线程(状态 diff,O6)
-# The render core: value-type commands + the SPSC lock-free ring (OPT-A5) and
-# the render thread (state diff, OPT-A6).
+# + Shader/Texture 封装(OPT-A6:uniform 整数化 + RAII 纹理句柄)
+# The render core: value-type commands + the SPSC lock-free ring (OPT-A5),
+# the render thread (state diff, OPT-A6), and the Shader/Texture wrappers
+# (OPT-A6: integer uniforms + RAII texture handles).
 add_library(ora_gfx STATIC
-  src/gfx/render_thread.cpp)
+  src/gfx/render_thread.cpp
+  src/gfx/shader.cpp
+  src/gfx/texture.cpp)
 target_link_libraries(ora_gfx PUBLIC ora_platform)
 ora_link_std(ora_gfx)
 

@@ -80,6 +80,21 @@ class Sdl2Window {
   /// snapshot immediately; returns whether a quit request was received.
   bool PumpEvents();
 
+  /// 窗口事件处理(Sdl2PlatformWindow.cs L81-112 的状态面:焦点/挂起/几何;
+  /// PumpEvents 与 Sdl2Input::PumpInput 共用)。event id = SDL_WindowEventID。
+  /// Window-event handling (the state plane of Sdl2PlatformWindow.cs L81-112:
+  /// focus/suspend/geometry; shared by PumpEvents and Sdl2Input::PumpInput).
+  /// The event id is an SDL_WindowEventID.
+  void HandleWindowEvent(std::uint8_t uint1_event_id);
+
+  /// 输入焦点(Sdl2PlatformWindow.cs L85-91;默认 false,FOCUS_GAINED 置位)。
+  /// Input focus (Sdl2PlatformWindow.cs L85-91; false until FOCUS_GAINED).
+  bool HasInputFocus() const { return b_input_focus_.load(std::memory_order_relaxed); }
+
+  /// 是否挂起(隐藏/最小化;Sdl2PlatformWindow.cs L98-108)。
+  /// Whether suspended (hidden/minimized; Sdl2PlatformWindow.cs L98-108).
+  bool IsSuspended() const { return b_suspended_.load(std::memory_order_relaxed); }
+
   /// 几何快照(OPT-B5:无锁一次读)。
   /// Geometry snapshot (OPT-B5: one lock-free read).
   WindowGeomSnapshot Geom() const;
@@ -93,6 +108,8 @@ class Sdl2Window {
   void* ptr_window_ = nullptr;                      // SDL_Window*
   void* ptr_gl_context_ = nullptr;                  // SDL_GLContext(渲染线程所有)
   std::atomic<std::uint64_t> uint8_geom_{};         // {w:16|h:16|scale(8.8 定点):16|保留:16}
+  std::atomic<bool> b_input_focus_{false};          // 焦点(OPT-B5 同款原子量)| focus (OPT-B5-style atomic)
+  std::atomic<bool> b_suspended_{false};            // 挂起 | suspended
 };
 
 /// SDL 视频子系统初始化(引用计数;进程级一次物理初始化)。

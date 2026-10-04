@@ -43,6 +43,18 @@ struct GfxReadbackRequest {
   void* ptr_dst;
 };
 
+/// 单个 active uniform 的往返请求(名字 + 类型 + 位置;名字缓冲 128B 与上游
+/// Shader.cs L114 的 StringBuilder(128) 对齐)。
+/// Round-trip request for one active uniform (name + type + location; the
+/// 128-byte name buffer matches upstream's StringBuilder(128) at Shader.cs
+/// L114).
+struct GfxUniformRequest {
+  GfxSyncOut sync;
+  std::uint32_t uint4_type;        // GL 枚举(GL_FLOAT_VEC4 等)| the GL enum
+  std::int32_t int4_location;      // glGetUniformLocation 结果 | the glGetUniformLocation result
+  char str_name[128];              // NUL 结尾 | NUL-terminated
+};
+
 /// 渲染线程:持有 GL 上下文,消费命令队列,维护绑定状态缓存。
 /// The render thread: owns the GL context, consumes the command queue, and
 /// maintains the binding-state cache.
@@ -87,15 +99,39 @@ class RenderThread {
   bool ReadPixels(std::int32_t int4_x, std::int32_t int4_y, std::int32_t int4_w, std::int32_t int4_h,
                   void* ptr_dst);
 
+  /// —— 第二批(Shader/Texture 封装)同步 API ——
+  /// —— Second-batch (Shader/Texture wrapper) synchronous API ——
+
+  /// 同步 glGetTexImage(TEXTURE_2D, level 0, BGRA/UNSIGNED_BYTE);缓冲区由
+  /// 调用方按纹理尺寸分配。渲染线程故障时返回 false。
+  /// Synchronous glGetTexImage (TEXTURE_2D, level 0, BGRA/UNSIGNED_BYTE); the
+  /// buffer is caller-allocated to texture size. false on render-thread failure.
+  bool GetTexImage(std::size_t size_bytes, void* ptr_dst);
+
+  /// 同步查询 program 的 active uniform 数(GL_ACTIVE_UNIFORMS)。
+  /// Synchronously queries a program's active-uniform count (GL_ACTIVE_UNIFORMS).
+  std::uint32_t GetActiveUniformCount(std::uint32_t uint4_program);
+
+  /// 同步枚举第 index 个 active uniform(名字/类型/位置)。失败返回 false。
+  /// Synchronously enumerates the index-th active uniform
+  /// (name/type/location). false on failure.
+  bool GetActiveUniformAt(std::uint32_t uint4_program, std::uint32_t uint4_index,
+                          GfxUniformRequest& request_out);
+
   /// 渲染线程是否已就绪(GL 加载完毕)或已失败(上下文/加载失败)。
   /// Whether the render thread is ready (GL loaded) or has failed
   /// (context/loading failure).
   bool b_thread_failed() const { return b_thread_failed_.load(std::memory_order_acquire); }
   bool b_thread_ready() const { return b_thread_ready_.load(std::memory_order_acquire); }
 
+  /// 等待一个同步往返的完成信号(渲染线程故障时感知并返回 false)。
+  /// Shader/Texture 封装与测试共用。
+  /// Waits for one synchronous round-trip's completion semaphore (failure
+  /// aware, returning false). Shared by the Shader/Texture wrappers and tests.
+  bool WaitDone(std::binary_semaphore& sem_done);
+
  private:
   void Run();
-  bool WaitDone(std::binary_semaphore& sem_done);
 
   platform::Sdl2Window& window_;
   GfxCommandQueue queue_;

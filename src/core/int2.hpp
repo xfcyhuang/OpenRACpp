@@ -10,6 +10,8 @@
 #pragma once
 import std;
 
+#include "core/exts_math.hpp"  // Length() 用 ISqrt(原先仅靠包含序偶然可见)| Length() needs ISqrt (previously visible only by include order)
+
 namespace ora {
 
 struct Rectangle;  // 前置声明:Clamp 参数为 const 引用,声明处无需完整类型 | Forward declaration: Clamp takes a const reference, so no complete type is needed here

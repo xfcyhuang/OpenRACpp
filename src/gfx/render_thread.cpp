@@ -116,7 +116,7 @@ void ExecuteCommand(const GfxCmd& cmd, const std::byte* ptr_payload, RenderState
       break;
     case GfxCmdKind::BufferData:
       g::BufferData(static_cast<gl::GLenum>(cmd.uint4_a), static_cast<gl::GLsizeiptr>(cmd.uint4_b),
-                    ptr_payload, static_cast<gl::GLenum>(cmd.uint4_c));
+                    cmd.size_payload != 0 ? ptr_payload : nullptr, static_cast<gl::GLenum>(cmd.uint4_c));
       break;
     case GfxCmdKind::BufferSubData:
       g::BufferSubData(static_cast<gl::GLenum>(cmd.uint4_a), static_cast<gl::GLintptr>(cmd.uint4_b),
@@ -129,18 +129,29 @@ void ExecuteCommand(const GfxCmd& cmd, const std::byte* ptr_payload, RenderState
       }
       break;
     case GfxCmdKind::TexImage2D:
-      // 约定:target=uint4_a,w=uint4_b,h=uint4_c,internal=uint4_d;fmt/type 固定
-      // RGBA/UNSIGNED_BYTE(第一批 RGBA8 路线;RGBA16F 调色板随 A7 批次)。
+      // 约定:target=uint4_a,w=uint4_b,h=uint4_c,internal=uint4_d,fmt=float_a
+      // 位模式(0 = 默认 RGBA),type=float_b 位模式(0 = 默认 UNSIGNED_BYTE;
+      // RGBA16F 路径传 GL_FLOAT)。payload 为空 = data null(分配不初始化)。
+      // Convention: target=uint4_a, w=uint4_b, h=uint4_c, internal=uint4_d,
+      // fmt as the float_a bit pattern (0 = RGBA default), type as the float_b
+      // bit pattern (0 = UNSIGNED_BYTE default; the RGBA16F path passes
+      // GL_FLOAT). An empty payload means a null data pointer (allocate
+      // uninitialized).
       g::TexImage2D(static_cast<gl::GLenum>(cmd.uint4_a), 0, static_cast<gl::GLint>(cmd.uint4_d),
                     static_cast<gl::GLsizei>(cmd.uint4_b), static_cast<gl::GLsizei>(cmd.uint4_c),
-                    0, g::GL_RGBA, g::GL_UNSIGNED_BYTE, ptr_payload);
+                    0, cmd.float_a != 0.0f ? std::bit_cast<gl::GLenum>(cmd.float_a) : g::GL_RGBA,
+                    cmd.float_b != 0.0f ? std::bit_cast<gl::GLenum>(cmd.float_b) : g::GL_UNSIGNED_BYTE,
+                    cmd.size_payload != 0 ? ptr_payload : nullptr);
       break;
     case GfxCmdKind::TexSubImage2D:
-      // 约定:target=uint4_a,x=uint4_b,y=uint4_c,w=uint4_d,h=float_a 位模式。
+      // 约定:target=uint4_a,x=uint4_b,y=uint4_c,w=uint4_d,h/fmt(float_a/b 位模式)。
+      // Convention: target=uint4_a, x=uint4_b, y=uint4_c, w=uint4_d, h/fmt as
+      // the float_a/float_b bit patterns.
       g::TexSubImage2D(static_cast<gl::GLenum>(cmd.uint4_a), 0, static_cast<gl::GLint>(cmd.uint4_b),
                        static_cast<gl::GLint>(cmd.uint4_c), static_cast<gl::GLsizei>(cmd.uint4_d),
                        static_cast<gl::GLsizei>(std::bit_cast<std::uint32_t>(cmd.float_a)),
-                       g::GL_RGBA, g::GL_UNSIGNED_BYTE, ptr_payload);
+                       cmd.float_b != 0.0f ? std::bit_cast<gl::GLenum>(cmd.float_b) : g::GL_RGBA,
+                       g::GL_UNSIGNED_BYTE, ptr_payload);
       break;
     case GfxCmdKind::FramebufferTexture2D:
       // uint4_a = fbo,uint4_b = attachment,uint4_c = tex(操作前须绑定该 fbo)
@@ -218,10 +229,22 @@ void ExecuteCommand(const GfxCmd& cmd, const std::byte* ptr_payload, RenderState
       break;
     }
     case GfxCmdKind::VertexAttribPointer:
+      // offset 携带于 float_a 位模式(第二批复核修正:第一批误作数值转换,
+      // 大偏移将损失精度;0 偏移行为不变)
+      // The offset rides in the float_a bit pattern (second-batch review fix:
+      // the first batch mistakenly numeric-converted it, losing precision on
+      // large offsets; zero-offset behavior is unchanged).
       g::VertexAttribPointer(cmd.uint4_a, static_cast<gl::GLint>(cmd.uint4_b),
                              static_cast<gl::GLenum>(cmd.uint4_c), cmd.b_depth != 0 ? g::GL_TRUE : g::GL_FALSE,
                              static_cast<gl::GLsizei>(cmd.uint4_d),
-                             reinterpret_cast<const void*>(static_cast<std::uintptr_t>(cmd.float_a)));
+                             reinterpret_cast<const void*>(
+                                 static_cast<std::uintptr_t>(std::bit_cast<std::uint32_t>(cmd.float_a))));
+      break;
+    case GfxCmdKind::VertexAttribIPointer:
+      g::VertexAttribIPointer(cmd.uint4_a, static_cast<gl::GLint>(cmd.uint4_b),
+                              static_cast<gl::GLenum>(cmd.uint4_c), static_cast<gl::GLsizei>(cmd.uint4_d),
+                              reinterpret_cast<const void*>(
+                                  static_cast<std::uintptr_t>(std::bit_cast<std::uint32_t>(cmd.float_a))));
       break;
     case GfxCmdKind::EnableVertexAttribArray:
       g::EnableVertexAttribArray(cmd.uint4_a);
@@ -257,6 +280,75 @@ void ExecuteCommand(const GfxCmd& cmd, const std::byte* ptr_payload, RenderState
       static_cast<GfxSyncOut*>(cmd.ptr_sync)->sem_done.release();
       break;
     }
+    case GfxCmdKind::Uniform1f:
+      g::Uniform1f(static_cast<gl::GLint>(cmd.uint4_a), cmd.float_a);
+      break;
+    case GfxCmdKind::Uniform3f:
+      g::Uniform3f(static_cast<gl::GLint>(cmd.uint4_a), cmd.float_a, cmd.float_b, cmd.float_c);
+      break;
+    case GfxCmdKind::Uniform1fv:
+      g::Uniform1fv(static_cast<gl::GLint>(cmd.uint4_a), static_cast<gl::GLsizei>(cmd.uint4_b),
+                    reinterpret_cast<const gl::GLfloat*>(ptr_payload));
+      break;
+    case GfxCmdKind::Uniform2fv:
+      g::Uniform2fv(static_cast<gl::GLint>(cmd.uint4_a), static_cast<gl::GLsizei>(cmd.uint4_b),
+                    reinterpret_cast<const gl::GLfloat*>(ptr_payload));
+      break;
+    case GfxCmdKind::Uniform3fv:
+      g::Uniform3fv(static_cast<gl::GLint>(cmd.uint4_a), static_cast<gl::GLsizei>(cmd.uint4_b),
+                    reinterpret_cast<const gl::GLfloat*>(ptr_payload));
+      break;
+    case GfxCmdKind::PixelStorei:
+      g::PixelStorei(static_cast<gl::GLenum>(cmd.uint4_a), static_cast<gl::GLint>(cmd.uint4_b));
+      break;
+    case GfxCmdKind::TexParameteri:
+      // target 固定 TEXTURE_2D(Texture.cs 的 PrepareTexture 即如此)
+      // The target is fixed TEXTURE_2D (as in Texture.cs's PrepareTexture).
+      g::TexParameteri(g::GL_TEXTURE_2D, static_cast<gl::GLenum>(cmd.uint4_a),
+                       static_cast<gl::GLint>(cmd.uint4_b));
+      break;
+    case GfxCmdKind::CopyTexImage2D:
+      // 约定:x=uint4_a,y=uint4_b,w=uint4_c,h=uint4_d,internal=float_a 位模式
+      // Convention: x=uint4_a, y=uint4_b, w=uint4_c, h=uint4_d, internal as
+      // the float_a bit pattern.
+      g::CopyTexImage2D(g::GL_TEXTURE_2D, 0,
+                        cmd.float_a != 0.0f ? std::bit_cast<gl::GLenum>(cmd.float_a) : g::GL_RGBA8,
+                        static_cast<gl::GLint>(cmd.uint4_a), static_cast<gl::GLint>(cmd.uint4_b),
+                        static_cast<gl::GLsizei>(cmd.uint4_c), static_cast<gl::GLsizei>(cmd.uint4_d), 0);
+      break;
+    case GfxCmdKind::GetTexImage: {
+      auto* ptr_request = static_cast<GfxReadbackRequest*>(cmd.ptr_sync);
+      g::GetTexImage(g::GL_TEXTURE_2D, 0, g::GL_BGRA, g::GL_UNSIGNED_BYTE, ptr_request->ptr_dst);
+      ptr_request->sync.sem_done.release();
+      break;
+    }
+    case GfxCmdKind::GetProgramActiveUniforms: {
+      auto* ptr_request = static_cast<GfxScalarRequest*>(cmd.ptr_sync);
+      gl::GLint int4_count = 0;
+      g::GetProgramiv(cmd.uint4_a, g::GL_ACTIVE_UNIFORMS, &int4_count);
+      ptr_request->uint4_value = static_cast<std::uint32_t>(int4_count);
+      ptr_request->sync.sem_done.release();
+      break;
+    }
+    case GfxCmdKind::GetActiveUniformAt: {
+      auto* ptr_request = static_cast<GfxUniformRequest*>(cmd.ptr_sync);
+      gl::GLint int4_size = 0;
+      g::GetActiveUniform(cmd.uint4_a, cmd.uint4_b, sizeof(ptr_request->str_name) - 1, nullptr,
+                          &int4_size, &ptr_request->uint4_type, ptr_request->str_name);
+      ptr_request->int4_location = g::GetUniformLocation(cmd.uint4_a, ptr_request->str_name);
+      ptr_request->sync.sem_done.release();
+      break;
+    }
+    case GfxCmdKind::BindFragDataLocation:
+      g::BindFragDataLocation(cmd.uint4_a, cmd.uint4_b,
+                              reinterpret_cast<const gl::GLchar*>(ptr_payload));
+      break;
+    case GfxCmdKind::DeleteProgram:
+      g::DeleteProgram(cmd.uint4_a);
+      break;
+    case GfxCmdKind::DeleteShader:
+      g::DeleteShader(cmd.uint4_a);
+      break;
     case GfxCmdKind::Shutdown:
       break;  // 由 Run() 循环处理 | handled by the Run() loop
   }
@@ -468,6 +560,53 @@ bool RenderThread::ReadPixels(std::int32_t int4_x, std::int32_t int4_y, std::int
     ptr_cmd->ptr_sync = &request;
     queue_.CommitBare();
     return WaitDone(request.sync.sem_done);
+  }
+  return false;
+}
+
+bool RenderThread::GetTexImage(std::size_t, void* ptr_dst) {
+  // size_bytes 仅作文档性参数(桌面 glGetTexImage 无尺寸参数;缓冲区尺寸
+  // 由调用方按纹理大小保证),保持与其他读回 API 的签名一致性。
+  // size_bytes is documentary only (desktop glGetTexImage takes no size; the
+  // buffer sizing is the caller's contract), keeping signature parity with the
+  // other readback APIs.
+  GfxReadbackRequest request;
+  request.ptr_dst = ptr_dst;
+  if (GfxCmd* ptr_cmd = queue_.Reserve(GfxCmdKind::GetTexImage, 0); ptr_cmd != nullptr) {
+    ptr_cmd->ptr_sync = &request;
+    queue_.CommitBare();
+    return WaitDone(request.sync.sem_done);
+  }
+  return false;
+}
+
+std::uint32_t RenderThread::GetActiveUniformCount(std::uint32_t uint4_program) {
+  GfxScalarRequest request;
+  if (GfxCmd* ptr_cmd = queue_.Reserve(GfxCmdKind::GetProgramActiveUniforms, 0); ptr_cmd != nullptr) {
+    ptr_cmd->uint4_a = uint4_program;
+    ptr_cmd->ptr_sync = &request;
+    queue_.CommitBare();
+    if (!WaitDone(request.sync.sem_done))
+      return 0;
+    return request.uint4_value;
+  }
+  return 0;
+}
+
+bool RenderThread::GetActiveUniformAt(std::uint32_t uint4_program, std::uint32_t uint4_index,
+                                       GfxUniformRequest& request_out) {
+  // binary_semaphore 不可拷贝:字段级清零(名字缓冲整块 memset)。
+  // binary_semaphore is non-copyable: clear field-wise (the name buffer
+  // memset wholesale).
+  request_out.uint4_type = 0;
+  request_out.int4_location = 0;
+  request_out.str_name[0] = '\0';
+  if (GfxCmd* ptr_cmd = queue_.Reserve(GfxCmdKind::GetActiveUniformAt, 0); ptr_cmd != nullptr) {
+    ptr_cmd->uint4_a = uint4_program;
+    ptr_cmd->uint4_b = uint4_index;
+    ptr_cmd->ptr_sync = &request_out;
+    queue_.CommitBare();
+    return WaitDone(request_out.sync.sem_done);
   }
   return false;
 }
