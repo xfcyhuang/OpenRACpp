@@ -191,3 +191,29 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D32 | src/sim Player | 最小面(见覆盖表);UnlockedRenderPlayer 恒走 WinState 分支(IUnlocksRenderPlayer trait 族 Phase 5) | SyncHash 消费字段集完整;其余 Phase 5 |
 | D33 | gen/interfaces_gen.h | 编译器合成类型(<>f__AnonymousType 等)收编为消毒枚举名;枚举名仅锚定注释用(查询走 FindTypeIdByFullName) | 键空间完整性优先;名字无语义载荷 |
 | D34 | src/net Order 异常 | Deserialize 的 catch(std::exception) 面不含 TextNotificationsManager 提示;unknown order 的 Log 走 stderr | 日志通道 Phase 5;返回 null 语义一致 |
+
+## src/platform/ + src/gfx/ — Phase 4 第一批:SDL2 窗口 + GL 加载 + 渲染命令缓冲(2026-10-04)
+
+| C++ 文件 | 上游锚点 | 状态 |
+|---|---|---|
+| src/platform/gl_types.hpp | OpenGL.cs L12-238(常量/类型,103 个常量全量) | 已对拍(值逐一对照) |
+| src/platform/gl_loader.hpp/.cpp | OpenGL.cs L240-669(78 入口表驱动加载) | 已落地(直连 + KHR_debug,OPT-A6) |
+| src/platform/sdl2_window.hpp/.cpp | Sdl2PlatformWindow.cs L34-587(窗口/模式/GL 属性/事件) | 主体落地(输入映射待输入批次) |
+| src/gfx/gfx_command.hpp | ThreadedGraphicsContext.cs L188-505(重设计,OPT-A5) | 已落地(SPSC + 值类型命令) |
+| src/gfx/render_thread.hpp/.cpp | ThreadedGraphicsContext.cs L188-820(统一线程模型) | 已落地(状态 diff,OPT-A6) |
+
+### 验收(2026-10-04)
+
+- platform_test:SPSC 单线程 200 条(pad/环绕)+ 双线程 200,000 条序号完整性;桌面 GL 集成 —— NPOT FBO(333×257,OPT-B1)FRAMEBUFFER_COMPLETE 直过、清屏与着色器三角形 glReadPixels 像素断言、KHR_debug 回调工作;无桌面环境自动 SKIP(ORA_SKIP_GL 亦可显式跳过);
+- 双构建(ASan+UBSan / Release)ctest 13/13;import std 门禁(105 文件,白名单 + SDL2/SDL.h)与 UPSTREAM 标注门禁(95 条)PASS。
+
+### 已登记偏离(PORTING_PLAN §7.5,Phase 4 新增)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D35 | src/gfx 命令封送 | ThreadedGraphicsContext 的 Post(Action<object>,object) 装箱消息队列 → 值类型命令 + 内联载荷 + SPSC 无锁字节环(OPT-A5) | 行为等价(命令序保持);消除每帧装箱/锁/Pulse;上游 1.1/1.2/1.4 全部问题点(见 UPSTREAM_CPP_REVIEW 主题一) |
+| D36 | src/gfx 线程模型 | 渲染线程永远存在并独占 GL 上下文;上游 Windows 窗口模式禁用渲染线程的特例(Sdl2PlatformWindow.cs L345-353)不复刻 | 统一模型;渲染结果走离屏 FBO 对拍(Phase 4 渲染关卡),不依赖上游线程拓扑 |
+| D37 | src/platform 纹理/FBO | 不强制 2 的幂纹理/帧缓冲(OPT-B1);FBO 精确匹配视口 | GL3.2 core 完整支持 NPOT;上游 Texture.cs L84-85 的 GLES2 时代约束不移植;渲染对拍关卡验证 |
+| D38 | src/platform/sdl2_window | 窗口几何 getter 为打包 atomic<u64> 快照(OPT-B5),非上游每 getter 一把 lock | 单写(事件线程)多读;快照语义与上游 lock 读等价(几何只在窗口事件变化) |
+| D39 | src/platform/gl_loader | 无每次调用的 CheckGLError 轮询;Debug 构建注册 KHR_debug 回调,Release 零错误检查 | 上游 OpenGL.cs L740-767 的轮询在 KHR_debug 时代冗余;错误发现面不减(回调含全部 HIGH/通知) |
+| D40 | src/platform/sdl2_window | GL 上下文由渲染线程创建/持有(D36 的组成部分);窗口事件泵在主线程 | 上游上下文在主线程创建后移交;SDL2 允许创建线程即持有,省一次 MakeCurrent 迁移 |

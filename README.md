@@ -43,7 +43,14 @@
 - `src/core/arena.hpp`:PORTING_PLAN §4.5 内存分区落地——FrameArena(帧临时,仅平凡可析构)/ WorldArena(整局,析构逆序登记、Destroy 幂等、Reset 复用)
 - `tests/core_test.cpp`:decimal 语义断言(含早截断分歧底线用例)+ arena 生命周期断言;双构建 ctest 12/12
 
-下一阶段(Phase 4):平台层 + 渲染(SDL2/glad/OpenAL/FreeType、三级合成、Westwood 文件格式)。
+**Phase 4 第一批完成**(平台层骨架 + 渲染命令缓冲;2026-10-04):
+
+- `third_party/SDL2`:官方 2.32.10 MinGW x64 开发包接入
+- `src/platform/`:gl_types(103 个 GL 常量逐值对照)+ gl_loader(78 入口表驱动直连,KHR_debug 回调替代 glGetError 轮询)+ sdl2_window(窗口三模式 + **几何打包 atomic 快照**,getter 无锁)
+- `src/gfx/`:gfx_command(**值类型命令 + 内联载荷 + SPSC 无锁字节环**,替代上游装箱消息队列)+ render_thread(**统一线程模型**:渲染线程永远存在并独占 GL 上下文,消费端绑定状态 diff)
+- 验收(platform_test):SPSC 双线程 **200,000 条**序号完整性压测 + 桌面 GL 集成 —— **NPOT FBO**(333×257)直接 FRAMEBUFFER_COMPLETE、清屏与着色器三角形的 glReadPixels 像素断言;无桌面环境自动 SKIP;双构建 ctest 13/13;偏离 D35~D40 登记
+
+下一批次(Phase 4 续):输入映射(键码/修饰符/多击)、Shader/Texture/SheetBuilder 完整封装、OpenAL/FreeType、三级合成 Renderer、Westwood 文件格式全家。
 
 ## 与上游的差异(优化点与偏离登记)
 
@@ -128,7 +135,14 @@ The engine is rewritten from scratch to match the exact semantics of the upstrea
 - `src/core/arena.hpp`: the PORTING_PLAN §4.5 memory regions — FrameArena (frame-transient, trivially destructible only) / WorldArena (per-world, reverse-order destructor records, idempotent Destroy, Reset reuse)
 - `tests/core_test.cpp`: decimal-semantics assertions (including the early-truncation divergence floor case) + arena lifecycle assertions; ctest 12/12 on both builds
 
-Next up (Phase 4): the platform layer + rendering (SDL2/glad/OpenAL/FreeType, the three-stage composite, Westwood file formats).
+**Phase 4 first batch complete** (platform-layer skeleton + the render command buffer; 2026-10-04):
+
+- `third_party/SDL2`: the official 2.32.10 MinGW x64 dev package
+- `src/platform/`: gl_types (103 GL constants value-checked one by one) + gl_loader (78 entry points loaded table-driven; the KHR_debug callback replaces glGetError polling) + sdl2_window (three window modes + a **packed atomic geometry snapshot**, lock-free getters)
+- `src/gfx/`: gfx_command (**value-type commands + inline payloads over an SPSC lock-free byte ring**, replacing the upstream boxed message queue) + render_thread (a **unified threading model**: the render thread always exists and solely owns the GL context; the consumer state-diffs bindings)
+- Acceptance (platform_test): a two-thread **200,000-record** sequence-integrity stress test plus desktop-GL integration — a **NPOT FBO** (333×257) passing FRAMEBUFFER_COMPLETE directly, and glReadPixels pixel assertions for the clear and a shader triangle; auto-SKIP on headless hosts; ctest 13/13 on both builds; deviations D35–D40 registered
+
+Next batch (Phase 4 continued): input mapping (keycodes/modifiers/multi-click), full Shader/Texture/SheetBuilder wrappers, OpenAL/FreeType, the three-stage composite Renderer, and the full Westwood file-format family.
 
 ## Differences from upstream (optimizations & registered deviations)
 

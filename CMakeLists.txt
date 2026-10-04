@@ -176,6 +176,32 @@ add_library(ora_net STATIC
 target_link_libraries(ora_net PUBLIC ora_sim)
 ora_link_std(ora_net)
 
+# ———— Phase 4 第一批:平台层 + 渲染命令缓冲 ————
+# Phase 4 first batch: the platform layer + the render command buffer.
+
+# SDL2 2.32.10 官方 MinGW x64 开发包(third_party/SDL2,见其 LICENSE.txt)
+# The official SDL2 2.32.10 MinGW x64 dev package (third_party/SDL2; see its LICENSE.txt).
+add_library(ora_sdl2 INTERFACE)
+target_include_directories(ora_sdl2 INTERFACE ${CMAKE_SOURCE_DIR}/third_party/SDL2/include)
+target_link_libraries(ora_sdl2 INTERFACE ${CMAKE_SOURCE_DIR}/third_party/SDL2/lib/libSDL2.dll.a)
+
+# 平台层:GL 类型/常量 + 加载器(OPT-A6)+ SDL2 窗口与原子几何快照(OPT-B5)
+# The platform layer: GL types/constants + loader (OPT-A6) and the SDL2
+# window with the atomic geometry snapshot (OPT-B5).
+add_library(ora_platform STATIC
+  src/platform/gl_loader.cpp
+  src/platform/sdl2_window.cpp)
+target_link_libraries(ora_platform PUBLIC ora_core ora_sdl2)
+ora_link_std(ora_platform)
+
+# 渲染核心:值类型命令 + SPSC 无锁队列(OPT-A5)+ 渲染线程(状态 diff,O6)
+# The render core: value-type commands + the SPSC lock-free ring (OPT-A5) and
+# the render thread (state diff, OPT-A6).
+add_library(ora_gfx STATIC
+  src/gfx/render_thread.cpp)
+target_link_libraries(ora_gfx PUBLIC ora_platform)
+ora_link_std(ora_gfx)
+
 # ———— 工具与测试 / Tools & tests
 # tools/ 已移出仓库跟踪(.gitignore):本地开发工具(探针/校验器/oracle 生成器)
 # 不再随库分发;引用其源文件的目标在文件存在时才构建,克隆环境自动跳过
@@ -266,3 +292,16 @@ foreach(ora_mod ra cnc d2k)
              ${CMAKE_SOURCE_DIR}/tests/golden_rules_${ora_mod}.txt)
   endif()
 endforeach()
+
+# Phase 4 第一批验收:SPSC 命令队列(纯逻辑)+ 桌面 GL 集成(OPT-A5/A6/B1/B5;
+# 无桌面环境自动 SKIP)。SDL2.dll 就近拷贝,保证 ctest 直接可跑。
+# Phase 4 first-batch acceptance: the SPSC command queue (pure logic) plus the
+# desktop-GL integration (OPT-A5/A6/B1/B5; auto-SKIP on headless hosts).
+# SDL2.dll is copied alongside so ctest runs directly.
+add_executable(platform_test tests/platform_test.cpp)
+target_link_libraries(platform_test PRIVATE ora_gfx ora_sdl2)
+ora_link_std(platform_test)
+add_custom_command(TARGET platform_test POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:platform_test>)
+add_test(NAME platform_test COMMAND platform_test)
