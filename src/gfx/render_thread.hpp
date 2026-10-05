@@ -118,6 +118,14 @@ class RenderThread {
   bool GetActiveUniformAt(std::uint32_t uint4_program, std::uint32_t uint4_index,
                           GfxUniformRequest& request_out);
 
+  /// —— 第四批(SpriteRenderer/单级合成)同步 API ——
+  /// —— Fourth-batch (SpriteRenderer/composite) synchronous API ——
+
+  /// 同步 glGetIntegerv(GL_VIEWPORT)(FrameBuffer Bind 的保存/恢复)。
+  /// Synchronous glGetIntegerv(GL_VIEWPORT) (FrameBuffer Bind's
+  /// save/restore).
+  void ReadViewport(std::int32_t (&arr_viewport_out)[4]);
+
   /// 渲染线程是否已就绪(GL 加载完毕)或已失败(上下文/加载失败)。
   /// Whether the render thread is ready (GL loaded) or has failed
   /// (context/loading failure).

@@ -81,6 +81,14 @@ ORA_GL_DECL(BindBuffer, void(*)(GLenum, GLuint))
 ORA_GL_DECL(BufferData, void(*)(GLenum, GLsizeiptr, const void*, GLenum))
 ORA_GL_DECL(BufferSubData, void(*)(GLenum, GLintptr, GLsizeiptr, const void*))
 ORA_GL_DECL(DeleteBuffers, void(*)(GLsizei, const GLuint*))
+// 第四批(OPT-A5 持久映射 VB;上游未用 —— glBufferStorage 是 C++ 侧优化引入)
+// Fourth batch (the OPT-A5 persistent-mapped VBs; unused upstream —
+// glBufferStorage enters with the C++-side optimization).
+ORA_GL_DECL(BufferStorage, void(*)(GLenum, GLsizeiptr, const void*, GLbitfield))
+ORA_GL_DECL(MapBufferRange, void* (*)(GLenum, GLintptr, GLsizeiptr, GLbitfield))
+ORA_GL_DECL(FenceSync, GLsync (*)(GLenum, GLbitfield))
+ORA_GL_DECL(ClientWaitSync, GLenum (*)(GLsync, GLbitfield, GLuint64))
+ORA_GL_DECL(DeleteSync, void(*)(GLsync))
 
 // —— 顶点数组(OpenGL.cs L611-615,646-647)——
 // —— Vertex arrays (OpenGL.cs L611-615, 646-647) ——
@@ -89,12 +97,17 @@ ORA_GL_DECL(VertexAttribIPointer, void(*)(GLuint, GLint, GLenum, GLsizei, const 
 ORA_GL_DECL(EnableVertexAttribArray, void(*)(GLuint))
 ORA_GL_DECL(DisableVertexAttribArray, void(*)(GLuint))
 ORA_GL_DECL(GenVertexArrays, void(*)(GLsizei, GLuint*))
+ORA_GL_DECL(DeleteVertexArrays, void(*)(GLsizei, const GLuint*))
 ORA_GL_DECL(BindVertexArray, void(*)(GLuint))
 
 // —— 绘制与混合/深度/裁剪(OpenGL.cs L616-622)——
 // —— Drawing & blend/depth/scissor (OpenGL.cs L616-622) ——
 ORA_GL_DECL(DrawArrays, void(*)(GLenum, GLint, GLsizei))
 ORA_GL_DECL(DrawElements, void(*)(GLenum, GLsizei, GLenum, const void*))
+// 第四批(OPT-A5 持久映射 VB 的槽基址绘制;GL 3.2 core)
+// Fourth batch (the slot-based draw of the OPT-A5 persistent-mapped VBs;
+// GL 3.2 core).
+ORA_GL_DECL(DrawElementsBaseVertex, void(*)(GLenum, GLsizei, GLenum, const void*, GLint))
 ORA_GL_DECL(BlendEquation, void(*)(GLenum))
 ORA_GL_DECL(BlendEquationSeparate, void(*)(GLenum, GLenum))
 ORA_GL_DECL(BlendFunc, void(*)(GLenum, GLenum))

@@ -50,6 +50,7 @@ enum class GfxCmdKind : std::uint8_t {
   BufferData,        // uint4_a = target,uint4_b = size,usage(uint4_c);payload = 字节
   BufferSubData,     // uint4_a = target,offset/size(uint4_b/c);payload = 字节
   GenVertexArrays,   // uint4_a = n;往返同 GenBuffers
+  DeleteVertexArrays,  // 第四批:VAO 缓存的 RAII 析构;payload = u32[]
   BindVertexArray,   // uint4_a = id
   GenTextures,       // uint4_a = n;往返同 GenBuffers
   DeleteTextures,    // payload = u32[]
@@ -74,7 +75,7 @@ enum class GfxCmdKind : std::uint8_t {
   DisableVertexAttribArray, // uint4_a = index
   QueryFboStatus,    // 往返出 CheckFramebufferStatus(GL_FRAMEBUFFER) 结果
   DrawArrays,        // uint4_a = mode,uint4_b = first,uint4_c = count
-  DrawElements,      // uint4_a = mode,uint4_b = count,uint4_c = type,uint4_d = 偏移
+  DrawElements,      // uint4_a = mode,uint4_b = count,uint4_c = type,uint4_d = 偏移;float_a 位模式 = basevertex(第四批:持久 VB 槽基址;0 = 兼容无基址)| float_a bit pattern = basevertex (fourth batch: the persistent-VB slot base; 0 = no base, compatible)
   ReadPixels,        // x/y/w/h(uint4_a..d);ptr_sync → 读回请求(目标指针 + 信号量)
   Finish,            // 哨兵:ptr_sync → sem(同步点)
   Shutdown,          // 渲染线程退出
@@ -94,6 +95,35 @@ enum class GfxCmdKind : std::uint8_t {
   BindFragDataLocation,  // uint4_a = program,uint4_b = colorNumber;payload = NUL 结尾名字
   DeleteProgram,     // uint4_a = id
   DeleteShader,      // uint4_a = id
+  // —— 第四批(SpriteRenderer + 单级合成 Renderer)追加 ——
+  // —— Appended in the fourth batch (SpriteRenderer + the composite Renderer) ——
+  SetBlendMode,      // uint4_a = BlendMode 枚举值;消费端 blend 状态机 diff(仅模式变化时发 GL 序列)
+  EnableDepthTest,   // 上游 EnableDepthBuffer:清深度 + 开深度测试 + DepthFunc(LEQUAL)
+  DisableDepthTest,
+  ClearDepth,
+  GenRenderbuffers,  // uint4_a = n;往返同 GenBuffers
+  DeleteRenderbuffers,  // payload = u32[]
+  RenderbufferStorage,  // internal(uint4_a),w/h(uint4_b/c),rb 名(uint4_d);target 固定 GL_RENDERBUFFER
+  FramebufferRenderbuffer,  // uint4_a = fbo,uint4_b = attachment,uint4_c = rb id
+  BufferStoragePersistent,  // uint4_a = buffer id,uint4_b = 总字节,uint4_c = 槽数;消费端 bind+BufferStorage(MAP_WRITE|PERSISTENT|COHERENT)+整块 MapBufferRange 并登记
+  WritePersistent,   // uint4_a = buffer id,uint4_b = 槽序号,uint4_c = 缓冲内字节偏移;payload = 数据;消费端先等该槽 fence 再 memcpy 进映射区
+  FencePersistentSlot,  // uint4_a = buffer id,uint4_b = 槽序号;消费端 glFenceSync 记到该槽
+  DeletePersistentBuffer,  // uint4_a = buffer id;消费端清 fence/删缓冲/注销
+  ConfigureVao,      // uint4_a = vao,uint4_b = vbo,uint4_c = 索引缓冲(0 = 无);payload = VaoAttribDesc[](消费端绑 VAO+VB+IB+属性指针)
+  GetViewport,       // 往返:glGetIntegerv(GL_VIEWPORT) → GfxNameRequest.uint4_ids[](FrameBuffer Bind 的保存/恢复)
+  Present,           // 渲染线程 SDL_GL_SwapWindow(上下文归渲染线程,主线程不得直调)
+};
+
+/// ConfigureVao 的属性描述(payload 元素;定长 24B 便于消费端步进)。
+/// One attribute descriptor for ConfigureVao (the payload element; a fixed
+/// 24 bytes for straightforward consumer stepping).
+struct VaoAttribDesc {
+  std::uint32_t uint4_index;        // attribute 索引(BindAttribLocation 决定)
+  std::uint32_t uint4_size;         // 分量数 | component count
+  std::uint32_t uint4_type;         // GL_FLOAT / GL_UNSIGNED_INT …
+  std::uint32_t b_integer;          // 1 = VertexAttribIPointer 路径 | the IPointer path
+  std::uint32_t uint4_stride;       // 顶点跨距 | vertex stride
+  std::uint32_t uint4_offset;       // 顶点内偏移 | intra-vertex offset
 };
 
 /// 定长命令记录(48B;可变数据在 payload)。
@@ -101,7 +131,8 @@ enum class GfxCmdKind : std::uint8_t {
 struct GfxCmd {
   GfxCmdKind kind;
   std::uint8_t b_depth;         // Clear 用 | for Clear
-  std::uint16_t size_payload;   // 后跟 payload 字节数 | payload bytes following
+  std::uint8_t pad_unused;      // 对齐垫(第四批 size_payload 扩 u32 后遗留)| alignment pad (left over after the fourth batch grew size_payload to u32)
+  std::uint32_t size_payload;   // 后跟 payload 字节数(第四批扩 u32:单条 Flush 顶点载荷可达数百 KB)| payload bytes following (widened to u32 in the fourth batch: one flush's vertex payload can reach hundreds of KB)
   std::uint32_t uint4_a;        // 通用载荷字段(按 kind 解释,见枚举注释)
   std::uint32_t uint4_b;
   std::uint32_t uint4_c;
@@ -113,7 +144,7 @@ struct GfxCmd {
   void* ptr_sync;               // 同步命令的信号量/出参指针(仅往返命令非空)
 };
 
-static_assert(sizeof(GfxCmd) == 48);  // 44B 字段 + 4B 对齐填充 | fields + alignment padding
+static_assert(sizeof(GfxCmd) == 48);  // 40B 字段 + 8B 指针对齐 | fields + pointer alignment
 
 /// 同步往返的出参记录(payload 出参 + 完成信号量的成对体;命令只携带指针)。
 /// Round-trip out-param record (payload out + completion semaphore pair;
@@ -146,7 +177,7 @@ class GfxCommandQueue {
   /// Reserve returns a fillable command reference; the payload is appended and
   /// published by Commit(data). Returns nullptr if interrupted by StopReader
   /// while waiting for the reader to free space.
-  GfxCmd* Reserve(GfxCmdKind kind, std::uint16_t size_payload) {
+  GfxCmd* Reserve(GfxCmdKind kind, std::uint32_t size_payload) {
     const std::size_t size_payload_aligned = (size_payload + 7) & ~std::size_t{7};
     // 记录 = 8B header(4B 尺寸 + 4B 对齐垫)+ 48B GfxCmd + payload(align8),
     // 总长恒为 8 的倍数 ⇒ 每条记录起点(含环回后)8 对齐 ⇒ GfxCmd/payload

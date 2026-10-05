@@ -156,4 +156,26 @@ inline constexpr GLenum GL_RGB = 0x1907;
 inline constexpr GLenum GL_DEPTH_COMPONENT24 = 0x81A6;
 inline constexpr GLenum GL_MAX_TEXTURE_SIZE = 0x0D33;
 
+// —— 第四批新增:glBufferStorage 持久映射 + fence 同步 + blend/深度(上游经
+// OpenTK/手写绑定使用;此处按 GL 3.2 Core 规范值收录) ——
+// —— Fourth-batch additions: glBufferStorage persistent mapping + fence
+//    synchronization + blend/depth (upstream uses these via OpenTK/handwritten
+//    bindings; values per the GL 3.2 Core spec) ——
+
+// glMapBufferRange / glBufferStorage 访问标志位 | range-map/storage access flags
+inline constexpr GLbitfield GL_MAP_READ_BIT = 0x0001;
+inline constexpr GLbitfield GL_MAP_WRITE_BIT = 0x0002;
+inline constexpr GLbitfield GL_MAP_PERSISTENT_BIT = 0x0040;
+inline constexpr GLbitfield GL_MAP_COHERENT_BIT = 0x0080;
+
+// fence 同步对象 | fence sync objects
+using GLsync = void*;
+using GLuint64 = std::uint64_t;
+inline constexpr GLenum GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117;  // 0x911D 是 GL_WAIT_FAILED,勿混 | 0x911D is GL_WAIT_FAILED — do not confuse
+inline constexpr GLenum GL_ALREADY_SIGNALED = 0x911A;
+inline constexpr GLenum GL_TIMEOUT_EXPIRED = 0x911B;
+inline constexpr GLenum GL_CONDITION_SATISFIED = 0x911C;
+inline constexpr GLuint64 GL_TIMEOUT_IGNORED = ~std::uint64_t{0};
+inline constexpr GLbitfield GL_SYNC_FLUSH_COMMANDS_BIT = 0x00000001;
+
 }  // namespace ora::gl

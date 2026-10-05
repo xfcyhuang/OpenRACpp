@@ -112,6 +112,16 @@ PaletteReference::PaletteReference(std::string_view str_name, std::int32_t int4_
       int4_texture_index_{int4_index},
       ptr_hardware_palette_{&hardware_palette} {}
 
-bool PaletteReference::HasColorShift() const { return ptr_hardware_palette_->HasColorShift(str_name_); }
+bool PaletteReference::HasColorShift() const {
+  // OPT-A7 快路径:epoch 未变直接用缓存(零字符串、零字典)。
+  // OPT-A7 fast path: an unchanged epoch serves the cache (zero strings,
+  // zero dictionaries).
+  const std::uint32_t uint4_epoch = ptr_hardware_palette_->ShiftEpoch();
+  if (uint4_epoch == uint4_shift_epoch_cached_)
+    return b_shift_cached_;
+  b_shift_cached_ = ptr_hardware_palette_->HasColorShift(str_name_);
+  uint4_shift_epoch_cached_ = uint4_epoch;
+  return b_shift_cached_;
+}
 
 }  // namespace ora::gfx

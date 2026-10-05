@@ -84,7 +84,7 @@ void Texture::SetData(std::span<const std::byte> vec_bgra_bytes, std::int32_t in
 
   PrepareTexture();
   if (GfxCmd* ptr_cmd = render_.queue().Reserve(
-          GfxCmdKind::TexImage2D, static_cast<std::uint16_t>(vec_bgra_bytes.size())); ptr_cmd != nullptr) {
+          GfxCmdKind::TexImage2D, static_cast<std::uint32_t>(vec_bgra_bytes.size())); ptr_cmd != nullptr) {
     ptr_cmd->uint4_a = gl::GL_TEXTURE_2D;
     ptr_cmd->uint4_b = static_cast<std::uint32_t>(int4_width);
     ptr_cmd->uint4_c = static_cast<std::uint32_t>(int4_height);
@@ -139,7 +139,7 @@ void Texture::SetSubData(std::span<const std::byte> vec_bgra_bytes, std::int32_t
   PostPixelStore(gl::GL_UNPACK_SKIP_ROWS, int4_y);
 
   if (GfxCmd* ptr_cmd = queue.Reserve(GfxCmdKind::TexSubImage2D,
-                                      static_cast<std::uint16_t>(vec_bgra_bytes.size())); ptr_cmd != nullptr) {
+                                      static_cast<std::uint32_t>(vec_bgra_bytes.size())); ptr_cmd != nullptr) {
     ptr_cmd->uint4_a = gl::GL_TEXTURE_2D;
     ptr_cmd->uint4_b = static_cast<std::uint32_t>(int4_x);
     ptr_cmd->uint4_c = static_cast<std::uint32_t>(int4_y);
@@ -164,7 +164,7 @@ void Texture::SetFloatData(std::span<const float> vec_data, std::int32_t int4_wi
   const std::size_t size_bytes = vec_data.size_bytes();
   assert(size_bytes <= 0xFFFF);
   if (GfxCmd* ptr_cmd = render_.queue().Reserve(GfxCmdKind::TexImage2D,
-                                                static_cast<std::uint16_t>(size_bytes)); ptr_cmd != nullptr) {
+                                                static_cast<std::uint32_t>(size_bytes)); ptr_cmd != nullptr) {
     ptr_cmd->uint4_a = gl::GL_TEXTURE_2D;
     ptr_cmd->uint4_b = static_cast<std::uint32_t>(int4_width);
     ptr_cmd->uint4_c = static_cast<std::uint32_t>(int4_height);

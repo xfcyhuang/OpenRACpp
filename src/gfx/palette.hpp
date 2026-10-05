@@ -136,13 +136,28 @@ class PaletteReference {
 
   std::int32_t TextureIndex() const { return int4_texture_index_; }
 
-  bool HasColorShift() const;  // → HardwarePalette::HasColorShift(定义在 palette.cpp)| defined in palette.cpp
+  /// OPT-A7:HasColorShift 走 epoch 缓存 —— 上游每精灵查 HardwarePalette 的
+  /// 字典(SpriteRenderer.ResolveTextureIndex 热点);HardwarePalette 仅在
+  /// HasColorShift 可观察结果翻转时递增 epoch,故 (epoch, value) 缓存与逐次
+  /// 字典查找语义等价(单线程渲染路径,无竞争)。
+  /// OPT-A7: HasColorShift via the epoch cache — upstream queries the
+  /// HardwarePalette dictionary per sprite (the
+  /// SpriteRenderer.ResolveTextureIndex hot spot); the HardwarePalette bumps
+  /// its epoch only when HasColorShift's observable result flips, so the
+  /// (epoch, value) cache is semantically equal to the per-call dictionary
+  /// lookup (single-threaded render path, no races).
+  bool HasColorShift() const;  // 定义在 palette.cpp | defined in palette.cpp
 
  private:
   std::string str_name_;
   const IPalette* ptr_palette_ = nullptr;
   std::int32_t int4_texture_index_ = 0;
   const HardwarePalette* ptr_hardware_palette_ = nullptr;
+
+  // OPT-A7:HasColorShift 的 (epoch, value) 缓存(UINT32_MAX = 未缓存)。
+  // OPT-A7: the (epoch, value) cache for HasColorShift (UINT32_MAX = uncached).
+  mutable std::uint32_t uint4_shift_epoch_cached_ = ~std::uint32_t{0};
+  mutable bool b_shift_cached_ = false;
 };
 
 }  // namespace ora::gfx

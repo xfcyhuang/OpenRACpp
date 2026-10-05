@@ -267,3 +267,33 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D48 | src/gfx/palette | IEnumerable<uint> 构造 → span;流构造改为 768B 字节区间(调用方负责读流);GetColor/AsReadOnly 扩展方法 → core::Color::FromArgb / const 引用(ReadOnlyPalette 包装类不需要);InvalidOperationException → std::runtime_error(消息文本逐字) | 合法输入下行为等价;C++ const 引用天然只读 |
 | D49 | src/gfx/hardware_palette | 三 Dictionary → std::map(遍历仅写互不相交行,顺序不可观测);OPT-A7 调色板 dirty 行:单行 ReplacePalette/ApplyModifiers 走逐行 SetSubData 增量(脏行过半启发式退回全量 SetData;ColorShifts 表保持全量);纯数据模式(render 空)路径决策与脏位推进照常、仅 GL 发射跳过 | 上游 L132-154 每次无条件全量上传;OPT-C5:上传字节与落点相同,渲染结果逐像素一致(gfx_test 读回断言);map 顺序不可观测论证见左 |
 | D50 | src/gfx/texture | Texture::GetData() 读回前先绑定自身到单元 0(glGetTexImage 作用于活动单元当前绑定;绑定与读回同队列保序) | 上游单线程同上下文内 GetData 前调用方必有 Bind 语义;命令队列模式下不绑定会读到任意残留绑定(第三批实证);消费端绑定 diff 与 GL 状态同步,无副作用 |
+
+### Phase 4 第四批(2026-10-05):SpriteRenderer + 单级合成 Renderer(OPT-A5 持久 VB/A6 VAO+blend diff/A7 palette epoch/B1 单级)
+
+- `src/gfx/vertex_buffer.hpp/.cpp`:VertexBuffer(持久映射形态:glBufferStorage MAP_WRITE|PERSISTENT|COHERENT 整块映射 + 三槽轮换 + 槽级 fence,槽轮换归 VB 所有(共享 VB 的 world/UI 两渲染器自然错开);静态形态:一次 BufferData(STATIC_DRAW))+ IndexBuffer(静态);**OPT-A6 VAO 缓存**:每 (顶点格式, program) 一 VAO,VB/IB/属性指针一次固化,绘制路径只剩 BindVertexArray(消费端 diff);MakeCombinedAttributes 共用转换;
+- `src/gfx/frame_buffer.hpp/.cpp`:FrameBuffer(颜色纹理 + 深度 renderbuffer 附件、Bind 的 viewport 保存/恢复与 clear、完整性校验、scissor 断言文本逐字;**NPOT 直建**);
+- `src/gfx/sprite_renderer.hpp/.cpp`:SpriteRenderer 逐行(8 纹理槽映射含 SpriteWithSecondaryData 双 sheet 与满槽 flush 重试、BlendSpan 交错段、Flush 的"纹理绑定→PrepareRender→顶点写入→VAO→逐段 SetBlend+DrawElements→复位 None→槽 fence"、DrawSprite 全形态、DrawVertexBuffer、SetPalette/SetViewportParams(SetViewportParams 的 depth 注释逐句)/SetDepthPreview/EnablePixelArtScaling,uniform 位置构造期缓存)+ RgbaSpriteRenderer(四形态,Channel 校验消息逐字)+ RgbaColorRenderer(DrawLine 双色/单色、DrawConnectedLine 闭合段交点、DrawRect/FillRect 四形态、FillEllipse;落点 IRgbaQuadSink 注入);BlendSpanTracker/IRgbaQuadSink 提出为可测纯逻辑件;
+- `src/gfx/renderer.hpp/.cpp`:Renderer 单级合成(SetMaximumViewportSize 去 pow2、BeginWorld 的 worldSprite 几何(ComputeWorldSpriteParams 纯函数:downscale/+1 滚动补偿/整数倍 renderScale 的 offset 就近偶舍入)、BeginUI 把 worldSprite 直接画进默认帧缓冲(像素风放大保留)+ 无 world 分支显式清屏、EndFrame 直接呈现、SetPalette 绑定缓存、scissor 栈(World 降采样换算 + HiDPI scale 换算)、深度开关);
+- `src/platform/gl_types.hpp/gl_loader`:BufferStorage/MapBufferRange/FenceSync/ClientWaitSync/DeleteSync/DeleteVertexArrays/DrawElementsBaseVertex 入口与常量;
+- `glsl/combined.vert|frag`:自上游原样复制(GL-3.0 同源许可);
+- OPT-A7:HardwarePalette 色移 epoch(HasColorShift 可观察结果翻转时递增)+ PaletteReference (epoch,value) 缓存 —— 每精灵的字符串字典查找归零。
+
+**验收(2026-10-05,gfx_test)**
+
+- 纯逻辑:BlendSpanTracker 段合并/分段/Clear;ResolveTextureIndex 三态(null→0/RGBA 无色移→0/带色移→TextureIndex)与 epoch 失效链(翻转→失效→回读);ComputeWorldSpriteParams(downscale=2、s=(1025,513) 的 +1 补偿、整数倍 renderScale=2 的 (-0.4,-0.7)→(-0.5,-0.5) 就近偶舍入、非整数倍保分数);RgbaColorRenderer 几何(捕获 sink:水平线 corner/偏移/预乘、FillRect 四角、半透明预乘 a=0x80、闭合三角 3 段、单点不成线);
+- GL 集成:NPOT FrameBuffer(130×70)创建/清屏读回;SpriteRenderer 端到端(调色板采样链:Indexed8 索引 200 → Palette 行 1 → 像素 = 调色板色,OPT-C5 渲染级)× **五轮 Flush 覆盖三槽回绕与 fence 等待**;BlendSpan 三段交错(None 全屏白 / Alpha 半透明蓝 tint 得 (128,128,255) / None 段首索引偏移的红)单次 Flush;双 shader 共享 VB/IB 的 per-program VAO 往返切换(红/蓝/绿三连);单级合成 Renderer 全流程(BeginWorld → world 精灵 → BeginUI 合成(2× 像素风放大)→ UI 精灵 → 默认帧缓冲读回:UI 蓝区/world 红区/黑底三断言,HiDPI scale 感知)→ EndFrame;
+- 双构建(ASan+UBSan / Release)ctest 14/14;门禁 std_import(131 文件)/upstream_check(120 标注)PASS。
+
+**实现过程修出四个真 bug(全部由测试暴露)**:GL_SYNC_GPU_COMMANDS_COMPLETE 常量误写 0x911D(实为 GL_WAIT_FAILED 的值,正确 0x9117 —— glFenceSync 恒 INVALID_ENUM,fence 机制全灭);RenderState 纹理绑定缓存仅 8 单元而 sampler 分配用到 unit 8/9(Palette/ColorShifts 从未绑上,调色板采样恒黑 —— 第一批遗留,本批采样链断言暴露);DeleteTextures/DeleteFramebuffers 后 GL 名字复用撞上消费端绑定 diff 的 (unit,id) 键(旧值恰同 → "看似未变"跳过绑定 → 上传打到已删对象,palette 纹理行内容全空 —— 第一批 diff 与第二批 RAII 删除的组合缺陷);持久 VB 写入槽 N 而索引寻址自 buffer 首(仅写槽 0 的帧正确,槽回绕帧读到旧帧顶点 —— 修为 glDrawElementsBaseVertex 携带槽基址,五轮回绕压测暴露)。
+
+### 已登记偏离(PORTING_PLAN §7.5,第四批新增)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D51 | src/gfx/gfx_command | GfxCmd.size_payload u16→u32(单次 Flush 顶点载荷 8192×48B≈393KB 超 u16;48B 定长重排不变);新增 14 命令(SetBlendMode/深度三件/FBO depth 四件/持久 VB 四件/ConfigureVao/DeleteVertexArrays/GetViewport/Present) | OPT-A5/A6/B1 的命令面;内部布局无上游对应物 |
+| D52 | src/gfx/render_thread | SetBlendMode 消费端状态机 diff:同模式跳过,模式变化必发全序列(上游每调用全发);DeleteTextures/DeleteFramebuffers/DeleteVertexArrays 消费时清除对应绑定缓存;渲染线程启动即建常驻全局 VAO(上游 InitializeOpenGL L46-49 同语义) | GL 状态机收敛等价(diff 只省重复);绑定缓存与 GL 名字生命周期同步(名字复用防护,上游单线程直调无此问题) |
+| D53 | src/gfx/vertex_buffer | OPT-A5:持久映射 VB = glBufferStorage(PERSISTENT\|WRITE\|COHERENT)三槽 + 槽级 fence + DrawElementsBaseVertex 槽基址(上游 CreateEmptyVertexBuffer 的 GL_DYNAMIC_DRAW + 每次 BufferSubData);写入 = 命令 payload → 渲染线程等槽 fence 后 memcpy 进映射区(上游:CPU 数组 → 装箱消息 → 驱动内拷贝);OPT-A6:per-(格式,program) VAO 固化 VB/IB/属性(上游每 flush 重播属性指针 + indexBuffer.Bind) | 顶点数据少一次驱动路径拷贝、免存储重分配;映射与 fence 全在渲染线程内闭环,主线程零等待;GL 3.2 core |
+| D54 | src/gfx/frame_buffer | NPOT 直建(pow2 校验不复刻,D37 组成部分);Bind/Unbind 的 glFlush 不复刻(上游为多线程封送正确性而插,命令流全序等价);完整性失败 stderr+b_valid 标记(上游 throw,消息保留) | OPT-B1;异常面随渲染对拍关卡统一 |
+| D55 | src/gfx/sprite_renderer | CurrentBatchRenderer 属性 → 批槽指针注入(ActivateAsCurrent 复刻"切批 flush 前批");上游 internal DrawSprite 族公开;BlendSpanTracker/IRgbaQuadSink 注入面(上游私有直连);PerfHistory.Increment 不移植;OPT-A7:PaletteReference::HasColorShift 走 (epoch,value) 缓存(HardwarePalette 仅在结果翻转时递增 epoch) | 形态适配不可观测;纯逻辑可测性;epoch 缓存与逐次字典查找语义等价(单线程渲染路径,翻转点外值恒同);诊断面 Phase 9 统计 |
+| D56 | src/gfx/renderer | OPT-B1 单级合成:world FBO NPOT、screen FBO 整级删除(BeginUI 把 worldSprite 直接画进默认帧缓冲,UI 同缓冲)、BeginFrame 默认 FB Clear 删除(上游自认冗余;无 world 帧在 else 分支显式清)、EndFrame 最终拷贝删除;NDC 净映射等价论证见文件头(UI 坐标 c 经 p1 与 blit 缩放的复合 = 2c/surface−1,单级直接同式);Sheet 增非拥有外部纹理构造(worldSheet 引用 FBO 附件 = 上游共享引用);着色器源码构造注入(上游 GetShaderCode 读 EngineDir,文件系统随 Game 批);Fonts/SaveScreenshot/GetRenderBufferSnapshot 随字体与 Png 批;WorldRenderers 后处理族随后处理批;Present 走命令(上下文归渲染线程) | OPT-B1(1920×1080 由 2048² 双 FBO/3 clear/2 拷贝每帧 → 1 clear/1 blit);渲染对拍关卡的先验论证;依赖批次接线 |
+| D57 | glsl/combined.vert|.frag | 自上游 @7d57605 原样复制(仅 combined 一对;其余 11 个着色器随后处理/模型批次) | GPL-3.0 同源;按需落地 |

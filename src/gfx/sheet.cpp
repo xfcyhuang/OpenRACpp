@@ -20,12 +20,20 @@ Sheet::Sheet(SheetType kind_type, Texture&& texture_owned)
       int2_size_{opt_texture_->Width(), opt_texture_->Height()},
       kind_type_{kind_type} {}
 
+Sheet::Sheet(SheetType kind_type, Texture& texture_external)
+    : ptr_texture_external_{&texture_external},
+      int2_size_{texture_external.Width(), texture_external.Height()},
+      kind_type_{kind_type} {}
+
 std::span<std::byte> Sheet::GetData() {
   CreateBuffer();
   return std::span<std::byte>{*opt_data_};
 }
 
 Texture& Sheet::GetTexture() {
+  if (ptr_texture_external_ != nullptr)
+    return *ptr_texture_external_;  // 非拥有形态:无惰性建/无脏上传 | the non-owning form: no lazy create, no dirty upload
+
   if (!opt_texture_.has_value()) {
     assert(ptr_render_ != nullptr);  // 纯数据模式无 GPU 侧 | no GPU side in the data-only mode
     opt_texture_.emplace(*ptr_render_);
@@ -58,10 +66,12 @@ void Sheet::CreateBuffer() {
   if (opt_data_.has_value())
     return;
 
-  if (!opt_texture_.has_value())
-    opt_data_ = std::vector<std::byte>(static_cast<std::size_t>(4) * int2_size_.X * int2_size_.Y);
-  else
+  if (opt_texture_.has_value())
     opt_data_ = opt_texture_->GetData();  // GPU 读回(Sheet.cs L130)| read back (Sheet.cs L130)
+  else if (ptr_texture_external_ != nullptr)
+    opt_data_ = ptr_texture_external_->GetData();
+  else
+    opt_data_ = std::vector<std::byte>(static_cast<std::size_t>(4) * int2_size_.X * int2_size_.Y);
 
   b_release_buffer_on_commit_ = false;
 }

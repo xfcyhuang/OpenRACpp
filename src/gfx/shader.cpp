@@ -49,7 +49,7 @@ std::uint32_t CompileShaderObject(RenderThread& render, gl::GLenum kind_type, st
     return 0;
 
   ptr_cmd = render.queue().Reserve(GfxCmdKind::ShaderSource,
-                                   static_cast<std::uint16_t>(str_resolved.size() + 1));
+                                   static_cast<std::uint32_t>(str_resolved.size() + 1));
   if (ptr_cmd == nullptr)
     return 0;
   ptr_cmd->uint4_a = uint4_shader;
@@ -128,7 +128,7 @@ std::optional<Shader> Shader::Create(RenderThread& render, const ShaderBindingsD
     const std::size_t size_name_bytes = desc.vec_attributes[i].str_name.size() + 1;
     assert(size_name_bytes <= 0xFFFF);
     ptr_cmd = render.queue().Reserve(GfxCmdKind::BindAttribLocation,
-                                     static_cast<std::uint16_t>(size_name_bytes));
+                                     static_cast<std::uint32_t>(size_name_bytes));
     if (ptr_cmd == nullptr)
       return std::nullopt;
     ptr_cmd->uint4_a = uint4_program;
@@ -389,7 +389,7 @@ void Shader::SetVecAt(std::int32_t int4_location, std::span<const float> vec_val
                         : int4_length == 2 ? GfxCmdKind::Uniform2fv
                         : int4_length == 3 ? GfxCmdKind::Uniform3fv
                                            : GfxCmdKind::Uniform4fv;
-  const std::uint16_t size_payload = static_cast<std::uint16_t>(int4_length * sizeof(float));
+  const std::uint32_t size_payload = static_cast<std::uint32_t>(int4_length * sizeof(float));
   if (GfxCmd* ptr_cmd = ptr_render_->queue().Reserve(kind, size_payload); ptr_cmd != nullptr) {
     ptr_cmd->uint4_a = static_cast<std::uint32_t>(int4_location);
     ptr_cmd->uint4_b = 1;  // 上游 count=1 | upstream count=1

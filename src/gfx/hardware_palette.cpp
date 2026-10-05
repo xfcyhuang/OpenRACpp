@@ -88,12 +88,24 @@ void HardwarePalette::ReplacePalette(std::string_view str_name, const IPalette& 
 void HardwarePalette::SetColorShift(std::string_view str_name, float float_hue_offset, float float_sat_offset,
                                     float float_value_multiplier, float float_min_hue, float float_max_hue) {
   const auto int4_index = GetPaletteIndex(str_name);
+  const bool b_had_shift =
+      vec_color_shift_buffer_[static_cast<std::size_t>(8) * int4_index + 0] != 0 ||
+      vec_color_shift_buffer_[static_cast<std::size_t>(8) * int4_index + 1] != 0;
   vec_color_shift_buffer_[static_cast<std::size_t>(8) * int4_index + 0] = float_min_hue;
   vec_color_shift_buffer_[static_cast<std::size_t>(8) * int4_index + 1] = float_max_hue;
   vec_color_shift_buffer_[static_cast<std::size_t>(8) * int4_index + 4] = float_hue_offset;
   vec_color_shift_buffer_[static_cast<std::size_t>(8) * int4_index + 5] = float_sat_offset;
   vec_color_shift_buffer_[static_cast<std::size_t>(8) * int4_index + 6] = float_value_multiplier;
   b_shifts_dirty_ = true;  // OPT-A7:上传延迟(上游不在此上传 | no upload here upstream)
+
+  // OPT-A7:HasColorShift 的可观察结果翻转时递增 epoch —— PaletteReference
+  // 的 epoch 缓存据此失效(消除每精灵的字符串字典查找)。
+  // OPT-A7: bump the epoch whenever HasColorShift's observable result flips —
+  // PaletteReference epoch caches invalidate on it (killing the per-sprite
+  // string-dictionary lookup).
+  const bool b_has_shift_now = float_min_hue != 0 || float_max_hue != 0;
+  if (b_had_shift != b_has_shift_now)
+    ++uint4_shift_epoch_;
 }
 
 bool HardwarePalette::HasColorShift(std::string_view str_name) const {

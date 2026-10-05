@@ -1,4 +1,12 @@
-// gfx_test — Phase 4 第三批验收:Sheet/SheetBuilder/Sprite(纹理集打包几何、
+// gfx_test — Phase 4 第四批验收追加:BlendSpanTracker(段合并/分段)、
+// ResolveTextureIndex(null/RGBA 无色移/带色移三态)、PaletteReference 的
+// HasColorShift epoch 缓存(翻转失效)、ComputeWorldSpriteParams(downscale/
+// +1 滚动补偿/整数倍 renderScale 的 offset 取整)、RgbaColorRenderer 几何
+// (捕获 sink);GL 集成:持久映射 VB 槽轮换回绕 + 调色板查色采样链像素断言
+// (OPT-C5 渲染级)、BlendSpan 三段交错(None/Alpha/None)、双 shader 的
+// per-program VAO 缓存、NPOT FrameBuffer、单级合成 Renderer 全流程
+// (BeginWorld → world 精灵 → BeginUI 合成 → UI 精灵 → 默认帧缓冲读回)。
+// gfx_test — the Phase 4 third-batch acceptance: Sheet/SheetBuilder/Sprite(
 // 通道轮换、dirty region、缓冲转移)+ Palette 家族(字节流构造/重映射/字节序)
 // + HardwarePalette(OPT-A7 调色板 dirty 行;索引分配/高度增长/ReplacePalette/
 // ApplyModifiers 重置)+ gfx_util(FastCreateQuad 位域打包、FastCopyIntoChannel
@@ -21,6 +29,8 @@ import std;
 #include "gfx/gfx_util.hpp"
 #include "gfx/hardware_palette.hpp"
 #include "gfx/sheet.hpp"
+#include "gfx/renderer.hpp"
+#include "gfx/sprite_renderer.hpp"
 
 #if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
 #define ORA_HAS_DESKTOP_GL 1
@@ -578,6 +588,200 @@ void TestFastCopyIntoChannel() {
   ORA_CHECK(ora::gfx::SheetBuilder::FrameTypeToSheetType(SpriteFrameType::Rgb24) == ora::gfx::SheetType::BGRA);
 }
 
+// ———— 第四批纯逻辑:BlendSpanTracker / ResolveTextureIndex / epoch / worldSprite 几何 / RgbaColorRenderer ————
+// ———— Fourth-batch pure logic: BlendSpanTracker / ResolveTextureIndex / the
+// epoch / worldSprite geometry / RgbaColorRenderer ————
+
+void TestBlendSpanTracker() {
+  ora::gfx::BlendSpanTracker tracker;
+  ORA_CHECK(tracker.Spans().empty());
+
+  // 同模式四边形原地扩长(SpriteRenderer.cs L99-106)。
+  // Same-mode quads extend the last span in place (SpriteRenderer.cs L99-106).
+  tracker.TrackQuad(ora::gfx::BlendMode::Alpha, 0);
+  tracker.TrackQuad(ora::gfx::BlendMode::Alpha, 4);
+  tracker.TrackQuad(ora::gfx::BlendMode::Alpha, 8);
+  ORA_CHECK(tracker.Spans().size() == 1);
+  ORA_CHECK(tracker.Spans()[0].int4_start == 0 && tracker.Spans()[0].int4_length == 12);
+
+  // 模式切换开新段;再切回再开。
+  // A mode switch opens a new span; switching back opens yet another.
+  tracker.TrackQuad(ora::gfx::BlendMode::None, 12);
+  tracker.TrackQuad(ora::gfx::BlendMode::None, 16);
+  tracker.TrackQuad(ora::gfx::BlendMode::Additive, 20);
+  ORA_CHECK(tracker.Spans().size() == 3);
+  ORA_CHECK(tracker.Spans()[1].int4_start == 12 && tracker.Spans()[1].int4_length == 8);
+  ORA_CHECK(tracker.Spans()[2].int4_start == 20 && tracker.Spans()[2].int4_length == 4);
+
+  tracker.Clear();
+  ORA_CHECK(tracker.Spans().empty());
+}
+
+void TestResolveTextureIndexAndEpoch() {
+  // HardwarePalette 纯数据模式(无 RenderThread)。
+  // The HardwarePalette data-only mode (no RenderThread).
+  ora::gfx::HardwarePalette palette_hw{nullptr};
+  palette_hw.AddPalette("plain", MakeGradientPalette(0xFF000000), false);
+  palette_hw.AddPalette("shifted", MakeGradientPalette(0xFF100000), false);
+  palette_hw.Initialize();
+  ORA_CHECK(palette_hw.GetPaletteIndex("plain") == 1);
+  ORA_CHECK(palette_hw.GetPaletteIndex("shifted") == 2);
+
+  const ora::gfx::PaletteReference ref_plain{"plain", 1, palette_hw.GetPalette("plain"), palette_hw};
+  const ora::gfx::PaletteReference ref_shifted{"shifted", 2, palette_hw.GetPalette("shifted"), palette_hw};
+  ora::gfx::Sprite sprite_indexed{};  // 默认 Red 通道 | default Red channel
+
+  // null 调色板 → 0(SpriteRenderer.cs L166-167)。
+  // A null palette → 0 (SpriteRenderer.cs L166-167).
+  ORA_CHECK(ora::gfx::SpriteRenderer::ResolveTextureIndex(sprite_indexed, nullptr) == 0);
+
+  // Indexed 精灵:无论有无色移都取 TextureIndex。
+  // Indexed sprites take TextureIndex regardless of color shifts.
+  ORA_CHECK(ora::gfx::SpriteRenderer::ResolveTextureIndex(sprite_indexed, &ref_plain) == 1);
+
+  // —— OPT-A7 epoch:HasColorShift 缓存的失效链 ——
+  // —— The OPT-A7 epoch: the cache invalidation chain ——
+  ora::gfx::Sprite sprite_rgba{};
+  sprite_rgba.kind_channel = ora::gfx::TextureChannel::RGBA;
+
+  // RGBA 无色移 → 0(HACK 分支;每精灵热路径)。
+  // RGBA without a color shift → 0 (the HACK branch; the per-sprite hot path).
+  ORA_CHECK(ora::gfx::SpriteRenderer::ResolveTextureIndex(sprite_rgba, &ref_shifted) == 0);
+  // 带色移 → TextureIndex。
+  // With a color shift → TextureIndex.
+  palette_hw.SetColorShift("shifted", 0.1f, 0.0f, 1.0f, 0.05f, 0.5f);
+  ORA_CHECK(palette_hw.HasColorShift("shifted"));
+  ORA_CHECK(ora::gfx::SpriteRenderer::ResolveTextureIndex(sprite_rgba, &ref_shifted) == 2);
+
+  // 清零色移(结果翻转)→ epoch 递增 → 缓存失效 → 回 0。
+  // Zeroing the shift (a result flip) → the epoch bumps → the cache
+  // invalidates → back to 0.
+  palette_hw.SetColorShift("shifted", 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+  ORA_CHECK(!palette_hw.HasColorShift("shifted"));
+  ORA_CHECK(ora::gfx::SpriteRenderer::ResolveTextureIndex(sprite_rgba, &ref_shifted) == 0);
+
+  // 未设色移的引用不受别的调色板翻转影响(值按名缓存)。
+  // An unshifted reference stays unaffected by another palette's flips.
+  ORA_CHECK(ora::gfx::SpriteRenderer::ResolveTextureIndex(sprite_rgba, &ref_plain) == 0);
+}
+
+void TestComputeWorldSpriteParams() {
+  // downscale:world sheet 1024² 容不下 2048×1024 视口 → 因子 2,s = (1025, 513)
+  // (Renderer.cs L253-263 的 +1 滚动补偿)。
+  // downscale: a 1024² world sheet cannot hold a 2048×1024 viewport → factor
+  // 2, s = (1025, 513) (the +1 scroll compensation of Renderer.cs L253-263).
+  auto params = ora::gfx::ComputeWorldSpriteParams({1024, 1024}, {2048, 1024}, {0.0f, 0.0f}, {0, 0}, 2048.0f);
+  ORA_CHECK(params.int4_downscale == 2);
+  ORA_CHECK(params.int2_size_sub == ora::int2(1025, 513));
+
+  // 整数倍 renderScale(2048/(1025-1) = 2)→ fractionalOffset 取整到屏幕像素
+  // 格点:viewportLocation (10.4, 20.7)、center (10, 20) → frac (-0.4,-0.7) →
+  // ×2 = (-0.8,-1.4) → 就近偶舍入 (-1,-1) → (-0.5,-0.5)。
+  // An integral renderScale (2048/(1025-1) = 2) rounds fractionalOffset onto
+  // screen-pixel grid points: viewportLocation (10.4, 20.7), center (10, 20) →
+  // frac (-0.4,-0.7) → ×2 = (-0.8,-1.4) → banker's rounding (-1,-1) →
+  // (-0.5,-0.5).
+  params = ora::gfx::ComputeWorldSpriteParams({1025, 513}, {1024, 512}, {10.4f, 20.7f}, {10, 20}, 2048.0f);
+  ORA_CHECK(params.vec_fractional_offset.X == -0.5f);
+  ORA_CHECK(params.vec_fractional_offset.Y == -0.5f);
+
+  // 非整数 renderScale → 原样保留小数。
+  // A non-integral renderScale keeps the fraction as is.
+  params = ora::gfx::ComputeWorldSpriteParams({100, 100}, {99, 99}, {10.4f, 20.7f}, {10, 20}, 1000.0f);
+  // 浮点直减有表示误差,容差比较(上游同域 float 运算)。
+  // Direct float subtraction carries representation error; compare with a
+  // tolerance (the same float domain as upstream).
+  ORA_CHECK(std::abs(params.vec_fractional_offset.X - -0.4f) < 1e-5f);
+  ORA_CHECK(std::abs(params.vec_fractional_offset.Y - -0.7f) < 1e-5f);
+  ORA_CHECK(params.int4_downscale == 1);
+  ORA_CHECK(params.int2_size_sub == ora::int2(100, 100));
+}
+
+void TestRgbaColorRendererGeometry() {
+  struct CapturingSink : ora::gfx::IRgbaQuadSink {
+    std::vector<std::array<ora::gfx::Vertex, 4>> vec_quads;
+    std::vector<ora::gfx::BlendMode> vec_modes;
+    void DrawRGBAQuad(std::span<const ora::gfx::Vertex, 4> vec_vertices, ora::gfx::BlendMode kind_mode) override {
+      std::array<ora::gfx::Vertex, 4> quad;
+      std::copy(vec_vertices.begin(), vec_vertices.end(), quad.begin());
+      vec_quads.push_back(quad);
+      vec_modes.push_back(kind_mode);
+    }
+  };
+
+  // 水平线(RgbaColorRenderer.cs L54-67 单色形态):delta=(1,0),corner =
+  // width/2 × (-delta.Y, delta.X, 0) = (0,1,0);四顶点带 (0.5,0.5) 偏移。
+  // A horizontal line (the single-color form of RgbaColorRenderer.cs
+  // L54-67): delta = (1,0), corner = width/2 × (-delta.Y, delta.X, 0) =
+  // (0,1,0); four vertices carry the (0.5,0.5) offset.
+  {
+    CapturingSink sink;
+    ora::gfx::RgbaColorRenderer color_renderer{sink};
+    color_renderer.DrawLine(ora::core::Vector3{10, 10, 3}, ora::core::Vector3{20, 10, 3}, 2,
+                            ora::core::Color::FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
+    ORA_CHECK(sink.vec_quads.size() == 1);
+    ORA_CHECK(sink.vec_modes[0] == ora::gfx::BlendMode::Alpha);
+    const auto& quad = sink.vec_quads[0];
+    // (start-corner+Offset) = (10.5, 9.5, 3);(start+corner+Offset) = (10.5, 11.5, 3)。
+    ORA_CHECK(quad[0].x == 10.5f && quad[0].y == 9.5f && quad[0].z == 3.0f);
+    ORA_CHECK(quad[1].x == 10.5f && quad[1].y == 11.5f);
+    ORA_CHECK(quad[2].x == 20.5f && quad[2].y == 11.5f);
+    ORA_CHECK(quad[3].x == 20.5f && quad[3].y == 9.5f);
+    // 不透明白的预乘 = 原色 /255。
+    // The premultiplied opaque white keeps its color /255.
+    ORA_CHECK(quad[0].s == 1.0f && quad[0].t == 1.0f && quad[0].u == 1.0f && quad[0].v == 1.0f);
+    ORA_CHECK(quad[0].c == 0);  // c = 0(颜色顶点)| the color-vertex marker
+  }
+
+  // FillRect 四角(L203-219):a..d 依序 + Offset。
+  // FillRect corners (L203-219): a..d in order + Offset.
+  {
+    CapturingSink sink;
+    ora::gfx::RgbaColorRenderer color_renderer{sink};
+    color_renderer.FillRect(ora::core::Vector3{0, 0, 0}, ora::core::Vector3{4, 4, 0},
+                            ora::core::Color::FromArgb(0xFF, 0x10, 0x20, 0x30));
+    ORA_CHECK(sink.vec_quads.size() == 1);
+    const auto& quad = sink.vec_quads[0];
+    ORA_CHECK(quad[0].x == 0.5f && quad[0].y == 0.5f);
+    ORA_CHECK(quad[1].x == 4.5f && quad[1].y == 0.5f);
+    ORA_CHECK(quad[2].x == 4.5f && quad[2].y == 4.5f);
+    ORA_CHECK(quad[3].x == 0.5f && quad[3].y == 4.5f);
+  }
+
+  // 半透明色预乘(Util.PremultiplyAlpha):a=0x80 → c×128/255。
+  // The translucent premultiply (Util.PremultiplyAlpha): a=0x80 → c×128/255.
+  {
+    CapturingSink sink;
+    ora::gfx::RgbaColorRenderer color_renderer{sink};
+    color_renderer.FillRect(ora::core::Vector3{0, 0, 0}, ora::core::Vector3{1, 1, 0},
+                            ora::core::Color::FromArgb(0x80, 0xFF, 0xFF, 0xFF));
+    const auto& quad = sink.vec_quads[0];
+    const float float_expected = 255.0f * 128 / 255 / 255.0f;
+    ORA_CHECK(std::abs(quad[0].s - float_expected) < 1e-6f);
+  }
+
+  // 闭合三角多边形 → 3 段(limit = 3;L149-175)。
+  // A closed triangle polygon → 3 segments (limit = 3; L149-175).
+  {
+    CapturingSink sink;
+    ora::gfx::RgbaColorRenderer color_renderer{sink};
+    const std::array<ora::core::Vector3, 3> arr_triangle{
+        ora::core::Vector3{0, 0, 0}, ora::core::Vector3{10, 0, 0}, ora::core::Vector3{0, 10, 0}};
+    color_renderer.DrawPolygon(arr_triangle, 1, ora::core::Color::FromArgb(0xFF, 0, 0xFF, 0));
+    ORA_CHECK(sink.vec_quads.size() == 3);
+  }
+
+  // 单点不成线(L115-118)。
+  // A single point draws nothing (L115-118).
+  {
+    CapturingSink sink;
+    ora::gfx::RgbaColorRenderer color_renderer{sink};
+    const std::array<ora::core::Vector3, 1> arr_single{ora::core::Vector3{0, 0, 0}};
+    color_renderer.DrawPolygon(arr_single, 1, ora::core::Color::FromArgb(0xFF, 0, 0, 0));
+    ORA_CHECK(sink.vec_quads.empty());
+  }
+}
+
 #ifdef ORA_HAS_DESKTOP_GL
 
 // ———— GL 集成:Sheet 上传(全量 + 子区域)/缓冲转移 GL 路径/调色板 OPT-C5 ————
@@ -737,6 +941,258 @@ void TestGlSheetAndPalette() {
   }
 }
 
+// ———— GL 集成(第四批):持久 VB 槽轮换 + 调色板采样链 + BlendSpan 交错 +
+// 双 shader VAO 缓存 + NPOT FrameBuffer + 单级合成 Renderer 全流程 ————
+// ———— GL integration (fourth batch): persistent-VB slot rotation + the
+// palette sampling chain + BlendSpan interleaving + the dual-shader VAO
+// cache + the NPOT FrameBuffer + the single-pass composite Renderer ————
+
+/// 纯色调色板(256 项同色)。
+/// A solid-color palette (256 identical entries).
+ora::gfx::ImmutablePalette MakeSolidPalette(std::uint32_t uint4_color) {
+  std::array<std::uint32_t, ora::gfx::kPaletteSize> vec_colors{};
+  vec_colors.fill(uint4_color);
+  return ora::gfx::ImmutablePalette{vec_colors};
+}
+
+/// 读 glsl/combined 源(编译期 ORA_GLSL_DIR 由 CMake 注入)。
+/// Reads the glsl/combined sources (ORA_GLSL_DIR injected at compile time).
+std::string ReadShaderSource(const char* str_filename) {
+  std::ifstream stream{std::string{ORA_GLSL_DIR} + "/" + str_filename};
+  return std::string{std::istreambuf_iterator<char>{stream}, {}};
+}
+
+void TestGlFourthBatch() {
+  if (std::getenv("ORA_SKIP_GL") != nullptr)
+    return;
+
+  auto window_opt = ora::platform::Sdl2Window::Create({.int4_width = 128, .int4_height = 96});
+  if (!window_opt.has_value()) {
+    std::println("SKIP: 无法创建窗口(无桌面/GPU 环境)| SKIP: no window (headless/GPU-less host)");
+    return;
+  }
+  auto& window = *window_opt;
+
+  ora::gfx::RenderThread render{window};
+  render.FlushAndWait();
+  if (render.b_thread_failed()) {
+    std::println("SKIP: 渲染线程 GL 初始化失败(无 GPU/驱动环境)| SKIP: render-thread GL init failed");
+    return;
+  }
+
+  const std::string str_vert = ReadShaderSource("combined.vert");
+  const std::string str_frag = ReadShaderSource("combined.frag");
+  ORA_CHECK(!str_vert.empty() && !str_frag.empty());
+
+  const std::vector<ora::gfx::ShaderVertexAttribute> vec_attributes = ora::gfx::MakeCombinedAttributes();
+
+  const auto make_shader = [&]() {
+    return ora::gfx::Shader::Create(
+        render, ora::gfx::ShaderBindingsDesc{"combined", str_vert, "combined", str_frag,
+                                             static_cast<std::int32_t>(sizeof(ora::gfx::Vertex)), vec_attributes});
+  };
+
+  // FBO 像素读取助手(RGBA8;读当前绑定的 FBO)。
+  // An FBO pixel-read helper (RGBA8; reads the currently bound FBO).
+  const auto ReadPixelAt = [&](std::int32_t int4_x, std::int32_t int4_y) {
+    std::array<unsigned char, 4> arr_pixel{};
+    render.ReadPixels(int4_x, int4_y, 1, 1, arr_pixel.data());
+    render.FlushAndWait();
+    return arr_pixel;
+  };
+  const auto ExpectPixel = [](const std::array<unsigned char, 4>& arr_pixel, int r, int g, int b,
+                              int int4_tolerance = 3) {
+    return std::abs(arr_pixel[0] - r) <= int4_tolerance && std::abs(arr_pixel[1] - g) <= int4_tolerance &&
+           std::abs(arr_pixel[2] - b) <= int4_tolerance;
+  };
+
+  // —— NPOT FrameBuffer(130×70;OPT-B1/D37)——
+  // —— The NPOT FrameBuffer (130×70; OPT-B1/D37) ——
+  {
+    ora::gfx::FrameBuffer buffer_npot{render, {130, 70}, 0.25f, 0.5f, 0.75f, 1.0f};
+    ORA_CHECK(buffer_npot.b_valid());
+    buffer_npot.Bind();
+    const auto arr_pixel = ReadPixelAt(65, 35);
+    ORA_CHECK(ExpectPixel(arr_pixel, 64, 128, 191));
+    buffer_npot.Unbind();
+  }
+
+  // —— SpriteRenderer E2E:调色板采样链 + 持久 VB 槽轮换回绕 ——
+  // —— SpriteRenderer end to end: the palette sampling chain + the
+  // persistent-VB slot-rotation wraparound ——
+  {
+    ora::gfx::HardwarePalette palette_hw{&render};
+    palette_hw.AddPalette("red", MakeSolidPalette(0xFFFF0000), false);
+    palette_hw.AddPalette("blue", MakeSolidPalette(0xFF0000FF), false);
+    palette_hw.AddPalette("green", MakeSolidPalette(0xFF00FF00), false);
+    palette_hw.Initialize();
+    const ora::gfx::PaletteReference ref_red{"red", palette_hw.GetPaletteIndex("red"),
+                                             palette_hw.GetPalette("red"), palette_hw};
+    const ora::gfx::PaletteReference ref_blue{"blue", palette_hw.GetPaletteIndex("blue"),
+                                              palette_hw.GetPalette("blue"), palette_hw};
+    const ora::gfx::PaletteReference ref_green{"green", palette_hw.GetPaletteIndex("green"),
+                                               palette_hw.GetPalette("green"), palette_hw};
+
+    ora::gfx::SheetBuilder builder{ora::gfx::SheetType::Indexed, 64, 1, &render};
+    std::array<std::byte, 64> arr_indices{};
+    arr_indices.fill(std::byte{0xC8});  // 调色板索引 200 | palette index 200
+    const auto sprite_index = builder.Add(arr_indices, ora::gfx::SpriteFrameType::Indexed8, {8, 8});
+
+    constexpr std::int32_t kTempVertices = 256;
+    ora::gfx::VertexBuffer vb{render, vec_attributes, static_cast<std::int32_t>(sizeof(ora::gfx::Vertex))};
+    vb.InitPersistent(3 * kTempVertices * sizeof(ora::gfx::Vertex), 3);
+    const auto vec_quad_indices = ora::gfx::CreateQuadIndices(kTempVertices / 4 * 6);
+    ora::gfx::IndexBuffer ib{render, vec_quad_indices};
+
+    auto opt_shader = make_shader();
+    ORA_CHECK(opt_shader.has_value());
+    ora::gfx::SpriteRenderer sr{render, vb, ib, std::move(*opt_shader), nullptr, kTempVertices};
+    sr.SetPalette(palette_hw);
+
+    ora::gfx::FrameBuffer target{render, {32, 32}, 0, 0, 0, 0};
+    ORA_CHECK(target.b_valid());
+    target.Bind();
+    sr.SetViewportParams({32, 32}, 1, 0.0f, {0, 0});
+
+    // 五轮 Flush 覆盖 3 槽轮换回绕(slot 0,1,2,0,1;后两轮走 fence 等待)。
+    // Five flushes wrap the 3-slot rotation (slots 0,1,2,0,1; the last two
+    // take the fence-wait path).
+    for (int int4_frame = 0; int4_frame < 5; ++int4_frame) {
+      const float float_x = int4_frame % 2 == 0 ? 0.0f : 16.0f;
+      const auto& ref_palette = int4_frame % 2 == 0 ? ref_red : ref_blue;
+      sr.DrawSprite(sprite_index, &ref_palette, ora::core::Vector3{float_x, 0.0f, 0.0f}, 1.0f);
+      sr.Flush();
+      render.FlushAndWait();
+      const auto arr_pixel = ReadPixelAt(4 + static_cast<std::int32_t>(float_x), 4);
+      if (int4_frame % 2 == 0)
+        ORA_CHECK(ExpectPixel(arr_pixel, 255, 0, 0));
+      else
+        ORA_CHECK(ExpectPixel(arr_pixel, 0, 0, 255));
+    }
+    target.Unbind();
+
+    // —— BlendSpan 三段交错(None 白全屏 / Alpha 半透明蓝 / None 红)——
+    // —— BlendSpan three-segment interleave (None fullscreen white /
+    // Alpha translucent blue / None red) ——
+    ora::gfx::SheetBuilder builder_bgra{ora::gfx::SheetType::BGRA, 64, 1, &render};
+    std::array<std::byte, 16> arr_white{};
+    for (auto& b : arr_white) {
+      b = std::byte{0xFF};
+    }
+    const auto sprite_white = builder_bgra.Add(arr_white, ora::gfx::SpriteFrameType::Bgra32, {2, 2}, true);
+
+    // 三种 blend 的精灵(白 None / 白 Alpha 蓝 tint / 红 None)。
+    // Three sprites with distinct blends.
+    auto sprite_white_none = sprite_white;
+    sprite_white_none.kind_blend = ora::gfx::BlendMode::None;
+    auto sprite_white_alpha = sprite_white;
+    sprite_white_alpha.kind_blend = ora::gfx::BlendMode::Alpha;
+    auto sprite_red_none = sprite_index;
+    sprite_red_none.kind_blend = ora::gfx::BlendMode::None;
+
+    ora::gfx::FrameBuffer target2{render, {64, 48}, 0, 0, 0, 0};
+    ORA_CHECK(target2.b_valid());
+    target2.Bind();
+    sr.SetViewportParams({64, 48}, 1, 0.0f, {0, 0});
+    sr.DrawSprite(sprite_white_none, nullptr, ora::core::Vector3{0, 0, 0}, 64.0f);  // 全屏白底
+    sr.DrawSprite(sprite_white_alpha, nullptr, ora::core::Vector3{16, 16, 0}, 8.0f,
+                  ora::core::Vector3{0, 0, 1}, 0.5f);  // 半透明蓝 tint
+    sr.DrawSprite(sprite_red_none, &ref_red, ora::core::Vector3{40, 40, 0}, 8.0f);  // 不透红
+    ORA_CHECK(sr.SpansForTest().Spans().size() == 3);  // None/Alpha/None 三段
+    sr.Flush();
+    render.FlushAndWait();
+
+    ORA_CHECK(ExpectPixel(ReadPixelAt(2, 2), 255, 255, 255));    // None 白底
+    ORA_CHECK(ExpectPixel(ReadPixelAt(20, 20), 128, 128, 255));  // Alpha: 0.5 蓝 + 0.5 白
+    ORA_CHECK(ExpectPixel(ReadPixelAt(44, 44), 255, 0, 0));      // 段首偏移(索引字节偏移)正确
+    target2.Unbind();
+
+    // —— 双 shader 共享 VB/IB:per-program VAO 缓存往返切换 ——
+    // —— Two shaders sharing VB/IB: the per-program VAO cache toggling ——
+    auto opt_shader_b = make_shader();
+    ORA_CHECK(opt_shader_b.has_value());
+    ora::gfx::SpriteRenderer sr_b{render, vb, ib, std::move(*opt_shader_b), nullptr, kTempVertices};
+    sr_b.SetPalette(palette_hw);
+    sr_b.SetViewportParams({32, 32}, 1, 0.0f, {0, 0});
+    sr.SetViewportParams({32, 32}, 1, 0.0f, {0, 0});
+
+    target.Bind();
+    sr.DrawSprite(sprite_index, &ref_red, {0, 0, 0}, 1.0f);
+    sr.Flush();
+    sr_b.DrawSprite(sprite_index, &ref_blue, {16, 0, 0}, 1.0f);
+    sr_b.Flush();
+    sr.DrawSprite(sprite_index, &ref_green, {8, 16, 0}, 1.0f);
+    sr.Flush();
+    render.FlushAndWait();
+    ORA_CHECK(ExpectPixel(ReadPixelAt(4, 4), 255, 0, 0));
+    ORA_CHECK(ExpectPixel(ReadPixelAt(20, 4), 0, 0, 255));
+    ORA_CHECK(ExpectPixel(ReadPixelAt(12, 20), 0, 255, 0));
+    target.Unbind();
+  }
+
+  // —— 单级合成 Renderer 全流程(OPT-B1)——
+  // —— The single-pass composite Renderer end to end (OPT-B1) ——
+  {
+    ora::gfx::Renderer::Desc desc;
+    desc.int4_vertex_batch_size = 256;
+    desc.str_combined_vert = str_vert;
+    desc.str_combined_frag = str_frag;
+    ora::gfx::Renderer renderer{window, render, desc};
+
+    ora::gfx::HardwarePalette palette_hw{&render};
+    palette_hw.AddPalette("red", MakeSolidPalette(0xFFFF0000), false);
+    palette_hw.Initialize();
+    const ora::gfx::PaletteReference ref_red{"red", palette_hw.GetPaletteIndex("red"),
+                                             palette_hw.GetPalette("red"), palette_hw};
+
+    ora::gfx::SheetBuilder builder{ora::gfx::SheetType::Indexed, 64, 1, &render};
+    std::array<std::byte, 64> arr_indices{};
+    arr_indices.fill(std::byte{0xC8});
+    const auto sprite_index = builder.Add(arr_indices, ora::gfx::SpriteFrameType::Indexed8, {8, 8});
+
+    ora::gfx::SheetBuilder builder_bgra{ora::gfx::SheetType::BGRA, 64, 1, &render};
+    std::array<std::byte, 16> arr_white{};
+    for (auto& b : arr_white)
+      b = std::byte{0xFF};
+    const auto sprite_white = builder_bgra.Add(arr_white, ora::gfx::SpriteFrameType::Bgra32, {2, 2}, true);
+
+    renderer.SetPalette(palette_hw);
+    renderer.SetMaximumViewportSize({64, 48});
+
+    // 世界坐标 (0..64, 0..48) 1:1 映射进 world FBO(scroll = 0)。
+    // World coordinates (0..64, 0..48) map 1:1 into the world FBO (scroll 0).
+    renderer.BeginWorld({32.0f, 24.0f}, {64, 48});
+    renderer.WorldSpriteRenderer().DrawSprite(sprite_index, &ref_red, ora::core::Vector3{0, 0, 0}, 1.0f);
+    renderer.BeginUI();
+    renderer.UIRgbaSpriteRenderer().DrawSprite(sprite_white, ora::core::Vector3{1, 1, 0}, 2.0f,
+                                               ora::core::Vector3{0, 0, 1}, 1.0f);
+    renderer.Flush();  // 上游在 EndFrame 才 flush;提前读回需要手动排空 | upstream flushes at EndFrame; the early readback needs a manual drain
+
+    // Present 前读回默认帧缓冲(back buffer;world blit 2× 于 128×96 表面)。
+    // Read the default framebuffer's back buffer before Present (the world
+    // blit scaled 2× onto the 128×96 surface).
+    const auto geom = window.Geom();
+    const float float_scale = geom.float_scale;
+    render.FlushAndWait();
+    const auto Pixel = [&](float float_x, float float_y) {
+      return ReadPixelAt(static_cast<std::int32_t>(float_x * float_scale),
+                         static_cast<std::int32_t>(float_y * float_scale));
+    };
+    // UI 蓝精灵 (1..5)² 屏幕同域;world 红精灵 (0..8)² ×2 = (0..16)²;其余 =
+    // world FBO 的 clear(黑)。
+    // The UI blue sprite covers (1..5)² screen-space; the world red sprite
+    // (0..8)² ×2 = (0..16)²; everything else is the world FBO's clear
+    // (black).
+    ORA_CHECK(ExpectPixel(Pixel(3, 3), 0, 0, 255));
+    ORA_CHECK(ExpectPixel(Pixel(12, 12), 255, 0, 0));
+    const auto arr_pixel_bg = Pixel(60, 60);
+    ORA_CHECK(arr_pixel_bg[0] <= 3 && arr_pixel_bg[1] <= 3 && arr_pixel_bg[2] <= 3);
+
+    renderer.EndFrame();
+    render.FlushAndWait();
+  }
+}
+
 #endif  // ORA_HAS_DESKTOP_GL
 
 }  // namespace
@@ -750,15 +1206,20 @@ int main() {
   TestGfxUtilScalars();
   TestFastCreateQuad();
   TestFastCopyIntoChannel();
+  TestBlendSpanTracker();
+  TestResolveTextureIndexAndEpoch();
+  TestComputeWorldSpriteParams();
+  TestRgbaColorRendererGeometry();
 
 #ifdef ORA_HAS_DESKTOP_GL
   TestGlSheetAndPalette();
+  TestGlFourthBatch();
 #endif
 
   if (int4_failures != 0) {
     std::println(stderr, "gfx_test: {} 项失败 | {} failure(s)", int4_failures, int4_failures);
     return 1;
   }
-  std::println("gfx_test: PASS(Sheet/SheetBuilder/Sprite + Palette 家族 + HardwarePalette dirty 行 + gfx_util)");
+  std::println("gfx_test: PASS(Sheet/Palette/HardwarePalette + SpriteRenderer(持久 VB 槽回绕/BlendSpan/VAO)+ 单级合成 Renderer)");
   return 0;
 }

@@ -56,6 +56,15 @@ class Sheet {
   /// Wraps an existing texture (an FBO compositing target; Sheet.cs L46-51).
   Sheet(SheetType kind_type, Texture&& texture_owned);
 
+  /// 包裹外部纹理的非拥有形态(单级合成的 worldSheet:引用 FrameBuffer 的
+  /// 颜色附件,生命周期归 FrameBuffer;上游 new Sheet(BGRA,
+  /// worldBuffer.Texture) 的共享引用语义)。
+  /// The non-owning external-texture form (the single-pass compositor's
+  /// worldSheet: references the FrameBuffer's color attachment, whose
+  /// lifetime belongs to the FrameBuffer; the shared-reference semantics of
+  /// upstream's new Sheet(BGRA, worldBuffer.Texture)).
+  Sheet(SheetType kind_type, Texture& texture_external);
+
   Sheet(const Sheet&) = delete;
   Sheet& operator=(const Sheet&) = delete;
   Sheet(Sheet&&) = delete;
@@ -68,7 +77,7 @@ class Sheet {
 
   /// 有 CPU 缓冲,或尚未建纹理(Sheet.cs L37)。
   /// Has a CPU buffer, or no texture yet (Sheet.cs L37).
-  bool Buffered() const { return opt_data_.has_value() || !opt_texture_.has_value(); }
+  bool Buffered() const { return opt_data_.has_value() || (!opt_texture_.has_value() && ptr_texture_external_ == nullptr); }
 
   /// 取纹理(惰性建 + 提交脏数据;Sheet.cs L64-91)。
   /// The texture (lazily created; commits dirty data; Sheet.cs L64-91).
@@ -109,6 +118,7 @@ class Sheet {
   std::optional<Rectangle> rect_dirty_region_;
   bool b_release_buffer_on_commit_ = false;
   std::optional<Texture> opt_texture_;
+  Texture* ptr_texture_external_ = nullptr;  // 非拥有(单级合成 worldSheet)| non-owning (the compositor's worldSheet)
   std::optional<std::vector<std::byte>> opt_data_;  // has_value ≈ 上游 data != null | ≈ upstream's data != null
   RenderThread* ptr_render_ = nullptr;
   int2 int2_size_{};

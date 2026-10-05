@@ -44,6 +44,7 @@ constexpr core::Vector3 operator+(core::Vector3 a, core::Vector3 b) { return {a.
 constexpr core::Vector3 operator-(core::Vector3 a, core::Vector3 b) { return {a.X - b.X, a.Y - b.Y, a.Z - b.Z}; }
 constexpr core::Vector3 operator*(core::Vector3 v, float k) { return {v.X * k, v.Y * k, v.Z * k}; }
 constexpr core::Vector3 operator*(float k, core::Vector3 v) { return v * k; }
+constexpr core::Vector3 operator*(core::Vector3 a, core::Vector3 b) { return {a.X * b.X, a.Y * b.Y, a.Z * b.Z}; }  // System.Numerics 分量乘 | componentwise multiply
 constexpr core::Vector3 operator/(core::Vector3 v, float k) { return v * (1.0f / k); }
 constexpr core::Vector3 operator-(core::Vector3 v) { return {-v.X, -v.Y, -v.Z}; }
 

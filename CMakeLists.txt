@@ -213,7 +213,11 @@ add_library(ora_gfx STATIC
   src/gfx/gfx_util.cpp
   src/gfx/sheet.cpp
   src/gfx/palette.cpp
-  src/gfx/hardware_palette.cpp)
+  src/gfx/hardware_palette.cpp
+  src/gfx/vertex_buffer.cpp
+  src/gfx/frame_buffer.cpp
+  src/gfx/sprite_renderer.cpp
+  src/gfx/renderer.cpp)
 target_link_libraries(ora_gfx PUBLIC ora_platform)
 ora_link_std(ora_gfx)
 
@@ -331,6 +335,7 @@ add_test(NAME platform_test COMMAND platform_test)
 # full equivalence; auto-SKIP on headless hosts).
 add_executable(gfx_test tests/gfx_test.cpp)
 target_link_libraries(gfx_test PRIVATE ora_gfx ora_sdl2)
+target_compile_definitions(gfx_test PRIVATE ORA_GLSL_DIR="${CMAKE_SOURCE_DIR}/glsl")
 ora_link_std(gfx_test)
 add_custom_command(TARGET gfx_test POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different

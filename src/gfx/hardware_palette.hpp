@@ -128,6 +128,13 @@ class HardwarePalette {
 
   std::int32_t Height() const { return int4_height_; }
 
+  /// OPT-A7:色移 epoch —— HasColorShift 可观察结果每次翻转时递增;
+  /// PaletteReference 以 (epoch, value) 缓存消除每精灵字符串字典查找。
+  /// OPT-A7: the color-shift epoch — incremented whenever HasColorShift's
+  /// observable result flips; PaletteReference caches (epoch, value) to kill
+  /// the per-sprite string-dictionary lookup.
+  std::uint32_t ShiftEpoch() const { return uint4_shift_epoch_; }
+
   Texture* TextureOrNull() { return opt_texture_ ? &*opt_texture_ : nullptr; }
   Texture* ColorShiftsOrNull() { return opt_color_shifts_ ? &*opt_color_shifts_ : nullptr; }
 
@@ -178,6 +185,7 @@ class HardwarePalette {
   bool b_shifts_dirty_ = true;
   bool b_last_upload_full_ = true;        // 诊断:上次上传路径 | diagnostic: the last upload's path
   std::vector<bool> vecb_dirty_rows_;     // 尺寸 = int4_height_ | sized to int4_height_
+  std::uint32_t uint4_shift_epoch_ = 0;   // OPT-A7:HasColorShift 结果翻转计数 | OPT-A7: flips of HasColorShift's result
 };
 
 }  // namespace ora::gfx

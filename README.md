@@ -61,7 +61,13 @@
 - `src/gfx/`:shader(**{VERSION} 替换 + 链接后 active-uniform 枚举入整数表(OPT-A6:无字符串热路径)+ sampler 单元分配**,Set*/Location 整型化 API)+ texture(**BGRA 上传/UNPACK 行打包/RGBA16F/读回/ScaleFilter,RAII 异步删除**);gfx_command 增 13 命令
 - 验收(platform_test):纯逻辑(多击时序/距离边界、修饰符位组合、坐标舍入边界、Keycode×SDL 对照)+ 合成事件泵(双击 1→2、三条 motion 合一、滚轮/文本/退出)+ GL 集成(**NPOT BGRA 逐字节往返、子区域行距位图、白纹理 × 红 uniform 采样链像素断言、RAII 后管线照常**);双构建 ctest 13/13;修出第一批三个真 bug(SPSC 失配对齐/上下文泄漏/payload 越界);偏离 D41~D45 登记
 
-下一批次(Phase 4 续):SpriteRenderer(8 槽/BlendSpan/持久映射 VB + VAO 缓存)与三级合成 Renderer(单级合成)、OpenAL/FreeType、硬件光标、Westwood 文件格式全家。
+**Phase 4 第四批完成**(SpriteRenderer + 单级合成 Renderer;2026-10-05):
+
+- `src/gfx/` 五件:vertex_buffer(**OPT-A5:glBufferStorage 持久映射三槽 VB** + 槽级 fence(渲染线程内闭环,主线程零等待)+ 槽基址经 glDrawElementsBaseVertex;**OPT-A6:per-(顶点格式, program) VAO 缓存**,VB/IB/属性一次固化)、frame_buffer(NPOT 直建,Bind 的 viewport 保存/恢复与清屏)、sprite_renderer(8 纹理槽映射含双 sheet 与满槽 flush 重试逐行、BlendSpan 交错段、DrawSprite 全形态、RgbaSprite/ColorRenderer 家族;BlendSpanTracker/IRgbaQuadSink 提出为纯逻辑可测件)、renderer(**OPT-B1 单级合成**:NPOT world FBO + screen FBO 整级删除,BeginUI 把 worldSprite 直接画进默认帧缓冲 —— 每帧 3 次全屏 clear + 2 次全屏拷贝 → 1 clear + 1 blit;NDC 净映射等价论证在文件头)、palette(**OPT-A7:色移 epoch** —— PaletteReference 每精灵的字符串字典查找归零)
+- `glsl/combined.vert|frag` 自上游原样复制;gfx_command +15 命令(blend 状态机 diff/深度/FBO depth/持久 VB/VAO/Present);渲染线程启动即建常驻全局 VAO(上游同语义)
+- 验收(gfx_test):纯逻辑(BlendSpan 段合并/ResolveTextureIndex 三态与 epoch 失效链/worldSprite 几何的整数倍 renderScale 舍入/ColorRenderer 几何捕获)+ GL 集成(**调色板采样链 × 五轮 Flush 覆盖三槽回绕与 fence 等待**、三段 blend 交错单次 Flush、双 shader VAO 往返、NPOT FBO 130×70、**单级合成全流程**:BeginWorld → world 精灵 → BeginUI 2× 合成 → UI 精灵 → 默认帧缓冲三区像素断言);双构建 ctest 14/14;修出四个真 bug(fence 常量误值致 INVALID_ENUM、纹理绑定缓存 8 单元把 Palette/ColorShifts 挡在门外、GL 名字复用撞绑定 diff 缓存、持久 VB 槽写入与索引寻址错位);偏离 D51~D57 登记
+
+下一批次(Phase 4 续):OpenAL/FreeType、硬件光标、Westwood 文件格式全家、WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)。
 
 ## 与上游的差异(优化点与偏离登记)
 
@@ -83,12 +89,12 @@
 
 ### 与上游不同步处(偏离登记摘要)
 
-当前登记 **D1~D50**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
+当前登记 **D1~D57**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
 
 - **yaml/fs(D1~D9)**:异常类型统一为 YamlException(消息文本逐字一致)、惰性枚举物化为 vector、null/"" 键合流等——合法输入下行为等价或不可观测;
 - **meta/加载链(D10~D24)**:TypeConverter 兜底未实现(实际字段类型已全覆盖,不可达)、字典字段为插入序 vector(dump 协议按键排序)、三 mod 解析快照以 C++ 侧固化(D24:C# `--dump` 工具受 ALC 程序集副本环境制约,恢复后可再对拍校准)等;
 - **sim/net(D25~D34)**:Initialize 观察者去重形态差异(受端幂等)、**trait 工厂与所有权待 Phase 5 随 World arena 接线(D26/D27)**、`Target.FromCell` 以 square 网格公式桩换算(D28,Phase 5 接 Map)、UI/大厅命令族静默吞并(D29,Phase 6/7 接线)、SyncReport 未接(D30,上游默认关闭)等;
-- **平台/渲染(第一批 D35~D40、第二批 D41~D45、第三批 D46~D50)**:命令缓冲替代装箱消息队列、统一线程模型、NPOT、KHR_debug、纹理生命周期契约(替代 glIsTexture 驱逐)等;输入层形态适配(退出上报/时钟注入/X1X2 IsRepeat);**主循环、mods 运行时 trait、UI、服务器、Lua 脚本(Phase 5-8 范围)尚未移植**——见上方状态节。
+- **平台/渲染(第一批 D35~D40、第二批 D41~D45、第三批 D46~D50、第四批 D51~D57)**:命令缓冲替代装箱消息队列、统一线程模型、NPOT、KHR_debug、纹理生命周期契约(替代 glIsTexture 驱逐)、持久映射 VB/VAO 缓存/blend diff/单级合成等;输入层形态适配(退出上报/时钟注入/X1X2 IsRepeat);**主循环、mods 运行时 trait、UI、服务器、Lua 脚本(Phase 5-8 范围)尚未移植**——见上方状态节。
 
 ## 许可证与归属
 
@@ -191,7 +197,7 @@ Currently **D1–D50** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by 
 - **yaml/fs (D1–D9)**: exception types unified into YamlException (message texts verbatim), lazy enumerations materialized into vectors, null/"" key coalescing, etc. — behavior-equivalent or unobservable for valid inputs;
 - **meta/loading chain (D10–D24)**: the TypeConverter fallback not implemented (actual field types are fully covered, unreachable), dictionary fields as insertion-ordered vectors (dump protocol sorts by key), the three-mod parse snapshots frozen on the C++ side (D24: the C# `--dump` tool is constrained by the ALC assembly-copy environment; re-differential once restored), etc.;
 - **sim/net (D25–D34)**: the Initialize observer-dedup shape differs (receiving ends are idempotent), **the trait factory and ownership await Phase 5 wiring into the World arena (D26/D27)**, `Target.FromCell` stubbed with the square-grid formula (D28, Map lands in Phase 5), UI/lobby command families silently swallowed (D29, wired in Phase 6/7), SyncReport not wired (D30, off by default upstream), etc.;
-- **Platform/render (first batch D35–D40, second batch D41–D45, third batch D46–D50)**: the command buffer replacing the boxing message queue, the unified threading model, NPOT, KHR_debug, the texture lifetime contract (replacing the glIsTexture eviction), etc., plus input-layer shape adaptations (exit reporting / clock injection / X1X2 IsRepeat); **the main loop, runtime mods traits, UI, server, and Lua scripting (Phases 5–8) are not ported yet** — see the status section above.
+- **Platform/render (first batch D35–D40, second D41–D45, third D46–D50, fourth D51–D57)**: the command buffer replacing the boxing message queue, the unified threading model, NPOT, KHR_debug, the texture lifetime contract (replacing the glIsTexture eviction), the persistent-mapped VBs/VAO cache/blend diff/single-pass compositing, etc., plus input-layer shape adaptations (exit reporting / clock injection / X1X2 IsRepeat); **the main loop, runtime mods traits, UI, server, and Lua scripting (Phases 5–8) are not ported yet** — see the status section above.
 
 ## License & Attribution
 
