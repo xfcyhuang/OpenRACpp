@@ -38,6 +38,16 @@ class SpanReader {
   /// The upstream s.Position += n form.
   void Skip(std::int64_t int8_count) { Seek(int8_pos_ + int8_count); }
 
+  /// 上游 StreamExts.Peek(StreamExts.cs L60-68):窥视下一字节,流尽返
+  /// 回 -1(不抛;VqaVideo 的偶对齐 `Peek() == 0` 消费依赖此 EOF 语义)。
+  /// Upstream StreamExts.Peek (StreamExts.cs L60-68): peeks the next
+  /// byte, returning -1 at end of stream without throwing (VqaVideo's
+  /// even-alignment `Peek() == 0` consume relies on this EOF behavior).
+  std::int32_t Peek() const {
+    return int8_pos_ >= Length() ? -1 : static_cast<std::int32_t>(
+                                           static_cast<std::uint8_t>(vec_source_[static_cast<std::size_t>(int8_pos_)]));
+  }
+
   std::uint8_t ReadUInt8() { return static_cast<std::uint8_t>(vec_source_.at(static_cast<std::size_t>(int8_pos_++))); }
 
   std::uint16_t ReadUInt16() {

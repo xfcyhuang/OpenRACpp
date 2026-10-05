@@ -28,6 +28,8 @@ import std;
 #include "formats/tmp_ra.hpp"
 #include "formats/tmp_td.hpp"
 #include "formats/tmp_ts.hpp"
+#include "formats/vqa_video.hpp"
+#include "formats/wsa_video.hpp"
 #include "formats/xor_delta.hpp"
 #include "gfx/palette.hpp"
 #include "gfx/sheet.hpp"
@@ -1021,6 +1023,108 @@ std::vector<LoaderDef> LoadersFor(std::string_view str_mod) {
   return {kShpD2, kShpTD, kTmpRA, kTmpTD, kShpTS, kTmpTS};
 }
 
+void TestVqaWsaVideo() {
+  // IsWestwoodVqa 三态 | the three IsWestwoodVqa states
+  const auto make_vqa_head = [](const char* chr_magic4, std::uint32_t uint4_len, const char* chr_form4) {
+    auto vec = std::vector<std::byte>{};
+    for (const char chr_c : std::string_view{chr_magic4})
+      vec.push_back(static_cast<std::byte>(chr_c));
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec.push_back(static_cast<std::byte>(uint4_len >> (8 * int4_i)));
+    for (const char chr_c : std::string_view{chr_form4})
+      vec.push_back(static_cast<std::byte>(chr_c));
+    return vec;
+  };
+  ORA_CHECK(ora::fmt::IsWestwoodVqa(make_vqa_head("FORM", 100, "WVQA")));
+  ORA_CHECK(!ora::fmt::IsWestwoodVqa(make_vqa_head("XORM", 100, "WVQA")));
+  ORA_CHECK(!ora::fmt::IsWestwoodVqa(make_vqa_head("FORM", 0, "WVQA")));
+  ORA_CHECK(!ora::fmt::IsWestwoodVqa(make_vqa_head("FORM", 100, "XVQA")));
+
+  // VqaVideo 构造负例(消息逐字)| the VqaVideo ctor negatives (messages
+  // verbatim)
+  {
+    auto b_threw = false;
+    try {
+      const auto video = ora::fmt::VqaVideo{make_vqa_head("XORM", 100, "WVQA"), false};
+      (void)video;
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} == "System.IO.InvalidDataException: Invalid vqa (invalid FORM section)";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  // IsWsa 负例 | the IsWsa negatives
+  ORA_CHECK(!ora::fmt::IsWsa(MakeBytes({0x01, 0x00})));  // frames = 1
+  {
+    // frames = 2 但长度失配 | frames = 2 with a length mismatch
+    auto vec = std::vector<std::byte>{};
+    const auto push_u16 = [&vec](std::uint16_t uint2_v) {
+      vec.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+      vec.push_back(static_cast<std::byte>(uint2_v >> 8));
+    };
+    const auto push_u32 = [&vec](std::uint32_t uint4_v) {
+      for (auto int4_i = 0; int4_i < 4; int4_i++)
+        vec.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+    };
+    push_u16(2);
+    push_u16(0);
+    push_u16(0);
+    push_u16(4);
+    push_u16(4);
+    push_u16(37);
+    push_u16(0);  // flags ≠ 1
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      push_u32(30 + static_cast<std::uint32_t>(int4_i));
+    push_u32(46);  // ≠ 实际长度 | not the actual length
+    for (auto int4_i = 0; int4_i < 8; int4_i++)
+      vec.push_back(std::byte{0});
+    ORA_CHECK(!ora::fmt::IsWsa(vec));
+  }
+
+  // WSA 无调色板(flags≠1):上游 paletteBytes null → LoadFrame 即 NRE
+  // 等价抛。| A palette-less WSA (flags≠1): upstream's paletteBytes is
+  // null → the LoadFrame NRE's equivalent throw.
+  {
+    auto vec = std::vector<std::byte>{};
+    const auto push_u16 = [&vec](std::uint16_t uint2_v) {
+      vec.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+      vec.push_back(static_cast<std::byte>(uint2_v >> 8));
+    };
+    const auto push_u32 = [&vec](std::uint32_t uint4_v) {
+      for (auto int4_i = 0; int4_i < 4; int4_i++)
+        vec.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+    };
+    push_u16(2);
+    push_u16(0);
+    push_u16(0);
+    push_u16(2);
+    push_u16(2);
+    push_u16(37);
+    push_u16(0);
+    // 偏移(绝对,flags≠1 不加 768)| the offsets (absolute; flags≠1 adds
+    // no 768)。帧载荷 = LCW(XOR 终止符 80 00 00 00)= 6 字节。
+    // The frame payloads = LCW (the XOR terminator 80 00 00 00) = 6 bytes.
+    const auto vec_term_frame = ora::fmt::lcw::Encode(MakeBytes({0x80, 0x00, 0x00, 0x00}));
+    push_u32(30);
+    push_u32(30 + static_cast<std::uint32_t>(vec_term_frame.size()));
+    push_u32(30 + 2 * static_cast<std::uint32_t>(vec_term_frame.size()));
+    push_u32(30 + 2 * static_cast<std::uint32_t>(vec_term_frame.size()));
+    for (auto int4_f = 0; int4_f < 2; int4_f++)
+      vec.insert(vec.end(), vec_term_frame.begin(), vec_term_frame.end());
+    ORA_CHECK(ora::fmt::IsWsa(vec));
+
+    auto b_threw = false;
+    try {
+      const auto video = ora::fmt::WsaVideo{vec, false};
+      (void)video;
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} ==
+                "System.NullReferenceException: Object reference not set to an instance of an object.";
+    }
+    ORA_CHECK(b_threw);
+  }
+}
+
 void AppendFrameLines(const std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>>& vec_frames, std::string& str_out) {
   str_out += std::format("N {}\n", vec_frames.size());
   for (const auto& ptr_frame : vec_frames) {
@@ -2011,6 +2115,248 @@ void AppendSoundLines(std::string_view sv_tag, std::string_view sv_name, std::sp
       BytesToHexLower(std::span<const std::byte>{vec_pcm}.first(std::min<std::size_t>(32, vec_pcm.size()))));
 }
 
+// ———— VQA/WSA 夹具构造(与 oracle 同算法;golden_gen 第 18 段)————
+// ———— The VQA/WSA fixture builders (the same algorithms as the oracle;
+// golden_gen section 18) ————
+void VqPutTag(std::vector<std::byte>& vec, std::string_view sv) {
+  for (const char chr_c : sv)
+    vec.push_back(static_cast<std::byte>(chr_c));
+}
+
+void VqPutU16(std::vector<std::byte>& vec, int int4_v) {
+  vec.push_back(static_cast<std::byte>(int4_v));
+  vec.push_back(static_cast<std::byte>(int4_v >> 8));
+}
+
+void VqPutU32L(std::vector<std::byte>& vec, std::uint32_t uint4_v) {
+  for (auto int4_i = 0; int4_i < 4; int4_i++)
+    vec.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+}
+
+void VqPutU32B(std::vector<std::byte>& vec, std::uint32_t uint4_v) {
+  vec.push_back(static_cast<std::byte>(uint4_v >> 24));
+  vec.push_back(static_cast<std::byte>(uint4_v >> 16));
+  vec.push_back(static_cast<std::byte>(uint4_v >> 8));
+  vec.push_back(static_cast<std::byte>(uint4_v));
+}
+
+/// 块 = tag + u32 大端长度 + 载荷 + 奇载荷的偶对齐衬垫(读取方以
+/// Peek()==0 消费)。| A chunk = tag + a big-endian u32 length + payload +
+/// the even-alignment pad for an odd payload (consumed by the reader's
+/// Peek()==0).
+void VqPutChunk(std::vector<std::byte>& vec, std::string_view sv_type, std::span<const std::byte> vec_payload) {
+  VqPutTag(vec, sv_type);
+  VqPutU32B(vec, static_cast<std::uint32_t>(vec_payload.size()));
+  vec.insert(vec.end(), vec_payload.begin(), vec_payload.end());
+  if (vec_payload.size() % 2 == 1)
+    vec.push_back(std::byte{0});
+}
+
+std::vector<std::byte> MakeVqaFile(std::uint16_t uint2_flags, std::uint16_t uint2_frame_count,
+                                   std::uint16_t uint2_width, std::uint16_t uint2_height, std::uint8_t uint1_bw,
+                                   std::uint8_t uint1_bh, std::uint8_t uint1_parts, std::uint16_t uint2_sample_rate,
+                                   std::uint8_t uint1_channels, std::uint8_t uint1_sample_bits,
+                                   const std::vector<std::vector<std::byte>>& vec_frames) {
+  auto vec = std::vector<std::byte>{};
+  VqPutTag(vec, "FORM");
+  VqPutU32L(vec, 0);  // length(装配后回填 | patched after assembly)
+  VqPutTag(vec, "WVQA");
+  VqPutTag(vec, "VQHD");
+  VqPutU32L(vec, 42);
+  VqPutU16(vec, 0);  // version
+  VqPutU16(vec, uint2_flags);
+  VqPutU16(vec, uint2_frame_count);
+  VqPutU16(vec, uint2_width);
+  VqPutU16(vec, uint2_height);
+  vec.push_back(static_cast<std::byte>(uint1_bw));
+  vec.push_back(static_cast<std::byte>(uint1_bh));
+  vec.push_back(std::byte{12});  // framerate
+  vec.push_back(static_cast<std::byte>(uint1_parts));
+  VqPutU16(vec, 256);  // numColors
+  VqPutU16(vec, 0);    // maxBlocks
+  VqPutU16(vec, 0);    // unknown1
+  VqPutU32L(vec, 0);   // unknown2
+  VqPutU16(vec, uint2_sample_rate);
+  vec.push_back(static_cast<std::byte>(uint1_channels));
+  vec.push_back(static_cast<std::byte>(uint1_sample_bits));
+  VqPutU32L(vec, 0);  // unknown3
+  VqPutU16(vec, 0);   // unknown4
+  VqPutU32L(vec, 256000);  // maxCbfzSize
+  VqPutU32L(vec, 0);       // unknown5
+
+  // type[3]=='F' 跳转路径 | the type[3]=='F' skip path
+  VqPutTag(vec, "XXXF");
+  VqPutU32B(vec, 4);
+  vec.insert(vec.end(), 4, std::byte{0});
+
+  VqPutTag(vec, "FINF");
+  VqPutU16(vec, 0);  // length
+  VqPutU16(vec, 0);  // unknown4
+
+  // 帧偏移表(0x40000000 标志位全开)| the offset table (the 0x40000000
+  // flag bit set on all)
+  auto uint4_pos = static_cast<std::uint32_t>(vec.size() + 4 * vec_frames.size());
+  for (const auto& vec_f : vec_frames) {
+    VqPutU32L(vec, 0x40000000u | (uint4_pos >> 1));
+    uint4_pos += static_cast<std::uint32_t>(vec_f.size());
+  }
+
+  for (const auto& vec_f : vec_frames)
+    vec.insert(vec.end(), vec_f.begin(), vec_f.end());
+
+  // FORM length = 总长 - 8(读取方跳过)| FORM length = total - 8 (the
+  // reader skips it)
+  const auto uint4_len = static_cast<std::uint32_t>(vec.size() - 8);
+  for (auto int4_i = 0; int4_i < 4; int4_i++)
+    vec[static_cast<std::size_t>(4 + int4_i)] = static_cast<std::byte>(uint4_len >> (8 * int4_i));
+  return vec;
+}
+
+std::vector<std::byte> VqSub(std::string_view sv_type, std::span<const std::byte> vec_data) {
+  auto vec = std::vector<std::byte>{};
+  VqPutChunk(vec, sv_type, vec_data);
+  return vec;
+}
+
+std::vector<std::byte> VqCpl0(int int4_seed) {
+  auto vec_p = std::vector<std::byte>(768, std::byte{0});
+  for (auto int4_i = 0; int4_i < 768; int4_i++)
+    vec_p[static_cast<std::size_t>(int4_i)] = static_cast<std::byte>((int4_i + int4_seed) & 0xFF);
+  return VqSub("CPL0", vec_p);
+}
+
+std::vector<std::byte> VqVptz(std::span<const std::byte> vec_orig) {
+  return VqSub("VPTZ", ora::fmt::lcw::Encode(vec_orig));
+}
+
+std::vector<std::byte> VqVptr(std::span<const std::byte> vec_orig) { return VqSub("VPTR", vec_orig); }
+
+std::vector<std::byte> VqVprz(std::span<const std::byte> vec_orig) {
+  return VqSub("VPRZ", ora::fmt::lcw::Encode(vec_orig));
+}
+
+/// 手工字面 LCW 流:leading 0x00 触发 CBFZ 的 decodeMode / VPRZ 的
+/// reverse 分支。| A hand-built literal LCW stream: the leading 0x00 trips
+/// CBFZ's decodeMode / VPRZ's reverse branch.
+std::vector<std::byte> LcwLiteralReversed(std::span<const std::byte> vec_data) {
+  auto vec = std::vector<std::byte>{std::byte{0}};
+  auto int4_off = 0;
+  while (int4_off < static_cast<int>(vec_data.size())) {
+    const auto int4_n = std::min(63, static_cast<int>(vec_data.size()) - int4_off);
+    vec.push_back(static_cast<std::byte>(0x80 | int4_n));
+    vec.insert(vec.end(), vec_data.begin() + int4_off, vec_data.begin() + int4_off + int4_n);
+    int4_off += int4_n;
+  }
+
+  vec.push_back(std::byte{0x80});
+  return vec;
+}
+
+/// 非 HQ 指令图:px 平面 + mod 平面(mod ≤ 3 或 0x0f 特例)。| The non-HQ
+/// instruction map: a px plane plus a mod plane (mod ≤ 3 or the 0x0f
+/// special case).
+std::vector<std::byte> NonHqOrig(int int4_bx, int int4_by, int int4_seed) {
+  auto vec = std::vector<std::byte>(2 * static_cast<std::size_t>(int4_bx) * int4_by, std::byte{0});
+  for (auto int4_y = 0; int4_y < int4_by; int4_y++)
+    for (auto int4_x = 0; int4_x < int4_bx; int4_x++) {
+      const auto st_i = static_cast<std::size_t>(int4_x + int4_y * int4_bx);
+      vec[st_i] = static_cast<std::byte>((int4_x * 7 + int4_y * 3 + int4_seed) & 0xFF);
+      vec[st_i + static_cast<std::size_t>(int4_bx * int4_by)] =
+          (int4_x + int4_y * int4_seed) % 5 == 0 ? std::byte{0x0f} : static_cast<std::byte>(int4_y % 4);
+    }
+
+  return vec;
+}
+
+std::vector<std::byte> NonHqOrigSmall(int int4_bx, int int4_by, int int4_seed) {
+  auto vec = std::vector<std::byte>(2 * static_cast<std::size_t>(int4_bx) * int4_by, std::byte{0});
+  for (auto int4_y = 0; int4_y < int4_by; int4_y++)
+    for (auto int4_x = 0; int4_x < int4_bx; int4_x++) {
+      const auto st_i = static_cast<std::size_t>(int4_x + int4_y * int4_bx);
+      vec[st_i] = static_cast<std::byte>((int4_x + int4_y + int4_seed) & 0xFF);
+      vec[st_i + static_cast<std::size_t>(int4_bx * int4_by)] =
+          (int4_x + int4_y + int4_seed) % 3 == 0 ? std::byte{0x0f} : std::byte{0};
+    }
+
+  return vec;
+}
+
+/// HQ 指令流:行 0 扫五 case(0/3/2/5/1/0),行 1..N-1 各两条 case5;
+/// seed 平移块号。消耗 = 15 + 6*(by-1) 字节 = vp?? 的 vtprSize。| The HQ
+/// instruction stream: row 0 sweeps five cases, rows 1..N-1 two case5s
+/// each; seed shifts block numbers. Consumption = 15 + 6*(by-1) bytes =
+/// the vp?? chunk's vtprSize.
+std::vector<std::byte> HqInstr(int int4_bx, int int4_by, int int4_seed) {
+  auto vec = std::vector<std::byte>{};
+  const auto ins = [&vec](int int4_val) {
+    vec.push_back(static_cast<std::byte>(int4_val & 0xFF));
+    vec.push_back(static_cast<std::byte>((int4_val >> 8) & 0xFF));
+  };
+
+  ins(0 << 13 | 10);                                // case0: skip 10
+  ins(3 << 13 | (300 + int4_seed));                 // case3
+  ins(2 << 13 | ((77 + int4_seed) & 0xFF));         // case2 + 2 流内块
+  vec.push_back(static_cast<std::byte>(41 + int4_seed));
+  vec.push_back(static_cast<std::byte>(7 + int4_seed));
+  ins(5 << 13 | (500 + int4_seed));                 // case5 ×5
+  vec.push_back(std::byte{5});
+  ins(1 << 13 | (1 << 8) | ((90 + int4_seed) & 0xFF));  // case1 ×4
+  ins(0 << 13 | 41);                                // case0: skip 41
+  for (auto int4_y = 1; int4_y < int4_by; int4_y++) {
+    ins(5 << 13 | (int4_y * int4_bx + int4_seed));
+    vec.push_back(std::byte{32});
+    ins(5 << 13 | (int4_y * int4_bx + 32 + int4_seed));
+    vec.push_back(std::byte{32});
+  }
+
+  return vec;
+}
+
+/// VQFR 帧包裹。| The VQFR frame wrapper.
+std::vector<std::byte> VqFrame(std::span<const std::byte> vec_subchunks) {
+  auto vec = std::vector<std::byte>{};
+  VqPutChunk(vec, "VQFR", vec_subchunks);
+  return vec;
+}
+
+void AppendVideoLines(std::string_view sv_name, std::span<const std::byte> vec_file, bool b_pad,
+                      std::string& str_out) {
+  str_out += std::format("VQ {} {}\n", sv_name, b_pad ? 1 : 0);
+  const auto loader_vqa = ora::fmt::VqaLoader{};
+  const auto loader_wsa = ora::fmt::WsaLoader{};
+  const ora::fmt::IVideoLoader* const arr_loaders[] = {&loader_vqa, &loader_wsa};
+  auto ptr_video = std::unique_ptr<ora::fmt::IVideo>{};
+  const char* chr_hit = "NONE";
+  for (const auto* ptr_loader : arr_loaders) {
+    if (ptr_loader->TryParseVideo(vec_file, b_pad, ptr_video)) {
+      chr_hit = ptr_loader == &loader_vqa ? "VqaLoader" : "WsaLoader";
+      break;
+    }
+  }
+
+  str_out += std::format("VL {}\n", chr_hit);
+  if (!ptr_video)
+    return;
+
+  str_out += std::format("VV {} {} {} {} {} {} {} {}\n", ptr_video->FrameCount(), ptr_video->Framerate(),
+                         ptr_video->Width(), ptr_video->Height(), ptr_video->HasAudio() ? 1 : 0,
+                         ptr_video->AudioChannels(), ptr_video->SampleBits(), ptr_video->SampleRate());
+  const auto vec_audio = ptr_video->AudioData();
+  str_out += std::format("VA {} {}\n", vec_audio.empty() ? 0 : ora::fmt::CRC32::Calculate(vec_audio),
+                         vec_audio.size());
+
+  ptr_video->Reset();
+  for (auto int4_i = 0; int4_i < ptr_video->FrameCount(); int4_i++) {
+    if (int4_i > 0)
+      ptr_video->AdvanceFrame();
+    str_out += std::format("VF {} {}\n", int4_i, ora::fmt::CRC32::Calculate(ptr_video->CurrentFrameData()));
+  }
+
+  const auto vec_frame = ptr_video->CurrentFrameData();
+  str_out += std::format(
+      "VX {}\n", BytesToHexLower(vec_frame.first(std::min<std::size_t>(32, vec_frame.size()))));
+}
+
 std::string BuildActualText(const std::string& str_upstream_root) {
   auto str_out = std::string{};
 
@@ -2658,6 +3004,279 @@ std::string BuildActualText(const std::string& str_upstream_root) {
     dump_wv("WVP", MakeBytes({0x44, 0x55, 0x66, 0x77}), 4);
   }
 
+  // 19) VQA/WSA 合成视频夹具(与 oracle 第 18 段同构造;VideoFormats 链
+  // Vqa→Wsa)。| The synthetic VQA/WSA video fixtures (the same
+  // construction as oracle section 18; the VideoFormats chain Vqa→Wsa).
+  {
+    // 1) 非 HQ 全路径:CBFZ/CPL0/VPTZ + SND0 + SN2J→SND2(偶长)+ 尾置
+    //    奇长 SND2 + \0VQF + VQFL(CBFZ 提前返回,origData 停留上一帧);
+    //    mono 音频 SND0+SND2 混采,末块压缩标志治理全体。
+    const auto uint1_bw = std::uint8_t{2};
+    const auto uint1_bh = std::uint8_t{2};
+    const auto uint2_w = std::uint16_t{128};
+    const auto uint2_h = std::uint16_t{64};
+    const auto int4_bx = uint2_w / uint1_bw;
+    const auto int4_by = uint2_h / uint1_bh;
+    const auto vec_cbf0 = Pat(uint2_w * uint2_h, 7, 0);
+    const auto vec_cbf1 = Pat(uint2_w * uint2_h, 11, 5);
+    const auto vec_orig0 = NonHqOrig(int4_bx, int4_by, 0);
+    const auto vec_orig1 = NonHqOrig(int4_bx, int4_by, 13);
+    const auto vec_orig2 = NonHqOrig(int4_bx, int4_by, 29);
+
+    auto vec_f0 = std::vector<std::byte>{};
+    VqPutChunk(vec_f0, "SND0", Pat(8, 5, 1));
+    auto vec_vqfr0 = std::vector<std::byte>{};
+    {
+      const auto cpl0 = VqCpl0(0);
+      vec_vqfr0.insert(vec_vqfr0.end(), cpl0.begin(), cpl0.end());
+      const auto cbfz = VqSub("CBFZ", ora::fmt::lcw::Encode(vec_cbf0));
+      vec_vqfr0.insert(vec_vqfr0.end(), cbfz.begin(), cbfz.end());
+      const auto vptz = VqVptz(vec_orig0);
+      vec_vqfr0.insert(vec_vqfr0.end(), vptz.begin(), vptz.end());
+    }
+    VqPutChunk(vec_f0, "VQFR", vec_vqfr0);
+
+    auto vec_f1 = std::vector<std::byte>{};
+    {
+      auto vec_sn2j = std::vector<std::byte>{};
+      VqPutU32B(vec_sn2j, 4);
+      vec_sn2j.insert(vec_sn2j.end(), 4, std::byte{0});
+      VqPutChunk(vec_f1, "SN2J", vec_sn2j);
+      const auto snd2a = Pat(6, 3, 7);  // 偶长:SN2J 跳径无衬垫消费 | even length
+      VqPutChunk(vec_f1, "SND2", snd2a);
+      auto vec_vqfr1 = std::vector<std::byte>{};
+      const auto vptz = VqVptz(vec_orig1);
+      vec_vqfr1.insert(vec_vqfr1.end(), vptz.begin(), vptz.end());
+      VqPutChunk(vec_f1, "VQFR", vec_vqfr1);
+      const auto snd2b = Pat(5, 9, 2);  // 奇长:通用回路衬垫 | odd length
+      VqPutChunk(vec_f1, "SND2", snd2b);
+    }
+
+    auto vec_f2 = std::vector<std::byte>{};
+    {
+      auto vec_nul_vqf = std::vector<std::byte>{std::byte{0}};  // ReadUInt8 消费 | consumed by ReadUInt8
+      auto vec_vqfr2 = std::vector<std::byte>{};
+      const auto cpl0 = VqCpl0(100);
+      vec_vqfr2.insert(vec_vqfr2.end(), cpl0.begin(), cpl0.end());
+      const auto vptz = VqVptz(vec_orig2);
+      vec_vqfr2.insert(vec_vqfr2.end(), vptz.begin(), vptz.end());
+      vec_nul_vqf.insert(vec_nul_vqf.end(), vec_vqfr2.begin(), vec_vqfr2.end());
+      VqPutChunk(vec_f2, std::string_view{"\0VQF", 4}, vec_nul_vqf);
+    }
+
+    auto vec_f3 = std::vector<std::byte>{};
+    VqPutChunk(vec_f3, "VQFL", VqSub("CBFZ", ora::fmt::lcw::Encode(vec_cbf1)));
+
+    const auto vec_vqa_file =
+        MakeVqaFile(0, 4, uint2_w, uint2_h, uint1_bw, uint1_bh, 0, 22050, 1, 8, {vec_f0, vec_f1, vec_f2, vec_f3});
+    AppendVideoLines("vqa_nonhq", vec_vqa_file, false, str_out);
+    AppendVideoLines("vqa_nonhq", vec_vqa_file, true, str_out);
+
+    // 2) 立体声 + 奇长 SND2(左右各 length/2,余 1 字节连同衬垫被
+    //    Position+=2 吞掉)。
+    const auto uint2_sw = std::uint16_t{64};
+    const auto uint2_sh = std::uint16_t{32};
+    const auto vec_s_orig = NonHqOrigSmall(uint2_sw / uint1_bw, uint2_sh / uint1_bh, 3);
+    auto vec_sf = std::vector<std::byte>{};
+    {
+      auto vec_svqfr = std::vector<std::byte>{};
+      const auto cpl0 = VqCpl0(0);
+      vec_svqfr.insert(vec_svqfr.end(), cpl0.begin(), cpl0.end());
+      const auto cbfz = VqSub("CBFZ", ora::fmt::lcw::Encode(Pat(uint2_sw * uint2_sh, 7, 0)));
+      vec_svqfr.insert(vec_svqfr.end(), cbfz.begin(), cbfz.end());
+      const auto vptz = VqVptz(vec_s_orig);
+      vec_svqfr.insert(vec_svqfr.end(), vptz.begin(), vptz.end());
+      VqPutChunk(vec_sf, "VQFR", vec_svqfr);
+      const auto snd2 = Pat(5, 3, 1);  // 奇长立体 | odd-length stereo
+      VqPutChunk(vec_sf, "SND2", snd2);
+    }
+    const auto vec_vqa_stereo =
+        MakeVqaFile(0, 1, uint2_sw, uint2_sh, uint1_bw, uint1_bh, 0, 44100, 2, 8, {vec_sf});
+    AppendVideoLines("vqa_stereo", vec_vqa_stereo, false, str_out);
+
+    // 3) CBP 分块码本:CBP0+CBP0(clone 应用)与 CBP0+CBPZ(LCW 解码应
+    //    用)两轮;channels=0 无音频;CPL0 使帧间可分辨。
+    const auto vec_cbp_a = Pat(uint2_w * uint2_h, 11, 5);
+    auto vec_cbp_target = std::vector<std::byte>(static_cast<std::size_t>(uint2_w) * uint2_h, std::byte{0});
+    for (std::size_t st_i = 0; st_i < vec_cbp_target.size(); st_i++)
+      vec_cbp_target[st_i] = static_cast<std::byte>((st_i >> 5) & 0xFF);
+    const auto vec_cbp_stream = ora::fmt::lcw::Encode(vec_cbp_target);
+
+    const auto make_cbp_frame = [&](std::vector<std::byte> vec_sub1, std::vector<std::byte> vec_sub2) {
+      auto vec_subs = std::vector<std::byte>{};
+      vec_subs.insert(vec_subs.end(), vec_sub1.begin(), vec_sub1.end());
+      vec_subs.insert(vec_subs.end(), vec_sub2.begin(), vec_sub2.end());
+      return VqFrame(vec_subs);
+    };
+    const auto half = [](const std::vector<std::byte>& vec, bool b_first) {
+      const auto st_mid = vec.size() / 2;
+      return b_first ? std::vector<std::byte>{vec.begin(), vec.begin() + st_mid}
+                     : std::vector<std::byte>{vec.begin() + st_mid, vec.end()};
+    };
+
+    auto vec_cf0 = std::vector<std::byte>{};
+    {
+      const auto cpl0 = VqCpl0(0);
+      vec_cf0.insert(vec_cf0.end(), cpl0.begin(), cpl0.end());
+      const auto cbp0 = VqSub("CBP0", half(vec_cbp_a, true));
+      vec_cf0.insert(vec_cf0.end(), cbp0.begin(), cbp0.end());
+      const auto vptz = VqVptz(vec_orig0);
+      vec_cf0.insert(vec_cf0.end(), vptz.begin(), vptz.end());
+    }
+    auto vec_cf1 = std::vector<std::byte>{};
+    {
+      const auto cbp0 = VqSub("CBP0", half(vec_cbp_a, false));
+      vec_cf1.insert(vec_cf1.end(), cbp0.begin(), cbp0.end());
+      const auto vptz = VqVptz(vec_orig1);
+      vec_cf1.insert(vec_cf1.end(), vptz.begin(), vptz.end());
+    }
+    auto vec_cf2 = VqFrame(VqVptz(vec_orig2));  // 入口应用 clone
+    auto vec_cf3 = std::vector<std::byte>{};
+    {
+      const auto cbp0 = VqSub("CBP0", half(vec_cbp_stream, true));
+      vec_cf3.insert(vec_cf3.end(), cbp0.begin(), cbp0.end());
+      const auto vptz = VqVptz(vec_orig0);
+      vec_cf3.insert(vec_cf3.end(), vptz.begin(), vptz.end());
+    }
+    auto vec_cf4 = std::vector<std::byte>{};
+    {
+      const auto cbpz = VqSub("CBPZ", half(vec_cbp_stream, false));
+      vec_cf4.insert(vec_cf4.end(), cbpz.begin(), cbpz.end());
+      const auto vptz = VqVptz(vec_orig1);
+      vec_cf4.insert(vec_cf4.end(), vptz.begin(), vptz.end());
+    }
+    auto vec_cf5 = VqFrame(VqVptz(vec_orig2));  // 入口应用 LCW 解码
+    const auto vec_vqa_cbp = MakeVqaFile(0, 6, uint2_w, uint2_h, uint1_bw, uint1_bh, 2, 0, 0, 0,
+                                          {VqFrame(vec_cf0), VqFrame(vec_cf1), vec_cf2, VqFrame(vec_cf3),
+                                           VqFrame(vec_cf4), vec_cf5});
+    AppendVideoLines("vqa_cbp", vec_vqa_cbp, false, str_out);
+
+    // 4) HQ(0x10):CBFZ 16 位码本 RGB555 展开 + VPRZ/VPTR/反向 VPRZ 三
+    //    指令路径(反向分支不写 vtprSize)。
+    auto vec_cbf16 = std::vector<std::byte>(4096, std::byte{0});
+    for (std::size_t st_i = 0; st_i < vec_cbf16.size(); st_i++)
+      vec_cbf16[st_i] = static_cast<std::byte>((st_i * 29 + 7) & 0xFF);
+    auto vec_cbf16b = std::vector<std::byte>(4096, std::byte{0});
+    for (std::size_t st_i = 0; st_i < vec_cbf16b.size(); st_i++)
+      vec_cbf16b[st_i] = static_cast<std::byte>((st_i * 53 + 29) & 0xFF);
+    const auto vec_instr0 = HqInstr(int4_bx, int4_by, 0);
+    const auto vec_instr1 = HqInstr(int4_bx, int4_by, 1);
+    const auto vec_instr2 = HqInstr(int4_bx, int4_by, 2);
+    auto vec_hf0 = std::vector<std::byte>{};
+    {
+      const auto cpl0 = VqCpl0(0);
+      vec_hf0.insert(vec_hf0.end(), cpl0.begin(), cpl0.end());
+      const auto cbfz = VqSub("CBFZ", ora::fmt::lcw::Encode(vec_cbf16));
+      vec_hf0.insert(vec_hf0.end(), cbfz.begin(), cbfz.end());
+      const auto vprz = VqVprz(vec_instr0);  // vtprSize = decodeCount = 201
+      vec_hf0.insert(vec_hf0.end(), vprz.begin(), vprz.end());
+    }
+    const auto vec_hf1 = VqFrame(VqVptr(vec_instr1));  // 裸拷贝 | the bare copy
+    auto vec_hf2 = std::vector<std::byte>{};
+    {
+      const auto cbfz = VqSub("CBFZ", LcwLiteralReversed(vec_cbf16b));
+      vec_hf2.insert(vec_hf2.end(), cbfz.begin(), cbfz.end());
+      const auto vprz = VqSub("VPRZ", LcwLiteralReversed(vec_instr2));
+      vec_hf2.insert(vec_hf2.end(), vprz.begin(), vprz.end());
+    }
+    const auto vec_vqa_hq =
+        MakeVqaFile(0x10, 3, uint2_w, uint2_h, uint1_bw, uint1_bh, 0, 0, 0, 0,
+                    {VqFrame(vec_hf0), vec_hf1, VqFrame(vec_hf2)});
+    AppendVideoLines("vqa_hq", vec_vqa_hq, false, str_out);
+
+    // 5) WSA:LCW(中间帧)+ XOR delta(手写编码,两语言同算法);盘上
+    //    偏移相对调色板前(flags==1 时加载方 +768);30×20 双填充模式。
+    const auto encode_xor_delta = [](const std::vector<std::byte>& vec_prev, const std::vector<std::byte>& vec_cur) {
+      auto vec = std::vector<std::byte>{};
+      auto int4_i = 0;
+      const auto int4_n = static_cast<int>(vec_cur.size());
+      while (int4_i < int4_n) {
+        if (vec_cur[static_cast<std::size_t>(int4_i)] == vec_prev[static_cast<std::size_t>(int4_i)]) {
+          auto int4_run = 0;
+          while (int4_i + int4_run < int4_n &&
+                 vec_cur[static_cast<std::size_t>(int4_i + int4_run)] == vec_prev[static_cast<std::size_t>(int4_i + int4_run)] &&
+                 int4_run < 127)
+            int4_run++;
+          vec.push_back(static_cast<std::byte>(0x80 | int4_run));
+          int4_i += int4_run;
+        } else {
+          auto int4_run = 0;
+          while (int4_i + int4_run < int4_n &&
+                 vec_cur[static_cast<std::size_t>(int4_i + int4_run)] != vec_prev[static_cast<std::size_t>(int4_i + int4_run)] &&
+                 int4_run < 127)
+            int4_run++;
+          vec.push_back(static_cast<std::byte>(int4_run));
+          for (auto int4_k = 0; int4_k < int4_run; int4_k++)
+            vec.push_back(static_cast<std::byte>(
+                static_cast<std::uint8_t>(vec_cur[static_cast<std::size_t>(int4_i + int4_k)]) ^
+                static_cast<std::uint8_t>(vec_prev[static_cast<std::size_t>(int4_i + int4_k)])));
+          int4_i += int4_run;
+        }
+      }
+
+      vec.push_back(std::byte{0x80});
+      vec.push_back(std::byte{0});
+      vec.push_back(std::byte{0});
+      vec.push_back(std::byte{0});
+      return vec;
+    };
+
+    const auto make_wsa_file = [&](std::uint16_t uint2_frames, std::uint16_t uint2_width, std::uint16_t uint2_height,
+                                   bool b_palette, const std::vector<std::vector<std::byte>>& vec_frame_payloads,
+                                   int int4_trailing) {
+      auto vec = std::vector<std::byte>{};
+      VqPutU16(vec, uint2_frames);
+      VqPutU16(vec, 10);  // x
+      VqPutU16(vec, 20);  // y
+      VqPutU16(vec, uint2_width);
+      VqPutU16(vec, uint2_height);
+      VqPutU16(vec, 37);  // delta (+37)
+      VqPutU16(vec, b_palette ? 1 : 0);
+      // 盘上偏移 = 相对偏移表末(调色板前);加载方 flags==1 时 +768。
+      auto uint4_pos = static_cast<std::uint32_t>(vec.size() + 4 * (static_cast<std::size_t>(uint2_frames) + 2));
+      auto vec_offs = std::vector<std::uint32_t>{};
+      for (const auto& vec_p : vec_frame_payloads) {
+        vec_offs.push_back(uint4_pos);
+        uint4_pos += static_cast<std::uint32_t>(vec_p.size());
+      }
+
+      vec_offs.push_back(uint4_pos);                       // 末帧终点 | the last frame's end
+      vec_offs.push_back(uint4_pos + int4_trailing);       // 文件尾 | the file end
+      for (const auto uint4_o : vec_offs)
+        VqPutU32L(vec, uint4_o);
+      if (b_palette)
+        for (auto int4_i = 0; int4_i < 768; int4_i++)
+          vec.push_back(static_cast<std::byte>(int4_i & 0xFF));
+      for (const auto& vec_p : vec_frame_payloads)
+        vec.insert(vec.end(), vec_p.begin(), vec_p.end());
+      vec.insert(vec.end(), static_cast<std::size_t>(int4_trailing), static_cast<std::byte>('T'));
+      return vec;
+    };
+
+    const auto uint2_ww = std::uint16_t{30};
+    const auto uint2_wh = std::uint16_t{20};
+    const auto st_n = static_cast<std::size_t>(uint2_ww) * uint2_wh;
+    // 稀疏差异:delta 流必须装入 W×H 的中间缓冲。| Sparse diffs: the
+    // delta stream must fit the W×H intermediate.
+    auto vec_zeros = std::vector<std::byte>(st_n, std::byte{0});
+    auto vec_idx0 = std::vector<std::byte>(st_n, std::byte{0});
+    for (std::size_t st_i = 0; st_i < st_n; st_i++)
+      vec_idx0[st_i] = st_i % 50 == 1 ? static_cast<std::byte>((st_i * 7 + 3) & 0xFF) : std::byte{0};
+    auto vec_idx1 = std::vector<std::byte>(st_n, std::byte{0});
+    for (std::size_t st_i = 0; st_i < st_n; st_i++)
+      vec_idx1[st_i] = st_i % 50 == 1 || st_i % 50 == 7 ? static_cast<std::byte>((st_i * 11 + 9) & 0xFF)
+                                                        : std::byte{0};
+    const auto vec_p0 = ora::fmt::lcw::Encode(encode_xor_delta(vec_zeros, vec_idx0));
+    const auto vec_p1 = ora::fmt::lcw::Encode(encode_xor_delta(vec_idx0, vec_idx1));
+    const auto vec_wsa_file = make_wsa_file(2, uint2_ww, uint2_wh, true, {vec_p0, vec_p1}, 4);
+    AppendVideoLines("wsa_basic", vec_wsa_file, false, str_out);
+    AppendVideoLines("wsa_basic", vec_wsa_file, true, str_out);
+
+    // 6) 嗅探负例:frames=1 的 shp 样文件(两加载器均不命中且不抛)。
+    const auto vec_terminator = std::vector<std::byte>{std::byte{0x80}, std::byte{0}};
+    AppendVideoLines("wsa_shp_like", make_wsa_file(1, 4, 4, false, {vec_terminator}, 0), false, str_out);
+  }
+
   return str_out;
 }
 
@@ -2721,6 +3340,7 @@ int main(int argc, char** argv) {
     TestWestwoodCompressed();
     TestAudReader();
     TestWavReader();
+    TestVqaWsaVideo();
     std::println("pure-logic ok");
     TestGoldenDifferential(argv[1], argv[2]);
   } catch (const std::exception& ex) {

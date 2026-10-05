@@ -372,3 +372,19 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D75 | src/formats/wav_reader | 两条 NotSupportedException 以 runtime_error 抛,消息带 "System.NotSupportedException: " 前缀逐字;fmt/fact 块的 Skip(chunkSize−n) 越端:上游 FileStream 允许 Position&gt;Length(循环自然出),C++ SpanReader 等价抛 —— 异常时机差异仅坏数据;blockAlign=0 的除零与负 blockDataSize 的 new byte[] 溢出 → runtime_error 等价抛(上游抛于工厂调用点);IsWave 短文件 false(上游 ReadASCII 抛 EndOfStream 被 TryParse 吞) | 语义面等价(D48/D58 先例);合法 wav 逐字节对拍 |
 | D76 | src/formats/westwood_compressed | 输出越界写 = 上游 IndexOutOfRange 的 runtime_error 等价抛(D61 先例);输入读越界走 .at();跳变分支的 byte 回环((byte)(sample+=delta))保留(上游显式行为,非饱和) | 仅坏数据可达;回环为上游可观测语义(纯逻辑断言) |
 | D77 | src/formats/ima_adpcm | LoadImaAdpcmSound 的尺寸契约违约抛 runtime_error,消息 "output must be 4 times the length of raw."(上游 ArgumentException 的 nameof 内插结果逐字);C# int 数学(乘除截断/取负)以 int32 自然等价,无额外守卫 | 契约面等价;合法输入零触发 |
+
+### Phase 4 第九批(2026-10-05):vqa/wsa 视频格式(VqaVideo/WsaVideo + IVideo 链)
+
+- `src/formats/` 五件:video(OpenRA.Game/Graphics/Video.cs 的 IVideo 十三成员 + VideoLoader.cs 的 IVideoLoader/GetVideo 链:属性面 → const 方法面、byte[] 返回 → span 直传、WsaVideo 的 null AudioData → 空 span)、vqa_video(VqaVideo.cs 全文逐语义:FORM/WVQA/VQHD 头与 FINF 帧偏移表(0x40000000 标志位 + <<1)、type[3]=='F' 文件级跳转、CollectAudioData 的 SND0/SND2 收集(SND2 全量走 IMA、立体声左右道独立解后 4 字节组交错、奇长度的 Position+=2 怪癖)、DecodeVQFR 子块循环(CPL0 的 <<2 调色板、CBFZ 的 Peek()==0 反向模式 + HQ 的 RGB555 拆三字节、CBF0 新读、CBP0/CBPZ 分块码本于 chunkBufferParts 集齐后"下一帧"应用 —— Clone 或 LCW 解入、VPTZ/VPRZ/VPTR 三指令路径(VPRZ 首字节 0 的反向分支不写 vtprSize)、VQFL 父块的 CBFZ 提前返回)、非 HQ 的 (mod==0x0f)?px:cbf[(mod*256+px)*8+…] 8 位展开与 HQ 的五 case 指令流 + WriteBlock 回绕)、wsa_video(WsaVideo.cs 全文逐语义:10 字节头 + frames+2 偏移表(flags==1 先 768 字节调色板且偏移 +768、调色板 <<2 后高位复制到低两位)、每帧 LCW 解中间帧 + XOR delta 作用于上一帧索引图、totalFrameWidth 行距重算;WsaLoader.cs 的 IsWsa 嗅探(frames&gt;1 + 长度核对;`width &lt;= 0` 对 ushort 恒假的上游怪癖照抄)与 VqaLoader.cs 的 IsWestwoodVqa(FORM + 非零长度 + WVQA))。
+- SpanReader 增 Peek()(StreamExts.Peek 的 EOF -1 语义,偶对齐 `Peek()==0` 消费依赖)。
+- oracle:`tools/golden_gen -- fmt` 增第 18 段 VQ 协议(VideoFormats 链 Vqa→Wsa = cnc/ra mod.yaml 事实序):六个合成夹具两语言同构造 —— vqa_nonhq(CBFZ/CPL0/VPTZ + SND0 + SN2J→SND2 跳径 + 尾置奇长 SND2 + \0VQF + VQFL,双填充模式)、vqa_stereo(奇长 SND2 立体声)、vqa_cbp(CBP0+CBP0 clone 应用 / CBP0+CBPZ LCW 解码应用两轮,帧间以调色板与码本分辨)、vqa_hq(0x10:CBFZ 16 位码本 + VPRZ/VPTR/反向 VPRZ 三路径,帧间以块号 seed 与第二码本分辨)、wsa_basic(手写 XOR delta 编码器 + LCW 中间帧,盘上偏移相对调色板前,30×20 双填充模式)、wsa_shp_like(frames=1 嗅探负例;上游 IsWsa 对 frames&gt;1 短文件抛 EndOfStream 故负例必须 frames≤1)—— golden_formats.txt 6547 → **6606 行逐行对拍一致**,oracle 双跑确定性验证。
+- 验收(formats_test):纯逻辑新增(IsWestwoodVqa 三态、VqaVideo 构造负例消息逐字、IsWsa frames/长度负例、无调色板 WSA 的 NRE 等价抛);双构建 ctest 15/15;门禁 std_import(190 文件)/upstream_check(181 标注)PASS。
+
+**实现过程修出一个真 bug**:WsaVideo::AdvanceFrame 漏置 has_previous 标志,第二帧对全零基线异或(黄金 wsa_basic 帧 1 首跑即暴露,CRC + 首像素双偏)。
+
+### 已登记偏离(PORTING_PLAN §7.5,第九批新增)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D78 | src/formats/ vqa_video、video | Stream → SpanReader(Seek 越端即抛 vs 上游 FileStream 允许 Position&gt;Length 后续读抛 —— 异常时机差异仅坏数据);cbf 字段的多重重指(ctor 数组/cbp.Clone/cbfBuffer/CBF0 新读)以 heap 存储 + span 别名复刻(CBF0 拷入 heap 同上游 ReadBytes 新数组);异常面:参数-less 的 NotSupportedException/IndexOutOfRangeException 以 .NET 全名 + 默认消息等价抛,带消息的 InvalidData/NotSupportedException 消息逐字;HQ 下 CBP0/CBPZ 触及不存在的 cbp(上游 null NRE)显式等价抛;HQ 的 CBFZ 展开固定写 ctor 存储(上游写"当前 cbf 引用"—— 仅 CBF0 重指后的坏数据可达差异);IVideo 属性面 → 方法面、byte[]/null → span(空 span 表 null) | 形态适配;合法输入逐字节对拍(vqa_nonhq/stereo/cbp/hq 全段);视频消费端(VideoPlayer,后续批次)走接口不变 |
+| D79 | src/formats/wsa_video | LoadFrame 每帧的两处 new byte[](intermediate/current)以成员 vector 每帧重置零代替(上游中间帧恒新零数组,字节面等价,仅复用存储);flags≠1 无调色板时上游 paletteBytes null → 展开即 NRE,C++ 空向量等价抛(仅坏数据可达);IsWsa 的 `width &lt;= 0` 对 ushort 恒假(上游怪癖照抄,非行为差异) | 存储复用不减语义;合法 wsa 逐字节对拍(wsa_basic 双填充模式) |

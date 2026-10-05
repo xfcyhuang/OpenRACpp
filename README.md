@@ -87,7 +87,17 @@
 - oracle:golden_gen 增 Q/KB/BE/M/X/G 五段(加密夹具**构造侧走内嵌 Blowfish/KeyProvider 逐字副本、解析侧走上游 MixLoader.MixFile = 跨语言闭环**),黄金 6183 → **6227 行逐行对拍一致**,oracle 双跑确定性验证
 - 验收(formats_test):Blowfish 公开标准向量/往返/奇数尾、Xcc 往返与截断负例、HashFilename 填充边界、mix 最小夹具 + 垃圾密钥块负例 + 嗅探、.rs 绝对偏移 + 重键负例;双构建 ctest 15/15;偏离 D68~D73 登记
 
-下一批次(Phase 4 续):aud/wav(IMA ADPCM)、vqa/wsa、vxl/hva/idx、OpenAL/FreeType、硬件光标、WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)。
+**Phase 4 第八批完成**(aud/wav 声音格式;2026-10-05):
+
+- `src/formats/` 四件:ima_adpcm(ImaAdpcmReader.cs 全文:IndexAdjust 8 项/StepTable 89 项逐值、双整除向零截断与双饱和)、westwood_compressed(五分支 = 2 位差分/4 位差分/字面/单样点跳变/填充,跳变 byte 回环非饱和照抄)、aud_reader(12 字节头 + 0xdeaf 块头;IMA 流 index/currentSample 跨块持久与奇 outputSize 半字节截断;WS 流的增长清零/不增长残留语义)、wav_reader(RIFF 块循环 + PCM 直通/IMA 交错/MS ADPCM 三解码路径,含 outputSize = uncompressedSize×channels×2 与无 fact 的 -1 首样点即截怪癖)
+- oracle:mods 全部 46 个 .aud + 4 个 .wav 实资产 + 13 个合成夹具 + IMA/Westwood 解码向量,黄金 6227 → **6547 行逐行对拍一致**;修出一个真 bug(交错缓冲定长 32 致 mono 输出 ~2×);双构建 ctest 15/15;偏离 D74~D77 登记
+
+**Phase 4 第九批完成**(vqa/wsa 视频格式;2026-10-05):
+
+- `src/formats/` 五件:video(IVideo/IVideoLoader/GetVideo 链:属性 → 方法、byte[]/null → span)、vqa_video(VqaVideo.cs 全文逐语义:FINF 偏移表 0x40000000 标志、SND0/SND2 收集(SND2 走 IMA、立体声交错、奇长 +=2 怪癖)、DecodeVQFR 子块循环(CBFZ 反向模式 + HQ RGB555 展开、CBP0/CBPZ 分块码本"下一帧"应用、VPTZ/VPRZ/VPTR 三指令路径、VQFL 提前返回)、非 HQ 8 位/HQ 五 case 两条 DecodeFrameData)、wsa_video(调色板 <<2 + 高位复制、偏移 +768、LCW + XOR delta 作用于上一帧、行距重算;IsWsa 嗅探含 `width <= 0` 恒假的 ushort 怪癖)、SpanReader 增 Peek(EOF -1 语义)
+- oracle:六个合成夹具两语言同构造(非 HQ 全路径/奇长立体声/CBP 双轮/HQ 三指令路径/WSA 双填充/嗅探负例),黄金 6547 → **6606 行逐行对拍一致**;修出一个真 bug(AdvanceFrame 漏置 has_previous 致第二帧对全零基线异或);双构建 ctest 15/15;偏离 D78~D79 登记
+
+下一批次(Phase 4 续):vxl/hva/idx、OpenAL/FreeType、硬件光标、WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)。
 
 ## 与上游的差异(优化点与偏离登记)
 
@@ -109,12 +119,12 @@
 
 ### 与上游不同步处(偏离登记摘要)
 
-当前登记 **D1~D73**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
+当前登记 **D1~D79**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
 
 - **yaml/fs(D1~D9)**:异常类型统一为 YamlException(消息文本逐字一致)、惰性枚举物化为 vector、null/"" 键合流等——合法输入下行为等价或不可观测;
 - **meta/加载链(D10~D24)**:TypeConverter 兜底未实现(实际字段类型已全覆盖,不可达)、字典字段为插入序 vector(dump 协议按键排序)、三 mod 解析快照以 C++ 侧固化(D24:C# `--dump` 工具受 ALC 程序集副本环境制约,恢复后可再对拍校准)等;
 - **sim/net(D25~D34)**:Initialize 观察者去重形态差异(受端幂等)、**trait 工厂与所有权待 Phase 5 随 World arena 接线(D26/D27)**、`Target.FromCell` 以 square 网格公式桩换算(D28,Phase 5 接 Map)、UI/大厅命令族静默吞并(D29,Phase 6/7 接线)、SyncReport 未接(D30,上游默认关闭)等;
-- **平台/渲染(第一批 D35~D40、第二批 D41~D45、第三批 D46~D50、第四批 D51~D57)**:命令缓冲替代装箱消息队列、统一线程模型、NPOT、KHR_debug、纹理生命周期契约(替代 glIsTexture 驱逐)、持久映射 VB/VAO 缓存/blend diff/单级合成等;输入层形态适配(退出上报/时钟注入/X1X2 IsRepeat);**格式族第一编(D58~D62)**:Stream → SpanReader、loader 链独立起读、Data null/空统一、越界异常 runtime_error 等价抛点、帧数据 shared_ptr 共享;**格式族第二编(D63~D67)**:zlib 层 miniz 形态(D63)、Save 的 deflate 字节依实现(D64)、Pfim 双路径统一(D65)、BC4/5/DX10 拒绝(D66)、正则手写复刻(D67);**mix 包族第三编(D68~D73)**:HashFilename 哈希域 ASCII(D68)、mix 字节驻留/顺序非契约/global 库不重试(D69)、未解析日志丢弃 + ReadBlocks 宽松界照抄(D70)、Xcc ASCII 域(D71)、.rs 重键等价抛(D72)、loader 名字分派表(D73);**主循环、mods 运行时 trait、UI、服务器、Lua 脚本(Phase 5-8 范围)尚未移植**——见上方状态节。
+- **平台/渲染(第一批 D35~D40、第二批 D41~D45、第三批 D46~D50、第四批 D51~D57)**:命令缓冲替代装箱消息队列、统一线程模型、NPOT、KHR_debug、纹理生命周期契约(替代 glIsTexture 驱逐)、持久映射 VB/VAO 缓存/blend diff/单级合成等;输入层形态适配(退出上报/时钟注入/X1X2 IsRepeat);**格式族第一编(D58~D62)**:Stream → SpanReader、loader 链独立起读、Data null/空统一、越界异常 runtime_error 等价抛点、帧数据 shared_ptr 共享;**格式族第二编(D63~D67)**:zlib 层 miniz 形态(D63)、Save 的 deflate 字节依实现(D64)、Pfim 双路径统一(D65)、BC4/5/DX10 拒绝(D66)、正则手写复刻(D67);**mix 包族第三编(D68~D73)**:HashFilename 哈希域 ASCII(D68)、mix 字节驻留/顺序非契约/global 库不重试(D69)、未解析日志丢弃 + ReadBlocks 宽松界照抄(D70)、Xcc ASCII 域(D71)、.rs 重键等价抛(D72)、loader 名字分派表(D73);**声音族第四编(D74~D77)**:LoadSound 惰性工厂物化为整段 PCM vector(D74)、wav 的 NotSupportedException 前缀逐字与 Skip 越端时机(D75)、westwood_compressed 越界等价抛与 byte 回环保留(D76)、ima_adpcm 尺寸契约消息逐字(D77);**视频族第五编(D78~D79)**:vqa 的 cbf 重指以 heap + span 别名、参数-less 异常 .NET 全名 + 默认消息、IVideo 属性 → 方法/span 形态(D78)、wsa 每帧数组以成员 vector 重置零等价(D79);**主循环、mods 运行时 trait、UI、服务器、Lua 脚本(Phase 5-8 范围)尚未移植**——见上方状态节。
 
 ## 许可证与归属
 
@@ -210,7 +220,17 @@ The engine is rewritten from scratch to match the exact semantics of the upstrea
 - Oracle: golden_gen gains the five Q/KB/BE/M/X/G sections (the encrypted fixture's **construction side runs the embedded verbatim Blowfish/KeyProvider copies while parsing runs the upstream MixLoader.MixFile — a cross-language closed loop**), the golden growing 6183 → **6227 lines matching line for line**, with the oracle's cross-run determinism verified
 - Acceptance (formats_test): the Blowfish published standard vector / round trip / odd-tail, the Xcc round trips and truncation negatives, HashFilename padding boundaries, the minimal mix fixture + the garbage-keyblock negative + the sniff, the .rs absolute offsets + the duplicate-key negative; ctest 15/15 on both builds; deviations D68–D73 registered
 
-Next batch (Phase 4 continued): aud/wav (IMA ADPCM), vqa/wsa, vxl/hva/idx, OpenAL/FreeType, hardware cursors, and WorldRenderer/render collection (OPT-A7 SOA + the frame arena).
+**Phase 4 eighth batch complete** (the aud/wav sound formats; 2026-10-05):
+
+- Four files in `src/formats/`: ima_adpcm (the whole of ImaAdpcmReader.cs: the 8-entry IndexAdjust / 89-entry StepTable value for value, both int divisions truncating towards zero, both saturations), westwood_compressed (the five branches = the 2-bit / 4-bit deltas / literals / the single-sample jump / fill, the jump's non-saturating byte wrap kept), aud_reader (the 12-byte header + the 0xdeaf chunk header; the IMA stream's index/currentSample persisting across chunks and the odd-outputSize half-nibble truncation; the WS stream's grow-means-fresh-zero / no-grow-residue semantics), wav_reader (the RIFF chunk loop plus the three decode paths PCM passthrough / IMA interleave / MS ADPCM, including outputSize = uncompressedSize×channels×2 and the missing-fact -1 cut-right-after-the-first-sample quirk)
+- Oracle: every one of the 46 mods .aud + 4 .wav real assets + 13 synthetic fixtures + the IMA/Westwood codec vectors, the golden growing 6227 → **6547 lines matching line for line**; one real bug fixed (the fixed-32 interleave buffer doubling mono output); ctest 15/15 on both builds; deviations D74–D77 registered
+
+**Phase 4 ninth batch complete** (the vqa/wsa video formats; 2026-10-05):
+
+- Five files in `src/formats/`: video (IVideo/IVideoLoader/the GetVideo chain: properties → methods, byte[]/null → spans), vqa_video (the whole of VqaVideo.cs: the FINF offset table's 0x40000000 flag, the SND0/SND2 collection (SND2 through IMA, stereo interleaving, the odd-length +=2 quirk), the DecodeVQFR subchunk loop (the CBFZ reverse mode + the HQ RGB555 expansion, the CBP0/CBPZ partial codebooks applied "the frame after", the VPTZ/VPRZ/VPTR instruction paths, VQFL's early return), the two DecodeFrameData paths — non-HQ 8-bit and HQ five-case), wsa_video (the palette's <<2 + high-bit replication, the +768 offsets, LCW + the XOR delta over the previous frame, the row-stride recomputation; the IsWsa sniff with the always-false `width <= 0` ushort quirk), plus SpanReader gaining Peek (the EOF -1 semantics)
+- Oracle: six synthetic fixtures built identically in both languages (the non-HQ full path / odd-length stereo / the two CBP rounds / the HQ three instruction paths / WSA in both padding modes / a sniff negative), the golden growing 6547 → **6606 lines matching line for line**; one real bug fixed (AdvanceFrame leaving has_previous unset, XORing frame two against a zero baseline); ctest 15/15 on both builds; deviations D78–D79 registered
+
+Next batch (Phase 4 continued): vxl/hva/idx, OpenAL/FreeType, hardware cursors, and WorldRenderer/render collection (OPT-A7 SOA + the frame arena).
 
 ## Differences from upstream (optimizations & registered deviations)
 
@@ -232,12 +252,12 @@ The bigger items ahead (a render command buffer replacing the boxing message que
 
 ### Not-yet-synced with upstream (registered-deviation summary)
 
-Currently **D1–D73** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
+Currently **D1–D79** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
 
 - **yaml/fs (D1–D9)**: exception types unified into YamlException (message texts verbatim), lazy enumerations materialized into vectors, null/"" key coalescing, etc. — behavior-equivalent or unobservable for valid inputs;
 - **meta/loading chain (D10–D24)**: the TypeConverter fallback not implemented (actual field types are fully covered, unreachable), dictionary fields as insertion-ordered vectors (dump protocol sorts by key), the three-mod parse snapshots frozen on the C++ side (D24: the C# `--dump` tool is constrained by the ALC assembly-copy environment; re-differential once restored), etc.;
 - **sim/net (D25–D34)**: the Initialize observer-dedup shape differs (receiving ends are idempotent), **the trait factory and ownership await Phase 5 wiring into the World arena (D26/D27)**, `Target.FromCell` stubbed with the square-grid formula (D28, Map lands in Phase 5), UI/lobby command families silently swallowed (D29, wired in Phase 6/7), SyncReport not wired (D30, off by default upstream), etc.;
-- **Platform/render (first batch D35–D40, second D41–D45, third D46–D50, fourth D51–D57)**: the command buffer replacing the boxing message queue, the unified threading model, NPOT, KHR_debug, the texture lifetime contract (replacing the glIsTexture eviction), the persistent-mapped VBs/VAO cache/blend diff/single-pass compositing, etc., plus input-layer shape adaptations (exit reporting / clock injection / X1X2 IsRepeat); **the first formats installment (D58–D62)**: Stream → SpanReader, loaders each starting fresh at offset 0, Data null/empty unified, out-of-bounds exceptions as equivalent runtime_error throws, frame data shared via shared_ptr; **the second formats installment (D63–D67)**: the zlib layer's miniz shape (D63), Save's implementation-defined deflate bytes (D64), the Pfim dual-path unification (D65), the BC4/5/DX10 rejection (D66), the hand-written regex reproductions (D67); **the mix-package family, third installment (D68–D73)**: HashFilename's ASCII hash domain (D68), the mix byte residency / non-contractual ordering / no global-database retry (D69), the dropped unresolved log + ReadBlocks' loose bounds check kept verbatim (D70), the Xcc ASCII domain (D71), the .rs duplicate-key equivalent throw (D72), the loader name-dispatch table (D73); **the main loop, runtime mods traits, UI, server, and Lua scripting (Phases 5–8) are not ported yet** — see the status section above.
+- **Platform/render (first batch D35–D40, second D41–D45, third D46–D50, fourth D51–D57)**: the command buffer replacing the boxing message queue, the unified threading model, NPOT, KHR_debug, the texture lifetime contract (replacing the glIsTexture eviction), the persistent-mapped VBs/VAO cache/blend diff/single-pass compositing, etc., plus input-layer shape adaptations (exit reporting / clock injection / X1X2 IsRepeat); **the first formats installment (D58–D62)**: Stream → SpanReader, loaders each starting fresh at offset 0, Data null/empty unified, out-of-bounds exceptions as equivalent runtime_error throws, frame data shared via shared_ptr; **the second formats installment (D63–D67)**: the zlib layer's miniz shape (D63), Save's implementation-defined deflate bytes (D64), the Pfim dual-path unification (D65), the BC4/5/DX10 rejection (D66), the hand-written regex reproductions (D67); **the mix-package family, third installment (D68–D73)**: HashFilename's ASCII hash domain (D68), the mix byte residency / non-contractual ordering / no global-database retry (D69), the dropped unresolved log + ReadBlocks' loose bounds check kept verbatim (D70), the Xcc ASCII domain (D71), the .rs duplicate-key equivalent throw (D72), the loader name-dispatch table (D73); **the sound family, fourth installment (D74–D77)**: LoadSound's lazy factory materialized into a whole-PCM vector (D74), wav's NotSupportedException prefixes verbatim and the Skip-past-end timing (D75), westwood_compressed's equivalent throws with the byte wrap kept (D76), ima_adpcm's size-contract message verbatim (D77); **the video family, fifth installment (D78–D79)**: vqa's cbf re-pointing as heap + span aliases, the parameterless exceptions as .NET full names + default messages, the IVideo property → method/span shape (D78), wsa's per-frame arrays as member vectors reset to zero (D79); **the main loop, runtime mods traits, UI, server, and Lua scripting (Phases 5–8) are not ported yet** — see the status section above.
 
 ## License & Attribution
 

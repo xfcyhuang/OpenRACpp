@@ -259,6 +259,8 @@ add_library(ora_formats STATIC
   src/formats/westwood_compressed.cpp
   src/formats/aud_reader.cpp
   src/formats/wav_reader.cpp
+  src/formats/vqa_video.cpp
+  src/formats/wsa_video.cpp
   src/fs/package_entry.cpp
   src/fs/mix_file.cpp
   src/fs/d2k_sound_resources.cpp)
