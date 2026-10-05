@@ -255,6 +255,10 @@ add_library(ora_formats STATIC
   src/formats/blowfish.cpp
   src/formats/blowfish_key_provider.cpp
   src/formats/xcc_database.cpp
+  src/formats/ima_adpcm.cpp
+  src/formats/westwood_compressed.cpp
+  src/formats/aud_reader.cpp
+  src/formats/wav_reader.cpp
   src/fs/package_entry.cpp
   src/fs/mix_file.cpp
   src/fs/d2k_sound_resources.cpp)

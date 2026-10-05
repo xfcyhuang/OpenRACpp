@@ -355,3 +355,20 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D71 | src/formats/xcc_database | ReadChar 逐字符 = 逐字节(ASCII 域);截断流越界 = SpanReader 等价抛点;Data() 的 ASCII 写出与上游逐字节等价(MakeData 双语对拍) | 名表数据全 ASCII;黄金 X 段对拍 |
 | D72 | src/fs/d2k_sound_resources | Dictionary.Add 重键 ArgumentException → runtime_error(消息含键名,非逐字);流形式 → 全量驻留切片 | 仅坏数据可达;D48 先例延续 |
 | D73 | src/game/ mod_data/manifest | ObjectCreator 反射装载 IPackageLoader → 编译期名字分派表(Mix/D2kSoundResources);未知名抛 "Unable to find a package loader for type 'X'."(逐字);PackageFormats 标量 = 单元素列表(上游 ImmutableArray<string> 字段加载语义) | 无运行时反射(项目优化主轴);mod.yaml 事实形态全为标量 |
+
+### Phase 4 第八批(2026-10-05):aud/wav 声音格式(IMA ADPCM + MS ADPCM + Westwood WS)
+
+- `src/formats/` 四件:ima_adpcm(ImaAdpcmReader.cs 全文:IndexAdjust 8 项/StepTable 89 项逐值、DecodeImaAdpcmSample 的双整除向零截断与 current/index 双饱和、LoadImaAdpcmSound 的 4 字节组两样点/低半字节先行)、westwood_compressed(WestwoodCompressedReader.cs 全文:五分支 = 2 位差分/4 位差分/字面/count&0x20 单样点跳变((sbyte)(count<<3)>>3 双截断符号扩展,byte 域回环**非饱和**)/填充;等长直通;跳变后 sample 每调用重置 0x80)、aud_reader(AudReader.cs + AudLoader.cs 嗅探面:12 字节头 + AudChunk 8 字节块头(0xdeaf 逐字抛);IMA 流的 index/currentSample 跨块持久与 outputSize 奇数半字节截断;WS 流的 EnsureArraySize **增长 = 全新零数组**语义与不增长时短写残留)、wav_reader(WavReader.cs + WavLoader.cs 嗅探面:RIFF 块循环(奇地址衬垫/fmt 的 Enum.IsDefined 检查与 lengthInSeconds 用整流长度的怪癖/fact/data 缺陷尺寸按余量钳制/LIST·cue·未知块跳过);三解码路径 = PCM 切片直通、WavStreamImaAdpcm(块级 predictor/index + 半字节交错、outputSize = uncompressedSize×channels×2、fact 缺失时 -1 的首样点即截怪癖)、WavStreamMsAdpcm(bpred/idelta/s1/s2 块头、高半字节恒左声道、idelta 下限 16、7 项 AdaptCoeff 越界等价抛))。
+- oracle:`tools/golden_gen -- fmt` 增五段(A/B/SA/SV/IV·WV):mods 全部 46 个 .aud + 4 个 .wav 实资产(经 SoundFormats 链 Aud→Wav = 各 mod.yaml 事实序;PCM 经 CopyTo 整读,IMA/MS 流的 Length 抛 NotSupportedException 故不可用)、4 个合成 aud 夹具(ima 双块跨块状态/ima 奇 outputSize 半字节截/ws 五 case 全扫 + 等长直通/ws 三连残留观测:增长清零、不增长残留、每块 sample 重置)、9 个合成 wav 夹具(PCM 单声道/缺陷 data 尺寸吞尾随垃圾/LIST 奇尺寸衬垫 + cue/IMA 单声道 66 字节/无 fact 2 字节怪癖/IMA 立体双块交错/MS 单声道/MS 立体)、IMA 32 字节解码向量 + Westwood 四向量 —— golden_formats.txt 6227 → **6547 行逐行对拍一致**,oracle 双跑确定性验证(实现在写完输出后因 WavLoader 静态面残留前台线程不退出,文件完整后强杀,非黄金契约面)。
+- 验收(formats_test):纯逻辑新增(IMA 饱和链 0/88 与 ±32768、双整除截断、4 字节组契约违约抛;WS 五 case 手工向量 + 跳变 byte 回环 0x02-16=0xF2 + 溢出等价抛;IsAud 短文件不抛/未知 format/魔数逐字抛/TryParse 吞面;IsWave 负例/压缩类型与 channels 两条 NotSupportedException 逐字/MS bpred 越界);双构建 ctest 15/15;门禁 std_import(185 文件)/upstream_check(176 标注)PASS。
+
+**实现过程修出一个真 bug**:WavStreamImaAdpcm 的交错缓冲定长 32 字节,单声道时 toCopy = min(remaining, 32) 把上一组残留也拷入(输出 ~2×,d2k 三个 IMA wav 实资产 + 合成 mono 夹具全偏)—— 黄金首跑即暴露,修为 channels × 16(上游 interleaveBuffer.Length 语义)。
+
+### 已登记偏离(PORTING_PLAN §7.5,第八批新增)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D74 | src/formats/ aud_reader、wav_reader | 上游 LoadSound 返回惰性工厂(Func&lt;Stream&gt; + ReadOnlyAdapterStream 逐块 Queue&lt;byte&gt; Enqueue);C++ 物化为整段 PCM vector(Queue 追加 → vector 追加,return true → 循环退出,字节面等价 —— 黄金 A/B/SA/SV 全对拍);TryParse 内的解码失败折入 false(上游在 GetPCMInputStream 消费时才抛,仅坏数据可达);IsAud 短文件返回 false 不抛(上游 Stream.ReadByte 的 -1);IMA/MS 流的 Length 属性不存在(消费端整读) | 消费端(Sound/OpenAL 批次)本就整读;SoundFormats 链的 catch 面照抄 |
+| D75 | src/formats/wav_reader | 两条 NotSupportedException 以 runtime_error 抛,消息带 "System.NotSupportedException: " 前缀逐字;fmt/fact 块的 Skip(chunkSize−n) 越端:上游 FileStream 允许 Position&gt;Length(循环自然出),C++ SpanReader 等价抛 —— 异常时机差异仅坏数据;blockAlign=0 的除零与负 blockDataSize 的 new byte[] 溢出 → runtime_error 等价抛(上游抛于工厂调用点);IsWave 短文件 false(上游 ReadASCII 抛 EndOfStream 被 TryParse 吞) | 语义面等价(D48/D58 先例);合法 wav 逐字节对拍 |
+| D76 | src/formats/westwood_compressed | 输出越界写 = 上游 IndexOutOfRange 的 runtime_error 等价抛(D61 先例);输入读越界走 .at();跳变分支的 byte 回环((byte)(sample+=delta))保留(上游显式行为,非饱和) | 仅坏数据可达;回环为上游可观测语义(纯逻辑断言) |
+| D77 | src/formats/ima_adpcm | LoadImaAdpcmSound 的尺寸契约违约抛 runtime_error,消息 "output must be 4 times the length of raw."(上游 ArgumentException 的 nameof 内插结果逐字);C# int 数学(乘除截断/取负)以 int32 自然等价,无额外守卫 | 契约面等价;合法输入零触发 |

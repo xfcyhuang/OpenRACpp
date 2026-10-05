@@ -50,6 +50,11 @@ import std;
 #include "fs/mix_file.hpp"
 #include "fs/package_entry.hpp"
 
+#include "formats/aud_reader.hpp"
+#include "formats/ima_adpcm.hpp"
+#include "formats/wav_reader.hpp"
+#include "formats/westwood_compressed.hpp"
+
 namespace {
 
 std::int32_t int4_failures = 0;
@@ -710,6 +715,282 @@ void TestD2kSoundResources() {
     b_threw = true;
   }
   ORA_CHECK(b_threw);
+}
+
+// ———— 纯逻辑:声音族 / Pure logic: the sound family ————
+
+void TestImaAdpcm() {
+  using ora::fmt::ima_adpcm::DecodeImaAdpcmSample;
+
+  // 饱和:index 88 处最大正向差分把 current 推到 32767;IndexAdjust 沿
+  // 途抬升 index 到 88 封顶。
+  // Saturation: the maximum positive delta at index 88 drives current to
+  // 32767; IndexAdjust raises the index towards its 88 ceiling.
+  auto int4_index = 0;
+  auto int4_current = 0;
+  auto int2_s = DecodeImaAdpcmSample(0x07, int4_index, int4_current);
+  // StepTable[0]=7:delta = 7*7/4 + 7/8 = 12 + 0(双整除向零截断)
+  // StepTable[0]=7: delta = 7*7/4 + 7/8 = 12 + 0 (both divisions
+  // truncating towards zero)
+  ORA_CHECK(int2_s == 12 && int4_index == 8 && int4_current == 12);
+  for (auto int4_i = 0; int4_i < 200; int4_i++)
+    int2_s = DecodeImaAdpcmSample(0x07, int4_index, int4_current);
+  ORA_CHECK(int4_index == 88 && int4_current == 32767 && int2_s == 32767);
+
+  // 负向饱和 | the negative saturation
+  for (auto int4_i = 0; int4_i < 200; int4_i++)
+    int2_s = DecodeImaAdpcmSample(0x0F, int4_index, int4_current);
+  ORA_CHECK(int4_current == -32768 && int2_s == -32768);
+
+  // index 下限 0(负调整夹住)| the index floor 0 (negative adjustments clamped)
+  int4_index = 0;
+  DecodeImaAdpcmSample(0x00, int4_index, int4_current);
+  ORA_CHECK(int4_index == 0);
+
+  // 4 字节组 → 16 字节;组内首样点 = 低半字节;尺寸契约违约 =
+  // ArgumentException 等价抛。
+  // The 4-byte group → 16 bytes; the group's first sample comes from the
+  // low nibble; a size-contract violation hits the ArgumentException's
+  // equivalent throw.
+  const auto vec_raw = MakeBytes({0x21, 0x73, 0x0C, 0xF8});
+  auto int4_idx3 = 0;
+  auto int4_cur3 = 0;
+  const auto int2_first = DecodeImaAdpcmSample(0x21, int4_idx3, int4_cur3);
+  auto vec_out2 = std::vector<std::byte>(16);
+  int4_idx3 = 0;
+  int4_cur3 = 0;
+  ora::fmt::ima_adpcm::LoadImaAdpcmSound(vec_raw, int4_idx3, int4_cur3, vec_out2);
+  ORA_CHECK(vec_out2[0] == static_cast<std::byte>(int2_first) && vec_out2[1] == static_cast<std::byte>(int2_first >> 8));
+  ORA_CHECK(int4_idx3 <= 88);
+
+  auto b_threw = false;
+  try {
+    auto vec_bad = std::vector<std::byte>(15);
+    ora::fmt::ima_adpcm::LoadImaAdpcmSound(vec_raw, int4_idx3, vec_bad);
+  } catch (const std::runtime_error&) {
+    b_threw = true;
+  }
+  ORA_CHECK(b_threw);
+}
+
+void TestWestwoodCompressed() {
+  using ora::fmt::westwood_compressed::DecodeWestwoodCompressedSample;
+
+  // 五 case 手工向量(与黄金 WV 同输入):填充/字面/正跳/2 位差分/
+  // 4 位差分 ×2/负跳。
+  // The five-case hand vector (the golden WV input): fill / literals /
+  // positive jump / 2-bit deltas / 4-bit deltas ×2 / negative jump.
+  const auto vec_in = MakeBytes({0xC1, 0x82, 0x11, 0x22, 0x33, 0xA5, 0x00, 0xE4, 0x40, 0x1B, 0x40, 0x27, 0xBF});
+  auto vec_out = std::vector<std::byte>(15);
+  DecodeWestwoodCompressedSample(vec_in, vec_out);
+  ORA_CHECK(vec_out == MakeBytes({0x80, 0x80, 0x11, 0x22, 0x33, 0x38, 0x36, 0x35, 0x35, 0x36, 0x39, 0x31, 0x30,
+                                  0x2A, 0x29}));
+
+  // 等长直通 | the equal-length passthrough
+  const auto vec_same = MakeBytes({0x44, 0x55, 0x66, 0x77});
+  auto vec_pass = std::vector<std::byte>(4, std::byte{0});
+  DecodeWestwoodCompressedSample(vec_same, vec_pass);
+  ORA_CHECK(vec_pass == vec_same);
+
+  // 跳变的 byte 回绕(无饱和):sample=2、count=0x30 → (sbyte)(0x30<<3)
+  // = -128 → >>3 = -16 → 2-16 = -14 → (byte) = 0xF2。
+  // The jump's byte wrap (no saturation): sample=2 with count=0x30 →
+  // (sbyte)(0x30<<3) = -128 → >>3 = -16 → 2-16 = -14 → (byte) 0xF2.
+  const auto vec_jump = MakeBytes({0x80, 0x02, 0xB0});
+  auto vec_jump_out = std::vector<std::byte>(2);
+  DecodeWestwoodCompressedSample(vec_jump, vec_jump_out);
+  ORA_CHECK(vec_jump_out == MakeBytes({0x02, 0xF2}));
+
+  // 输出溢出 = 上游 IndexOutOfRange 等价抛 | an output overflow hits the
+  // equivalent of upstream's IndexOutOfRange
+  auto b_threw = false;
+  try {
+    auto vec_small = std::vector<std::byte>(3);
+    DecodeWestwoodCompressedSample(vec_in, vec_small);
+  } catch (const std::runtime_error&) {
+    b_threw = true;
+  }
+  ORA_CHECK(b_threw);
+}
+
+void TestAudReader() {
+  // IsAud:字节 @11 ∈ {1,99};短文件不抛(上游 ReadByte 的 -1)。
+  // IsAud: byte @11 in {1, 99}; a short file stays quiet (upstream
+  // ReadByte's -1).
+  auto vec_aud = std::vector<std::byte>(20, std::byte{0});
+  ORA_CHECK(!ora::fmt::IsAud(vec_aud));
+  vec_aud[11] = std::byte{99};
+  ORA_CHECK(ora::fmt::IsAud(vec_aud));
+  vec_aud[11] = std::byte{1};
+  ORA_CHECK(ora::fmt::IsAud(vec_aud));
+  vec_aud[11] = std::byte{2};
+  ORA_CHECK(!ora::fmt::IsAud(vec_aud));
+  ORA_CHECK(!ora::fmt::IsAud(std::span<const std::byte>{vec_aud}.first(11)));
+
+  // LoadAudSound:未知 readFormat → false;块头魔数失配 → 逐字抛。
+  // LoadAudSound: an unknown readFormat → false; a chunk magic mismatch
+  // → the verbatim throw.
+  {
+    auto vec_bad = std::vector<std::byte>{};
+    const auto push_u16 = [&vec_bad](std::uint16_t uint2_v) {
+      vec_bad.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+      vec_bad.push_back(static_cast<std::byte>(uint2_v >> 8));
+    };
+    const auto push_u32 = [&vec_bad](std::uint32_t uint4_v) {
+      for (auto int4_i = 0; int4_i < 4; int4_i++)
+        vec_bad.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+    };
+    push_u16(22050);  // rate
+    push_u32(8);      // dataSize
+    push_u32(4);      // outputSize
+    vec_bad.push_back(std::byte{0x02});
+    vec_bad.push_back(std::byte{42});  // unknown format
+    auto info = ora::fmt::AudInfo{};
+    ORA_CHECK(!ora::fmt::LoadAudSound(vec_bad, info));
+
+    // 魔数失负例:format 合法但块头 0xDEAF 错 | the magic negative: a
+    // legal format but a wrong chunk 0xDEAF
+    vec_bad[11] = std::byte{99};
+    push_u16(0);   // compressedSize
+    push_u16(0);   // chunk outputSize
+    push_u32(0);   // 坏魔数 | the bad magic
+    info = ora::fmt::AudInfo{};
+    auto b_threw = false;
+    try {
+      ora::fmt::LoadAudSound(vec_bad, info);
+      ora::fmt::DecodeAudPcm(vec_bad, info);
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} == "Chunk header is bogus";
+    }
+    ORA_CHECK(b_threw);
+
+    // TryParseAud 吞异常归 false | TryParseAud swallows into false
+    auto vec_pcm = std::vector<std::byte>{};
+    ORA_CHECK(!ora::fmt::TryParseAud(vec_bad, info, vec_pcm));
+    ORA_CHECK(!ora::fmt::TryParseAud(MakeBytes({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}), info, vec_pcm));
+  }
+}
+
+void TestWavReader() {
+  // IsWave 负例 | the IsWave negatives
+  ORA_CHECK(!ora::fmt::IsWave(MakeBytes({0x52, 0x49, 0x46, 0x46})));
+  ORA_CHECK(!ora::fmt::IsWave(MakeBytes({'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'X'})));
+  ORA_CHECK(ora::fmt::IsWave(MakeBytes({'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E'})));
+
+  const auto make_wav_head = [](std::uint16_t uint2_format, std::uint16_t uint2_channels) {
+    auto vec = std::vector<std::byte>{};
+    const auto push_u16 = [&vec](std::uint16_t uint2_v) {
+      vec.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+      vec.push_back(static_cast<std::byte>(uint2_v >> 8));
+    };
+    const auto push_u32 = [&vec](std::uint32_t uint4_v) {
+      for (auto int4_i = 0; int4_i < 4; int4_i++)
+        vec.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+    };
+    for (const char chr_c : "RIFF")
+      if (chr_c)
+        vec.push_back(static_cast<std::byte>(chr_c));
+    push_u32(0);
+    for (const char chr_c : "WAVEfmt ")
+      if (chr_c)
+        vec.push_back(static_cast<std::byte>(chr_c));
+    push_u32(16);
+    push_u16(uint2_format);
+    push_u16(uint2_channels);
+    push_u32(22050);  // rate
+    push_u32(44100);  // byte rate
+    push_u16(2);      // blockAlign
+    push_u16(16);     // bits
+    for (const char chr_c : "data")
+      if (chr_c)
+        vec.push_back(static_cast<std::byte>(chr_c));
+    push_u32(2);
+    vec.push_back(std::byte{0});
+    vec.push_back(std::byte{0});
+    return vec;
+  };
+
+  // 压缩类型不支持(消息逐字)| the unsupported compression (the message
+  // verbatim)
+  {
+    auto info = ora::fmt::WavInfo{};
+    auto b_threw = false;
+    try {
+      ora::fmt::LoadWavSound(make_wav_head(3, 1), info);
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} ==
+                "System.NotSupportedException: Compression type 3 is not supported.";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  // channels 逾 1-2(消息逐字)| channels beyond 1-2 (the message verbatim)
+  {
+    auto info = ora::fmt::WavInfo{};
+    auto b_threw = false;
+    try {
+      ora::fmt::LoadWavSound(make_wav_head(1, 3), info);
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} ==
+                "System.NotSupportedException: Expected 1 or 2 channels only for WAV file, received: 3";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  // TryParseWav 吞一切(坏数据)| TryParseWav swallows everything (bad data)
+  auto info = ora::fmt::WavInfo{};
+  auto vec_pcm = std::vector<std::byte>{};
+  ORA_CHECK(!ora::fmt::TryParseWav(make_wav_head(3, 1), info, vec_pcm));
+  ORA_CHECK(!ora::fmt::TryParseWav(MakeBytes({0x01}), info, vec_pcm));
+
+  // MS ADPCM 的 bpred > 6 = 上游 AdaptCoeff 越界等价抛(DecodeWavPcm 直
+  // 调可见;经 TryParse 被吞)。
+  // An MS ADPCM bpred > 6 hits the equivalent of upstream's AdaptCoeff
+  // out-of-bounds (visible via DecodeWavPcm; swallowed through TryParse).
+  {
+    auto vec_ms = std::vector<std::byte>{};
+    const auto push_u16 = [&vec_ms](std::uint16_t uint2_v) {
+      vec_ms.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+      vec_ms.push_back(static_cast<std::byte>(uint2_v >> 8));
+    };
+    const auto push_u32 = [&vec_ms](std::uint32_t uint4_v) {
+      for (auto int4_i = 0; int4_i < 4; int4_i++)
+        vec_ms.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+    };
+    for (const char chr_c : "RIFF")
+      if (chr_c)
+        vec_ms.push_back(static_cast<std::byte>(chr_c));
+    push_u32(0);
+    for (const char chr_c : "WAVEfmt ")
+      if (chr_c)
+        vec_ms.push_back(static_cast<std::byte>(chr_c));
+    push_u32(20);  // fmt 含 4 字节 extra(块循环的 chunkSize-16 跳过)
+    push_u16(2);   // MS ADPCM
+    push_u16(1);
+    push_u32(11025);
+    push_u32(5512);
+    push_u16(9);   // blockAlign = 7 + 2
+    push_u16(4);
+    push_u16(0);
+    push_u16(0);
+    for (const char chr_c : "data")
+      if (chr_c)
+        vec_ms.push_back(static_cast<std::byte>(chr_c));
+    push_u32(9);
+    vec_ms.push_back(std::byte{7});  // bpred = 7(越界)| bpred = 7 (out of range)
+    for (auto int4_i = 0; int4_i < 8; int4_i++)
+      vec_ms.push_back(std::byte{0});
+
+    auto info_ms = ora::fmt::WavInfo{};
+    auto b_threw = false;
+    try {
+      ora::fmt::LoadWavSound(vec_ms, info_ms);
+      ora::fmt::DecodeWavPcm(vec_ms, info_ms);
+    } catch (const std::runtime_error&) {
+      b_threw = true;
+    }
+    ORA_CHECK(b_threw);
+  }
 }
 
 // ———— 黄金对拍 / The golden differential ————
@@ -1613,6 +1894,123 @@ void TestEmbeddedSpritePalette() {
   ORA_CHECK(!palette_none.TryGetPaletteForFrame(0, span_palette));
 }
 
+// ———— 声音族黄金构造器(与 oracle Program.cs 逐字节一致)————
+// ———— The sound-family golden builders (byte-identical to the oracle's
+// Program.cs) ————
+
+std::vector<std::byte> Pat(int int4_n, int int4_step, int int4_seed) {
+  auto vec = std::vector<std::byte>{};
+  vec.reserve(static_cast<std::size_t>(int4_n));
+  for (auto int4_i = 0; int4_i < int4_n; int4_i++)
+    vec.push_back(static_cast<std::byte>((int4_i * int4_step + int4_seed) & 0xFF));
+  return vec;
+}
+
+std::vector<std::byte> MakeAudFile(std::uint16_t uint2_rate, std::uint8_t uint1_flags, std::uint8_t uint1_format,
+                                   std::int32_t int4_output_size,
+                                   std::vector<std::pair<std::vector<std::byte>, std::int32_t>> vec_chunks) {
+  auto vec = std::vector<std::byte>{};
+  const auto push_u16 = [&vec](std::uint16_t uint2_v) {
+    vec.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+    vec.push_back(static_cast<std::byte>(uint2_v >> 8));
+  };
+  const auto push_i32 = [&vec](std::int32_t int4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec.push_back(static_cast<std::byte>(static_cast<std::uint32_t>(int4_v) >> (8 * int4_i)));
+  };
+  push_u16(uint2_rate);
+  std::int32_t int4_data_size = 0;
+  for (const auto& [vec_input, int4_chunk_out] : vec_chunks)
+    int4_data_size += 8 + static_cast<std::int32_t>(vec_input.size());
+  push_i32(int4_data_size);
+  push_i32(int4_output_size);
+  vec.push_back(static_cast<std::byte>(uint1_flags));
+  vec.push_back(static_cast<std::byte>(uint1_format));
+  for (const auto& [vec_input, int4_chunk_out] : vec_chunks) {
+    push_u16(static_cast<std::uint16_t>(vec_input.size()));
+    push_u16(static_cast<std::uint16_t>(int4_chunk_out));
+    push_i32(0xDEAF);
+    vec.insert(vec.end(), vec_input.begin(), vec_input.end());
+  }
+  return vec;
+}
+
+std::vector<std::byte> MakeWavFile(std::int16_t int2_format, std::int16_t int2_channels, std::int32_t int4_rate,
+                                   std::int16_t int2_block_align, std::int16_t int2_bits, bool bool_fact,
+                                   std::int32_t int4_fact_samples, std::int32_t int4_data_size_field,
+                                   std::span<const std::byte> vec_data, std::span<const std::byte> vec_trailing) {
+  auto vec = std::vector<std::byte>{};
+  const auto push_tag = [&vec](std::string_view sv) {
+    for (const char chr_c : sv)
+      vec.push_back(static_cast<std::byte>(chr_c));
+  };
+  const auto push_i32 = [&vec](std::int32_t int4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec.push_back(static_cast<std::byte>(static_cast<std::uint32_t>(int4_v) >> (8 * int4_i)));
+  };
+
+  auto vec_fmt = std::vector<std::byte>{};
+  const auto push_f16 = [&vec_fmt](std::int16_t int2_v) {
+    vec_fmt.push_back(static_cast<std::byte>(int2_v & 0xFF));
+    vec_fmt.push_back(static_cast<std::byte>(int2_v >> 8));
+  };
+  const auto push_f32 = [&vec_fmt](std::int32_t int4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec_fmt.push_back(static_cast<std::byte>(static_cast<std::uint32_t>(int4_v) >> (8 * int4_i)));
+  };
+  push_f16(int2_format);
+  push_f16(int2_channels);
+  push_f32(int4_rate);
+  push_f32(int4_rate * int2_channels * int2_bits / 8);  // Byte Rate
+  push_f16(int2_block_align);
+  push_f16(int2_bits);
+
+  push_tag("RIFF");
+  push_i32(static_cast<std::int32_t>(4 + 8 + vec_fmt.size() + (bool_fact ? 12 : 0) + 8 + vec_data.size() +
+                                     vec_trailing.size()));
+  push_tag("WAVE");
+  push_tag("fmt ");
+  push_i32(static_cast<std::int32_t>(vec_fmt.size()));
+  vec.insert(vec.end(), vec_fmt.begin(), vec_fmt.end());
+  if (bool_fact) {
+    push_tag("fact");
+    push_i32(4);
+    push_i32(int4_fact_samples);
+  }
+  push_tag("data");
+  push_i32(int4_data_size_field >= 0 ? int4_data_size_field : static_cast<std::int32_t>(vec_data.size()));
+  vec.insert(vec.end(), vec_data.begin(), vec_data.end());
+  vec.insert(vec.end(), vec_trailing.begin(), vec_trailing.end());
+  return vec;
+}
+
+void AppendSoundLines(std::string_view sv_tag, std::string_view sv_name, std::span<const std::byte> vec_file,
+                      std::string& str_out) {
+  str_out += std::format("{} {}\n", sv_tag, sv_name);
+  auto info_aud = ora::fmt::AudInfo{};
+  auto info_wav = ora::fmt::WavInfo{};
+  auto vec_pcm = std::vector<std::byte>{};
+  const char* chr_hit = "NONE";
+  if (ora::fmt::TryParseAud(vec_file, info_aud, vec_pcm))
+    chr_hit = "AudLoader";
+  else if (ora::fmt::TryParseWav(vec_file, info_wav, vec_pcm))
+    chr_hit = "WavLoader";
+  str_out += std::format("L {}\n", chr_hit);
+  if (std::string_view{chr_hit} == "NONE")
+    return;
+
+  if (std::string_view{chr_hit} == "AudLoader")
+    str_out += std::format("SD {} {} {} {}\n", info_aud.int4_channels, info_aud.int4_sample_bits,
+                           info_aud.int4_sample_rate, ora::meta::FormatFloatNet(info_aud.fp4_length_in_seconds));
+  else
+    str_out += std::format("SD {} {} {} {}\n", info_wav.int2_channels, info_wav.int4_sample_bits,
+                           info_wav.int4_sample_rate, ora::meta::FormatFloatNet(info_wav.fp4_length_in_seconds));
+  str_out += std::format("SC {} {}\n", ora::fmt::CRC32::Calculate(vec_pcm), vec_pcm.size());
+  str_out += std::format(
+      "SX {}\n",
+      BytesToHexLower(std::span<const std::byte>{vec_pcm}.first(std::min<std::size_t>(32, vec_pcm.size()))));
+}
+
 std::string BuildActualText(const std::string& str_upstream_root) {
   auto str_out = std::string{};
 
@@ -2082,6 +2480,184 @@ std::string BuildActualText(const std::string& str_upstream_root) {
     }
   }
 
+  // 15) 真实声音资产:mods 全部 .aud/.wav(后缀大小写不敏感 = oracle 的
+  // Windows 模式匹配;SoundFormats 链 Aud→Wav 为各 mod.yaml 事实序)。
+  // 15) The real sound assets: every mods .aud/.wav (extension matched
+  // case-insensitively = the oracle's Windows pattern matching; the
+  // SoundFormats chain Aud→Wav is each mod.yaml's factual order).
+  {
+    struct SoundFileRef {
+      std::string str_rel;
+      bool bool_wav;
+    };
+    auto vec_sounds = std::vector<SoundFileRef>{};
+    for (const auto& entry : std::filesystem::recursive_directory_iterator{str_upstream_root + "/mods"}) {
+      if (!entry.is_regular_file())
+        continue;
+      auto str_path = entry.path().generic_string();
+      const auto st_dot = str_path.find_last_of('.');
+      if (st_dot == std::string::npos)
+        continue;
+      auto str_ext = str_path.substr(st_dot + 1);
+      std::ranges::transform(str_ext, str_ext.begin(), [](char chr_c) { return chr_c >= 'A' && chr_c <= 'Z' ? static_cast<char>(chr_c - 'A' + 'a') : chr_c; });
+      if (str_ext != "aud" && str_ext != "wav")
+        continue;
+      vec_sounds.push_back({str_path.substr(str_upstream_root.size() + 1), str_ext == "wav"});
+    }
+    std::ranges::sort(vec_sounds, [](const SoundFileRef& a, const SoundFileRef& b) { return a.str_rel < b.str_rel; });
+    for (const auto& ref : vec_sounds)
+      AppendSoundLines(ref.bool_wav ? "B" : "A", ref.str_rel, ReadFileBytes(str_upstream_root + "/" + ref.str_rel),
+                       str_out);
+  }
+
+  // 16) 合成 aud 夹具(与 oracle 同构造)。
+  // 16) The synthetic aud fixtures (the same construction as the oracle).
+  AppendSoundLines("SA", "aud_ima_multi",
+                   MakeAudFile(22050, 0x02, 99, 52, {{Pat(8, 7, 0), 32}, {Pat(5, 13, 3), 20}}), str_out);
+  AppendSoundLines("SA", "aud_ima_odd", MakeAudFile(22050, 0x02, 99, 7, {{Pat(3, 11, 1), 12}}), str_out);
+  AppendSoundLines("SA", "aud_ws_cases",
+                   MakeAudFile(11025, 0x00, 1, 17,
+                               {{MakeBytes({0xC1, 0x82, 0x11, 0x22, 0x33, 0xA5, 0x00, 0xE4, 0x40, 0x1B, 0x40, 0x27,
+                                           0xBF}),
+                                 15},
+                                {MakeBytes({0x44, 0x55, 0x66, 0x77}), 4}}),
+                   str_out);
+  AppendSoundLines("SA", "aud_ws_stale",
+                   MakeAudFile(11025, 0x00, 1, 9,
+                               {{MakeBytes({0x82, 0xAA, 0xBB, 0xCC}), 3},
+                                {MakeBytes({0xC1}), 4},
+                                {MakeBytes({0xC0}), 2}}),
+                   str_out);
+
+  // 17) 合成 wav 夹具(与 oracle 同构造)。
+  // 17) The synthetic wav fixtures (the same construction as the oracle).
+  {
+    auto vec_pcm_ramp = std::vector<std::byte>(20);
+    for (auto int4_i = 0; int4_i < 10; int4_i++) {
+      const auto int2_v = static_cast<std::int16_t>(int4_i < 5 ? int4_i * 1111 : -(int4_i - 4) * 2222);
+      vec_pcm_ramp[static_cast<std::size_t>(2 * int4_i)] = static_cast<std::byte>(int2_v);
+      vec_pcm_ramp[static_cast<std::size_t>(2 * int4_i + 1)] = static_cast<std::byte>(int2_v >> 8);
+    }
+
+    AppendSoundLines("SV", "wav_pcm_mono", MakeWavFile(1, 1, 22050, 2, 16, false, 0, -1, vec_pcm_ramp, {}), str_out);
+    AppendSoundLines("SV", "wav_pcm_defect_data",
+                     MakeWavFile(1, 2, 22050, 2, 8, false, 0, 0x7FFFFFFF,
+                                 MakeBytes({0x11, 0x22, 0x33, 0x44, 0x55, 0x66}),
+                                 MakeBytes({'J', 'U', 'N', 'K', 'J', 'U', 'N', 'K'})),
+                     str_out);
+    {
+      auto vec_list_pad = std::vector<std::byte>{};
+      const auto push_pad = [&vec_list_pad](std::string_view sv, std::initializer_list<std::uint8_t> vec_bytes) {
+        for (const char chr_c : sv)
+          if (chr_c)
+            vec_list_pad.push_back(static_cast<std::byte>(chr_c));
+        for (const auto uint1_v : vec_bytes)
+          vec_list_pad.push_back(static_cast<std::byte>(uint1_v));
+      };
+      push_pad("LIST", {3, 0, 0, 0});
+      push_pad("abc", {});
+      vec_list_pad.push_back(std::byte{0});  // 奇尺寸衬垫 | the odd-size pad
+      push_pad("cue ", {0, 0, 0, 0});
+      AppendSoundLines("SV", "wav_pcm_list_pad",
+                       MakeWavFile(1, 1, 22050, 2, 16, false, 0, -1,
+                                   std::span<const std::byte>{vec_pcm_ramp}.first(6), vec_list_pad),
+                       str_out);
+    }
+
+    auto vec_ima_block = std::vector<std::byte>(36, std::byte{0});
+    vec_ima_block[0] = std::byte{0x34};  // predictor = 0x1234
+    vec_ima_block[1] = std::byte{0x12};
+    vec_ima_block[2] = std::byte{3};  // index
+    const auto vec_ima_data = Pat(32, 5, 1);
+    std::ranges::copy(vec_ima_data, vec_ima_block.begin() + 4);
+
+    AppendSoundLines("SV", "wav_ima_mono", MakeWavFile(0x11, 1, 22050, 36, 4, true, 33, -1, vec_ima_block, {}),
+                     str_out);
+    AppendSoundLines("SV", "wav_ima_nofact", MakeWavFile(0x11, 1, 22050, 36, 4, false, 0, -1, vec_ima_block, {}),
+                     str_out);
+    {
+      auto vec_ima_stereo = std::vector<std::byte>(64, std::byte{0});
+      const auto fill_stereo_block = [&vec_ima_stereo](int int4_blk, std::size_t st_off) {
+        const auto int2_p = static_cast<std::int16_t>(int4_blk == 0 ? 0x0BB8 : -0x0BB8);
+        vec_ima_stereo[st_off] = static_cast<std::byte>(int2_p);
+        vec_ima_stereo[st_off + 1] = static_cast<std::byte>(int2_p >> 8);
+        vec_ima_stereo[st_off + 2] = std::byte{2};
+        const auto int4_np = static_cast<int>(
+            ~static_cast<int>(int2_p));
+        vec_ima_stereo[st_off + 4] = static_cast<std::byte>(int4_np);
+        vec_ima_stereo[st_off + 5] = static_cast<std::byte>(int4_np >> 8);
+        vec_ima_stereo[st_off + 6] = std::byte{5};
+        std::ranges::copy(Pat(24, 3, 1 + int4_blk * 7),
+                          vec_ima_stereo.begin() + static_cast<std::ptrdiff_t>(st_off + 8));
+      };
+      fill_stereo_block(0, 0);
+      fill_stereo_block(1, 32);
+      AppendSoundLines("SV", "wav_ima_stereo",
+                       MakeWavFile(0x11, 2, 44100, 32, 4, true, 25, -1, vec_ima_stereo, {}), str_out);
+    }
+
+    auto vec_ms_mono = std::vector<std::byte>(14, std::byte{0});
+    vec_ms_mono[0] = std::byte{1};      // bpred = 1
+    vec_ms_mono[1] = std::byte{100};    // idelta lo
+    vec_ms_mono[3] = std::byte{0xE8};   // s1 = 1000
+    vec_ms_mono[4] = std::byte{0x03};
+    vec_ms_mono[5] = std::byte{0x30};   // s2 = -2000
+    vec_ms_mono[6] = std::byte{0xF8};
+    std::ranges::copy(Pat(7, 9, 2), vec_ms_mono.begin() + 7);
+    AppendSoundLines("SV", "wav_ms_mono", MakeWavFile(2, 1, 11025, 14, 4, false, 0, -1, vec_ms_mono, {}), str_out);
+
+    auto vec_ms_stereo = std::vector<std::byte>(22, std::byte{0});
+    vec_ms_stereo[0] = std::byte{1};    // bpred L
+    vec_ms_stereo[1] = std::byte{3};    // bpred R
+    vec_ms_stereo[2] = std::byte{100};  // idelta L = 100
+    vec_ms_stereo[4] = std::byte{0xCE};  // idelta R = -50
+    vec_ms_stereo[5] = std::byte{0xFF};
+    vec_ms_stereo[6] = std::byte{0xE8};  // s1 L = 1000
+    vec_ms_stereo[7] = std::byte{0x03};
+    vec_ms_stereo[8] = std::byte{0x18};  // s1 R = -3000
+    vec_ms_stereo[9] = std::byte{0xF4};
+    vec_ms_stereo[10] = std::byte{0x30};  // s2 L = -2000
+    vec_ms_stereo[11] = std::byte{0xF8};
+    vec_ms_stereo[12] = std::byte{0xF4};  // s2 R = 500
+    vec_ms_stereo[13] = std::byte{0x01};
+    std::ranges::copy(Pat(8, 7, 1), vec_ms_stereo.begin() + 14);
+    AppendSoundLines("SV", "wav_ms_stereo", MakeWavFile(2, 2, 22050, 22, 4, false, 0, -1, vec_ms_stereo, {}),
+                     str_out);
+  }
+
+  // 18) IMA/Westwood 解码向量(与 oracle 同集)。
+  // 18) The IMA/Westwood codec vectors (the same set as the oracle).
+  {
+    auto vec_iv = std::vector<std::byte>{};
+    for (auto int4_i = 0; int4_i < 32; int4_i++)
+      vec_iv.push_back(static_cast<std::byte>(int4_i));
+    str_out += std::format("IV {}\n", BytesToHexLower(vec_iv));
+
+    auto int4_index = 0;
+    auto int4_current = 0;
+    auto vec_shorts = std::vector<std::byte>{};
+    for (const auto byte_b : vec_iv) {
+      const auto int2_s =
+          ora::fmt::ima_adpcm::DecodeImaAdpcmSample(static_cast<std::uint8_t>(byte_b), int4_index, int4_current);
+      vec_shorts.push_back(static_cast<std::byte>(int2_s));
+      vec_shorts.push_back(static_cast<std::byte>(int2_s >> 8));
+    }
+    str_out += std::format("IVR {} {} {}\n", int4_index, int4_current, BytesToHexLower(vec_shorts));
+  }
+  {
+    const auto dump_wv = [&str_out](std::string_view sv_tag, std::vector<std::byte> vec_input,
+                                    std::size_t st_out_len) {
+      auto vec_output = std::vector<std::byte>(st_out_len, std::byte{0});
+      ora::fmt::westwood_compressed::DecodeWestwoodCompressedSample(vec_input, vec_output);
+      str_out += std::format("{} {}\n", sv_tag, BytesToHexLower(vec_input));
+      str_out += std::format("{}R {}\n", sv_tag, BytesToHexLower(vec_output));
+    };
+    dump_wv("WV", MakeBytes({0xC1, 0x82, 0x11, 0x22, 0x33, 0xA5, 0x00, 0xE4, 0x40, 0x1B, 0x40, 0x27, 0xBF}), 15);
+    dump_wv("WV", MakeBytes({0x82, 0xAA, 0xBB, 0xCC}), 3);
+    dump_wv("WV", MakeBytes({0xC1}), 4);
+    dump_wv("WVP", MakeBytes({0x44, 0x55, 0x66, 0x77}), 4);
+  }
+
   return str_out;
 }
 
@@ -2141,6 +2717,10 @@ int main(int argc, char** argv) {
     TestPackageEntryHash();
     TestMixFile();
     TestD2kSoundResources();
+    TestImaAdpcm();
+    TestWestwoodCompressed();
+    TestAudReader();
+    TestWavReader();
     std::println("pure-logic ok");
     TestGoldenDifferential(argv[1], argv[2]);
   } catch (const std::exception& ex) {
