@@ -73,7 +73,13 @@
 - oracle:`tools/golden_gen -- fmt`(上游 DLL extern-alias 引用,按各 mod mod.yaml 的 SpriteFormats 链序)生成 `tests/golden_formats.txt`:**mods 全部 213 个 .shp(186 ShpTD/27 ShpTS)逐帧 Type/Size/FrameSize/Offset(.NET float 格式化)/Data-CRC32 + 前 32 字节 hex、6 个 .pal 的 ImmutablePalette 全 256 项、合成 tmpTD/RA/TS 夹具(两语言同构造算法)、LZO 四向量(含 M2 大匹配与 MatchNext 双重读路径)、LCW 编码向量** —— 6096 行逐行对拍一致,oracle 双跑确定性验证
 - 验收(formats_test):纯逻辑(FastByteReader/RLE0 两分支/XOR 六 case/LCW 五 case + Encode→Decode 往返 + 越界抛点/CRC32 标准向量 + 分段链式、合成 shpTD 的 TrimmedFrame 裁剪与全零帧、判定负例)+ 黄金对拍 + SheetBuilder 帧接线(Indexed sheet Red 通道字节 2);双构建 ctest 15/15;修出两个真 bug(CRC32 表 idx194 一位抄错 —— 标准向量只查 9 项表未触及,zlib 交叉验证定位;RLE0 字面量分支缺界检查 —— ASan 实证);偏离 D58~D62 登记
 
-下一批次(Phase 4 续):formats 第二编(Png 自研/B3 照抄 + dds/tga + ShpRemastered/EmbeddedSpritePalette)、Mix+Blowfish、aud/wav(IMA ADPCM)、vqa/wsa、vxl/hva/idx、OpenAL/FreeType、硬件光标、WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)。
+**Phase 4 第六批完成**(Westwood 文件格式第二编:Png 自研 + Tga/Dds 的 Pfim 移植 + ShpRemastered + EmbeddedSpritePalette;2026-10-05):
+
+- `src/formats/` 五件:png(**OPT-B3:上游自研 592 行逐语义照抄**——块循环/IHDR 校验/PLTE/tRNS 部分 alpha/tEXt ASCIIZ + 重复键更新保位/IDAT 链缝合/zlib 解压 + 五滤波反解 + 位深 1/2/4 解包/原始像素构造的 BGR↔RGB 大端交换/Save 块序 + CRC32 链式写 + 行滤波 0;zlib 走 miniz,D63/D64)、targa(**Pfim v0.11.3 逐语义移植**——18 字节头/四向原点/非压缩 + RLE(含 TopLeft-RLE 行紧排怪癖照抄)/4 字节对齐 stride/色图应用含上游 newLen 怪癖)、dds(Pfim 子集——非压 8/16/24/32bpp + 位掩码 R/B 交换 + Rgba16 半字节交换 + mip 链、DXT1/3/5 块解码(RGB565 float 插值逐字 + (byte)(x+0.5f) 截断)、mip 尺寸 double 截断;BC4/5/DX10 系显式拒绝 = D66)、shp_remastered(zip 容器:惰性前缀正则最左匹配手写复刻、缺号空白帧、meta JSON 手写全串匹配、前缀不一致逐字抛)、embedded_sprite_palette(帧级/文件级协商)
+- oracle:`tools/golden_gen -- fmt` 增四段合成夹具(两语言同构造;**stored-deflate zlib 与手工 zip 保证两语言字节恒等**):7 PNG(五滤波/位深 1/2/4/8/PLTE+tRNS 部分/双 IDAT 切分/重复 tEXt/未知块 + **Save 结构对拍 = 块类型序 CRC + IDAT 解压 CRC**,D64)+ 5 TGA(三向 × 24/32bpp + RLE 两型)+ 7 DDS(非压含掩码交换/三 mip/DXT1 插值+透穿/DXT3/DXT5 双梯度)+ 1 ShpRemastered 合成 zip(meta 裁剪帧/缺号空白帧/无 meta 帧/无关条目)—— golden 6096 → **6183 行逐行对拍一致**,oracle 双跑确定性验证
+- 验收(formats_test):纯逻辑新增(PNG 九负例 + Save 往返/块序/CRC 逐块/滤波 0 行流、Tga/DDS/ShpRemastered/EmbeddedSpritePalette 负例与四态);双构建 ctest 15/15;偏离 D63~D67 登记
+
+下一批次(Phase 4 续):Mix+Blowfish、aud/wav(IMA ADPCM)、vqa/wsa、vxl/hva/idx、OpenAL/FreeType、硬件光标、WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)。
 
 ## 与上游的差异(优化点与偏离登记)
 
@@ -95,12 +101,12 @@
 
 ### 与上游不同步处(偏离登记摘要)
 
-当前登记 **D1~D62**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
+当前登记 **D1~D67**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
 
 - **yaml/fs(D1~D9)**:异常类型统一为 YamlException(消息文本逐字一致)、惰性枚举物化为 vector、null/"" 键合流等——合法输入下行为等价或不可观测;
 - **meta/加载链(D10~D24)**:TypeConverter 兜底未实现(实际字段类型已全覆盖,不可达)、字典字段为插入序 vector(dump 协议按键排序)、三 mod 解析快照以 C++ 侧固化(D24:C# `--dump` 工具受 ALC 程序集副本环境制约,恢复后可再对拍校准)等;
 - **sim/net(D25~D34)**:Initialize 观察者去重形态差异(受端幂等)、**trait 工厂与所有权待 Phase 5 随 World arena 接线(D26/D27)**、`Target.FromCell` 以 square 网格公式桩换算(D28,Phase 5 接 Map)、UI/大厅命令族静默吞并(D29,Phase 6/7 接线)、SyncReport 未接(D30,上游默认关闭)等;
-- **平台/渲染(第一批 D35~D40、第二批 D41~D45、第三批 D46~D50、第四批 D51~D57)**:命令缓冲替代装箱消息队列、统一线程模型、NPOT、KHR_debug、纹理生命周期契约(替代 glIsTexture 驱逐)、持久映射 VB/VAO 缓存/blend diff/单级合成等;输入层形态适配(退出上报/时钟注入/X1X2 IsRepeat);**格式族第一编(D58~D62)**:Stream → SpanReader、loader 链独立起读、Data null/空统一、越界异常 runtime_error 等价抛点、帧数据 shared_ptr 共享;**主循环、mods 运行时 trait、UI、服务器、Lua 脚本(Phase 5-8 范围)尚未移植**——见上方状态节。
+- **平台/渲染(第一批 D35~D40、第二批 D41~D45、第三批 D46~D50、第四批 D51~D57)**:命令缓冲替代装箱消息队列、统一线程模型、NPOT、KHR_debug、纹理生命周期契约(替代 glIsTexture 驱逐)、持久映射 VB/VAO 缓存/blend diff/单级合成等;输入层形态适配(退出上报/时钟注入/X1X2 IsRepeat);**格式族第一编(D58~D62)**:Stream → SpanReader、loader 链独立起读、Data null/空统一、越界异常 runtime_error 等价抛点、帧数据 shared_ptr 共享;**格式族第二编(D63~D67)**:zlib 层 miniz 形态(D63)、Save 的 deflate 字节依实现(D64)、Pfim 双路径统一(D65)、BC4/5/DX10 拒绝(D66)、正则手写复刻(D67);**主循环、mods 运行时 trait、UI、服务器、Lua 脚本(Phase 5-8 范围)尚未移植**——见上方状态节。
 
 ## 许可证与归属
 
@@ -182,7 +188,13 @@ The engine is rewritten from scratch to match the exact semantics of the upstrea
 - Oracle: `tools/golden_gen -- fmt` (upstream DLLs via extern alias, chained per each mod's mod.yaml SpriteFormats order) generates `tests/golden_formats.txt`: **every one of the 213 mods .shp files (186 ShpTD / 27 ShpTS) with per-frame Type/Size/FrameSize/Offset (.NET float formatting)/Data-CRC32 + the first 32 bytes hex, all 256 entries of the 6 .pal files' ImmutablePalette, the synthetic tmpTD/RA/TS fixtures (the same construction algorithm in both languages), four LZO vectors (including the M2 long match and the MatchNext double-read paths), and an LCW encode vector** — 6096 lines matching line for line, with the oracle's cross-run determinism verified
 - Acceptance (formats_test): pure logic (FastByteReader / both RLE0 branches / the XOR six cases / the LCW five cases + an Encode→Decode round trip + overflow throw points / CRC32 standard vector + segmented chaining, the synthetic shpTD's TrimmedFrame trimming and all-zero frame, negative probes) + the golden differential + the SheetBuilder frame wiring (Indexed-sheet Red channel = byte 2); ctest 15/15 on both builds; two real bugs fixed (a one-digit CRC32 table typo at idx194 — the standard vector touches only 9 table entries, located via zlib cross-validation; the missing RLE0 literal-branch bounds check — proven by ASan); deviations D58–D62 registered
 
-Next batch (Phase 4 continued): the second formats installment (the from-scratch Png/OPT-B3 + dds/tga + ShpRemastered/EmbeddedSpritePalette), Mix+Blowfish, aud/wav (IMA ADPCM), vqa/wsa, vxl/hva/idx, OpenAL/FreeType, hardware cursors, and WorldRenderer/render collection (OPT-A7 SOA + the frame arena).
+**Phase 4 sixth batch complete** (the second Westwood formats installment: the in-house Png + the Pfim port of Tga/Dds + ShpRemastered + EmbeddedSpritePalette; 2026-10-05):
+
+- Five files in `src/formats/`: png (**OPT-B3: upstream's own 592 lines kept verbatim** — the chunk loop / IHDR checks / PLTE / partial-alpha tRNS / tEXt ASCIIZ + duplicate-key update-in-place / IDAT-chain stitching / zlib inflate + the five unfilters + 1/2/4-bit unpacking / the raw-pixel ctor's BGR↔RGB big-endian swap / Save's chunk order + chained CRC32 writes + filter-0 rows; zlib via miniz, D63/D64), targa (**a verbatim-semantics port of Pfim v0.11.3** — the 18-byte header / four orientations / uncompressed + RLE (the TopLeft-RLE tight-packing quirk included) / 4-byte-aligned strides / the color-map application with its upstream newLen quirk), dds (a Pfim subset — the uncompressed 8/16/24/32bpp paths + the bitmask R/B swap + the Rgba16 nibble swap + mip chains, the DXT1/3/5 block decoders (the RGB565 float interpolation verbatim + the (byte)(x+0.5f) truncation), double-truncated mip dimensions; the BC4/5/DX10 family explicitly rejected = D66), shp_remastered (zip container: the lazy-prefix regex reproduced as a leftmost hand match, blank gap frames, the meta JSON hand-parsed full-string, the prefix-mismatch throw verbatim), embedded_sprite_palette (the frame/file negotiation)
+- Oracle: `tools/golden_gen -- fmt` gains four synthetic-fixture sections (the same construction in both languages; **stored-deflate zlib and the hand-rolled zip keep the two languages byte-identical**): 7 PNGs (all five filters / bit depths 1/2/4/8 / PLTE + partial tRNS / the two-chunk IDAT split / duplicate tEXt / an unknown chunk + **the Save structural differential = the chunk-type-order CRC + the IDAT-decompressed CRC**, D64) + 5 TGAs (three orientations × 24/32bpp + two RLE flavors) + 7 DDSs (uncompressed with the mask swap / three mips / DXT1 interpolated + punch-through / DXT3 / DXT5 both gradients) + 1 ShpRemastered synthetic zip (a meta-cropped frame / a blank gap frame / a plain frame / an unrelated entry) — the golden grows 6096 → **6183 lines matching line for line**, with the oracle's cross-run determinism verified
+- Acceptance (formats_test): new pure logic (nine PNG negatives + the Save round trip / chunk order / per-chunk CRCs / filter-0 row stream, Tga/Dds/ShpRemastered/EmbeddedSpritePalette negatives and four states); ctest 15/15 on both builds; deviations D63–D67 registered
+
+Next batch (Phase 4 continued): Mix+Blowfish, aud/wav (IMA ADPCM), vqa/wsa, vxl/hva/idx, OpenAL/FreeType, hardware cursors, and WorldRenderer/render collection (OPT-A7 SOA + the frame arena).
 
 ## Differences from upstream (optimizations & registered deviations)
 
@@ -204,12 +216,12 @@ The bigger items ahead (a render command buffer replacing the boxing message que
 
 ### Not-yet-synced with upstream (registered-deviation summary)
 
-Currently **D1–D62** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
+Currently **D1–D67** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
 
 - **yaml/fs (D1–D9)**: exception types unified into YamlException (message texts verbatim), lazy enumerations materialized into vectors, null/"" key coalescing, etc. — behavior-equivalent or unobservable for valid inputs;
 - **meta/loading chain (D10–D24)**: the TypeConverter fallback not implemented (actual field types are fully covered, unreachable), dictionary fields as insertion-ordered vectors (dump protocol sorts by key), the three-mod parse snapshots frozen on the C++ side (D24: the C# `--dump` tool is constrained by the ALC assembly-copy environment; re-differential once restored), etc.;
 - **sim/net (D25–D34)**: the Initialize observer-dedup shape differs (receiving ends are idempotent), **the trait factory and ownership await Phase 5 wiring into the World arena (D26/D27)**, `Target.FromCell` stubbed with the square-grid formula (D28, Map lands in Phase 5), UI/lobby command families silently swallowed (D29, wired in Phase 6/7), SyncReport not wired (D30, off by default upstream), etc.;
-- **Platform/render (first batch D35–D40, second D41–D45, third D46–D50, fourth D51–D57)**: the command buffer replacing the boxing message queue, the unified threading model, NPOT, KHR_debug, the texture lifetime contract (replacing the glIsTexture eviction), the persistent-mapped VBs/VAO cache/blend diff/single-pass compositing, etc., plus input-layer shape adaptations (exit reporting / clock injection / X1X2 IsRepeat); **the first formats installment (D58–D62)**: Stream → SpanReader, loaders each starting fresh at offset 0, Data null/empty unified, out-of-bounds exceptions as equivalent runtime_error throws, frame data shared via shared_ptr; **the main loop, runtime mods traits, UI, server, and Lua scripting (Phases 5–8) are not ported yet** — see the status section above.
+- **Platform/render (first batch D35–D40, second D41–D45, third D46–D50, fourth D51–D57)**: the command buffer replacing the boxing message queue, the unified threading model, NPOT, KHR_debug, the texture lifetime contract (replacing the glIsTexture eviction), the persistent-mapped VBs/VAO cache/blend diff/single-pass compositing, etc., plus input-layer shape adaptations (exit reporting / clock injection / X1X2 IsRepeat); **the first formats installment (D58–D62)**: Stream → SpanReader, loaders each starting fresh at offset 0, Data null/empty unified, out-of-bounds exceptions as equivalent runtime_error throws, frame data shared via shared_ptr; **the second formats installment (D63–D67)**: the zlib layer's miniz shape (D63), Save's implementation-defined deflate bytes (D64), the Pfim dual-path unification (D65), the BC4/5/DX10 rejection (D66), the hand-written regex reproductions (D67); **the main loop, runtime mods traits, UI, server, and Lua scripting (Phases 5–8) are not ported yet** — see the status section above.
 
 ## License & Attribution
 

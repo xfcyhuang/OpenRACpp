@@ -320,3 +320,19 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D60 | src/gfx/sprite_frame.hpp | ISpriteFrame::Data 的上游 null 与 byte[0] 统一为空 span(消费路径 SheetBuilder.Add 的空尺寸早退不可区分);ShpTD 帧数据以 shared_ptr<const vector> 共享(上游 TrimmedFrame 直通分支的数组引用语义),帧数组可独立于 ShpTDSprite 移动 | 数据不可变,行为等价;解耦生命周期使 TryParse 直出帧数组 |
 | D61 | src/formats/ lcw/xor_delta/rle_zeros/tmp_ts | 坏数据的越界写/负索引:上游为 IndexOutOfRangeException/Array.Copy 抛/C# 数组负索引抛;C++ 以显式守卫(CheckDestBounds/字面量界检查/tmp_ts 的 .at())抛 std::runtime_error,消息文本统一非逐字;ShpTD 的 ToDictionary 重复键 ArgumentException 同为等价抛点 | 语义面等价(异常类型统一为本项目先例 D48 的延续);仅坏数据可达,合法资产零触发 |
 | D62 | src/formats/ lcw/shp_td | LCWCompression.Encode 落地(运行时消费者 ShpTDSprite.Write 属 Utility 面,随 Phase 8);ShpTDSprite::Write 同批不移植 | Encode 为纯字节函数且 oracle 已对拍;Write 依赖 Png/BinaryWriter 工具面,批次对齐 |
+
+### Phase 4 第六批(2026-10-05):Westwood 文件格式第二编(Png 自研 OPT-B3 + Tga/Dds 的 Pfim 逐语义 + ShpRemastered + EmbeddedSpritePalette)
+
+- `src/formats/` 五件:png(Png.cs 592 行逐语义:块循环/IHDR 校验/PLTE/tRNS 部分 alpha/tEXt ASCIIZ 与 Dictionary 更新保位/IDAT 链缝合(PngIdatStream 的非 IDAT 回退语义)/zlib 解压 + 五滤波反解 + 位深 1/2/4 解包/原始像素构造的 BGR→RGB 大端交换/Save 的块序 + CRC32 链式写 + 行滤波 0)、targa(Pfim v0.11.3 targa/ 四件逐语义:18 字节头/四向原点(BottomLeft/Right、TopRight 归一自下而上,TopLeft 自上而下)/非压缩与 RLE(TopLeft-RLE 的行紧排怪癖照抄)/4 字节对齐 stride 零衬垫/色图应用含 newLen=depthBytes×DataLen 怪癖)、dds(Pfim dds/ 子集:124 字节头 + 像素格式、非压缩 8/16/24/32bpp + 位掩码 R/B 交换 + Rgba16 半字节交换 + mip 链、DXT1/3/5 块解码(RGB565 float 插值 + (byte)(x+0.5f) 截断逐字、3 位 alpha 梯度两分支)、mip 尺寸 double 截断)、shp_remastered(zip 容器:惰性前缀正则的最左匹配手写复刻、帧数 = max(帧号+1)、缺号空白帧、meta JSON 手写全串匹配、前缀不一致逐字抛)、embedded_sprite_palette(帧级/文件级协商,含帧字典 null 值条目语义注记)。
+- oracle:`tools/golden_gen -- fmt` 增四段合成夹具(两语言同构造算法,stored-deflate zlib 与手工 zip 保证字节恒等):7 个 PNG(五滤波全扫、位深 1/2/4/8、PLTE+tRNS 部分、双 IDAT 切分、tEXt 重复键、未知块跳过 + Save 结构对拍)、5 个 TGA(24/32bpp × 三向 + RLE 32/24)、7 个 DDS(非压 32/24 掩码交换/三 mip/DXT1 插值+透穿/DXT3/DXT5 两梯度)、1 个 ShpRemastered 合成 zip(4 条目:meta 裁剪帧/缺号空白帧/无 meta 帧/无关条目)—— golden_formats.txt 6097 → 6183 行,逐行对拍一致;oracle 双跑确定性验证。
+- 验收(formats_test):纯逻辑新增(PNG 九负例 + Save 往返/块序/CRC/滤波 0 行流断言、TGA IsTga 四负例 + R5g5b5/Rgb8/负宽、DDS 魔数/头尺寸/${ 怪癖}/DXT2/BC5(D66)/Rgb8+交换、ShpRemastered 前缀不一致/空容器/坏 meta、EmbeddedSpritePalette 四态);双构建 ctest 15/15;门禁 std_import(165 文件)/upstream_check(156 标注)PASS。
+
+### 已登记偏离(PORTING_PLAN §7.5,第六批新增)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D63 | src/formats/png | zlib 层 .NET ZLibStream → miniz(mz_uncompress/mz_compress2 MZ_BEST_COMPRESSION):解压输出逐字节等价,坏压缩流的异常消息/时机非逐字;IDAT 链缝合由流式改为整段物化后单次解压(输出等价);FileStream.Seek 越端合法(Position 可超 Length,后续读 0 字节)以 SpanReader 钳位复刻;行数据短读的 EndOfStream 消息为等价抛点;IHDR 负宽/溢出的 new byte[] 异常面等价抛 | 合法文件解压输出与行级抛点等价;压缩器字节依实现(D64);仅坏数据可达 |
+| D64 | src/formats/png | Save() 的 IDAT deflate 字节依实现(miniz vs .NET ZLibStream 的 SmallestSize);黄金以"块类型序 CRC + IDAT 解压 CRC"(GS 行)替代字节对拍,CRC/块序/滤波全一致 | deflate 输出非格式语义;两实现解压互认(测试双向往返断言) |
+| D65 | src/formats/targa、dds | Pfim v0.11.3 逐语义移植的形态适配:Allocator.Rent → vector(零初始化语义保留);FileStream 缓冲路径与 MemoryStream 快路径在合法输入下输出一致,C++ 统一走内存路径(CompressedDds 取 InMemoryDecode 控制流);截断输入的异常时机/类型差异(上游 BlockCopy ArgumentOutOfRange / 指针越界)为等价抛点 | 合法资产零触发;上游双路径本就同输出;oracle 六向量 + 合成夹具覆盖已移植路径 |
+| D66 | src/formats/dds | FourCC BC4/BC4s/BC5/BC5s/ATI1/ATI2/DX10(含 BC6h/BC7)未移植,显式抛 "FourCC: X not supported."(上游 BC5/BC5s 可解为 Rgb24 且 DdsLoader 接受;BC4 系/16bpp 系 loader 层亦抛 Unhandled) | mods 零 dds 资产;已移植路径(非压 RGB/DXT1/3/5)全覆盖对拍;需求出现时按 Pfim 同法补 |
+| D67 | src/formats/shp_remastered | 两条正则(FilenameRegex/MetaRegex)以等价手写最左匹配/全串匹配复刻(非正则引擎);meta 失配时上游 ParseGroup 空捕获 FormatException → 等价抛点(消息非逐字);SharpZipLib ZipFile → ora::fs::ReadOnlyZipFile(miniz;条目枚举序 = 中央目录序,同 SharpZipLib 事实序);Pfim 的 TgaSprite/TgaFrame 直接复用 targa.cpp | 合法 meta/帧名下手写解析与正则同语言集;容器读取面一致;夹具 zip 手工构造两语言字节恒等 |

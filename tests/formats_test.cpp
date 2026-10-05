@@ -33,6 +33,14 @@ import std;
 #include "gfx/sheet.hpp"
 #include "meta/dump_format.hpp"
 
+#include <miniz.h>  // IDAT 解压(Save 结构对拍)| IDAT inflate (the Save structural differential)
+
+#include "formats/dds.hpp"
+#include "formats/embedded_sprite_palette.hpp"
+#include "formats/png.hpp"
+#include "formats/shp_remastered.hpp"
+#include "formats/targa.hpp"
+
 namespace {
 
 std::int32_t int4_failures = 0;
@@ -529,6 +537,771 @@ std::vector<std::byte> MakeTmpTS() {
   return vec_f;
 }
 
+// ———— formats 第二编:合成夹具构造器(与 oracle Program.cs 逐字节一致)————
+// ———— The second formats installment: the synthetic-fixture builders
+// (byte-identical to the oracle's Program.cs) ————
+
+std::vector<std::byte> ConcatBytes(std::initializer_list<std::span<const std::byte>> vec_parts) {
+  auto vec_out = std::vector<std::byte>{};
+  for (const auto vec_part : vec_parts)
+    vec_out.insert(vec_out.end(), vec_part.begin(), vec_part.end());
+  return vec_out;
+}
+
+/// AdlerOf(oracle):标准 adler32 大端四字节。| AdlerOf (the oracle): the
+/// standard adler32 as four big-endian bytes.
+std::array<std::byte, 4> AdlerOf(std::span<const std::byte> vec_data) {
+  std::int64_t int8_a = 1, int8_b = 0;
+  for (const auto byte_x : vec_data) {
+    int8_a = (int8_a + std::to_integer<int>(byte_x)) % 65521;
+    int8_b = (int8_b + int8_a) % 65521;
+  }
+  return {static_cast<std::byte>(int8_b >> 8), static_cast<std::byte>(int8_b),
+          static_cast<std::byte>(int8_a >> 8), static_cast<std::byte>(int8_a)};
+}
+
+/// MakeZlibStored(oracle):zlib 头 78 01 + stored-deflate 块 + adler —— 两
+/// 语言字节恒等的关键(不依赖任何压缩器)。
+/// MakeZlibStored (the oracle): the 78 01 zlib header + stored-deflate
+/// blocks + adler — the key to byte-equality across languages (no
+/// compressor involved).
+std::vector<std::byte> MakeZlibStored(std::span<const std::byte> vec_raw) {
+  auto vec_out = std::vector<std::byte>{};
+  const auto push_u16 = [&vec_out](std::uint16_t uint2_v) {
+    vec_out.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+    vec_out.push_back(static_cast<std::byte>(uint2_v >> 8));
+  };
+  vec_out.push_back(std::byte{0x78});
+  vec_out.push_back(std::byte{0x01});
+  std::size_t st_pos = 0;
+  while (st_pos < vec_raw.size()) {
+    const auto uint2_n = static_cast<std::uint16_t>(std::min<std::size_t>(65535, vec_raw.size() - st_pos));
+    const auto b_fin = st_pos + uint2_n >= vec_raw.size();
+    vec_out.push_back(static_cast<std::byte>(b_fin ? 1 : 0));
+    push_u16(uint2_n);
+    push_u16(static_cast<std::uint16_t>(~uint2_n));
+    vec_out.insert(vec_out.end(), vec_raw.begin() + static_cast<std::ptrdiff_t>(st_pos),
+                   vec_raw.begin() + static_cast<std::ptrdiff_t>(st_pos + uint2_n));
+    st_pos += uint2_n;
+  }
+  const auto arr_adler = AdlerOf(vec_raw);
+  vec_out.insert(vec_out.end(), arr_adler.begin(), arr_adler.end());
+  return vec_out;
+}
+
+void AppendBe32(std::vector<std::byte>& vec, std::uint32_t uint4_v) {
+  for (auto int4_i = 0; int4_i < 4; int4_i++)
+    vec.push_back(static_cast<std::byte>(uint4_v >> (8 * (3 - int4_i))));
+}
+
+std::vector<std::byte> MakePngChunk(std::uint32_t uint4_type, std::span<const std::byte> vec_data) {
+  auto vec_crc_input = std::vector<std::byte>{};
+  AppendBe32(vec_crc_input, uint4_type);
+  vec_crc_input.insert(vec_crc_input.end(), vec_data.begin(), vec_data.end());
+  auto vec_out = std::vector<std::byte>{};
+  AppendBe32(vec_out, static_cast<std::uint32_t>(vec_data.size()));
+  AppendBe32(vec_out, uint4_type);
+  vec_out.insert(vec_out.end(), vec_data.begin(), vec_data.end());
+  AppendBe32(vec_out, ora::fmt::CRC32::Calculate(vec_crc_input));
+  return vec_out;
+}
+
+std::byte PaethPred(std::byte a, std::byte b, std::byte c) {
+  const auto int_a = std::to_integer<int>(a);
+  const auto int_b = std::to_integer<int>(b);
+  const auto int_c = std::to_integer<int>(c);
+  const auto int4_p = int_a + int_b - int_c;
+  const auto int4_pa = std::abs(int4_p - int_a);
+  const auto int4_pb = std::abs(int4_p - int_b);
+  const auto int4_pc = std::abs(int4_p - int_c);
+  return (int4_pa <= int4_pb && int4_pa <= int4_pc) ? a : (int4_pb <= int4_pc) ? b : c;
+}
+
+/// EncodePngRow(oracle):反滤波的逆 —— 依 filter 减预测量。
+/// EncodePngRow (the oracle): the unfilter's inverse — subtracting the
+/// predictor per filter.
+std::vector<std::byte> EncodePngRow(std::span<const std::byte> vec_u, const std::byte* ptr_up, int int4_filter,
+                                    int int4_px_stride) {
+  auto vec_f = std::vector<std::byte>(vec_u.size());
+  for (std::size_t st_i = 0; st_i < vec_u.size(); st_i++) {
+    const auto int_l = st_i >= static_cast<std::size_t>(int4_px_stride)
+                           ? std::to_integer<int>(vec_u[st_i - static_cast<std::size_t>(int4_px_stride)])
+                           : 0;
+    const auto int_up = ptr_up != nullptr ? std::to_integer<int>(ptr_up[st_i]) : 0;
+    const auto int_ul = (ptr_up != nullptr && st_i >= static_cast<std::size_t>(int4_px_stride))
+                            ? std::to_integer<int>(ptr_up[st_i - static_cast<std::size_t>(int4_px_stride)])
+                            : 0;
+    int int4_pred = 0;
+    switch (int4_filter) {
+      case 0: int4_pred = 0; break;
+      case 1: int4_pred = int_l; break;
+      case 2: int4_pred = int_up; break;
+      case 3: int4_pred = (int_l + int_up) / 2; break;
+      default: int4_pred = std::to_integer<int>(PaethPred(static_cast<std::byte>(int_l), static_cast<std::byte>(int_up), static_cast<std::byte>(int_ul))); break;
+    }
+    vec_f[st_i] = static_cast<std::byte>(std::to_integer<int>(vec_u[st_i]) - int4_pred);
+  }
+  return vec_f;
+}
+
+std::vector<std::byte> PngRow8(int int4_w, int int4_px_stride, int int4_y) {
+  auto vec_r = std::vector<std::byte>(static_cast<std::size_t>(int4_w) * static_cast<std::size_t>(int4_px_stride));
+  for (auto int4_x = 0; int4_x < int4_w; int4_x++)
+    for (auto int4_c = 0; int4_c < int4_px_stride; int4_c++)
+      vec_r[static_cast<std::size_t>(int4_x * int4_px_stride + int4_c)] =
+          static_cast<std::byte>((int4_x * 31 + int4_y * 17 + int4_c * 7) % 251);
+  return vec_r;
+}
+
+std::vector<std::vector<std::byte>> SplitIdat(std::span<const std::byte> vec_zlib,
+                                              std::initializer_list<int> vec_after) {
+  auto vec_parts = std::vector<std::vector<std::byte>>{};
+  auto st_prev = std::size_t{0};
+  for (const auto int4_cut : vec_after) {
+    const auto st_cut = static_cast<std::size_t>(int4_cut);
+    vec_parts.emplace_back(vec_zlib.begin() + static_cast<std::ptrdiff_t>(st_prev),
+                           vec_zlib.begin() + static_cast<std::ptrdiff_t>(st_cut));
+    st_prev = st_cut;
+  }
+  vec_parts.emplace_back(vec_zlib.begin() + static_cast<std::ptrdiff_t>(st_prev), vec_zlib.end());
+  return vec_parts;
+}
+
+std::vector<std::byte> PngIhdrBytes(int int4_w, int int4_h, int int4_bit_depth, int int4_color_type) {
+  auto vec = std::vector<std::byte>{};
+  AppendBe32(vec, static_cast<std::uint32_t>(int4_w));
+  AppendBe32(vec, static_cast<std::uint32_t>(int4_h));
+  vec.push_back(static_cast<std::byte>(int4_bit_depth));
+  vec.push_back(static_cast<std::byte>(int4_color_type));
+  vec.push_back(std::byte{0});
+  vec.push_back(std::byte{0});
+  vec.push_back(std::byte{0});
+  return vec;
+}
+
+std::vector<std::byte> AssemblePng(const std::vector<std::byte>& vec_ihdr, const std::vector<std::byte>* ptr_plte,
+                                   const std::vector<std::byte>* ptr_trns, const std::vector<std::vector<std::byte>>& vec_idats,
+                                   const std::vector<std::pair<std::string, std::string>>& vec_texts,
+                                   bool b_unknown_before_idat) {
+  const std::array<std::byte, 8> kPngSig = {std::byte{0x89}, std::byte{0x50}, std::byte{0x4E}, std::byte{0x47},
+                                            std::byte{0x0D}, std::byte{0x0A}, std::byte{0x1A}, std::byte{0x0A}};
+  auto vec_png = ConcatBytes({std::span<const std::byte, 8>{kPngSig}, MakePngChunk(0x49484452, vec_ihdr)});
+  if (ptr_plte != nullptr) vec_png = ConcatBytes({vec_png, MakePngChunk(0x504C5445, *ptr_plte)});
+  if (ptr_trns != nullptr) vec_png = ConcatBytes({vec_png, MakePngChunk(0x74524E53, *ptr_trns)});
+  if (b_unknown_before_idat)
+    vec_png = ConcatBytes({vec_png, MakePngChunk(0x63524170, MakeBytes({1, 2, 3}))});  // "cRAp"
+  for (const auto& vec_d : vec_idats) vec_png = ConcatBytes({vec_png, MakePngChunk(0x49444154, vec_d)});
+  for (const auto& [str_k, str_v] : vec_texts) {
+    auto vec_text = std::vector<std::byte>{};
+    for (const char char_c : str_k) vec_text.push_back(static_cast<std::byte>(char_c));
+    vec_text.push_back(std::byte{0});
+    for (const char char_c : str_v) vec_text.push_back(static_cast<std::byte>(char_c));
+    vec_png = ConcatBytes({vec_png, MakePngChunk(0x74455874, vec_text)});
+  }
+  return ConcatBytes({vec_png, MakePngChunk(0x49454E44, {})});
+}
+
+/// 位深 4/2/1 的打包行(filter 0 专用)。| The packed rows for bit depths
+/// 4/2/1 (filter-0 only).
+std::vector<std::byte> PngPackedRow(int int4_w, int int4_depth, int int4_y) {
+  const auto int4_ppb = 8 / int4_depth;
+  auto arr_src = std::vector<int>(static_cast<std::size_t>(int4_w));
+  for (auto int4_x = 0; int4_x < int4_w; int4_x++)
+    arr_src[static_cast<std::size_t>(int4_x)] = (int4_x * 3 + int4_y * 5) % (1 << int4_depth);
+  const auto st_bytes = (static_cast<std::size_t>(int4_w) + static_cast<std::size_t>(int4_ppb) - 1) /
+                        static_cast<std::size_t>(int4_ppb);
+  auto vec_r = std::vector<std::byte>(st_bytes, std::byte{0});
+  for (auto int4_i = 0; int4_i < int4_w; int4_i++) {
+    const auto st_j = static_cast<std::size_t>(int4_i) / static_cast<std::size_t>(int4_ppb);
+    const auto int4_k = static_cast<int>(static_cast<std::size_t>(int4_i) % static_cast<std::size_t>(int4_ppb));
+    vec_r[st_j] |= static_cast<std::byte>(arr_src[static_cast<std::size_t>(int4_i)] << (8 - (int4_k + 1) * int4_depth));
+  }
+  return vec_r;
+}
+
+/// zlib 单次解压(Save 结构对拍的 IDAT 展开;与 png.cpp 内部实现同式)。
+/// One-shot zlib inflate (expanding IDAT for the Save structural
+/// differential; the same shape as png.cpp's internal one).
+std::vector<std::byte> InflateZlib(std::span<const std::byte> vec_src) {
+  auto uint8_dest_len = std::max<std::size_t>(1024, vec_src.size() * 8);
+  while (true) {
+    auto vec_dest = std::vector<std::byte>(uint8_dest_len);
+    auto mz8_out_len = static_cast<mz_ulong>(uint8_dest_len);
+    const auto int4_status = mz_uncompress(reinterpret_cast<unsigned char*>(vec_dest.data()), &mz8_out_len,
+                                           reinterpret_cast<const unsigned char*>(vec_src.data()),
+                                           static_cast<mz_ulong>(vec_src.size()));
+    if (int4_status == MZ_OK) {
+      vec_dest.resize(static_cast<std::size_t>(mz8_out_len));
+      return vec_dest;
+    }
+    if (int4_status == MZ_BUF_ERROR) {
+      uint8_dest_len *= 4;
+      continue;
+    }
+    throw std::runtime_error("zlib inflate failed");
+  }
+}
+
+// ———— Tga/DDS/zip 夹具构造器(与 oracle 逐字节一致)————
+// ———— The Tga/DDS/zip fixture builders (byte-identical to the oracle) ————
+
+std::vector<std::byte> TgaHeaderBytes(int int4_w, int int4_h, int int4_depth, int int4_image_type,
+                                      int int4_descriptor) {
+  return MakeBytes({0, 0, static_cast<std::uint8_t>(int4_image_type), 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    static_cast<std::uint8_t>(int4_w), static_cast<std::uint8_t>(int4_w >> 8),
+                    static_cast<std::uint8_t>(int4_h), static_cast<std::uint8_t>(int4_h >> 8),
+                    static_cast<std::uint8_t>(int4_depth), static_cast<std::uint8_t>(int4_descriptor)});
+}
+
+std::vector<std::byte> TgaRow(int int4_w, int int4_bpp, int int4_y) {
+  auto vec_r = std::vector<std::byte>(static_cast<std::size_t>(int4_w) * static_cast<std::size_t>(int4_bpp));
+  for (auto int4_x = 0; int4_x < int4_w; int4_x++)
+    for (auto int4_c = 0; int4_c < int4_bpp; int4_c++)
+      vec_r[static_cast<std::size_t>(int4_x * int4_bpp + int4_c)] =
+          static_cast<std::byte>((int4_x * 13 + int4_y * 29 + int4_c * 3) % 253);
+  return vec_r;
+}
+
+std::vector<std::byte> TgaUncompressed(int int4_w, int int4_h, int int4_depth, int int4_descriptor) {
+  const auto int4_bpp = int4_depth / 8;
+  auto vec_out = TgaHeaderBytes(int4_w, int4_h, int4_depth, 2, int4_descriptor);
+  for (auto int4_y = 0; int4_y < int4_h; int4_y++) {
+    const auto vec_row = TgaRow(int4_w, int4_bpp, int4_y);
+    vec_out.insert(vec_out.end(), vec_row.begin(), vec_row.end());
+  }
+  return vec_out;
+}
+
+std::vector<std::byte> RlePacket(int int4_n, std::initializer_list<std::uint8_t> vec_pixel) {
+  auto vec_out = MakeBytes({static_cast<std::uint8_t>(128 | (int4_n - 1))});
+  const auto vec_px = MakeBytes(vec_pixel);
+  vec_out.insert(vec_out.end(), vec_px.begin(), vec_px.end());
+  return vec_out;
+}
+
+std::vector<std::byte> RawPacket(int int4_count, std::span<const std::byte> vec_bytes) {
+  auto vec_out = MakeBytes({static_cast<std::uint8_t>(int4_count - 1)});
+  vec_out.insert(vec_out.end(), vec_bytes.begin(), vec_bytes.end());
+  return vec_out;
+}
+
+std::vector<std::byte> DdsHeaderBytes(int int4_w, int int4_h, int int4_mips, std::uint32_t uint4_four_cc,
+                                      std::uint32_t uint4_pf_flags, std::uint32_t uint4_rgb_count, std::uint32_t uint4_rm,
+                                      std::uint32_t uint4_gm, std::uint32_t uint4_bm, std::uint32_t uint4_am) {
+  const auto put_u32 = [](std::vector<std::byte>& vec, std::uint32_t uint4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+  };
+  auto vec = std::vector<std::byte>{};
+  put_u32(vec, 0x20534444);
+  put_u32(vec, 124);
+  put_u32(vec, 0x100F);
+  put_u32(vec, static_cast<std::uint32_t>(int4_h));
+  put_u32(vec, static_cast<std::uint32_t>(int4_w));
+  put_u32(vec, 0);
+  put_u32(vec, 0);
+  put_u32(vec, static_cast<std::uint32_t>(int4_mips));
+  for (auto int4_i = 0; int4_i < 11; int4_i++) put_u32(vec, 0);
+  put_u32(vec, 32);
+  put_u32(vec, uint4_pf_flags);
+  put_u32(vec, uint4_four_cc);
+  put_u32(vec, uint4_rgb_count);
+  put_u32(vec, uint4_rm);
+  put_u32(vec, uint4_gm);
+  put_u32(vec, uint4_bm);
+  put_u32(vec, uint4_am);
+  put_u32(vec, 0x1000);
+  put_u32(vec, 0);
+  put_u32(vec, 0);
+  put_u32(vec, 0);
+  put_u32(vec, 0);
+  return vec;
+}
+
+std::vector<std::byte> DdsPlainData(int int4_w, int int4_h, int int4_bpp) {
+  auto vec_r = std::vector<std::byte>(static_cast<std::size_t>(int4_w) * static_cast<std::size_t>(int4_h) *
+                                      static_cast<std::size_t>(int4_bpp));
+  for (std::size_t st_i = 0; st_i < vec_r.size(); st_i++)
+    vec_r[st_i] = static_cast<std::byte>((st_i * 17 + 3) % 251);
+  return vec_r;
+}
+
+void U16Into(std::vector<std::byte>& vec, std::uint16_t uint2_v) {
+  vec.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+  vec.push_back(static_cast<std::byte>(uint2_v >> 8));
+}
+
+std::vector<std::byte> Dxt1Block(std::uint16_t uint2_c0, std::uint16_t uint2_c1, std::uint8_t uint1_r0,
+                                 std::uint8_t uint1_r1, std::uint8_t uint1_r2, std::uint8_t uint1_r3) {
+  auto vec = std::vector<std::byte>{};
+  U16Into(vec, uint2_c0);
+  U16Into(vec, uint2_c1);
+  for (const auto uint1_r : {uint1_r0, uint1_r1, uint1_r2, uint1_r3}) vec.push_back(static_cast<std::byte>(uint1_r));
+  return vec;
+}
+
+std::vector<std::byte> Dxt3Block(std::span<const std::byte> vec_alpha8, std::uint16_t uint2_c0, std::uint16_t uint2_c1,
+                                 std::uint8_t uint1_r0, std::uint8_t uint1_r1, std::uint8_t uint1_r2,
+                                 std::uint8_t uint1_r3) {
+  auto vec = std::vector<std::byte>{vec_alpha8.begin(), vec_alpha8.end()};
+  U16Into(vec, uint2_c0);
+  U16Into(vec, uint2_c1);
+  for (const auto uint1_r : {uint1_r0, uint1_r1, uint1_r2, uint1_r3}) vec.push_back(static_cast<std::byte>(uint1_r));
+  return vec;
+}
+
+std::vector<std::byte> Dxt5Block(std::uint8_t uint1_a0, std::uint8_t uint1_a1, std::span<const std::byte> vec_codes6,
+                                 std::uint16_t uint2_c0, std::uint16_t uint2_c1, std::uint8_t uint1_r0,
+                                 std::uint8_t uint1_r1, std::uint8_t uint1_r2, std::uint8_t uint1_r3) {
+  auto vec = std::vector<std::byte>{};
+  vec.push_back(static_cast<std::byte>(uint1_a0));
+  vec.push_back(static_cast<std::byte>(uint1_a1));
+  vec.insert(vec.end(), vec_codes6.begin(), vec_codes6.end());
+  U16Into(vec, uint2_c0);
+  U16Into(vec, uint2_c1);
+  for (const auto uint1_r : {uint1_r0, uint1_r1, uint1_r2, uint1_r3}) vec.push_back(static_cast<std::byte>(uint1_r));
+  return vec;
+}
+
+/// ZipBytes(oracle):stored 条目的手工 zip(本地头 → 全部中央目录 → EOCD;
+/// dostime 0 / dosdate 0x21 / CRC32 真值)。
+/// ZipBytes (the oracle): the hand-rolled zip of stored entries (local
+/// headers → the whole central directory → the EOCD; dostime 0 / dosdate
+/// 0x21 / real CRC32s).
+std::vector<std::byte> ZipBytes(const std::vector<std::pair<std::string, std::vector<std::byte>>>& vec_entries) {
+  auto vec_ms = std::vector<std::byte>{};
+  auto vec_offsets = std::vector<std::size_t>{};
+  const auto put_u16 = [](std::vector<std::byte>& vec, std::uint16_t uint2_v) {
+    vec.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+    vec.push_back(static_cast<std::byte>(uint2_v >> 8));
+  };
+  const auto put_u32l = [](std::vector<std::byte>& vec, std::uint32_t uint4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+  };
+
+  for (const auto& [str_name, vec_data] : vec_entries) {
+    vec_offsets.push_back(vec_ms.size());
+    const auto uint4_crc = ora::fmt::CRC32::Calculate(vec_data);
+    put_u32l(vec_ms, 0x04034B50);
+    put_u16(vec_ms, 20);
+    put_u16(vec_ms, 0);
+    put_u16(vec_ms, 0);
+    put_u16(vec_ms, 0);
+    put_u16(vec_ms, 0x21);
+    put_u32l(vec_ms, uint4_crc);
+    put_u32l(vec_ms, static_cast<std::uint32_t>(vec_data.size()));
+    put_u32l(vec_ms, static_cast<std::uint32_t>(vec_data.size()));
+    put_u16(vec_ms, static_cast<std::uint16_t>(str_name.size()));
+    put_u16(vec_ms, 0);
+    for (const char char_c : str_name) vec_ms.push_back(static_cast<std::byte>(char_c));
+    vec_ms.insert(vec_ms.end(), vec_data.begin(), vec_data.end());
+  }
+
+  const auto st_cd_start = vec_ms.size();
+  auto vec_central = std::vector<std::byte>{};
+  for (std::size_t st_i = 0; st_i < vec_entries.size(); st_i++) {
+    const auto& [str_name, vec_data] = vec_entries[st_i];
+    const auto uint4_crc = ora::fmt::CRC32::Calculate(vec_data);
+    put_u32l(vec_central, 0x02014B50);
+    put_u16(vec_central, 20);
+    put_u16(vec_central, 20);
+    put_u16(vec_central, 0);
+    put_u16(vec_central, 0);
+    put_u16(vec_central, 0);
+    put_u16(vec_central, 0x21);
+    put_u32l(vec_central, uint4_crc);
+    put_u32l(vec_central, static_cast<std::uint32_t>(vec_data.size()));
+    put_u32l(vec_central, static_cast<std::uint32_t>(vec_data.size()));
+    put_u16(vec_central, static_cast<std::uint16_t>(str_name.size()));
+    put_u16(vec_central, 0);
+    put_u16(vec_central, 0);
+    put_u16(vec_central, 0);
+    put_u16(vec_central, 0);
+    put_u32l(vec_central, 0);
+    put_u32l(vec_central, static_cast<std::uint32_t>(vec_offsets[st_i]));
+    for (const char char_c : str_name) vec_central.push_back(static_cast<std::byte>(char_c));
+  }
+  vec_ms.insert(vec_ms.end(), vec_central.begin(), vec_central.end());
+
+  put_u32l(vec_ms, 0x06054B50);
+  put_u16(vec_ms, 0);
+  put_u16(vec_ms, 0);
+  put_u16(vec_ms, static_cast<std::uint16_t>(vec_entries.size()));
+  put_u16(vec_ms, static_cast<std::uint16_t>(vec_entries.size()));
+  put_u32l(vec_ms, static_cast<std::uint32_t>(vec_central.size()));
+  put_u32l(vec_ms, static_cast<std::uint32_t>(st_cd_start));
+  put_u16(vec_ms, 0);
+  return vec_ms;
+}
+
+// ———— PNG 黄金段(DumpPng 镜像)———— | The PNG golden section (the
+// DumpPng mirror) ————
+
+void DumpPngSection(std::span<const std::byte> vec_file, std::string_view str_name, std::string& str_out) {
+  str_out += std::format("G {}\n", str_name);
+  const auto png = ora::fmt::Png{vec_file};
+  str_out += std::format("GT {} {} {}\n", png.Width(), png.Height(), static_cast<int>(png.Type()));
+  if (!png.Palette().has_value()) {
+    str_out += "GP -\n";
+  } else {
+    str_out += std::format("GP {}", (*png.Palette()).size());
+    for (const auto& color_c : *png.Palette())
+      str_out += std::format(" {} {} {} {}", color_c.uint1_r, color_c.uint1_g, color_c.uint1_b, color_c.uint1_a);
+    str_out += '\n';
+  }
+  str_out += std::format("GD {} {}\n", ora::fmt::CRC32::Calculate(png.Data()), png.Data().size());
+  for (const auto& [str_k, str_v] : png.EmbeddedData())
+    str_out += std::format("GE {} {}\n", str_k, str_v);
+
+  // Save 结构对拍(D64):块类型序 CRC + IDAT 解压 CRC。
+  // The Save structural differential (D64): the chunk-type-order CRC + the
+  // IDAT-decompressed CRC.
+  const auto vec_saved = png.Save();
+  auto vec_meta = std::vector<std::byte>{};
+  auto vec_idat = std::vector<std::byte>{};
+  std::size_t st_p = 8;
+  while (st_p < vec_saved.size()) {
+    const auto uint4_be = [&vec_saved](std::size_t st) {
+      return (std::to_integer<std::uint32_t>(vec_saved[st]) << 24) |
+             (std::to_integer<std::uint32_t>(vec_saved[st + 1]) << 16) |
+             (std::to_integer<std::uint32_t>(vec_saved[st + 2]) << 8) |
+             std::to_integer<std::uint32_t>(vec_saved[st + 3]);
+    };
+    const auto uint4_len = uint4_be(st_p);
+    const auto uint4_ty = uint4_be(st_p + 4);
+    vec_meta.insert(vec_meta.end(), vec_saved.begin() + static_cast<std::ptrdiff_t>(st_p + 4),
+                    vec_saved.begin() + static_cast<std::ptrdiff_t>(st_p + 8));
+    if (uint4_ty == 0x49444154)
+      vec_idat.insert(vec_idat.end(), vec_saved.begin() + static_cast<std::ptrdiff_t>(st_p + 8),
+                      vec_saved.begin() + static_cast<std::ptrdiff_t>(st_p + 8 + uint4_len));
+    else
+      vec_meta.insert(vec_meta.end(), vec_saved.begin() + static_cast<std::ptrdiff_t>(st_p + 8),
+                      vec_saved.begin() + static_cast<std::ptrdiff_t>(st_p + 8 + uint4_len));
+    st_p += 12 + uint4_len;
+  }
+  const auto vec_inflated = InflateZlib(vec_idat);
+  str_out += std::format("GS {} {}\n", ora::fmt::CRC32::Calculate(vec_meta), ora::fmt::CRC32::Calculate(vec_inflated));
+}
+
+// ———— 黄金段通用挂载(H/TgaLoader、J/DdsLoader、K/ShpRemasteredLoader)————
+// ———— The shared golden-section mount (H/TgaLoader, J/DdsLoader,
+// K/ShpRemasteredLoader) ————
+
+void AppendTaggedTry(char chr_tag, std::string_view str_name, std::span<const std::byte> vec_file,
+                     bool (*fn_try)(std::span<const std::byte>, std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>>&),
+                     std::string_view str_loader_name, std::string& str_out) {
+  str_out += std::format("{} {}\n", chr_tag, str_name);
+  auto vec_frames = std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>>{};
+  if (fn_try(vec_file, vec_frames)) {
+    str_out += std::format("L {}\n", str_loader_name);
+    AppendFrameLines(vec_frames, str_out);
+  } else {
+    str_out += "L NONE\n";
+  }
+}
+
+// ———— 纯逻辑:formats 第二编负例 / Pure logic: the second installment's
+// negative probes ————
+
+/// 抛出并消息逐字断言。| Throws-with-verbatim-message assertion.
+bool ThrowsWith(std::span<const std::byte> vec_file, std::string_view str_msg,
+                void (*fn_parse)(std::span<const std::byte>, std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>>&)) {
+  try {
+    auto vec_frames = std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>>{};
+    fn_parse(vec_file, vec_frames);
+  } catch (const std::runtime_error& ex) {
+    if (ex.what() != str_msg)
+      std::println(stderr, "throw mismatch: expected [{}] actual [{}]", str_msg, ex.what());
+    return ex.what() == str_msg;
+  }
+  return false;
+}
+
+void ParsePngNoThrow(std::span<const std::byte> vec, std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>>&) {
+  const auto png = ora::fmt::Png{vec};
+  (void)png;
+}
+
+void ParseTgaNoThrow(std::span<const std::byte> vec, std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>>& vec_frames) {
+  vec_frames.push_back(std::make_unique<ora::fmt::TgaFrame>(vec));
+}
+
+void ParseDdsNoThrow(std::span<const std::byte> vec, std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>>& vec_frames) {
+  vec_frames.push_back(std::make_unique<ora::fmt::DdsFrame>(vec));
+}
+
+void ParseRemasteredNoThrow(std::span<const std::byte> vec,
+                            std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>>&) {
+  const auto sprite = ora::fmt::ShpRemasteredSprite{vec};
+  (void)sprite;
+}
+
+const std::array<std::byte, 8> kPngSigBytes = {std::byte{0x89}, std::byte{0x50}, std::byte{0x4E}, std::byte{0x47},
+                                               std::byte{0x0D}, std::byte{0x0A}, std::byte{0x1A}, std::byte{0x0A}};
+
+std::vector<std::byte> PngFileWithIhdr(int int4_w, int int4_h, int int4_bit_depth, int int4_color_type,
+                                       int int4_compression, int int4_interlace) {
+  auto vec_ihdr = std::vector<std::byte>{};
+  AppendBe32(vec_ihdr, static_cast<std::uint32_t>(int4_w));
+  AppendBe32(vec_ihdr, static_cast<std::uint32_t>(int4_h));
+  vec_ihdr.push_back(static_cast<std::byte>(int4_bit_depth));
+  vec_ihdr.push_back(static_cast<std::byte>(int4_color_type));
+  vec_ihdr.push_back(static_cast<std::byte>(int4_compression));
+  vec_ihdr.push_back(std::byte{0});
+  vec_ihdr.push_back(static_cast<std::byte>(int4_interlace));
+  return ConcatBytes({std::span<const std::byte, 8>{kPngSigBytes}, MakePngChunk(0x49484452, vec_ihdr)});
+}
+
+void TestPngPureLogic() {
+  // 签名探测。| The signature probe.
+  ORA_CHECK(ora::fmt::Png::Verify(PngFileWithIhdr(1, 1, 8, 2, 0, 0)));
+  ORA_CHECK(!ora::fmt::Png::Verify(MakeBytes({0x89, 0x50})));
+
+  // 环签字 = "PNG Signature is bogus";头块前置校验;重复头;interlace;
+  // compression;未知像素格式;无尾块。
+  // A bogus signature; the header-first check; a duplicate header;
+  // interlacing; compression; an unknown pixel format; no end chunk.
+  auto vec_bad_sig = PngFileWithIhdr(1, 1, 8, 2, 0, 0);
+  vec_bad_sig[0] = std::byte{0x00};
+  ORA_CHECK(ThrowsWith(vec_bad_sig, "PNG Signature is bogus", ParsePngNoThrow));
+
+  auto vec_text_first = ConcatBytes({std::span<const std::byte, 8>{kPngSigBytes},
+                                     MakePngChunk(0x74455874, MakeBytes({'A', 0, 'B'}) )});
+  ORA_CHECK(ThrowsWith(vec_text_first, "Invalid PNG file - header does not appear first.", ParsePngNoThrow));
+
+  const auto vec_ihdr_once = PngFileWithIhdr(2, 2, 8, 2, 0, 0);
+  auto vec_ihdr_twice = ConcatBytes({vec_ihdr_once, MakePngChunk(0x49484452, PngIhdrBytes(2, 2, 8, 2))});
+  ORA_CHECK(ThrowsWith(vec_ihdr_twice, "Invalid PNG file - duplicate header.", ParsePngNoThrow));
+
+  ORA_CHECK(ThrowsWith(PngFileWithIhdr(2, 2, 8, 2, 0, 1), "Interlacing not supported", ParsePngNoThrow));
+  ORA_CHECK(ThrowsWith(PngFileWithIhdr(2, 2, 8, 2, 1, 0), "Compression method not supported", ParsePngNoThrow));
+  ORA_CHECK(ThrowsWith(PngFileWithIhdr(2, 2, 16, 2, 0, 0), "Unknown pixel format", ParsePngNoThrow));
+
+  // 头后无块 = "no end chunk found"。| No chunk after the header = the
+  // "no end chunk found" throw.
+  auto vec_trunc = PngFileWithIhdr(2, 2, 8, 2, 0, 0);
+  vec_trunc.resize(vec_trunc.size() - 4);
+  ORA_CHECK(ThrowsWith(vec_trunc, "Invalid PNG file - no end chunk found.", ParsePngNoThrow));
+
+  // 不连续 IDAT(IDAT-未知块-IDAT)。| Discontinuous IDAT chunks
+  // (IDAT-unknown-IDAT).
+  {
+    const auto vec_row = PngRow8(2, 3, 0);  // rgb24:2px × 3B | rgb24: 2 px × 3B
+    auto vec_raw = std::vector<std::byte>{};
+    vec_raw.push_back(std::byte{0});
+    vec_raw.insert(vec_raw.end(), vec_row.begin(), vec_row.end());
+    auto vec_file = ConcatBytes({PngFileWithIhdr(2, 1, 8, 2, 0, 0),
+                                 MakePngChunk(0x49444154, MakeZlibStored(vec_raw)),
+                                 MakePngChunk(0x63524170, MakeBytes({9}))});
+    vec_file = ConcatBytes({vec_file, MakePngChunk(0x49444154, MakeZlibStored(vec_raw))});
+    ORA_CHECK(ThrowsWith(vec_file, "Invalid PNG file - discontinuous IDAT chunks.", ParsePngNoThrow));
+  }
+
+  // 索引色无 PLTE(IEND 处抛)。| Indexed without a PLTE (the IEND throw).
+  {
+    auto vec_file = ConcatBytes({PngFileWithIhdr(2, 1, 8, 3, 0, 0), MakePngChunk(0x49454E44, {})});
+    ORA_CHECK(ThrowsWith(vec_file, "Non-Palette indexed PNG are not supported.", ParsePngNoThrow));
+  }
+
+  // 原始构造:Bgra32 → 大端交换;长度不符抛。
+  // The raw constructor: Bgra32 → the big-endian swap; the length
+  // mismatch throw.
+  {
+    const auto vec_bgra = MakeBytes({0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88});
+    const auto png = ora::fmt::Png{vec_bgra, ora::gfx::SpriteFrameType::Bgra32, 2, 1};
+    ORA_CHECK(png.Type() == ora::gfx::SpriteFrameType::Bgra32);  // 上游 Type = 传入型,仅 Data 换大端 | upstream keeps Type = the passed-in type; only Data swaps
+    ORA_CHECK(png.PixelStride() == 4);
+    ORA_CHECK(png.Data() == MakeBytes({0x33, 0x22, 0x11, 0x44, 0x77, 0x66, 0x55, 0x88}));
+
+    auto b_threw = false;
+    try {
+      const auto png_bad = ora::fmt::Png{MakeBytes({1, 2, 3}), ora::gfx::SpriteFrameType::Rgba32, 2, 1};
+      (void)png_bad;
+    } catch (const std::runtime_error& ex) {
+      b_threw = ex.what() == std::string_view{"Input data does not match expected length"};
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  // Save 往返(Indexed8 + 调色板 alpha + tEXt):解析自产字节全等;块序与
+  // CRC 逐块有效;IDAT 解压 = 滤波 0 行流。
+  // The Save round trip (Indexed8 + palette alpha + tEXt): re-parsing our
+  // own bytes equals; the chunk order and every CRC validate; the IDAT
+  // inflate equals the filter-0 row stream.
+  {
+    constexpr int int4_w = 3, int4_h = 2;
+    auto vec_data = std::vector<std::byte>(static_cast<std::size_t>(int4_w) * int4_h);
+    for (std::size_t st_i = 0; st_i < vec_data.size(); st_i++)
+      vec_data[st_i] = static_cast<std::byte>((st_i * 37 + 5) % 251);
+    const std::vector<ora::fmt::PngColor> vec_palette = {ora::fmt::PngColor::FromRgb(1, 2, 3),
+                                                         {4, 5, 6, 128}, {7, 8, 9, 255}};
+    const std::vector<std::pair<std::string, std::string>> arr_embedded = {{"K1", "V1"}, {"K2", "V2"}};
+
+    const auto png = ora::fmt::Png{vec_data, ora::gfx::SpriteFrameType::Indexed8, int4_w, int4_h, vec_palette,
+                                   arr_embedded};
+    const auto vec_saved = png.Save();
+    const auto png2 = ora::fmt::Png{vec_saved};
+
+    ORA_CHECK(png2.Width() == int4_w && png2.Height() == int4_h);
+    ORA_CHECK(png2.Type() == ora::gfx::SpriteFrameType::Indexed8);
+    ORA_CHECK(png2.Data() == vec_data);
+    ORA_CHECK(png2.Palette().has_value() && *png2.Palette() == vec_palette);
+    ORA_CHECK(png2.EmbeddedData() == arr_embedded);
+
+    // 块序 + CRC + IDAT 行流。| The chunk order + CRCs + the IDAT row
+    // stream.
+    const std::uint32_t arr4_expect_types[] = {0x49484452, 0x504C5445, 0x74524E53, 0x49444154, 0x74455874,
+                                               0x74455874, 0x49454E44};
+    std::size_t st_p = 8, st_chunk = 0;
+    auto vec_idat = std::vector<std::byte>{};
+    while (st_p < vec_saved.size()) {
+      const auto uint4_be = [&vec_saved](std::size_t st) {
+        return (std::to_integer<std::uint32_t>(vec_saved[st]) << 24) |
+               (std::to_integer<std::uint32_t>(vec_saved[st + 1]) << 16) |
+               (std::to_integer<std::uint32_t>(vec_saved[st + 2]) << 8) |
+               std::to_integer<std::uint32_t>(vec_saved[st + 3]);
+      };
+      const auto uint4_len = uint4_be(st_p);
+      const auto uint4_ty = uint4_be(st_p + 4);
+      ORA_CHECK(st_chunk < 7 && uint4_ty == arr4_expect_types[st_chunk]);
+
+      auto vec_crc_in = std::vector<std::byte>{vec_saved.begin() + static_cast<std::ptrdiff_t>(st_p + 4),
+                                               vec_saved.begin() + static_cast<std::ptrdiff_t>(st_p + 8 + uint4_len)};
+      ORA_CHECK(uint4_be(st_p + 8 + uint4_len) == ora::fmt::CRC32::Calculate(vec_crc_in));
+
+      if (uint4_ty == 0x49444154)
+        vec_idat.insert(vec_idat.end(), vec_saved.begin() + static_cast<std::ptrdiff_t>(st_p + 8),
+                        vec_saved.begin() + static_cast<std::ptrdiff_t>(st_p + 8 + uint4_len));
+      st_p += 12 + uint4_len;
+      ++st_chunk;
+    }
+    ORA_CHECK(st_chunk == 7);
+
+    auto vec_expect_stream = std::vector<std::byte>{};
+    for (auto int4_y = 0; int4_y < int4_h; int4_y++) {
+      vec_expect_stream.push_back(std::byte{0});
+      vec_expect_stream.insert(vec_expect_stream.end(),
+                               vec_data.begin() + static_cast<std::ptrdiff_t>(int4_y * int4_w),
+                               vec_data.begin() + static_cast<std::ptrdiff_t>((int4_y + 1) * int4_w));
+    }
+    ORA_CHECK(InflateZlib(vec_idat) == vec_expect_stream);
+  }
+}
+
+void TestTgaDdsPureLogic() {
+  // IsTga 四负例。| The four IsTga negatives.
+  auto vec_t2 = TgaHeaderBytes(4, 4, 24, 2, 0x00);
+  auto vec_probe = vec_t2;
+  ORA_CHECK(ora::fmt::IsTga(vec_probe));
+  vec_probe[1] = std::byte{1};  // colorMapType
+  ORA_CHECK(!ora::fmt::IsTga(vec_probe));
+  vec_probe = vec_t2;
+  vec_probe[2] = std::byte{10};  // imageType RLE
+  ORA_CHECK(!ora::fmt::IsTga(vec_probe));
+  vec_probe = vec_t2;
+  vec_probe[5] = std::byte{1};  // colorMapLength != 0(u32@3 非零)
+  ORA_CHECK(!ora::fmt::IsTga(vec_probe));
+  vec_probe = vec_t2;
+  vec_probe[7] = std::byte{8};  // colorMapBits
+  ORA_CHECK(!ora::fmt::IsTga(vec_probe));
+
+  // 16bpp → "Unhandled ImageFormat R5g5b5";8bpp → Rgb8;负宽 → Stride 抛。
+  // 16bpp → "Unhandled ImageFormat R5g5b5"; 8bpp → Rgb8; a negative width
+  // → the Stride throw.
+  auto vec_16 = TgaHeaderBytes(2, 1, 16, 2, 0x00);
+  vec_16.insert(vec_16.end(), 4, std::byte{0x5A});
+  ORA_CHECK(ThrowsWith(vec_16, "Unhandled ImageFormat R5g5b5", ParseTgaNoThrow));
+
+  auto vec_8 = TgaHeaderBytes(2, 1, 8, 2, 0x00);
+  vec_8.insert(vec_8.end(), 2, std::byte{0x5A});
+  ORA_CHECK(ThrowsWith(vec_8, "Unhandled ImageFormat Rgb8", ParseTgaNoThrow));
+
+  auto vec_neg = TgaHeaderBytes(-1, 1, 24, 2, 0x00);
+  ORA_CHECK(ThrowsWith(vec_neg, "Width must be greater than zero", ParseTgaNoThrow));
+
+  // DDS:非魔数(IsDds 假 + DdsFrame 直抛);头尺寸;像素格式尺寸($ 字面
+  // 怪癖);DXT2;BC5(D66);Rgb8。
+  // DDS: a bad magic (IsDds false + the direct DdsFrame throw); the header
+  // size; the pixel-format size (the literal-$ quirk); DXT2; BC5 (D66);
+  // Rgb8.
+  const auto vec_dds = DdsHeaderBytes(4, 4, 1, 0, 0x40, 24, 1, 2, 3, 0);
+  ORA_CHECK(ora::fmt::IsDds(vec_dds));  // 判定只看魔数 | the probe reads the magic only
+
+  auto vec_bad_magic = DdsHeaderBytes(4, 4, 1, 0, 0x40, 24, 1, 2, 3, 0);
+  vec_bad_magic[0] = std::byte{0};
+  ORA_CHECK(ThrowsWith(vec_bad_magic, "Not a valid DDS", ParseDdsNoThrow));
+
+  auto vec_bad_hdr = DdsHeaderBytes(4, 4, 1, 0, 0x40, 24, 1, 2, 3, 0);
+  vec_bad_hdr[4] = std::byte{123};
+  ORA_CHECK(ThrowsWith(vec_bad_hdr, "Not a valid header size", ParseDdsNoThrow));
+
+  auto vec_bad_pf = DdsHeaderBytes(4, 4, 1, 0, 0x40, 24, 1, 2, 3, 0);
+  vec_bad_pf[76] = std::byte{31};  // 像素格式尺寸 @ 魔数+18 dword | the pixel-format size @ magic + 18 dwords
+  ORA_CHECK(ThrowsWith(vec_bad_pf, "Expected pixel size to be 32, not: $31", ParseDdsNoThrow));
+
+  const auto vec_dxt2 = ConcatBytes(
+      {DdsHeaderBytes(4, 4, 1, 844388420, 0x4, 0, 0, 0, 0, 0), DdsPlainData(4, 4, 1)});
+  ORA_CHECK(ThrowsWith(vec_dxt2, "Cannot support DXT2 or DXT4", ParseDdsNoThrow));
+
+  const auto vec_bc5 = ConcatBytes(
+      {DdsHeaderBytes(4, 4, 1, 1429553986, 0x4, 0, 0, 0, 0, 0), DdsPlainData(4, 4, 1)});
+  ORA_CHECK(ThrowsWith(vec_bc5, "FourCC: 1429553986 not supported.", ParseDdsNoThrow));
+
+  const auto vec_rgb8 = ConcatBytes(
+      {DdsHeaderBytes(4, 4, 1, 0, 0x40, 8, 4, 2, 1, 0), DdsPlainData(4, 4, 1)});  // R>G 免交换 | R>G skips the swap
+  ORA_CHECK(ThrowsWith(vec_rgb8, "Unhandled ImageFormat Rgb8", ParseDdsNoThrow));
+
+  const auto vec_rgb8_swapped = ConcatBytes(
+      {DdsHeaderBytes(4, 4, 1, 0, 0x40, 8, 1, 2, 3, 0), DdsPlainData(4, 4, 1)});  // R<G 触交换 | R<G triggers the swap
+  ORA_CHECK(ThrowsWith(vec_rgb8_swapped, "Do not know how to swap Rgb8", ParseDdsNoThrow));
+}
+
+void TestShpRemasteredPureLogic() {
+  const auto vec_tga = TgaUncompressed(2, 2, 32, 0x20);
+
+  // 前缀不一致。| The prefix mismatch.
+  const auto vec_mismatch = ZipBytes({{"a-0000.tga", vec_tga}, {"b-0001.tga", vec_tga}});
+  ORA_CHECK(ThrowsWith(vec_mismatch, "Frame prefix mismatch: `b-` != `a-`", ParseRemasteredNoThrow));
+
+  // 无匹配条目 → 0 帧(上游空数组)。| No matching entries → zero frames
+  // (upstream's empty array).
+  auto vec_frames = std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>>{};
+  const auto vec_only_notes = ZipBytes({{"notes.txt", MakeBytes({'x'})}});
+  ORA_CHECK(ora::fmt::IsShpRemastered(vec_only_notes));
+  ORA_CHECK(ora::fmt::TryParseShpRemastered(vec_only_notes, vec_frames));
+  ORA_CHECK(vec_frames.empty());
+
+  // 坏 meta 文本 → FormatException 等价抛点(D67)。| A malformed meta text
+  // → the FormatException-equivalent throw (D67).
+  auto vec_meta_bad = std::vector<std::byte>{};
+  for (const char char_c : std::string_view{"{\"size\":[6,5]}"})
+    vec_meta_bad.push_back(static_cast<std::byte>(char_c));
+  const auto vec_bad_meta = ZipBytes({{"e1-0000.tga", vec_tga}, {"e1-0000.meta", vec_meta_bad}});
+  ORA_CHECK(ThrowsWith(vec_bad_meta, "FormatException: failed to parse remastered meta", ParseRemasteredNoThrow));
+
+  // 判定负例。| The probe negative.
+  ORA_CHECK(!ora::fmt::IsShpRemastered(MakeBytes({0x50, 0x4B, 0x05, 0x06, 0x00})));  // EOCD 签名非本地头 | the EOCD signature is not the local-header one
+}
+
+void TestEmbeddedSpritePalette() {
+  using ora::fmt::EmbeddedSpritePalette;
+  auto span_palette = std::span<const std::uint32_t>{};
+
+  const auto vec_file = std::vector<std::uint32_t>{0xFF000001, 0xFF000002};
+  const std::map<int, std::vector<std::uint32_t>> map_frames = {{1, {0xAA000001}}};
+
+  const auto palette_both = EmbeddedSpritePalette{vec_file, map_frames};
+  ORA_CHECK(palette_both.TryGetPaletteForFrame(1, span_palette) && span_palette.size() == 1 &&
+            span_palette[0] == 0xAA000001u);
+  ORA_CHECK(palette_both.TryGetPaletteForFrame(0, span_palette) && span_palette.size() == 2 &&
+            span_palette[0] == 0xFF000001u);
+  ORA_CHECK(palette_both.TryGetPaletteForFrame(9, span_palette) && span_palette.size() == 2);
+
+  const auto palette_none = EmbeddedSpritePalette{};
+  ORA_CHECK(!palette_none.TryGetPaletteForFrame(0, span_palette));
+}
+
 std::string BuildActualText(const std::string& str_upstream_root) {
   auto str_out = std::string{};
 
@@ -631,6 +1404,174 @@ std::string BuildActualText(const std::string& str_upstream_root) {
   str_out += std::format("E {}\n", BytesToHexLower(vec_lcw_src));
   str_out += std::format("ER {}\n", BytesToHexLower(ora::fmt::lcw::Encode(vec_lcw_src)));
 
+  // 6) PNG 合成夹具(与 oracle 同构造:stored-deflate zlib)。
+  // 6) The PNG synthetic fixtures (the same construction as the oracle:
+  // stored-deflate zlib).
+  {
+    // idx8:7×5 × 五滤波;PLTE 4 项 + tRNS 2 项;双 IDAT 切分;tEXt 重复键。
+    // idx8: 7×5 × all five filters; a 4-entry PLTE + a 2-entry tRNS; the
+    // two-chunk IDAT split; tEXt with a duplicate key.
+    constexpr int int4_w = 7, int4_h = 5;
+    auto vec_raw = std::vector<std::byte>{};
+    const auto ptr_prev_of = [](std::vector<std::vector<std::byte>>& vec_rows, int int4_y) -> const std::byte* {
+      return int4_y > 0 ? vec_rows[static_cast<std::size_t>(int4_y - 1)].data() : nullptr;
+    };
+    auto vec_rows = std::vector<std::vector<std::byte>>{};
+    const int arr4_filters[] = {0, 1, 2, 3, 4};
+    for (auto int4_y = 0; int4_y < int4_h; int4_y++) {
+      vec_rows.push_back(PngRow8(int4_w, 1, int4_y));
+      vec_raw.push_back(static_cast<std::byte>(arr4_filters[int4_y]));
+      const auto vec_f = EncodePngRow(vec_rows[static_cast<std::size_t>(int4_y)], ptr_prev_of(vec_rows, int4_y),
+                                       arr4_filters[int4_y], 1);
+      vec_raw.insert(vec_raw.end(), vec_f.begin(), vec_f.end());
+    }
+    const auto vec_zlib = MakeZlibStored(vec_raw);
+    const auto vec_plte = MakeBytes({10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120});
+    const auto vec_trns = MakeBytes({0, 255});
+    const std::vector<std::pair<std::string, std::string>> arr_texts = {{"Title", "oracle-png"}, {"Software", "OpenRA"},
+                                                                        {"Title", "updated"}};
+    DumpPngSection(AssemblePng(PngIhdrBytes(int4_w, int4_h, 8, 3), &vec_plte, &vec_trns,
+                               SplitIdat(vec_zlib, {5}), arr_texts, false),
+                   "png_idx8_7x5", str_out);
+  }
+  {
+    const auto dump_packed = [&str_out](int int4_w, int int4_h, int int4_depth, std::string_view str_name) {
+      auto vec_raw = std::vector<std::byte>{};
+      for (auto int4_y = 0; int4_y < int4_h; int4_y++) {
+        vec_raw.push_back(std::byte{0});
+        const auto vec_row = PngPackedRow(int4_w, int4_depth, int4_y);
+        vec_raw.insert(vec_raw.end(), vec_row.begin(), vec_row.end());
+      }
+      auto vec_plte = std::vector<std::byte>(3 * (1 << int4_depth));
+      for (std::size_t st_i = 0; st_i < vec_plte.size(); st_i++)
+        vec_plte[st_i] = static_cast<std::byte>(st_i * 7 % 251);
+      DumpPngSection(AssemblePng(PngIhdrBytes(int4_w, int4_h, int4_depth, 3), &vec_plte, nullptr,
+                                 {MakeZlibStored(vec_raw)}, {}, false),
+                     str_name, str_out);
+    };
+    dump_packed(5, 3, 4, "png_idx4_5x3");
+    dump_packed(3, 2, 2, "png_idx2_3x2");
+    dump_packed(9, 2, 1, "png_idx1_9x2");
+  }
+  {
+    constexpr int int4_w = 4, int4_h = 3;
+    auto vec_raw = std::vector<std::byte>{};
+    auto vec_rows = std::vector<std::vector<std::byte>>{};
+    const int arr4_filters[] = {4, 3, 0};
+    for (auto int4_y = 0; int4_y < int4_h; int4_y++) {
+      vec_rows.push_back(PngRow8(int4_w, 3, int4_y));
+      vec_raw.push_back(static_cast<std::byte>(arr4_filters[int4_y]));
+      const auto ptr_up = int4_y > 0 ? vec_rows[static_cast<std::size_t>(int4_y - 1)].data() : nullptr;
+      const auto vec_f = EncodePngRow(vec_rows[static_cast<std::size_t>(int4_y)], ptr_up, arr4_filters[int4_y], 3);
+      vec_raw.insert(vec_raw.end(), vec_f.begin(), vec_f.end());
+    }
+    DumpPngSection(AssemblePng(PngIhdrBytes(int4_w, int4_h, 8, 2), nullptr, nullptr, {MakeZlibStored(vec_raw)}, {},
+                               true),
+                   "png_rgb24_4x3", str_out);
+  }
+  {
+    constexpr int int4_w = 3, int4_h = 2;
+    auto vec_raw = std::vector<std::byte>{};
+    auto vec_rows = std::vector<std::vector<std::byte>>{};
+    const int arr4_filters[] = {1, 4};
+    for (auto int4_y = 0; int4_y < int4_h; int4_y++) {
+      vec_rows.push_back(PngRow8(int4_w, 4, int4_y));
+      vec_raw.push_back(static_cast<std::byte>(arr4_filters[int4_y]));
+      const auto ptr_up = int4_y > 0 ? vec_rows[static_cast<std::size_t>(int4_y - 1)].data() : nullptr;
+      const auto vec_f = EncodePngRow(vec_rows[static_cast<std::size_t>(int4_y)], ptr_up, arr4_filters[int4_y], 4);
+      vec_raw.insert(vec_raw.end(), vec_f.begin(), vec_f.end());
+    }
+    DumpPngSection(AssemblePng(PngIhdrBytes(int4_w, int4_h, 8, 6), nullptr, nullptr, {MakeZlibStored(vec_raw)},
+                               {std::pair<std::string, std::string>{"Note", "rgba"}}, false),
+                   "png_rgba32_3x2", str_out);
+  }
+
+  // 7) TGA 夹具(type 2 经 TgaLoader;RLE type 10 经 TgaSprite 直构)。
+  // 7) The TGA fixtures (type 2 via TgaLoader; the RLE type 10 constructed
+  // through TgaSprite directly).
+  AppendTaggedTry('H', "tga_t2_24_bl", TgaUncompressed(5, 4, 24, 0x00), ora::fmt::TryParseTga, "TgaLoader", str_out);
+  AppendTaggedTry('H', "tga_t2_24_br", TgaUncompressed(5, 2, 24, 0x10), ora::fmt::TryParseTga, "TgaLoader", str_out);
+  AppendTaggedTry('H', "tga_t2_32_tl", TgaUncompressed(4, 3, 32, 0x20), ora::fmt::TryParseTga, "TgaLoader", str_out);
+  {
+    auto vec_tga = ConcatBytes({TgaHeaderBytes(6, 3, 32, 10, 0x20),
+                                RlePacket(3, {10, 11, 12, 13}),
+                                RawPacket(3, TgaRow(3, 4, 0)),
+                                RawPacket(6, TgaRow(6, 4, 1)),
+                                RlePacket(2, {20, 21, 22, 23}),
+                                RlePacket(2, {30, 31, 32, 33}),
+                                RawPacket(2, TgaRow(2, 4, 2))});
+    str_out += "H tga_t10_32_tl\nL TgaSprite\n";
+    AppendFrameLines(ora::fmt::TgaSprite{vec_tga}.Frames(), str_out);
+  }
+  {
+    auto vec_tga = ConcatBytes({TgaHeaderBytes(5, 3, 24, 10, 0x00),
+                                RlePacket(4, {1, 2, 3}),
+                                RawPacket(1, TgaRow(1, 3, 0)),
+                                RawPacket(2, TgaRow(2, 3, 1)),
+                                RlePacket(3, {4, 5, 6}),
+                                RlePacket(1, {7, 8, 9}),
+                                RlePacket(2, {10, 11, 12}),
+                                RawPacket(2, TgaRow(2, 3, 2))});
+    str_out += "H tga_t10_24_bl\nL TgaSprite\n";
+    AppendFrameLines(ora::fmt::TgaSprite{vec_tga}.Frames(), str_out);
+  }
+
+  // 8) DDS 夹具。| 8) The DDS fixtures.
+  AppendTaggedTry('J', "dds_unc32_5x4",
+                  ConcatBytes({DdsHeaderBytes(5, 4, 1, 0, 0x41, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000),
+                               DdsPlainData(5, 4, 4)}),
+                  ora::fmt::TryParseDds, "DdsLoader", str_out);
+  AppendTaggedTry('J', "dds_unc24_3x3_swapped",
+                  ConcatBytes({DdsHeaderBytes(3, 3, 1, 0, 0x40, 24, 0x000000FF, 0x0000FF00, 0x00FF0000, 0),
+                               DdsPlainData(3, 3, 3)}),
+                  ora::fmt::TryParseDds, "DdsLoader", str_out);
+  AppendTaggedTry('J', "dds_unc32_mips_4x4",
+                  ConcatBytes({DdsHeaderBytes(4, 4, 3, 0, 0x41, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000),
+                               DdsPlainData(4, 4, 4), DdsPlainData(2, 2, 4), DdsPlainData(1, 1, 4)}),
+                  ora::fmt::TryParseDds, "DdsLoader", str_out);
+  {
+    auto vec_dxt1 = ConcatBytes({DdsHeaderBytes(5, 5, 1, 827611204, 0x4, 0, 0, 0, 0, 0),
+                                 Dxt1Block(0xF800, 0x07E0, 0x1B, 0xE4, 0x00, 0xFF),
+                                 Dxt1Block(0x07E0, 0xF800, 0xE4, 0x1B, 0xFF, 0x00),
+                                 Dxt1Block(0x001F, 0x0000, 0x55, 0xAA, 0x55, 0xAA),
+                                 Dxt1Block(0xFFFF, 0x0000, 0xC3, 0x3C, 0x81, 0x7E)});
+    AppendTaggedTry('J', "dds_dxt1_5x5", vec_dxt1, ora::fmt::TryParseDds, "DdsLoader", str_out);
+  }
+  {
+    auto vec_dxt3 = ConcatBytes({DdsHeaderBytes(4, 4, 1, 861165636, 0x4, 0, 0, 0, 0, 0),
+                                 Dxt3Block(MakeBytes({0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77}), 0xF800,
+                                           0x001F, 0x1B, 0xE4, 0x00, 0xFF)});
+    AppendTaggedTry('J', "dds_dxt3_4x4", vec_dxt3, ora::fmt::TryParseDds, "DdsLoader", str_out);
+  }
+  {
+    auto vec_dxt5 = ConcatBytes({DdsHeaderBytes(4, 4, 1, 894720068, 0x4, 0, 0, 0, 0, 0),
+                                 Dxt5Block(255, 0, MakeBytes({0x00, 0x11, 0x22, 0x33, 0x44, 0x55}), 0xF800, 0x07E0,
+                                           0xE4, 0x1B, 0x00, 0xFF)});
+    AppendTaggedTry('J', "dds_dxt5_4x4", vec_dxt5, ora::fmt::TryParseDds, "DdsLoader", str_out);
+  }
+  {
+    auto vec_dxt5b = ConcatBytes({DdsHeaderBytes(4, 4, 1, 894720068, 0x4, 0, 0, 0, 0, 0),
+                                  Dxt5Block(10, 250, MakeBytes({0x00, 0x92, 0x24, 0x49, 0xDB, 0xFF}), 0x07E0, 0xF800,
+                                            0x1B, 0xE4, 0xFF, 0x00)});
+    AppendTaggedTry('J', "dds_dxt5b_4x4", vec_dxt5b, ora::fmt::TryParseDds, "DdsLoader", str_out);
+  }
+
+  // 9) ShpRemastered 合成 zip。| 9) The ShpRemastered synthetic zip.
+  {
+    auto vec_tga0 = TgaUncompressed(4, 4, 32, 0x20);
+    auto vec_meta0 = std::vector<std::byte>{};
+    for (const char char_c : std::string_view{"{\"size\":[6,5],\"crop\":[1,2,4,5]}"})
+      vec_meta0.push_back(static_cast<std::byte>(char_c));
+    auto vec_tga2 = TgaUncompressed(3, 3, 24, 0x00);
+    auto vec_notes = std::vector<std::byte>{};
+    for (const char char_c : std::string_view{"ignored"})
+      vec_notes.push_back(static_cast<std::byte>(char_c));
+    const auto vec_zip = ZipBytes({{"e1-0000.tga", vec_tga0}, {"e1-0000.meta", vec_meta0},
+                                   {"e1-0002.tga", vec_tga2}, {"notes.txt", vec_notes}});
+    AppendTaggedTry('K', "remastered_synthetic", vec_zip, ora::fmt::TryParseShpRemastered, "ShpRemasteredLoader",
+                    str_out);
+  }
+
   return str_out;
 }
 
@@ -681,6 +1622,10 @@ int main(int argc, char** argv) {
     TestCRC32();
     TestSyntheticShpTD();
     TestSheetBuilderFrameAdd();
+    TestPngPureLogic();
+    TestTgaDdsPureLogic();
+    TestShpRemasteredPureLogic();
+    TestEmbeddedSpritePalette();
     std::println("pure-logic ok");
     TestGoldenDifferential(argv[1], argv[2]);
   } catch (const std::exception& ex) {
