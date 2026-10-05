@@ -67,7 +67,13 @@
 - `glsl/combined.vert|frag` 自上游原样复制;gfx_command +15 命令(blend 状态机 diff/深度/FBO depth/持久 VB/VAO/Present);渲染线程启动即建常驻全局 VAO(上游同语义)
 - 验收(gfx_test):纯逻辑(BlendSpan 段合并/ResolveTextureIndex 三态与 epoch 失效链/worldSprite 几何的整数倍 renderScale 舍入/ColorRenderer 几何捕获)+ GL 集成(**调色板采样链 × 五轮 Flush 覆盖三槽回绕与 fence 等待**、三段 blend 交错单次 Flush、双 shader VAO 往返、NPOT FBO 130×70、**单级合成全流程**:BeginWorld → world 精灵 → BeginUI 2× 合成 → UI 精灵 → 默认帧缓冲三区像素断言);双构建 ctest 14/14;修出四个真 bug(fence 常量误值致 INVALID_ENUM、纹理绑定缓存 8 单元把 Palette/ColorShifts 挡在门外、GL 名字复用撞绑定 diff 缓存、持久 VB 槽写入与索引寻址错位);偏离 D51~D57 登记
 
-下一批次(Phase 4 续):OpenAL/FreeType、硬件光标、Westwood 文件格式全家、WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)。
+**Phase 4 第五批完成**(Westwood 文件格式第一编:编解码器 + SHP/TMP 图像链;2026-10-05):
+
+- `src/formats/` 十二件:fast_byte_reader(逐语义 + 越界等价抛点)、span_reader(UPSTREAM: NONE 自有 Stream 形态适配)、lcw(Format80 五 case 解码 + "quick and dirty v2" Encode)、xor_delta(Format40 六 case)、rle_zeros(Format2)、lzo(minilzo 2.06 C# 移植逐控制流照抄,goto/标签保真,未对齐读写按小端位拼)、crc32(256 表逐值 + 链式 Update/Finish)、shp_td(头表/引用解压链/TrimmedFrame 收边/无限递归防线)、shp_d2(帧偏移 2/4 字节两型 + 查表)、shp_ts(三扫描线格式 + 伪帧判定循环)、tmp_td/tmp_ra(单字节索引 tile 集)、tmp_ts(菱形展开 + 悬崖 extra + 深度第二帧组);`src/gfx/sprite_frame.hpp`(ISpriteFrame 契约)+ SheetBuilder::Add(ISpriteFrame) 接线(D47 遗留)
+- oracle:`tools/golden_gen -- fmt`(上游 DLL extern-alias 引用,按各 mod mod.yaml 的 SpriteFormats 链序)生成 `tests/golden_formats.txt`:**mods 全部 213 个 .shp(186 ShpTD/27 ShpTS)逐帧 Type/Size/FrameSize/Offset(.NET float 格式化)/Data-CRC32 + 前 32 字节 hex、6 个 .pal 的 ImmutablePalette 全 256 项、合成 tmpTD/RA/TS 夹具(两语言同构造算法)、LZO 四向量(含 M2 大匹配与 MatchNext 双重读路径)、LCW 编码向量** —— 6096 行逐行对拍一致,oracle 双跑确定性验证
+- 验收(formats_test):纯逻辑(FastByteReader/RLE0 两分支/XOR 六 case/LCW 五 case + Encode→Decode 往返 + 越界抛点/CRC32 标准向量 + 分段链式、合成 shpTD 的 TrimmedFrame 裁剪与全零帧、判定负例)+ 黄金对拍 + SheetBuilder 帧接线(Indexed sheet Red 通道字节 2);双构建 ctest 15/15;修出两个真 bug(CRC32 表 idx194 一位抄错 —— 标准向量只查 9 项表未触及,zlib 交叉验证定位;RLE0 字面量分支缺界检查 —— ASan 实证);偏离 D58~D62 登记
+
+下一批次(Phase 4 续):formats 第二编(Png 自研/B3 照抄 + dds/tga + ShpRemastered/EmbeddedSpritePalette)、Mix+Blowfish、aud/wav(IMA ADPCM)、vqa/wsa、vxl/hva/idx、OpenAL/FreeType、硬件光标、WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)。
 
 ## 与上游的差异(优化点与偏离登记)
 
@@ -89,12 +95,12 @@
 
 ### 与上游不同步处(偏离登记摘要)
 
-当前登记 **D1~D57**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
+当前登记 **D1~D62**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
 
 - **yaml/fs(D1~D9)**:异常类型统一为 YamlException(消息文本逐字一致)、惰性枚举物化为 vector、null/"" 键合流等——合法输入下行为等价或不可观测;
 - **meta/加载链(D10~D24)**:TypeConverter 兜底未实现(实际字段类型已全覆盖,不可达)、字典字段为插入序 vector(dump 协议按键排序)、三 mod 解析快照以 C++ 侧固化(D24:C# `--dump` 工具受 ALC 程序集副本环境制约,恢复后可再对拍校准)等;
 - **sim/net(D25~D34)**:Initialize 观察者去重形态差异(受端幂等)、**trait 工厂与所有权待 Phase 5 随 World arena 接线(D26/D27)**、`Target.FromCell` 以 square 网格公式桩换算(D28,Phase 5 接 Map)、UI/大厅命令族静默吞并(D29,Phase 6/7 接线)、SyncReport 未接(D30,上游默认关闭)等;
-- **平台/渲染(第一批 D35~D40、第二批 D41~D45、第三批 D46~D50、第四批 D51~D57)**:命令缓冲替代装箱消息队列、统一线程模型、NPOT、KHR_debug、纹理生命周期契约(替代 glIsTexture 驱逐)、持久映射 VB/VAO 缓存/blend diff/单级合成等;输入层形态适配(退出上报/时钟注入/X1X2 IsRepeat);**主循环、mods 运行时 trait、UI、服务器、Lua 脚本(Phase 5-8 范围)尚未移植**——见上方状态节。
+- **平台/渲染(第一批 D35~D40、第二批 D41~D45、第三批 D46~D50、第四批 D51~D57)**:命令缓冲替代装箱消息队列、统一线程模型、NPOT、KHR_debug、纹理生命周期契约(替代 glIsTexture 驱逐)、持久映射 VB/VAO 缓存/blend diff/单级合成等;输入层形态适配(退出上报/时钟注入/X1X2 IsRepeat);**格式族第一编(D58~D62)**:Stream → SpanReader、loader 链独立起读、Data null/空统一、越界异常 runtime_error 等价抛点、帧数据 shared_ptr 共享;**主循环、mods 运行时 trait、UI、服务器、Lua 脚本(Phase 5-8 范围)尚未移植**——见上方状态节。
 
 ## 许可证与归属
 
@@ -170,7 +176,13 @@ The engine is rewritten from scratch to match the exact semantics of the upstrea
 - `src/gfx/`: shader (the **{VERSION} substitution plus post-link active-uniform enumeration into an integer table (OPT-A6: no string hot path) plus sampler-unit assignment**, integer Set*/Location APIs) + texture (**BGRA uploads/UNPACK row packing/RGBA16F/readback/ScaleFilter with RAII asynchronous deletes**); 13 commands added to gfx_command
 - Acceptance (platform_test): pure logic (multi-tap timing/distance boundaries, modifier bit combinations, coordinate-rounding boundaries, Keycode×SDL cross-checks) + the synthetic event pump (double-click 1→2, three motions coalesced to one, wheel/text/exit) + GL integration (**NPOT BGRA byte-exact round-trips, sub-rectangle pitched bitmaps, a white-texture × red-uniform sampling chain with pixel assertions, a healthy pipeline after RAII teardown**); ctest 13/13 on both builds; three first-batch bugs fixed on the way (the misaligned SPSC record / the leaked GL context / the payload over-read); deviations D41–D45 registered
 
-Next batch (Phase 4 continued): SpriteRenderer (8 slots/BlendSpan/persistently-mapped VBs + the VAO cache) and the composite Renderer (single-stage), OpenAL/FreeType, hardware cursors, and the full Westwood file-format family.
+**Phase 4 fifth batch complete** (the first Westwood formats installment: the codecs + the SHP/TMP image chain; 2026-10-05):
+
+- Twelve files in `src/formats/`: fast_byte_reader (semantics kept + equivalent out-of-bounds throw points), span_reader (UPSTREAM: NONE, the in-house Stream-shape adapter), lcw (the Format80 five-case decoder + the "quick and dirty v2" encoder), xor_delta (the Format40 six cases), rle_zeros (Format2), lzo (the minilzo 2.06 C# port copied control flow for control flow, gotos and labels faithful, unaligned accesses little-endian byte-assembled), crc32 (the 256-entry table value for value + the chaining Update/Finish), shp_td (the header table / reference decompression chain / TrimmedFrame bounds-trimming / the infinite-recursion guard), shp_d2 (the 2/4-byte frame-offset flavors + the lookup table), shp_ts (three scanline formats + the bogus-frame probe loop), tmp_td/tmp_ra (the one-byte-index tile sets), tmp_ts (the diamond unpack + cliff extras + the depth second frame set); `src/gfx/sprite_frame.hpp` (the ISpriteFrame contract) + the SheetBuilder::Add(ISpriteFrame) wiring (the D47 leftover)
+- Oracle: `tools/golden_gen -- fmt` (upstream DLLs via extern alias, chained per each mod's mod.yaml SpriteFormats order) generates `tests/golden_formats.txt`: **every one of the 213 mods .shp files (186 ShpTD / 27 ShpTS) with per-frame Type/Size/FrameSize/Offset (.NET float formatting)/Data-CRC32 + the first 32 bytes hex, all 256 entries of the 6 .pal files' ImmutablePalette, the synthetic tmpTD/RA/TS fixtures (the same construction algorithm in both languages), four LZO vectors (including the M2 long match and the MatchNext double-read paths), and an LCW encode vector** — 6096 lines matching line for line, with the oracle's cross-run determinism verified
+- Acceptance (formats_test): pure logic (FastByteReader / both RLE0 branches / the XOR six cases / the LCW five cases + an Encode→Decode round trip + overflow throw points / CRC32 standard vector + segmented chaining, the synthetic shpTD's TrimmedFrame trimming and all-zero frame, negative probes) + the golden differential + the SheetBuilder frame wiring (Indexed-sheet Red channel = byte 2); ctest 15/15 on both builds; two real bugs fixed (a one-digit CRC32 table typo at idx194 — the standard vector touches only 9 table entries, located via zlib cross-validation; the missing RLE0 literal-branch bounds check — proven by ASan); deviations D58–D62 registered
+
+Next batch (Phase 4 continued): the second formats installment (the from-scratch Png/OPT-B3 + dds/tga + ShpRemastered/EmbeddedSpritePalette), Mix+Blowfish, aud/wav (IMA ADPCM), vqa/wsa, vxl/hva/idx, OpenAL/FreeType, hardware cursors, and WorldRenderer/render collection (OPT-A7 SOA + the frame arena).
 
 ## Differences from upstream (optimizations & registered deviations)
 
@@ -192,12 +204,12 @@ The bigger items ahead (a render command buffer replacing the boxing message que
 
 ### Not-yet-synced with upstream (registered-deviation summary)
 
-Currently **D1–D50** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
+Currently **D1–D62** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
 
 - **yaml/fs (D1–D9)**: exception types unified into YamlException (message texts verbatim), lazy enumerations materialized into vectors, null/"" key coalescing, etc. — behavior-equivalent or unobservable for valid inputs;
 - **meta/loading chain (D10–D24)**: the TypeConverter fallback not implemented (actual field types are fully covered, unreachable), dictionary fields as insertion-ordered vectors (dump protocol sorts by key), the three-mod parse snapshots frozen on the C++ side (D24: the C# `--dump` tool is constrained by the ALC assembly-copy environment; re-differential once restored), etc.;
 - **sim/net (D25–D34)**: the Initialize observer-dedup shape differs (receiving ends are idempotent), **the trait factory and ownership await Phase 5 wiring into the World arena (D26/D27)**, `Target.FromCell` stubbed with the square-grid formula (D28, Map lands in Phase 5), UI/lobby command families silently swallowed (D29, wired in Phase 6/7), SyncReport not wired (D30, off by default upstream), etc.;
-- **Platform/render (first batch D35–D40, second D41–D45, third D46–D50, fourth D51–D57)**: the command buffer replacing the boxing message queue, the unified threading model, NPOT, KHR_debug, the texture lifetime contract (replacing the glIsTexture eviction), the persistent-mapped VBs/VAO cache/blend diff/single-pass compositing, etc., plus input-layer shape adaptations (exit reporting / clock injection / X1X2 IsRepeat); **the main loop, runtime mods traits, UI, server, and Lua scripting (Phases 5–8) are not ported yet** — see the status section above.
+- **Platform/render (first batch D35–D40, second D41–D45, third D46–D50, fourth D51–D57)**: the command buffer replacing the boxing message queue, the unified threading model, NPOT, KHR_debug, the texture lifetime contract (replacing the glIsTexture eviction), the persistent-mapped VBs/VAO cache/blend diff/single-pass compositing, etc., plus input-layer shape adaptations (exit reporting / clock injection / X1X2 IsRepeat); **the first formats installment (D58–D62)**: Stream → SpanReader, loaders each starting fresh at offset 0, Data null/empty unified, out-of-bounds exceptions as equivalent runtime_error throws, frame data shared via shared_ptr; **the main loop, runtime mods traits, UI, server, and Lua scripting (Phases 5–8) are not ported yet** — see the status section above.
 
 ## License & Attribution
 

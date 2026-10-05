@@ -297,3 +297,26 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D55 | src/gfx/sprite_renderer | CurrentBatchRenderer 属性 → 批槽指针注入(ActivateAsCurrent 复刻"切批 flush 前批");上游 internal DrawSprite 族公开;BlendSpanTracker/IRgbaQuadSink 注入面(上游私有直连);PerfHistory.Increment 不移植;OPT-A7:PaletteReference::HasColorShift 走 (epoch,value) 缓存(HardwarePalette 仅在结果翻转时递增 epoch) | 形态适配不可观测;纯逻辑可测性;epoch 缓存与逐次字典查找语义等价(单线程渲染路径,翻转点外值恒同);诊断面 Phase 9 统计 |
 | D56 | src/gfx/renderer | OPT-B1 单级合成:world FBO NPOT、screen FBO 整级删除(BeginUI 把 worldSprite 直接画进默认帧缓冲,UI 同缓冲)、BeginFrame 默认 FB Clear 删除(上游自认冗余;无 world 帧在 else 分支显式清)、EndFrame 最终拷贝删除;NDC 净映射等价论证见文件头(UI 坐标 c 经 p1 与 blit 缩放的复合 = 2c/surface−1,单级直接同式);Sheet 增非拥有外部纹理构造(worldSheet 引用 FBO 附件 = 上游共享引用);着色器源码构造注入(上游 GetShaderCode 读 EngineDir,文件系统随 Game 批);Fonts/SaveScreenshot/GetRenderBufferSnapshot 随字体与 Png 批;WorldRenderers 后处理族随后处理批;Present 走命令(上下文归渲染线程) | OPT-B1(1920×1080 由 2048² 双 FBO/3 clear/2 拷贝每帧 → 1 clear/1 blit);渲染对拍关卡的先验论证;依赖批次接线 |
 | D57 | glsl/combined.vert|.frag | 自上游 @7d57605 原样复制(仅 combined 一对;其余 11 个着色器随后处理/模型批次) | GPL-3.0 同源;按需落地 |
+
+### Phase 4 第五批(2026-10-05):Westwood 文件格式第一编(编解码器 + SHP/TMP 图像链)
+
+- `src/formats/`:fast_byte_reader(FastByteReader.cs 逐语义;ReadWord 的 int 提升)、span_reader(UPSTREAM: NONE,Stream 的 span 形态适配:long 位置/小端读取/越界等价抛点)、lcw(Format80 五 case + ReplicatePrevious 的 dist=1 展开 + CountSame/WriteCopyBlocks/Encode)、xor_delta(Format40 六 case)、rle_zeros(Format2,零段与字面量两分支均有界)、lzo(LZOCompression.cs 的 minilzo 2.06 移植逐控制流照抄:gtFirstLiteralRun/gtMatchDone 布尔 + 四标签;MatchNext/CopyMatch;未对齐 32/16 位读写按小端位拼 = memcpy 等价)、crc32(256 表逐值 + Calculate(poly)/Update/Finish;static_assert 标准向量)、shp_td(ImageHeader 头表 + XORPrev/XORLCW 引用链 + LCW + TrimmedFrame 收边(偶数行列调整/半像素偏移防御)+ recurseDepth 无限循环防线 + offsets 重复键等价抛)、shp_d2(2/4 字节偏移两型 + PaletteTable/VariableLengthTable/默认 256 项恒等表改四项 + LCW 预解压 + RLE0)、shp_ts(奇宽高取偶 + Format3/2/1-0 扫描线 + 伪帧 do-while 判定)、tmp_td/tmp_ra(魔数 @16+@20 / @20+@26;单字节索引 255=空 tile)、tmp_ts(菱形 UnpackTileData(行宽 4 起 ±4)+ flags&1 的 bounds union/Offset 半像素 + 悬崖 extra 两层主/深回填(<32 有效)+ DepthFrame 第二帧组);
+- `src/gfx/sprite_frame.hpp`(ISpriteFrame:Type/Size/FrameSize/Offset/Data/DisableExportPadding)+ SheetBuilder::Add(ISpriteFrame)(上游 L85-87 直通,Offset.AsVector3 = (x,y,0))。
+
+**验收(2026-10-05,formats_test)**
+
+- oracle:`tools/golden_gen -- fmt`(csproj 增上游三 DLL 的 extern alias 引用;链序 = 各 mod mod.yaml 的 SpriteFormats 事实序,R8/PngSheet 未移植剔除)输出 `tests/golden_formats.txt`(6096 行):213 个 mods .shp(186 ShpTD + 27 ShpTS)逐帧 Type/Size/FrameSize/Offset/数据 CRC32 + 前 32 字节 hex、6 个 .pal 的 ImmutablePalette(stream,[0],[]) 全 256 项、合成 tmpTD/RA/TS 夹具、4 个 LZO 向量(字面量/EOF/M2 大匹配 32×'e'/MatchNext 吞字节路径)、LCW 编码向量;oracle 双跑 diff 确认确定性(V4 向量初版偏移字节错位致越界读堆残留,已重造);
+- 纯逻辑:FastByteReader(Done/ReadWord/CopyTo/Remaining)、RLE0(字面量/零段交错 + 两分支越界抛)、XOR 六 case 手工向量(含 word 字节序)、LCW 五 case + Encode→Decode 往返 + 0xFE RLE 形态抽查 + case1 越界抛、CRC32("123456789"→0xCBF43926 + 分段链式恒等)、合成 shpTD(LCW 单帧,TrimmedFrame 8×8 裁剪/Offset (0,0)/全零帧 Size(0,0) 空数据)、判定负例(避开上游截断流同抛 EndOfStream 的形态)、SheetBuilder::Add(ISpriteFrame)(bounds 8×8、Red 通道 = 像素内字节 2(kChannelMasks "nuts" 序)、全零帧空 Sprite 不占位);
+- 双构建(ASan+UBSan / Release)ctest 15/15;门禁 std_import(156 文件)/upstream_check(131 标注)PASS。
+
+**实现过程修出两个真 bug**:CRC32 查找表 idx194 一位抄错(0x757AA39C,上游 0x756AA39C)——"123456789" 标准向量仅触及 9 个表项而漏检,4608 字节真实资产 CRC 全偏后以 zlib 交叉验证定位(资产前 32 字节逐位相同排除解码嫌疑,锁定 CRC 实现);RLE0 字面量分支无边界检查(测试期望的等价抛未生效,ASan heap-buffer-overflow 实证)。
+
+### 已登记偏离(PORTING_PLAN §7.5,第五批新增)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D58 | src/formats/span_reader、fast_byte_reader | Stream → SpanReader(span + long 位置;区间读取零拷贝返回 subspan);越界读取/Seek 抛 std::runtime_error,为上游 EndOfStreamException/IndexOutOfRangeException 的等价抛点(消息文本非逐字,仅坏数据可达) | 形态适配;C++ 无需流抽象的分配语义;合法资产零触发 |
+| D59 | src/formats/ 各 loader | 上游 FrameLoader.GetFrames 链式共享同一 Stream(IsShpTS 中途拒绝路径不复位流位置);C++ 每判定从文件头独立构造 SpanReader。ISpriteLoader 接口暂无 metadata 出参(六个已移植 loader 上游均恒 null;随 png/remastered 批补全) | 格式魔数互斥且 oracle 链序 = 上游事实链序,位移歧义文件不存在;形态收敛 |
+| D60 | src/gfx/sprite_frame.hpp | ISpriteFrame::Data 的上游 null 与 byte[0] 统一为空 span(消费路径 SheetBuilder.Add 的空尺寸早退不可区分);ShpTD 帧数据以 shared_ptr<const vector> 共享(上游 TrimmedFrame 直通分支的数组引用语义),帧数组可独立于 ShpTDSprite 移动 | 数据不可变,行为等价;解耦生命周期使 TryParse 直出帧数组 |
+| D61 | src/formats/ lcw/xor_delta/rle_zeros/tmp_ts | 坏数据的越界写/负索引:上游为 IndexOutOfRangeException/Array.Copy 抛/C# 数组负索引抛;C++ 以显式守卫(CheckDestBounds/字面量界检查/tmp_ts 的 .at())抛 std::runtime_error,消息文本统一非逐字;ShpTD 的 ToDictionary 重复键 ArgumentException 同为等价抛点 | 语义面等价(异常类型统一为本项目先例 D48 的延续);仅坏数据可达,合法资产零触发 |
+| D62 | src/formats/ lcw/shp_td | LCWCompression.Encode 落地(运行时消费者 ShpTDSprite.Write 属 Utility 面,随 Phase 8);ShpTDSprite::Write 同批不移植 | Encode 为纯字节函数且 oracle 已对拍;Write 依赖 Png/BinaryWriter 工具面,批次对齐 |

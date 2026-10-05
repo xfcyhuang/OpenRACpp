@@ -221,6 +221,27 @@ add_library(ora_gfx STATIC
 target_link_libraries(ora_gfx PUBLIC ora_platform)
 ora_link_std(ora_gfx)
 
+# Westwood 文件格式族(PORTING_PLAN §Phase 4 formats 第一编):字节读取器 +
+# 压缩编解码器(LCW/XOR/LZO/RLE0)+ CRC32 + SHP TD/D2/TS + TMP TD/RA/TS
+# 加载器;帧契约(ISpriteFrame)在 gfx 层。
+# The Westwood file-format family (PORTING_PLAN §Phase 4, first formats
+# batch): the byte readers + compression codecs (LCW/XOR/LZO/RLE0) +
+# CRC32 + the SHP TD/D2/TS and TMP TD/RA/TS loaders; the frame contract
+# (ISpriteFrame) lives in the gfx layer.
+add_library(ora_formats STATIC
+  src/formats/lcw.cpp
+  src/formats/xor_delta.cpp
+  src/formats/rle_zeros.cpp
+  src/formats/lzo.cpp
+  src/formats/shp_td.cpp
+  src/formats/shp_d2.cpp
+  src/formats/shp_ts.cpp
+  src/formats/tmp_td.cpp
+  src/formats/tmp_ra.cpp
+  src/formats/tmp_ts.cpp)
+target_link_libraries(ora_formats PUBLIC ora_core)
+ora_link_std(ora_formats)
+
 # ———— 工具与测试 / Tools & tests
 # tools/ 已移出仓库跟踪(.gitignore):本地开发工具(探针/校验器/oracle 生成器)
 # 不再随库分发;引用其源文件的目标在文件存在时才构建,克隆环境自动跳过
@@ -341,3 +362,19 @@ add_custom_command(TARGET gfx_test POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:gfx_test>)
 add_test(NAME gfx_test COMMAND gfx_test)
+
+# Phase 4 formats 第一编验收:编解码黄金向量 + mods 全量 .shp/.pal 资产
+# 解码对拍(黄金文件由 tools/golden_gen -- fmt 再生)+ 合成 tmp 夹具 +
+# SheetBuilder::Add(ISpriteFrame) 接线断言。
+# Phase 4 first-formats-batch acceptance: codec golden vectors + the
+# all-mods .shp/.pal asset decode differential (the golden file
+# regenerates via tools/golden_gen -- fmt) + the synthetic tmp fixtures +
+# the SheetBuilder::Add(ISpriteFrame) wiring assertions.
+add_executable(formats_test tests/formats_test.cpp)
+target_link_libraries(formats_test PRIVATE ora_formats ora_gfx ora_meta)
+ora_link_std(formats_test)
+add_custom_command(TARGET formats_test POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:formats_test>)
+add_test(NAME formats_test COMMAND formats_test
+         ${ORA_UPSTREAM_ROOT} ${CMAKE_SOURCE_DIR}/tests/golden_formats.txt)

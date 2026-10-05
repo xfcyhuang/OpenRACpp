@@ -8,8 +8,8 @@
 // 形态适配(上游 Game.Renderer 全局访问 → RenderThread* 注入;render 为空
 // = 上游 Utility 的 Game.Renderer == null 纯数据路径,GetTexture 断言挡):
 //   - Sheet 纹理由 optional<Texture> RAII 持有(上游手动 Dispose);
-//   - 上游 Sheet(Stream)(Png 解码)随 formats 批次;AsPng 同;
-//   - Add(ISpriteFrame)/Add(Png) 随 formats 批次,本批为字节区间重载;
+//   - 上游 Sheet(Stream)(Png 解码)随 formats 第二编(png/dds/tga);AsPng 同;
+//   - Add(ISpriteFrame) 已随 formats 第一编接线;Add(Png) 随第二编;
 //   - ReleaseBufferAndTryTransferTo 转移"清零缓冲"改为重新分配(上游
 //     转移原数组对象复用;内容同为全零,行为等价 —— COVERAGE 登记)。
 // Sheet: the CPU-side pixel buffer with a lazily created GL texture;
@@ -24,9 +24,10 @@
 // Utility data-only path, with GetTexture asserting):
 //   - the Sheet texture is owned by an optional<Texture> RAII handle
 //     (upstream Disposes manually);
-//   - Sheet(Stream) (Png decode) and AsPng await the formats batch;
-//   - Add(ISpriteFrame)/Add(Png) await the formats batch — byte-span
-//     overloads here;
+//   - Sheet(Stream) (Png decode) and AsPng await the second formats
+//     batch (png/dds/tga);
+//   - Add(ISpriteFrame) is wired with the first formats batch; Add(Png)
+//     awaits the second;
 //   - ReleaseBufferAndTryTransferTo re-allocates the transferred
 //     "cleared buffer" instead of reusing the original array object
 //     (upstream recycles the array; contents are equally all-zero —
@@ -37,6 +38,7 @@ import std;
 #include "core/int2.hpp"
 #include "core/rectangle.hpp"
 #include "gfx/sprite.hpp"
+#include "gfx/sprite_frame.hpp"
 #include "gfx/texture.hpp"
 
 namespace ora::gfx {
@@ -160,12 +162,20 @@ class SheetBuilder {
   /// SpriteFrameType → SheetType (SheetBuilder.cs L52-67).
   static SheetType FrameTypeToSheetType(SpriteFrameType kind_frame_type);
 
-  /// 帧数据入集(SheetBuilder.cs L85-102 的字节区间形态;ISpriteFrame/
-  /// Png 重载随 formats 批次)。空尺寸直接返回空 Sprite(不占纹理)。
+  /// 帧接口入集(SheetBuilder.cs L85-87;Data/Type/Size/Offset 直通,
+  /// Offset.AsVector3 = (x, y, 0))。
+  /// Adds a frame interface (SheetBuilder.cs L85-87; Data/Type/Size/
+  /// Offset passed through, Offset.AsVector3 = (x, y, 0)).
+  Sprite Add(const ISpriteFrame& frame, bool b_premultiplied = false) {
+    return Add(frame.Data(), frame.Type(), frame.Size(), 0.0f,
+               core::Vector3{frame.Offset().X, frame.Offset().Y, 0.0f}, b_premultiplied);
+  }
+
+  /// 帧数据入集(SheetBuilder.cs L89-102 的字节区间形态;Png 重载随
+  /// formats 第二编)。空尺寸直接返回空 Sprite(不占纹理)。
   /// Copies frame data into the sheet (the byte-span form of
-  /// SheetBuilder.cs L85-102; the ISpriteFrame/Png overloads arrive with
-  /// the formats batch). Empty sizes return an empty Sprite (no texture
-  /// space).
+  /// SheetBuilder.cs L89-102; the Png overload awaits the second formats
+  /// batch). Empty sizes return an empty Sprite (no texture space).
   Sprite Add(std::span<const std::byte> vec_src, SpriteFrameType kind_frame_type, int2 int2_size,
              bool b_premultiplied = false) {
     return Add(vec_src, kind_frame_type, int2_size, 0.0f, core::Vector3{}, b_premultiplied);
