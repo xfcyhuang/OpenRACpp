@@ -245,4 +245,64 @@ Rectangle BoundingRectangle(core::Vector3 v_offset, core::Vector3 v_size, float 
                          static_cast<std::int32_t>(std::ceil(static_cast<double>(float_max_y))) - int4_min_y};
 }
 
+void FastCopyIntoSprite(const Sprite& sprite_dest, const fmt::Png& png_src) {
+  std::span<std::byte> vec_dest_data = sprite_dest.ptr_sheet->GetData();
+  const std::int32_t int4_stride = sprite_dest.ptr_sheet->Size().X;
+  const std::int32_t int4_x = sprite_dest.Bounds.Left();
+  const std::int32_t int4_y = sprite_dest.Bounds.Top();
+  const std::int32_t int4_width = sprite_dest.Bounds.Width;
+  const std::int32_t int4_height = sprite_dest.Bounds.Height;
+
+  std::size_t st_si = 0;
+  std::size_t st_di = static_cast<std::size_t>(int4_y) * static_cast<std::size_t>(int4_stride) +
+                      static_cast<std::size_t>(int4_x);
+
+  const auto store_u32 = [&](std::size_t st_index, std::uint32_t uint4_v) {
+    vec_dest_data[st_index] = static_cast<std::byte>(uint4_v & 0xFF);
+    vec_dest_data[st_index + 1] = static_cast<std::byte>((uint4_v >> 8) & 0xFF);
+    vec_dest_data[st_index + 2] = static_cast<std::byte>((uint4_v >> 16) & 0xFF);
+    vec_dest_data[st_index + 3] = static_cast<std::byte>((uint4_v >> 24) & 0xFF);
+  };
+
+  for (std::int32_t int4_h{}; int4_h < int4_height; int4_h++) {
+    for (std::int32_t int4_w{}; int4_w < int4_width; int4_w++) {
+      core::Color color_c;
+      switch (png_src.Type()) {
+        case SpriteFrameType::Indexed8: {
+          const std::uint8_t uint1_index =
+              static_cast<std::uint8_t>(png_src.Data()[st_si++]);
+          const fmt::PngColor& color_pal =
+              (*png_src.Palette())[uint1_index];  // 上游:调色板必在 | upstream: the palette must exist
+          color_c = core::Color::FromArgb(color_pal.uint1_a, color_pal.uint1_r, color_pal.uint1_g,
+                                          color_pal.uint1_b);
+          break;
+        }
+        case SpriteFrameType::Rgba32:
+        case SpriteFrameType::Rgb24: {
+          const auto uint1_r = static_cast<std::uint8_t>(png_src.Data()[st_si++]);
+          const auto uint1_g = static_cast<std::uint8_t>(png_src.Data()[st_si++]);
+          const auto uint1_b = static_cast<std::uint8_t>(png_src.Data()[st_si++]);
+          const auto uint1_a = png_src.Type() == SpriteFrameType::Rgba32
+                                   ? static_cast<std::uint8_t>(png_src.Data()[st_si++])
+                                   : std::uint8_t{255};
+          color_c = core::Color::FromArgb(uint1_a, uint1_r, uint1_g, uint1_b);
+          break;
+        }
+
+        // PNG does not support BGR[A], so no need to include them here
+        // (Util.cs L234-235 逐字)
+        // PNG does not support BGR[A], so no need to include them here
+        // (Util.cs L234-235 verbatim).
+        default:
+          throw std::runtime_error(std::format("Unknown SpriteFrameType {}",
+                                               static_cast<int>(png_src.Type())));
+      }
+
+      store_u32(st_di++ * 4, PremultiplyAlpha(color_c).ToArgb());
+    }
+
+    st_di += static_cast<std::size_t>(int4_stride - int4_width);
+  }
+}
+
 }  // namespace ora::gfx

@@ -295,4 +295,45 @@ std::vector<std::string> GetStringArrayValue(std::string_view str_field, std::st
   return vec_ret;
 }
 
+namespace {
+
+/// GetValue&lt;Tuple&gt; 的共同实现:临时 scratch 节点走主分派,失败消息逐字。
+/// The shared implementation of GetValue<Tuple>: a temporary scratch node
+/// through the main dispatch, failure messages verbatim.
+GenericTuple GetTupleValue(std::string_view str_field, std::string_view sv_value, FieldType type_field,
+                           std::string_view str_type_name) {
+  const FieldDesc desc_field{
+      .str_name = str_field, .type = type_field, .b_required = false,
+      .str_loader = {}, .off_offset = 0, .elem = nullptr, .key = nullptr,
+      .value = nullptr, .str_type_name = str_type_name};
+  GenericValue val_out = GenericValue::Null();
+  const std::string str_trimmed{TrimNetWhiteSpace(sv_value)};
+  yaml::MiniYaml node_scratch{&str_trimmed, {}};
+  LoadValueIntoValue(desc_field, val_out, node_scratch);
+  return std::get<GenericTuple>(val_out.val);
+}
+
+}  // namespace
+
+Rectangle GetRectangleValue(std::string_view str_field, std::string_view sv_value) {
+  const GenericTuple t_v = GetTupleValue(str_field, sv_value, FieldType::Rectangle,
+                                         "OpenRA.Primitives.Rectangle");
+  return Rectangle{static_cast<std::int32_t>(t_v.arr_ints[0]),
+                   static_cast<std::int32_t>(t_v.arr_ints[1]),
+                   static_cast<std::int32_t>(t_v.arr_ints[2]),
+                   static_cast<std::int32_t>(t_v.arr_ints[3])};
+}
+
+int2 GetSizeValue(std::string_view str_field, std::string_view sv_value) {
+  const GenericTuple t_v =
+      GetTupleValue(str_field, sv_value, FieldType::Size, "System.Drawing.Size");
+  return int2{static_cast<std::int32_t>(t_v.arr_ints[0]), static_cast<std::int32_t>(t_v.arr_ints[1])};
+}
+
+core::Vector2 GetVector2Value(std::string_view str_field, std::string_view sv_value) {
+  const GenericTuple t_v = GetTupleValue(str_field, sv_value, FieldType::Vector2,
+                                         "System.Numerics.Vector2");
+  return core::Vector2{t_v.arr_floats[0], t_v.arr_floats[1]};
+}
+
 }  // namespace ora::meta

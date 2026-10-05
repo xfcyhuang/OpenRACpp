@@ -23,6 +23,11 @@ import std;
 #include "formats/rle_zeros.hpp"
 #include "formats/shp_d2.hpp"
 #include "formats/shp_td.hpp"
+#include "formats/mp3_loader.hpp"
+#include "formats/ogg_loader.hpp"
+#include "formats/png_sheet_loader.hpp"
+#include "formats/r8_loader.hpp"
+#include "formats/voc_loader.hpp"
 #include "formats/shp_ts.hpp"
 #include "formats/span_reader.hpp"
 #include "formats/tmp_ra.hpp"
@@ -996,6 +1001,347 @@ void TestWavReader() {
       b_threw = true;
     }
     ORA_CHECK(b_threw);
+  }
+}
+
+// ———— 纯逻辑:Voc 加载器(第十三批)————
+// ———— Pure logic: the Voc loader (thirteenth batch) ————
+
+/// 合成 VOC(两语言同构造的黄金侧共用同一算法)。
+/// A synthetic VOC (the golden side shares the same construction
+/// algorithm).
+std::vector<std::byte> MakeVocFile(std::initializer_list<std::tuple<int, std::vector<std::byte>>> vec_blocks) {
+  auto vec = std::vector<std::byte>{};
+  const std::string str_desc = "Creative Voice File";
+  for (const char chr_c : str_desc)
+    vec.push_back(static_cast<std::byte>(chr_c));
+  for (std::size_t st_i = str_desc.size(); st_i < 20; st_i++)
+    vec.push_back(std::byte{0});
+  const auto put_u16 = [&vec](std::uint16_t uint2_v) {
+    vec.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+    vec.push_back(static_cast<std::byte>(uint2_v >> 8));
+  };
+  put_u16(26);               // datablockOffset
+  put_u16(0x0114);           // version
+  put_u16(~0x0114 + 0x1234); // id = ~version + 0x1234
+  for (const auto& [int4_code, vec_body] : vec_blocks) {
+    vec.push_back(static_cast<std::byte>(int4_code));
+    const std::uint32_t uint4_len = static_cast<std::uint32_t>(vec_body.size());
+    vec.push_back(static_cast<std::byte>(uint4_len & 0xFF));
+    vec.push_back(static_cast<std::byte>((uint4_len >> 8) & 0xFF));
+    vec.push_back(static_cast<std::byte>((uint4_len >> 16) & 0xFF));
+    vec.insert(vec.end(), vec_body.begin(), vec_body.end());
+  }
+  vec.push_back(std::byte{0}); // 终止块 | the terminator block
+  return vec;
+}
+
+std::vector<std::byte> BytesOf(std::initializer_list<std::uint8_t> vec_list) {
+  std::vector<std::byte> vec_out;
+  for (const std::uint8_t uint1_v : vec_list)
+    vec_out.push_back(static_cast<std::byte>(uint1_v));
+  return vec_out;
+}
+
+void TestVocLoader() {
+  using ora::fmt::VocInfo;
+  using ora::fmt::TryParseVoc;
+
+  // 全路径:code-8(rate 覆盖)+ 双声音块 + 静默 + 循环对
+  // The full path: a code-8 block (rate override) + two sound blocks +
+  // silence + a repeat pair.
+  auto vec_file = MakeVocFile({
+      // code 8:freqDiv u16 + codec + channels-1(长度 4)
+      // code 8: freqDiv u16 + codec + channels-1 (length 4)
+      {8, BytesOf({0x00, 0xCE, 0x00, 0x00})},
+      // code 1:freqDiv 0xD2 → 22050 + codec 0(长度 = 2 + 4)
+      // code 1: freqDiv 0xD2 → 22050 + codec 0 (length = 2 + 4)
+      {1, BytesOf({0xD2, 0x00, 0x10, 0x20, 0x30, 0x40})},
+      // code 3:静默(长度 3:samples-1 u16 + freqDiv)
+      // code 3: silence (length 3: samples-1 u16 + freqDiv)
+      {3, BytesOf({0x03, 0x00, 0xD2})},
+      // code 6/7:循环对(长度 2 / 0)
+      // code 6/7: the repeat pair (length 2 / 0)
+      {6, BytesOf({0x01, 0x00})},
+      {7, {}},
+      // code 1:第二段前置自身的 code-8(rate 同为 20000,过一致性校验)
+      // code 1: the second chunk with its own preceding code-8 (rate
+      // equally 20000, passing the consistency check)
+      {8, BytesOf({0x00, 0xCE, 0x00, 0x00})},
+      {1, BytesOf({0xD2, 0x00, 0xAA, 0xBB})},
+  });
+
+  VocInfo info_voc;
+  std::vector<std::byte> vec_pcm;
+  ORA_CHECK(TryParseVoc(vec_file, info_voc, vec_pcm));
+  // code-8 的 rate 覆盖紧随块:256000000/(65536-0xCE00) = 20000
+  // The code-8 rate overrides the following block:
+  // 256000000/(65536-0xCE00) = 20000.
+  ORA_CHECK(info_voc.int4_sample_rate == 20000);
+  ORA_CHECK(info_voc.int4_total_samples == 6);
+  ORA_CHECK(vec_pcm.size() == 6);
+  ORA_CHECK(static_cast<std::uint8_t>(vec_pcm[0]) == 0x10 &&
+            static_cast<std::uint8_t>(vec_pcm[1]) == 0x20 &&
+            static_cast<std::uint8_t>(vec_pcm[4]) == 0xAA &&
+            static_cast<std::uint8_t>(vec_pcm[5]) == 0xBB);
+
+  // 0xa5/0xd2 特例与除数公式 | the 0xa5/0xd2 special cases and the divisor
+  // formula
+  {
+    const auto vec_simple = MakeVocFile({{1, BytesOf({0xA5, 0x00, 0x01})}});
+    VocInfo info_a;
+    std::vector<std::byte> vec_pcm_a1;
+    ORA_CHECK(TryParseVoc(vec_simple, info_a, vec_pcm_a1));
+    ORA_CHECK(info_a.int4_sample_rate == 11025);
+  }
+
+  // 头负例(消息逐字)| the header negatives (messages verbatim)
+  {
+    auto vec_bad = MakeVocFile({});
+    // "Creative Voice File" 恰 19 字符 —— 破坏末字符(idx 18)才触前缀失败
+    // "Creative Voice File" is exactly 19 chars — breaking the last one
+    // (idx 18) is what fails the prefix check.
+    vec_bad[18] = static_cast<std::byte>('X');
+    VocInfo info_bad;
+    std::vector<std::byte> vec_pcm_bad;
+    ORA_CHECK(!TryParseVoc(vec_bad, info_bad, vec_pcm_bad));
+  }
+  {
+    auto vec_bad = MakeVocFile({});
+    vec_bad[20] = static_cast<std::byte>(25); // DatablockOffset != 26
+    vec_bad[21] = std::byte{0};
+    VocInfo info_bad;
+    std::vector<std::byte> vec_pcm_bad;
+    ORA_CHECK(!TryParseVoc(vec_bad, info_bad, vec_pcm_bad));
+  }
+  {
+    auto vec_bad = MakeVocFile({});
+    vec_bad[22] = static_cast<std::byte>(0x00); // version < 0x0100
+    vec_bad[23] = std::byte{0x00};
+    VocInfo info_bad;
+    try {
+      ora::fmt::LoadVoc(vec_bad, info_bad);
+      ORA_CHECK(false);
+    } catch (const std::runtime_error& ex) {
+      ORA_CHECK(std::string_view{ex.what()} == "Voc header version 0 not supported");
+    }
+  }
+  {
+    // id 校验失败(消息逐字,含十六进制期望值/实际值)
+    // the id check failure (message verbatim, with the hex expected/actual)
+    auto vec_bad = MakeVocFile({});
+    vec_bad[24] = std::byte{0};  // id 低字节 → 0x1100
+    VocInfo info_bad;
+    try {
+      ora::fmt::LoadVoc(vec_bad, info_bad);
+      ORA_CHECK(false);
+    } catch (const std::runtime_error& ex) {
+      // ~0x0114 + 0x1234 = 0x111F;id 读回 0x1100(仅低字节破坏)
+      // ~0x0114 + 0x1234 = 0x111F; the id reads back 0x1100 (only the low
+      // byte broken).
+      ORA_CHECK(std::string_view{ex.what()} ==
+                "Voc header id is bogus - expected: 111F but value is : 1100");
+    }
+  }
+
+  // 混合采样率抛(消息逐字)| the mixed-rate throw (message verbatim)
+  {
+    const auto vec_mixed = MakeVocFile({
+        {1, BytesOf({0xD2, 0x00, 0x01})},
+        {1, BytesOf({0xA5, 0x00, 0x02})},
+    });
+    VocInfo info_mixed;
+    try {
+      ora::fmt::LoadVoc(vec_mixed, info_mixed);
+      ORA_CHECK(false);
+    } catch (const std::runtime_error& ex) {
+      ORA_CHECK(std::string_view{ex.what()} ==
+                "Voc file contains chunks with different sample rate");
+    }
+  }
+
+  // 尾随未合并的 code 8 抛 "Unused block 8 in voc file"
+  // A trailing unmerged code 8 throws "Unused block 8 in voc file".
+  {
+    const auto vec_unused = MakeVocFile({{8, BytesOf({0x00, 0xCE, 0x00, 0x00})}});
+    VocInfo info_unused;
+    try {
+      ora::fmt::LoadVoc(vec_unused, info_unused);
+      ORA_CHECK(false);
+    } catch (const std::runtime_error& ex) {
+      ORA_CHECK(std::string_view{ex.what()} == "Unused block 8 in voc file");
+    }
+  }
+}
+
+// ———— 纯逻辑:ogg/mp3 嗅探与负例(D94/D95 后端偏离)————
+// ———— Pure logic: the ogg/mp3 sniffs and negatives (the D94/D95 backend
+//          deviations) ————
+
+void TestOggMp3Sniff() {
+  using ora::fmt::IsMp3;
+
+  // IsMp3:ID3 前缀 / 0xFBFF 帧同步 / 皆无
+  // IsMp3: the ID3 prefix / the 0xFBFF frame sync / neither.
+  ORA_CHECK(IsMp3(BytesOf({'I', 'D', '3', 0x00})));
+  ORA_CHECK(IsMp3(BytesOf({0xFF, 0xFB, 0x90, 0x00})));
+  ORA_CHECK(!IsMp3(BytesOf({0x00, 0x00, 0x00, 0x00})));
+  ORA_CHECK(!IsMp3(BytesOf({0xFF}))); // 短文件 = 上游越界读异常 → false | a short file maps the upstream OOB-read exception to false
+
+  // ogg/mp3 的 TryParse 负面:垃圾输入归 false(上游 catch 面)
+  // The ogg/mp3 TryParse negatives: garbage maps to false (the upstream
+  // catch surface).
+  ora::fmt::OggInfo info_ogg;
+  std::vector<std::byte> vec_pcm;
+  ORA_CHECK(!ora::fmt::TryParseOgg(BytesOf({'O', 'g', 'g', 'S', 0x00}), info_ogg, vec_pcm));
+  ORA_CHECK(vec_pcm.empty());
+  ora::fmt::Mp3Info info_mp3;
+  ORA_CHECK(!ora::fmt::TryParseMp3(BytesOf({0x12, 0x34, 0x56, 0x78}), info_mp3, vec_pcm));
+}
+
+// ———— 纯逻辑:R8 与 PngSheet(第十三批)————
+// ———— Pure logic: R8 and PngSheet (thirteenth batch) ————
+
+/// 合成 R8 帧(两语言同构造)。
+/// A synthetic R8 frame (the same construction in both languages).
+std::vector<std::byte> MakeR8Frame(std::uint8_t uint1_type, std::int32_t int4_w, std::int32_t int4_h,
+                                   std::int32_t int4_x, std::int32_t int4_y,
+                                   std::int32_t int4_palette_handle, std::uint8_t uint1_bpp,
+                                   std::span<const std::byte> vec_pixels,
+                                   std::span<const std::uint16_t> vec_palette_packed) {
+  auto vec = std::vector<std::byte>{};
+  vec.push_back(std::byte{uint1_type});
+  const auto put_i32 = [&vec](std::int32_t int4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec.push_back(static_cast<std::byte>(int4_v >> (8 * int4_i)));
+  };
+  const auto put_u32 = [&vec](std::uint32_t uint4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+  };
+  put_i32(int4_w);
+  put_i32(int4_h);
+  put_i32(int4_x);
+  put_i32(int4_y);
+  put_u32(0x1234); // imageHandle
+  put_i32(int4_palette_handle);
+  vec.push_back(std::byte{uint1_bpp});
+  vec.push_back(std::byte{8}); // frameHeight
+  vec.push_back(std::byte{8}); // frameWidth
+  vec.push_back(std::byte{0}); // 对齐 | alignment
+  vec.insert(vec.end(), vec_pixels.begin(), vec_pixels.end());
+  if (uint1_type == 1 && int4_palette_handle != 0) {
+    put_u32(0); // 头 8 字节 | the 8 header bytes
+    put_u32(0);
+    for (const std::uint16_t uint2_packed : vec_palette_packed) {
+      vec.push_back(static_cast<std::byte>(uint2_packed & 0xFF));
+      vec.push_back(static_cast<std::byte>(uint2_packed >> 8));
+    }
+  }
+  return vec;
+}
+
+void TestR8AndPngSheet() {
+  // IsR8 三态 | the three IsR8 states
+  {
+    auto vec_first_zero = std::vector<std::byte>(26, std::byte{0});
+    ORA_CHECK(!ora::fmt::IsR8(vec_first_zero));
+    auto vec_ok8 = std::vector<std::byte>(26, std::byte{0});
+    vec_ok8[0] = std::byte{1};
+    vec_ok8[25] = std::byte{8};
+    ORA_CHECK(ora::fmt::IsR8(vec_ok8));
+    auto vec_bad_bpp = vec_ok8;
+    vec_bad_bpp[25] = std::byte{7};
+    ORA_CHECK(!ora::fmt::IsR8(vec_bad_bpp));
+  }
+
+  // 4×2 索引帧 + 512 字节调色板 + 尾随 type=2 帧复用调色板
+  // A 4×2 indexed frame + the 512-byte palette + a trailing type=2 frame
+  // reusing it.
+  const std::vector<std::byte> vec_pixels = BytesOf({0x00, 0x01, 0x02, 0xFF, 0x01, 0x00, 0xFF, 0x02});
+  std::vector<std::uint16_t> vec_palette(256, 0);
+  vec_palette[1] = 0x7C00 | 0x0063;
+  vec_palette[2] = 0x03E0;
+  auto vec_r8 = MakeR8Frame(1, 4, 2, 2, 1, 0x77, 8, vec_pixels, vec_palette);
+  const std::vector<std::byte> vec_pixels2 = BytesOf({0x01, 0x02});
+  const std::vector<std::uint16_t> vec_no_palette{};
+  const auto vec_frame2 = MakeR8Frame(2, 2, 1, 1, 0, 0, 8, vec_pixels2, vec_no_palette);
+  vec_r8.insert(vec_r8.end(), vec_frame2.begin(), vec_frame2.end());
+
+  std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>> vec_frames;
+  ORA_CHECK(ora::fmt::TryParseR8(vec_r8, vec_frames));
+  ORA_CHECK(vec_frames.size() == 2);
+  ORA_CHECK(vec_frames[0]->Type() == ora::gfx::SpriteFrameType::Bgra32); // RemappableFrame
+  ORA_CHECK(vec_frames[0]->Size() == ora::int2(4, 2));
+  ORA_CHECK(vec_frames[0]->FrameSize() == ora::int2(8, 8));
+  // Offset = (w/2 - x, h/2 - y) = (0, 0)
+  // Offset = (w/2 - x, h/2 - y) = (0, 0).
+  ORA_CHECK(vec_frames[0]->Offset() == ora::core::Vector2(0.0f, 0.0f));
+  // Data:索引 0 → 0(调色板透明化);索引 1 → 影色(useShadow 默认参,
+  // palette[1] = 140<<24);索引 2 → RGB555 展开
+  // Data: index 0 → 0 (the palette's transparency remap); index 1 → the
+  // shadow color (the useShadow default, palette[1] = 140<<24); index 2 →
+  // the RGB555 expansion.
+  const auto u32_at = [&vec_frames](std::size_t st_i) {
+    const auto vec_d = vec_frames[0]->Data();
+    std::uint32_t uint4_v = 0;
+    for (auto int4_i = 3; int4_i >= 0; int4_i--)
+      uint4_v = (uint4_v << 8) |
+                static_cast<std::uint8_t>(vec_d[st_i * 4 + static_cast<std::size_t>(int4_i)]);
+    return uint4_v;
+  };
+  ORA_CHECK(u32_at(0) == 0x00000000u);
+  ORA_CHECK(u32_at(1) == (140u << 24));
+  const std::uint32_t uint4_expanded2 = (0xFFu << 24) | ((0x03E0u & 0x7C00u) << 9) |
+                                         ((0x03E0u & 0x3E0u) << 6) | ((0x03E0u & 0x1Fu) << 3);
+  ORA_CHECK(u32_at(2) == uint4_expanded2);
+  // 第二帧(type=2)借得上帧调色板 → 同样以 RemappableFrame 包装
+  // (TryParseSprite 的 `f.Palette != null` 判定含借用面)
+  // The second frame (type=2) borrows the previous palette → equally
+  // wrapped as a RemappableFrame (TryParseSprite's `f.Palette != null`
+  // covers the borrowed face).
+  ORA_CHECK(vec_frames[1]->Type() == ora::gfx::SpriteFrameType::Bgra32);
+  ORA_CHECK(vec_frames[1]->Size() == ora::int2(2, 1));
+  ORA_CHECK(vec_frames[1]->Data().size() == 8);
+
+  // PngSheet:整图单帧(无嵌入元数据)+ 帧切片(FrameSize 嵌入)+ 签名负例
+  // PngSheet: the whole image as one frame (no embedded metadata) + frame
+  // slicing (a FrameSize embed) + the signature negative.
+  {
+    const std::vector<std::byte> vec_rgba = BytesOf({0x10, 0x20, 0x30, 0xFF, 0x40, 0x50, 0x60, 0xFF});
+    const ora::fmt::Png png_src{vec_rgba, ora::gfx::SpriteFrameType::Rgba32, 2, 1};
+    const std::vector<std::byte> vec_png_file = png_src.Save();
+    std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>> vec_sheet_frames;
+    ORA_CHECK(ora::fmt::TryParsePngSheet(vec_png_file, vec_sheet_frames));
+    ORA_CHECK(vec_sheet_frames.size() == 1);
+    ORA_CHECK(vec_sheet_frames[0]->Size() == ora::int2(2, 1));
+    ORA_CHECK(vec_sheet_frames[0]->Data().size() == 8);
+    ORA_CHECK(static_cast<std::uint8_t>(vec_sheet_frames[0]->Data()[0]) == 0x10);
+    ORA_CHECK(!ora::fmt::TryParsePngSheet(BytesOf({0x89, 'P', 'N', 'G', 0x00}), vec_sheet_frames));
+  }
+  {
+    // 4×2 图,FrameSize 2×2 → 4 帧切片
+    // A 4×2 image with FrameSize 2×2 → four sliced frames.
+    std::vector<std::byte> vec_rgba;
+    for (std::uint8_t uint1_v = 0; uint1_v < 8; uint1_v++)
+      for (auto int4_c = 0; int4_c < 4; int4_c++)
+        vec_rgba.push_back(static_cast<std::byte>(uint1_v * 16 + int4_c * 3));
+    const ora::fmt::Png png_src{vec_rgba, ora::gfx::SpriteFrameType::Rgba32, 4, 2, std::nullopt,
+                                {{"FrameSize", "2,2"}}};
+    const std::vector<std::byte> vec_png_file = png_src.Save();
+    std::vector<std::unique_ptr<ora::gfx::ISpriteFrame>> vec_sheet_frames;
+    ORA_CHECK(ora::fmt::TryParsePngSheet(vec_png_file, vec_sheet_frames));
+    // frameAmount = (4/2) × (2/2) = 2(两列一行)
+    // frameAmount = (4/2) × (2/2) = 2 (two columns, one row).
+    ORA_CHECK(vec_sheet_frames.size() == 2);
+    ORA_CHECK(vec_sheet_frames[0]->Size() == ora::int2(2, 2));
+    ORA_CHECK(vec_sheet_frames[1]->Size() == ora::int2(2, 2));
+    // 帧 0 = 左 2×2 块;帧 1 = 右(源行距 4,目标行距 2)
+    // Frame 0 = the left 2×2 block; frame 1 = the right (source stride 4,
+    // destination stride 2).
+    ORA_CHECK(static_cast<std::uint8_t>(vec_sheet_frames[0]->Data()[0]) == 0x00);
+    ORA_CHECK(static_cast<std::uint8_t>(vec_sheet_frames[1]->Data()[0]) == 0x20);
+    ORA_CHECK(static_cast<std::uint8_t>(vec_sheet_frames[0]->Data()[8]) == 0x40);
   }
 }
 
@@ -3749,6 +4095,83 @@ std::string BuildActualText(const std::string& str_upstream_root) {
     append_idx_lines("idx_badtwo", make_idx_file("GABA", 3, {}), str_out);
   }
 
+  // 20) 第十三编合成夹具:voc(VO)/ r8 与 pngsheet(R 段;与 oracle 同构
+  //     造算法,见各 Make* 函数)。
+  // 20) The thirteenth-batch synthetic fixtures: voc (VO) / r8 and
+  //     pngsheet (the R sections; the same construction algorithms as the
+  //     oracle, see the Make* functions).
+  {
+    const auto dump_voc = [&](std::string_view str_name, std::span<const std::byte> vec_file) {
+      str_out += std::format("VO {}\n", str_name);
+      ora::fmt::VocInfo info_voc;
+      std::vector<std::byte> vec_pcm;
+      if (ora::fmt::TryParseVoc(vec_file, info_voc, vec_pcm)) {
+        str_out += "L VocLoader\n";
+        str_out += std::format("SD {} {} {} {}\n", info_voc.int4_channels, info_voc.int4_sample_bits,
+                               info_voc.int4_sample_rate,
+                               ora::meta::FormatFloatNet(info_voc.fp4_length_in_seconds));
+        str_out += std::format("SC {} {}\n", ora::fmt::CRC32::Calculate(vec_pcm), vec_pcm.size());
+        str_out += std::format("SX {}\n",
+                               BytesToHexLower(std::span<const std::byte>{vec_pcm}.first(std::min<std::size_t>(32, vec_pcm.size()))));
+      } else
+        str_out += "L NONE\n";
+    };
+
+    dump_voc("voc_full", MakeVocFile({
+                             std::make_tuple(8, BytesOf({0x00, 0xCE, 0x00, 0x00})),
+                             std::make_tuple(1, BytesOf({0xD2, 0x00, 0x10, 0x20, 0x30, 0x40})),
+                             std::make_tuple(3, BytesOf({0x03, 0x00, 0xD2})),
+                             std::make_tuple(6, BytesOf({0x01, 0x00})),
+                             std::make_tuple(7, std::vector<std::byte>{}),
+                             std::make_tuple(8, BytesOf({0x00, 0xCE, 0x00, 0x00})),
+                             std::make_tuple(1, BytesOf({0xD2, 0x00, 0xAA, 0xBB})),
+                         }));
+    dump_voc("voc_11025", MakeVocFile({std::make_tuple(1, BytesOf({0xA5, 0x00, 0x01}))}));
+    {
+      auto vec_neg = MakeVocFile({});
+      vec_neg[18] = static_cast<std::byte>('X');
+      dump_voc("voc_negdesc", vec_neg);
+    }
+    dump_voc("voc_negmixed", MakeVocFile({
+                                 std::make_tuple(1, BytesOf({0xD2, 0x00, 0x01})),
+                                 std::make_tuple(1, BytesOf({0xA5, 0x00, 0x02})),
+                             }));
+
+    {
+      const std::vector<std::byte> vec_pixels = BytesOf({0x00, 0x01, 0x02, 0xFF, 0x01, 0x00, 0xFF, 0x02});
+      std::vector<std::uint16_t> vec_palette(256, 0);
+      vec_palette[1] = 0x7C00 | 0x0063;
+      vec_palette[2] = 0x03E0;
+      auto vec_r8 = MakeR8Frame(1, 4, 2, 2, 1, 0x77, 8, vec_pixels, vec_palette);
+      const auto vec_frame2 = MakeR8Frame(2, 2, 1, 1, 0, 0, 8, BytesOf({0x01, 0x02}), {});
+      vec_r8.insert(vec_r8.end(), vec_frame2.begin(), vec_frame2.end());
+      AppendTaggedTry('R', "r8_two_frames", vec_r8, ora::fmt::TryParseR8, "R8Loader", str_out);
+    }
+    AppendTaggedTry('R', "r8_neg_zero", std::vector<std::byte>(30, std::byte{0}), ora::fmt::TryParseR8,
+                     "R8Loader", str_out);
+
+    {
+      const std::vector<std::byte> vec_rgba = BytesOf({0x10, 0x20, 0x30, 0xFF, 0x40, 0x50, 0x60, 0xFF});
+      const ora::fmt::Png png_single{vec_rgba, ora::gfx::SpriteFrameType::Rgba32, 2, 1};
+      AppendTaggedTry('R', "pngsheet_single", png_single.Save(), ora::fmt::TryParsePngSheet, "PngSheetLoader",
+                     str_out);
+
+      std::vector<std::byte> vec_rgba2;
+      for (std::uint8_t uint1_p = 0; uint1_p < 8; uint1_p++)
+        for (auto int4_c = 0; int4_c < 4; int4_c++)
+          vec_rgba2.push_back(static_cast<std::byte>(uint1_p * 16 + int4_c * 3));
+      const ora::fmt::Png png_frames{vec_rgba2, ora::gfx::SpriteFrameType::Rgba32, 4, 2, std::nullopt,
+                                     {{"FrameSize", "2,2"}}};
+      AppendTaggedTry('R', "pngsheet_frames", png_frames.Save(), ora::fmt::TryParsePngSheet, "PngSheetLoader",
+                     str_out);
+
+      const ora::fmt::Png png_manual{vec_rgba2, ora::gfx::SpriteFrameType::Rgba32, 4, 2, std::nullopt,
+                                     {{"Frame[0]", "0,0,2,2;0,0"}, {"Frame[1]", "2,0,2,2;1,-2.5"}}};
+      AppendTaggedTry('R', "pngsheet_manual", png_manual.Save(), ora::fmt::TryParsePngSheet, "PngSheetLoader",
+                     str_out);
+    }
+  }
+
   return str_out;
 }
 
@@ -3814,6 +4237,9 @@ int main(int argc, char** argv) {
     TestWavReader();
     TestVqaWsaVideo();
     TestVxlHvaIdx();
+    TestVocLoader();
+    TestOggMp3Sniff();
+    TestR8AndPngSheet();
     std::println("pure-logic ok");
     TestGoldenDifferential(argv[1], argv[2]);
   } catch (const std::exception& ex) {

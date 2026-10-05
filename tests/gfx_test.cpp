@@ -35,6 +35,17 @@ import std;
 #include "gfx/terrain_sprite_layer.hpp"
 #include "gfx/world_renderer.hpp"
 #include "sim/world.hpp"
+#include "formats/lcw.hpp"
+#include "formats/shp_td.hpp"
+#include "formats/png.hpp"
+#include "fs/folder.hpp"
+#include "fs/file_system.hpp"
+#include "gfx/animation.hpp"
+#include "gfx/chrome_provider.hpp"
+#include "gfx/cursor_manager.hpp"
+#include "gfx/sequence_set.hpp"
+#include "gfx/sprite_cache.hpp"
+#include "gfx/sprite_loader.hpp"
 
 #if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
 #define ORA_HAS_DESKTOP_GL 1
@@ -1704,6 +1715,793 @@ void TestGlFourthBatch() {
 
 }  // namespace
 
+// ———— 第十三批:CursorSequence/Animation/SpriteCache/SequenceSet/ChromeProvider ————
+// ———— Thirteenth batch: CursorSequence/Animation/SpriteCache/SequenceSet/
+//          ChromeProvider ————
+
+/// 临时工作目录(测试自建自清)。
+/// A temp working directory (created and cleaned up by the test).
+std::filesystem::path MakeTempDirGfx(const std::string& str_tag) {
+  const auto dir_path = std::filesystem::temp_directory_path() /
+                        ("oracpp_gfx13_" + str_tag + "_" +
+                         std::to_string(static_cast<long long>(
+                             std::chrono::steady_clock::now().time_since_epoch().count())));
+  std::filesystem::create_directories(dir_path);
+  return dir_path;
+}
+
+void WriteBinary(const std::filesystem::path& path_file, std::span<const std::byte> vec_bytes) {
+  std::filesystem::create_directories(path_file.parent_path());
+  std::ofstream{path_file, std::ios::binary | std::ios::trunc}
+      .write(reinterpret_cast<const char*>(vec_bytes.data()),
+             static_cast<std::streamsize>(vec_bytes.size()));
+}
+
+void WriteTextGfx(const std::filesystem::path& path_file, std::string_view str_text) {
+  std::filesystem::create_directories(path_file.parent_path());
+  std::ofstream{path_file, std::ios::binary | std::ios::trunc} << str_text;
+}
+
+std::vector<std::byte> BytesOfGfx(std::initializer_list<std::uint8_t> vec_list) {
+  std::vector<std::byte> vec_out;
+  for (const std::uint8_t uint1_v : vec_list)
+    vec_out.push_back(static_cast<std::byte>(uint1_v));
+  return vec_out;
+}
+
+/// 挂一个临时目录为根的 FileSystem。
+/// Mounts a temp directory as a FileSystem root.
+ora::fs::FileSystem MakeTempFs(const std::filesystem::path& dir_path) {
+  ora::fs::FileSystem file_system{};
+  file_system.Mount(dir_path.generic_string());
+  return file_system;
+}
+
+/// 合成 8×8 单帧 shpTD(与 formats_test 的构造同族)。
+/// A synthetic 8×8 single-frame shpTD (the same family as formats_test's
+/// construction).
+std::vector<std::byte> MakeTinyShpTD(std::uint8_t uint1_seed, std::int32_t int4_frame_count = 2) {
+  // 多帧(Animation 的多帧序列需要)| multiple frames (Animation's multi-frame
+  // sequences need them).
+  auto vec_encoded_all = std::vector<std::byte>{};
+  std::vector<std::size_t> vec_offsets(static_cast<std::size_t>(int4_frame_count), 0);
+  for (auto int4_f = 0; int4_f < int4_frame_count; int4_f++) {
+    std::vector<std::byte> vec_frame(64);
+    for (auto int4_i = 0; int4_i < 64; int4_i++)
+      vec_frame[static_cast<std::size_t>(int4_i)] =
+          static_cast<std::byte>((int4_i * 3 + uint1_seed + int4_f * 17) & 0xFF);
+    vec_offsets[static_cast<std::size_t>(int4_f)] = vec_encoded_all.size();
+    const auto vec_encoded = ora::fmt::lcw::Encode(vec_frame);
+    vec_encoded_all.insert(vec_encoded_all.end(), vec_encoded.begin(), vec_encoded.end());
+  }
+  // 头表 = count+2 项(帧 + eof + 哨兵;与 formats_test 的单帧构造同族)
+  // The header table = count+2 entries (frames + eof + a sentinel; the
+  // same family as formats_test's single-frame construction).
+  const std::size_t st_data_base = 14 + 8 * (static_cast<std::size_t>(int4_frame_count) + 2);
+  auto vec_file = std::vector<std::byte>(st_data_base + vec_encoded_all.size());
+  const auto put_u16 = [&vec_file](std::size_t st_pos, std::uint16_t uint2_v) {
+    vec_file[st_pos] = static_cast<std::byte>(uint2_v & 0xFF);
+    vec_file[st_pos + 1] = static_cast<std::byte>(uint2_v >> 8);
+  };
+  const auto put_u32 = [&vec_file](std::size_t st_pos, std::uint32_t uint4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec_file[st_pos + static_cast<std::size_t>(int4_i)] =
+          static_cast<std::byte>(uint4_v >> (8 * int4_i));
+  };
+  put_u16(0, static_cast<std::uint16_t>(int4_frame_count));  // imageCount
+  put_u16(6, 8);                                             // w
+  put_u16(8, 8);                                             // h
+  for (std::int32_t int4_f = 0; int4_f < int4_frame_count; int4_f++) {
+    const std::size_t st_header = 14 + 8 * static_cast<std::size_t>(int4_f);
+    put_u32(st_header, static_cast<std::uint32_t>(st_data_base + vec_offsets[static_cast<std::size_t>(int4_f)]) |
+                            (0x80u << 24));
+  }
+  put_u32(14 + 8 * static_cast<std::size_t>(int4_frame_count),
+          static_cast<std::uint32_t>(vec_file.size()));  // eof 头 | the eof header
+  std::ranges::copy(vec_encoded_all, vec_file.begin() + static_cast<std::ptrdiff_t>(st_data_base));
+  return vec_file;
+}
+
+/// 测试用固定序列(Length/Tick/属性可配;GetSprite 返回按帧索引偏移的
+/// Sprite;GetShadow 仅 shadow_from 起有值)。
+/// A fixed test sequence (configurable Length/Tick/properties; GetSprite
+/// returns a frame-index-shifted Sprite; GetShadow exists only from
+/// shadow_from).
+class FixedSequence final : public ISpriteSequence {
+ public:
+  std::string str_name;
+  std::int32_t int4_length = 1;
+  std::int32_t int4_tick = 40;
+  std::int32_t int4_z_offset = 0;
+  std::int32_t int4_shadow_z_offset = 5;
+  Rectangle rect_bounds{1, 2, 3, 4};
+  bool b_ignore_world_tint = false;
+  float fp4_scale = 1.0f;
+  std::int32_t int4_shadow_from = -1;  // -1 = 恒无影 | never any shadow
+  int int4_resolved_count = 0;
+  std::int32_t int4_token = 0;
+  std::vector<Sprite> vec_sprites;
+
+  std::string_view Name() const override { return str_name; }
+  std::int32_t Length() const override { return int4_length; }
+  std::int32_t Facings() const override { return 1; }
+  std::int32_t Tick() const override { return int4_tick; }
+  std::int32_t ZOffset() const override { return int4_z_offset; }
+  std::int32_t ShadowZOffset() const override { return int4_shadow_z_offset; }
+  Rectangle Bounds() const override { return rect_bounds; }
+  bool IgnoreWorldTint() const override { return b_ignore_world_tint; }
+  float Scale() const override { return fp4_scale; }
+  void ResolveSprites(SpriteCache& cache_sprites) override {
+    vec_sprites = cache_sprites.ResolveSprites(int4_token);
+    int4_resolved_count++;
+  }
+  Sprite GetSprite(std::int32_t int4_frame) override { return At(int4_frame); }
+  Sprite GetSprite(std::int32_t int4_frame, WAngle wangle_facing) override {
+    return At(int4_frame);
+  }
+  std::pair<Sprite, WAngle> GetSpriteWithRotation(std::int32_t int4_frame,
+                                                  WAngle wangle_facing) override {
+    return {At(int4_frame), wangle_facing};
+  }
+  Sprite GetShadow(std::int32_t int4_frame, WAngle wangle_facing) override {
+    return int4_frame >= int4_shadow_from && int4_shadow_from >= 0 ? At(int4_frame) : Sprite{};
+  }
+  float GetAlpha(std::int32_t int4_frame) override { return 1.0f; }
+
+ private:
+  Sprite At(std::int32_t int4_frame) {
+    return vec_sprites.empty() ? Sprite{} : vec_sprites[static_cast<std::size_t>(int4_frame)];
+  }
+};
+
+/// 固定序列解析器:image 节点的每个子节点 → 一条 FixedSequence;键 @len@
+/// 控制 Length,@tick@ 控制 Tick,@shadow@ 控制 shadow_from(逗号分隔键后缀,
+/// 测试专用微语法)。
+/// A fixed-sequence loader: every child node of the image node → one
+/// FixedSequence; the @len@ key controls Length, @tick@ Tick, @shadow@
+/// shadow_from (comma-separated key suffixes, a test-only micro-syntax).
+class FixedSequenceLoader final : public ISpriteSequenceLoader {
+ public:
+  std::vector<std::pair<std::string, std::unique_ptr<ISpriteSequence>>> ParseSequences(
+      SpriteCache& cache_sprites, const std::string& str_tile_set,
+      const yaml::MiniYamlNode& node_image) override {
+    std::vector<std::pair<std::string, std::unique_ptr<ISpriteSequence>>> vec_out;
+    for (const yaml::MiniYamlNode& node_seq : node_image.Value.Nodes) {
+      auto seq_fixed = std::make_unique<FixedSequence>();
+      std::string str_name = node_seq.Key != nullptr ? *node_seq.Key : std::string{};
+
+      // 微语法:idle@3@10@1 = name@length@tick@shadow_from
+      // The micro-syntax: idle@3@10@1 = name@length@tick@shadow_from.
+      std::vector<std::string> vec_parts;
+      {
+        std::string str_current;
+        for (const char chr_c : str_name) {
+          if (chr_c == '@') {
+            vec_parts.push_back(str_current);
+            str_current.clear();
+          } else
+            str_current.push_back(chr_c);
+        }
+        vec_parts.push_back(str_current);
+      }
+      seq_fixed->str_name = vec_parts[0];
+      if (vec_parts.size() > 1)
+        seq_fixed->int4_length = std::stoi(vec_parts[1]);
+      if (vec_parts.size() > 2)
+        seq_fixed->int4_tick = std::stoi(vec_parts[2]);
+      if (vec_parts.size() > 3)
+        seq_fixed->int4_shadow_from = std::stoi(vec_parts[3]);
+
+      const std::string str_src =
+          node_seq.Value.Value != nullptr ? *node_seq.Value.Value : "tiny.shp";
+      seq_fixed->int4_token = cache_sprites.ReserveSprites(str_src, std::nullopt,
+                                                           node_seq.Location);
+
+      vec_out.emplace_back(seq_fixed->str_name, std::move(seq_fixed));
+    }
+    return vec_out;
+  }
+};
+
+/// 构一个两序列(tiny/tiny2)的 SequenceSet(测试共用)。
+/// Builds a two-sequence (tiny/tiny2) SequenceSet (shared by the tests).
+struct AnimTestFixture {
+  std::filesystem::path dir_path;
+  std::unique_ptr<ora::fs::Folder> ptr_folder;
+  std::unique_ptr<ora::fs::FileSystem> ptr_file_system;
+  std::vector<std::string> vec_files{"sequences.yaml"};
+  std::vector<SpriteLoaderFn> vec_loaders{&ora::fmt::TryParseShpTD};
+  FixedSequenceLoader loader_fixed;
+  std::unique_ptr<SequenceSet> ptr_sequences;
+
+  AnimTestFixture() {
+    dir_path = MakeTempDirGfx("anim");
+    WriteBinary(dir_path / "tiny.shp", MakeTinyShpTD(1));
+    WriteBinary(dir_path / "tiny2.shp", MakeTinyShpTD(2, 4));
+    WriteTextGfx(dir_path / "sequences.yaml",
+                 "anim:\n"
+                 "\tidle@3:\n"
+                 "\t\tSrc: tiny.shp\n"
+                 "\topen@4@10:\n"
+                 "\t\tSrc: tiny2.shp\n"
+                 "\tshadowed@2@40@0:\n"
+                 "\t\tSrc: tiny.shp\n"
+                 "\ttick0@2@0:\n"
+                 "\t\tSrc: tiny.shp\n");
+
+    ptr_file_system = std::make_unique<ora::fs::FileSystem>();
+    ptr_file_system->Mount(dir_path.generic_string());
+
+    SequenceSet::Deps deps{ptr_file_system.get(), vec_loaders, &vec_files};
+    ptr_sequences = std::make_unique<SequenceSet>(deps, loader_fixed, "TESTTILE");
+    ptr_sequences->LoadSprites();
+  }
+
+  ~AnimTestFixture() { std::filesystem::remove_all(dir_path); }
+};
+
+void TestCursorSequenceParse() {
+  // 上游 info = 序列节点自身的 Value(子节点 = X/Y/Start/…);此处把测试
+  // 文本降一级挂到 "seq" 节点下再取其 Value。
+  // Upstream's info = the sequence node's own Value (children = X/Y/Start/
+  // ...); the test text hangs one level lower under a "seq" node whose Value
+  // we take.
+  const auto parse = [](std::string_view sv_yaml) {
+    std::string str_wrapped = "seq:\n";
+    for (std::size_t st_pos{}; st_pos <= sv_yaml.size();) {
+      const std::size_t st_nl = sv_yaml.find('\n', st_pos);
+      const std::string_view sv_line =
+          sv_yaml.substr(st_pos, st_nl == std::string_view::npos ? std::string_view::npos : st_nl - st_pos);
+      str_wrapped += "\t";
+      str_wrapped += sv_line;
+      str_wrapped += '\n';
+      if (st_nl == std::string_view::npos)
+        break;
+      st_pos = st_nl + 1;
+    }
+    const auto vec_nodes = yaml::MiniYaml::FromString(str_wrapped, "test.yaml", true,
+                                                      yaml::MiniYaml::GlobalPool());
+    return CursorSequence{"name", "src.png", "player", vec_nodes.front().Value};
+  };
+
+  {
+    const CursorSequence seq_c = parse("Start: 2");
+    ORA_CHECK(seq_c.Start() == 2);
+    ORA_CHECK(seq_c.Length().has_value() && *seq_c.Length() == 1);  // 缺省 = 1 | default 1
+    ORA_CHECK(seq_c.Hotspot() == ora::int2(0, 0));
+    ORA_CHECK(seq_c.Palette() == "player");
+    ORA_CHECK(seq_c.Src() == "src.png");
+  }
+  {
+    const CursorSequence seq_c = parse("X: 3\nY: -4\nStart: 0\nLength: 7");
+    ORA_CHECK(seq_c.Hotspot() == ora::int2(3, -4));
+    ORA_CHECK(*seq_c.Length() == 7);
+  }
+  {
+    // Length = "*" → null(至序列尾)| Length = "*" → null (through the end)
+    const CursorSequence seq_c = parse("Start: 1\nLength: *");
+    ORA_CHECK(!seq_c.Length().has_value());
+  }
+  {
+    // End = "*":上游死三元恒 null | End = "*": upstream's dead ternary is
+    // always null.
+    const CursorSequence seq_c = parse("Start: 1\nEnd: *");
+    ORA_CHECK(!seq_c.Length().has_value());
+  }
+  {
+    // End = 数值:上游条件不满足 → Length 保持缺省 1
+    // End = a number: upstream's condition fails → Length keeps the default
+    // 1.
+    const CursorSequence seq_c = parse("Start: 1\nEnd: 5");
+    ORA_CHECK(seq_c.Length().has_value() && *seq_c.Length() == 1);
+  }
+  {
+    // X 解析失败静默保持 0(上游 TryParse 怪癖)
+    // A failing X parse silently keeps 0 (the upstream TryParse quirk).
+    const CursorSequence seq_c = parse("X: abc\nStart: 0");
+    ORA_CHECK(seq_c.Hotspot().X == 0);
+  }
+  {
+    auto b_threw = false;
+    try {
+      const CursorSequence seq_c = parse("Length: 2");  // 缺 Start | Start missing
+      (void)seq_c;
+    } catch (const std::runtime_error&) {
+      b_threw = true;
+    }
+    ORA_CHECK(b_threw);
+  }
+}
+
+void TestAnimationStateMachine() {
+  AnimTestFixture fixture_anim;
+
+  // ———— PlayRepeating:回绕 + Tick 债务循环 ————
+  // ———— PlayRepeating: the wraparound + Tick's debt loop ————
+  {
+    Animation animation{{fixture_anim.ptr_sequences.get(), nullptr}, "ANIM"};
+    ORA_CHECK(animation.Name() == "anim");  // ToLowerInvariant
+    animation.PlayRepeating("idle");
+    ORA_CHECK(animation.CurrentSequence()->Name() == "idle");
+    ORA_CHECK(animation.CurrentFrame() == 0);
+
+    animation.Tick();  // 40ms 一帧 | one 40ms frame
+    ORA_CHECK(animation.CurrentFrame() == 1);
+    animation.Tick(40);
+    ORA_CHECK(animation.CurrentFrame() == 2);
+    animation.Tick(40);
+    ORA_CHECK(animation.CurrentFrame() == 0);  // 长度 3 回绕 | wraps at length 3
+
+    animation.Tick(80);  // 双帧追进 | a two-frame catch-up
+    ORA_CHECK(animation.CurrentFrame() == 2);
+  }
+
+  // ———— PlayThen:末帧钳制 + after 回调 ————
+  // ———— PlayThen: the final-frame clamp + the after callback ————
+  {
+    Animation animation{{fixture_anim.ptr_sequences.get(), nullptr}, "anim"};
+    auto int4_after_calls = 0;
+    animation.PlayThen("open", [&] { int4_after_calls++; });
+    animation.Tick(10);  // tick=10 → 恰一帧 | tick=10 → exactly one frame
+    ORA_CHECK(animation.CurrentFrame() == 1);
+    // 40 累计 + 债务循环连进三帧:2 → 3 → 钳制末帧 + after
+    // 40 accumulated + the debt loop advances three frames: 2 → 3 → clamped
+    // at the last frame + after.
+    animation.Tick(30);
+    ORA_CHECK(animation.CurrentFrame() == 3);
+    ORA_CHECK(int4_after_calls == 1);
+    animation.Tick(100);  // tickFunc 已 null → 帧不动 | tickFunc is null now →
+                          // the frame stays
+    ORA_CHECK(animation.CurrentFrame() == 3);
+    ORA_CHECK(int4_after_calls == 1);
+  }
+
+  // ———— PlayBackwardsThen:CurrentFrame 反转 ————
+  // ———— PlayBackwardsThen: CurrentFrame's reversal ————
+  {
+    Animation animation{{fixture_anim.ptr_sequences.get(), nullptr}, "anim"};
+    animation.PlayBackwardsThen("open", nullptr);
+    // tick=10 → 每 Tick(10) 一帧;CF = len-1-frame
+    // tick=10 → one frame per Tick(10); CF = len-1-frame.
+    animation.Tick(10);
+    ORA_CHECK(animation.CurrentFrame() == 2);  // frame 1 → 4-1-1
+    animation.Tick(10);
+    ORA_CHECK(animation.CurrentFrame() == 1);  // frame 2 → 4-1-2
+    animation.Tick(10);
+    ORA_CHECK(animation.CurrentFrame() == 0);  // frame 3 → 4-1-3
+    animation.Tick(10);
+    ORA_CHECK(animation.CurrentFrame() == 0);  // 钳制:frame = len-1 | clamped: frame = len-1
+  }
+
+  // ———— PlayFetchIndex:tickAlways 旁路 ————
+  // ———— PlayFetchIndex: the tickAlways bypass ————
+  {
+    Animation animation{{fixture_anim.ptr_sequences.get(), nullptr}, "anim"};
+    auto int4_fetch_value = 2;
+    animation.PlayFetchIndex("idle", [&] { return int4_fetch_value; });
+    ORA_CHECK(animation.CurrentFrame() == 2);
+    animation.Tick(1);  // tickAlways:任意 t 即取 | tickAlways: any t fetches
+    int4_fetch_value = 0;
+    animation.Tick(1);
+    ORA_CHECK(animation.CurrentFrame() == 0);
+  }
+
+  // ———— PlayFetchDirection:双向回绕 ————
+  // ———— PlayFetchDirection: the two-way wraparound ————
+  {
+    Animation animation{{fixture_anim.ptr_sequences.get(), nullptr}, "anim"};
+    auto int4_direction = 1;
+    animation.PlayFetchDirection("idle", [&] { return int4_direction; });
+    animation.Tick(40);
+    animation.Tick(40);
+    ORA_CHECK(animation.CurrentFrame() == 2);
+    animation.Tick(40);
+    ORA_CHECK(animation.CurrentFrame() == 0);  // 正向回绕 | forward wrap
+    int4_direction = -1;
+    animation.Tick(40);
+    ORA_CHECK(animation.CurrentFrame() == 2);  // 反向回绕 | backward wrap
+  }
+
+  // ———— paused 门槛 + ReplaceAnim + ChangeImage + GetRandomExistingSequence ————
+  {
+    Animation animation{{fixture_anim.ptr_sequences.get(), nullptr}, "anim", nullptr,
+                        [] { return true; }};
+    animation.PlayRepeating("idle");
+    animation.Tick();
+    animation.Tick();
+    ORA_CHECK(animation.CurrentFrame() == 0);  // 暂停挡帧 | paused gates the frame
+
+    // ReplaceAnim:timeUntilNextFrame 取 min;frame 取模
+    // ReplaceAnim: timeUntilNextFrame takes the min; frame takes modulo.
+    animation.PlayRepeating("idle");
+    animation.Tick(30);  // timeUntilNextFrame = 10
+    ORA_CHECK(animation.ReplaceAnim("open"));
+    ORA_CHECK(!animation.ReplaceAnim("nope"));
+    animation.Tick(10);  // 余 10-10=0 → 恰一帧进 | 10-10=0 left → exactly one frame
+    ORA_CHECK(animation.CurrentFrame() == 1);
+
+    // GetRandomExistingSequence:MT 决定性 + 空集 = 空串
+    // GetRandomExistingSequence: MT determinism + the empty set = the empty
+    // string.
+    MersenneTwister random{42};
+    const std::vector<std::string> vec_names{"idle", "open", "ghost"};
+    const std::string str_pick = animation.GetRandomExistingSequence(vec_names, random);
+    ORA_CHECK(str_pick == "idle" || str_pick == "open");
+    MersenneTwister random_again{42};
+    ORA_CHECK(animation.GetRandomExistingSequence(vec_names, random_again) == str_pick);
+    ORA_CHECK(animation.GetRandomExistingSequence({}, random).empty());
+  }
+
+  // ———— Render 的 shadow 双件套(高度注入面)————
+  // ———— Render's shadow pair (the height injection face) ————
+  {
+    auto wdist_height = WDist{1024};
+    Animation animation{{fixture_anim.ptr_sequences.get(),
+                         [&](WPos) { return wdist_height; }},
+                        "anim"};
+    PaletteReference* ptr_palette = nullptr;
+    animation.PlayRepeating("shadowed");
+    std::array<RenderItem, 2> arr_items{};
+    std::int32_t int4_count = 0;
+    animation.Render(WPos{100, 200, 300}, WVec{1, 2, 3}, 7, ptr_palette, arr_items, int4_count);
+    ORA_CHECK(int4_count == 2);  // shadow + image
+    ORA_CHECK(arr_items[0].b_is_decoration && !arr_items[1].b_is_decoration);
+    // shadow z = ShadowZOffset(5) + zOffset(7) + height(1024)
+    ORA_CHECK(arr_items[0].int4_z_offset == 5 + 7 + 1024);
+    ORA_CHECK(arr_items[1].int4_z_offset == 0 + 7);
+    // image pos = pos + offset;shadow 下投 1024
+    // The image pos = pos + offset; the shadow projects down by 1024.
+    ORA_CHECK((arr_items[1].wpos_pos == WPos{100, 200, 300} &&
+              arr_items[1].wvec_offset == WVec{1, 2, 3}));
+    ORA_CHECK((arr_items[0].wvec_offset == WVec{1, 2, 3 - 1024}));
+
+    // 无 shadow 的序列 = 单件 | a shadowless sequence = a single item
+    animation.PlayRepeating("idle");
+    animation.Render(WPos{}, WVec{}, 0, ptr_palette, arr_items, int4_count);
+    ORA_CHECK(int4_count == 1);
+
+    // AnimationWithOffset:偏移/禁用/ZOffset 三回调
+    // AnimationWithOffset: the offset/disable/ZOffset callbacks.
+    animation.PlayRepeating("idle");
+    AnimationWithOffset anim_with{animation, [] { return WVec{10, 0, 0}; }, nullptr,
+                                 std::int32_t{9}};
+    const std::int32_t int4_wrapped = anim_with.Render(WPos{50, 60, 70}, ptr_palette, arr_items);
+    ORA_CHECK(int4_wrapped == 1);
+    ORA_CHECK((arr_items[0].wpos_pos == WPos{50, 60, 70}));
+    ORA_CHECK((arr_items[0].wvec_offset == WVec{10, 0, 0}));
+    ORA_CHECK(arr_items[0].int4_z_offset == 9);
+  }
+}
+
+void TestSpriteCacheFlow() {
+  const auto dir_path = MakeTempDirGfx("spritecache");
+  WriteBinary(dir_path / "tiny.shp", MakeTinyShpTD(7));
+  WriteBinary(dir_path / "tiny2.shp", MakeTinyShpTD(9));
+
+  ora::fs::FileSystem file_system = MakeTempFs(dir_path);
+  const std::vector<SpriteLoaderFn> vec_loaders{&ora::fmt::TryParseShpTD};
+
+  {
+    SpriteCache cache_sprites{file_system, vec_loaders, 128, 128};
+    const std::int32_t int4_token_a =
+        cache_sprites.ReserveSprites("tiny.shp", std::nullopt, yaml::SourceLocation{});
+    const std::int32_t int4_token_b = cache_sprites.ReserveSprites(
+        "tiny2.shp", std::vector<std::int32_t>{0}, yaml::SourceLocation{});
+    const std::int32_t int4_token_missing =
+        cache_sprites.ReserveSprites("gone.shp", std::nullopt, yaml::SourceLocation{nullptr, 12});
+    ORA_CHECK(int4_token_b == int4_token_a + 1);
+
+    cache_sprites.LoadReservations();
+
+    const std::vector<Sprite> vec_a = cache_sprites.ResolveSprites(int4_token_a);
+    ORA_CHECK(vec_a.size() == 2);  // tiny.shp 两帧 | tiny.shp's two frames
+    ORA_CHECK(vec_a[0].ptr_sheet != nullptr);
+    ORA_CHECK(vec_a[0].Bounds.Width == 8 && vec_a[0].Bounds.Height == 8);
+
+    const std::vector<Sprite> vec_b = cache_sprites.ResolveSprites(int4_token_b);
+    // 上游 resolved 数组按文件帧数开(frames 子集仅影响物化项)
+    // Upstream sizes the resolved array by the file's frame count (the
+    // frames subset only picks the materialized entries).
+    ORA_CHECK(vec_b.size() == 2);
+    ORA_CHECK(vec_b[0].ptr_sheet != nullptr);
+
+    // 缺文件:FileNotFoundException 文本 | the missing file: the
+    // FileNotFoundException text.
+    auto b_threw = false;
+    try {
+      (void)cache_sprites.ResolveSprites(int4_token_missing);
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} == ":12: gone.shp not found";
+    }
+    ORA_CHECK(b_threw);
+
+    // 二次取同一 token 抛 | a second take of the same token throws.
+    b_threw = false;
+    try {
+      (void)cache_sprites.ResolveSprites(int4_token_a);
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} ==
+                "token 1 has either already been resolved, or was never reserved via "
+                "ReserveSprites";
+    }
+    ORA_CHECK(b_threw);
+
+    // 未记 token 抛 | a never-reserved token throws.
+    b_threw = false;
+    try {
+      (void)cache_sprites.ResolveSprites(999);
+    } catch (const std::runtime_error&) {
+      b_threw = true;
+    }
+    ORA_CHECK(b_threw);
+
+    const auto vec_missing = cache_sprites.MissingFiles();
+    ORA_CHECK(vec_missing.size() == 1);
+    ORA_CHECK(vec_missing.front().first == "gone.shp");
+  }
+
+  {
+    // 越界帧号:消息逐字 | out-of-range frame numbers: the message verbatim.
+    SpriteCache cache_sprites{file_system, vec_loaders, 128, 128};
+    const yaml::SourceLocation location_src{nullptr, 5};
+    cache_sprites.ReserveSprites("tiny.shp", std::vector<std::int32_t>{0, 3}, location_src);
+    auto b_threw = false;
+    try {
+      cache_sprites.LoadReservations();
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} == ":5: tiny.shp does not contain frames: 3";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  {
+    // 去重:同 (文件, 帧, 预乘, AdjustFrame) 的两次预留共享同一 sheet 槽位
+    // Dedup: two reservations of the same (file, frame, premultiply,
+    // AdjustFrame) share one sheet slot.
+    SpriteCache cache_sprites{file_system, vec_loaders, 128, 128};
+    const auto int4_t1 = cache_sprites.ReserveSprites("tiny.shp", std::vector<std::int32_t>{0},
+                                                      yaml::SourceLocation{});
+    const auto int4_t2 = cache_sprites.ReserveSprites("tiny.shp", std::vector<std::int32_t>{0},
+                                                      yaml::SourceLocation{});
+    cache_sprites.LoadReservations();
+    const std::vector<Sprite> vec_s1 = cache_sprites.ResolveSprites(int4_t1);
+    const std::vector<Sprite> vec_s2 = cache_sprites.ResolveSprites(int4_t2);
+    ORA_CHECK(vec_s1[0].Bounds == vec_s2[0].Bounds);
+    ORA_CHECK(vec_s1[0].ptr_sheet == vec_s2[0].ptr_sheet);
+  }
+
+  {
+    // AdjustFrame:帧修饰回调入表 | the AdjustFrame frame-adjusting callback.
+    SpriteCache cache_sprites{file_system, vec_loaders, 128, 128};
+    AdjustFrameFn fn_adjust = [](const ISpriteFrame& frame_in, std::int32_t, std::int32_t) {
+      return &frame_in;
+    };
+    const auto int4_t = cache_sprites.ReserveSprites("tiny.shp", std::nullopt,
+                                                     yaml::SourceLocation{}, fn_adjust);
+    cache_sprites.LoadReservations();
+    const std::vector<Sprite> vec_s = cache_sprites.ResolveSprites(int4_t);
+    ORA_CHECK(vec_s.size() == 2);
+  }
+
+  std::filesystem::remove_all(dir_path);
+}
+
+void TestSequenceSetLogic() {
+  const auto dir_path = MakeTempDirGfx("seqset");
+  WriteTextGfx(dir_path / "sequences.yaml",
+               "^Abstract:\n"
+               "\tidle:\n"
+               "\t\tSrc: tiny.shp\n"
+               "anim:\n"
+               "\tidle:\n"
+               "\t\tSrc: tiny.shp\n"
+               "\topen:\n"
+               "\t\tSrc: tiny2.shp\n");
+  WriteBinary(dir_path / "tiny.shp", MakeTinyShpTD(1));
+  WriteBinary(dir_path / "tiny2.shp", MakeTinyShpTD(2));
+
+  ora::fs::FileSystem file_system = MakeTempFs(dir_path);
+  const std::vector<SpriteLoaderFn> vec_loaders{&ora::fmt::TryParseShpTD};
+  const std::vector<std::string> vec_files{"sequences.yaml"};
+
+  FixedSequenceLoader loader_fixed;
+  SequenceSet::Deps deps{&file_system, vec_loaders, &vec_files};
+  SequenceSet sequences{deps, loader_fixed, "TESTTILE"};
+
+  // ^ 前缀抽象节点不加载 | the ^-prefixed abstract node stays unloaded.
+  const std::vector<std::string> vec_images = sequences.Images();
+  ORA_CHECK(vec_images.size() == 1 && vec_images[0] == "anim");
+  const std::vector<std::string> vec_seq_names = sequences.Sequences("anim");
+  ORA_CHECK(vec_seq_names.size() == 2 && vec_seq_names[0] == "idle" && vec_seq_names[1] == "open");
+  ORA_CHECK(sequences.HasSequence("anim", "idle"));
+  ORA_CHECK(!sequences.HasSequence("anim", "nope"));
+
+  // 两级缺失的错误文本逐字 | the two-level missing error texts verbatim.
+  {
+    auto b_threw = false;
+    try {
+      (void)sequences.GetSequence("ghost", "idle");
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} == "Image `ghost` does not have any sequences defined.";
+    }
+    ORA_CHECK(b_threw);
+  }
+  {
+    auto b_threw = false;
+    try {
+      (void)sequences.GetSequence("anim", "nope");
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} ==
+                "Image `anim` does not have a sequence named `nope`.";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  // LoadSprites:预留物化 + 逐序列 ResolveSprites
+  // LoadSprites: reservation materialization + per-sequence ResolveSprites.
+  sequences.LoadSprites();
+  auto& seq_idle = static_cast<FixedSequence&>(sequences.GetSequence("anim", "idle"));
+  auto& seq_open = static_cast<FixedSequence&>(sequences.GetSequence("anim", "open"));
+  ORA_CHECK(seq_idle.int4_resolved_count == 1);
+  ORA_CHECK(seq_open.int4_resolved_count == 1);
+  ORA_CHECK(!seq_idle.vec_sprites.empty());
+  ORA_CHECK(seq_idle.GetSprite(0).ptr_sheet != nullptr);
+  ORA_CHECK(sequences.TileSet() == "TESTTILE");
+
+  std::filesystem::remove_all(dir_path);
+}
+
+void TestChromeProviderLogic() {
+  const auto dir_path = MakeTempDirGfx("chrome");
+  // 4×2 RGBA png(左两列偏红、右两列偏绿)
+  // A 4×2 RGBA png (the left two columns reddish, the right two greenish).
+  std::vector<std::byte> vec_rgba;
+  for (auto int4_p = 0; int4_p < 8; int4_p++) {
+    const bool b_left = int4_p % 4 < 2;
+    vec_rgba.push_back(static_cast<std::byte>(b_left ? 0x00 : 0xFF));  // R
+    vec_rgba.push_back(static_cast<std::byte>(b_left ? 0x80 : 0x00));  // G
+    vec_rgba.push_back(std::byte{0x00});                               // B
+    vec_rgba.push_back(std::byte{0xFF});                               // A
+  }
+  const ora::fmt::Png png_base{vec_rgba, SpriteFrameType::Rgba32, 4, 2};
+  WriteBinary(dir_path / "chrome.png", png_base.Save());
+  WriteBinary(dir_path / "chrome-2x.png", png_base.Save());
+  WriteTextGfx(dir_path / "chrome.yaml",
+               "^Abstract:\n"
+               "\tImage: chrome.png\n"
+               "panel:\n"
+               "\tImage: chrome.png\n"
+               "\tRegions:\n"
+               "\t\tbackground: 0, 0, 2, 2\n"
+               "\t\tcorner-tl: 2, 0, 2, 2\n"
+               "button:\n"
+               "\tImage: chrome.png\n"
+               "\tImage2x: chrome-2x.png\n"
+               "\tPanelRegion: 0, 0, 2, 2, 4, 2, 4, 2\n"
+               "\tPanelSides: Left, Top\n");
+
+  ora::fs::FileSystem file_system = MakeTempFs(dir_path);
+  const std::vector<std::string> vec_files{"chrome.yaml"};
+
+  ChromeProvider chrome;
+  chrome.Initialize({&file_system, &vec_files, 1.0f});
+  ORA_CHECK(chrome.Collections().size() == 2);  // ^Abstract 跳过 | skipped
+
+  {
+    const Sprite sprite_bg = chrome.GetImage("panel", "background");
+    ORA_CHECK(sprite_bg.ptr_sheet != nullptr);
+    ORA_CHECK(sprite_bg.Bounds == Rectangle(0, 0, 2, 2));
+    // 1x:density=1 → 归一化坐标 = (bounds ± inset)/4
+    // 1x: density=1 → the normalized coordinates = (bounds ± inset)/4.
+    ORA_CHECK(sprite_bg.float_left > 0.0f && sprite_bg.float_right <= 1.0f);
+    ORA_CHECK(sprite_bg.vec_size.X == 2.0f && sprite_bg.vec_size.Y == 2.0f);
+  }
+  {
+    const Sprite sprite_missing = chrome.TryGetImage("panel", "ghost");
+    ORA_CHECK(sprite_missing.ptr_sheet == nullptr);
+    const Sprite sprite_empty_name = chrome.TryGetImage("", "x");
+    ORA_CHECK(sprite_empty_name.ptr_sheet == nullptr);
+    auto b_threw = false;
+    try {
+      (void)chrome.GetImage("panel", "ghost");
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} == "Sprite `panel/ghost` was not found.";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  {
+    // 具名九宫格(无 PanelRegion)| the named nine-slice (no PanelRegion)
+    const auto vec_panel = chrome.TryGetPanelImages("panel");
+    ORA_CHECK(vec_panel.size() == 9);
+    ORA_CHECK(vec_panel[0].has_value() && vec_panel[0]->Bounds == Rectangle(2, 0, 2, 2));  // corner-tl
+    ORA_CHECK(vec_panel[4].has_value() && vec_panel[4]->Bounds == Rectangle(0, 0, 2, 2));  // background
+    ORA_CHECK(!vec_panel[8].has_value());
+  }
+
+  {
+    // PanelRegion + PanelSides 子集 | PanelRegion + a PanelSides subset
+    const auto vec_panel = chrome.TryGetPanelImages("button");
+    ORA_CHECK(vec_panel.size() == 9);
+    ORA_CHECK(vec_panel[0].has_value());   // Top|Left ✓
+    ORA_CHECK(vec_panel[1].has_value());   // Top ✓
+    ORA_CHECK(!vec_panel[2].has_value());  // Top|Right:Right ✗
+    ORA_CHECK(vec_panel[3].has_value());   // Left ✓
+    ORA_CHECK(!vec_panel[4].has_value());  // Center ✗
+    ORA_CHECK(!vec_panel[5].has_value());  // Right ✗
+    ORA_CHECK(!vec_panel[6].has_value());
+    ORA_CHECK(!vec_panel[7].has_value());
+    ORA_CHECK(!vec_panel[8].has_value());
+    // 最小面板尺寸 = pr[2] + pr[6], pr[3] + pr[7]
+    // The minimum panel size = pr[2] + pr[6], pr[3] + pr[7].
+    ORA_CHECK(chrome.GetMinimumPanelSize("button") == ora::int2(2 + 4, 2 + 2));
+
+    auto b_threw = false;
+    try {
+      (void)chrome.GetPanelImages("ghost");
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} == "Panel `ghost` was not found.";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  {
+    // SetDPIScale:缓存清空 + 2x 图选中(density = 2 → 2× 矩形)
+    // SetDPIScale: the caches clear + the 2x image selected (density = 2 →
+    // the 2× rectangle).
+    chrome.SetDPIScale(1.5f);
+    const auto vec_panel = chrome.TryGetPanelImages("button");
+    ORA_CHECK(vec_panel[0].has_value());
+    ORA_CHECK(vec_panel[0]->Bounds == Rectangle(0, 0, 4, 4));  // density 2 × 2×2 | density 2 × 2×2
+    // 同一 dpi 再设一次 = no-op(缓存保留)| setting the same dpi again = a
+    // no-op (the cache stays).
+    const Sheet* ptr_before = vec_panel[0]->ptr_sheet;
+    chrome.SetDPIScale(1.5f);
+    const auto vec_panel_again = chrome.TryGetPanelImages("button");
+    ORA_CHECK(vec_panel_again[0].has_value() &&
+              vec_panel_again[0]->ptr_sheet == ptr_before);
+  }
+
+  chrome.Deinitialize();
+  std::filesystem::remove_all(dir_path);
+}
+
+void TestFastCopyIntoSpriteAndSheetPng() {
+  // 2×1 RGBA png → 4×2 sheet 的 (1,0) 起 2×1 区域
+  // A 2×1 RGBA png → the 2×1 region at (1,0) of a 4×2 sheet.
+  const std::vector<std::byte> vec_rgba =
+      BytesOfGfx({0x10, 0x20, 0x30, 0xFF, 0x40, 0x50, 0x60, 0x80});
+  const ora::fmt::Png png_src{vec_rgba, SpriteFrameType::Rgba32, 2, 1};
+
+  Sheet sheet_dest{SheetType::BGRA, ora::int2(4, 2)};
+  const Sprite sprite_dest{sheet_dest, Rectangle(1, 0, 2, 1), TextureChannel::Red};
+  FastCopyIntoSprite(sprite_dest, png_src);
+  const std::span<const std::byte> vec_data = sheet_dest.GetData();
+  const auto u32_at = [&](std::size_t st_index) {
+    std::uint32_t uint4_v = 0;
+    for (auto int4_i = 3; int4_i >= 0; int4_i--)
+      uint4_v = (uint4_v << 8) |
+                static_cast<std::uint8_t>(vec_data[st_index * 4 + static_cast<std::size_t>(int4_i)]);
+    return uint4_v;
+  };
+  // alpha=255 原样;alpha=0x80 预乘(0x40/0x50/0x60 × 128/255 → 0x20/0x28/0x30)
+  // alpha=255 as-is; alpha=0x80 premultiplied (0x40/0x50/0x60 × 128/255 →
+  // 0x20/0x28/0x30).
+  ORA_CHECK(u32_at(1) == 0xFF102030u);
+  const std::uint32_t uint4_premul = u32_at(2);
+  ORA_CHECK((uint4_premul >> 24) == 0x80);
+  ORA_CHECK(((uint4_premul >> 16) & 0xFF) == 0x20);
+  ORA_CHECK(((uint4_premul >> 8) & 0xFF) == 0x28);
+  ORA_CHECK((uint4_premul & 0xFF) == 0x30);
+
+  // Sheet(png bytes) 构造:全幅展开后 ReleaseBuffer(数据待提交态)
+  // The Sheet(png bytes) constructor: the full-extent expansion then
+  // ReleaseBuffer (data in the to-be-committed state).
+  const Sheet sheet_png{SheetType::BGRA, png_src.Save()};
+  ORA_CHECK(sheet_png.Size() == ora::int2(2, 1));
+  ORA_CHECK(sheet_png.Buffered());
+}
+
 int main() {
   TestSheetBuilderGeometry();
   TestSheetBuilderChannelRotation();
@@ -1720,6 +2518,12 @@ int main() {
   TestRenderItemSortAndSegments();
   TestWorldRendererCoordinatesAndPalettes();
   TestTerrainSpriteLayerLogic();
+  TestCursorSequenceParse();
+  TestAnimationStateMachine();
+  TestSpriteCacheFlow();
+  TestSequenceSetLogic();
+  TestChromeProviderLogic();
+  TestFastCopyIntoSpriteAndSheetPng();
 
 #ifdef ORA_HAS_DESKTOP_GL
   TestGlSheetAndPalette();
@@ -1730,6 +2534,6 @@ int main() {
     std::println(stderr, "gfx_test: {} 项失败 | {} failure(s)", int4_failures, int4_failures);
     return 1;
   }
-  std::println("gfx_test: PASS(Sheet/Palette/HardwarePalette + SpriteRenderer(持久 VB 槽回绕/BlendSpan/VAO)+ 单级合成 Renderer + WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)+ TerrainSpriteLayer(SOA 分离数组))");
+  std::println("gfx_test: PASS(Sheet/Palette/HardwarePalette + SpriteRenderer(持久 VB 槽回绕/BlendSpan/VAO)+ 单级合成 Renderer + WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)+ TerrainSpriteLayer(SOA 分离数组)+ 第十三批:CursorSequence/Animation 状态机/SpriteCache 预留流水/SequenceSet/ChromeProvider/FastCopyIntoSprite)");
   return 0;
 }

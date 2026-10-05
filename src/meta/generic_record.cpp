@@ -18,6 +18,7 @@ import std;
 #include "core/color.hpp"
 #include "core/cvec.hpp"
 #include "core/int2.hpp"
+#include "core/rectangle.hpp"
 #include "core/text.hpp"
 #include "core/vector_n.hpp"
 #include "core/wangle.hpp"
@@ -311,6 +312,39 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
           GenericTuple{.arr_ints = {int2_v.X, int2_v.Y, 0, 0}, .arr_floats = {}, .uint1_count = 2});
       return;
     }
+    case FieldType::Size: {
+      // ParseSize(FieldLoader.cs L501-513):恰 2 段 int(w,h)
+      // ParseSize (FieldLoader.cs L501-513): exactly 2 int segments (w,h).
+      int2 size_v{};
+      const auto fn_int = [](std::string_view sv_p, std::int32_t& int4_v) {
+        return TryParseInt32Invariant(sv_p, int4_v);
+      };
+      if (!TryParseTuple2(sv_value, fn_int, size_v))
+        InvalidValueFor(desc, sv_value);
+      val_out = GenericValue::Of(
+          GenericTuple{.arr_ints = {size_v.X, size_v.Y, 0, 0}, .arr_floats = {}, .uint1_count = 2});
+      return;
+    }
+    case FieldType::Rectangle: {
+      // ParseRectangle(FieldLoader.cs L568-585):恰 4 段 int(x,y,w,h)
+      // ParseRectangle (FieldLoader.cs L568-585): exactly 4 int segments
+      // (x,y,w,h).
+      if (!sv_value.empty()) {
+        const std::vector<std::string_view> vec_parts = SplitCommaTrimmed(sv_value);
+        std::int32_t int4_x{}, int4_y{}, int4_w{}, int4_h{};
+        if (vec_parts.size() == 4 &&
+            TryParseInt32Invariant(vec_parts[0], int4_x) &&
+            TryParseInt32Invariant(vec_parts[1], int4_y) &&
+            TryParseInt32Invariant(vec_parts[2], int4_w) &&
+            TryParseInt32Invariant(vec_parts[3], int4_h)) {
+          val_out = GenericValue::Of(
+              GenericTuple{.arr_ints = {int4_x, int4_y, int4_w, int4_h}, .arr_floats = {},
+                           .uint1_count = 4});
+          return;
+        }
+      }
+      InvalidValueFor(desc, sv_value);
+    }
     case FieldType::Vector2: {
       core::Vector2 vec2_v{};
       const auto fn_float = [](std::string_view sv_p, float& fp4_v) {
@@ -495,8 +529,6 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
     case FieldType::DateTime:
     case FieldType::Hotkey:
     case FieldType::HotkeyReference:
-    case FieldType::Size:
-    case FieldType::Rectangle:
     case FieldType::Record:
     case FieldType::Opaque:
       // 无解析器字段(含 Opaque):上游 GetValue 同样找不到解析器 →
@@ -593,6 +625,21 @@ void AssignToMemory(const FieldDesc& desc, const GenericValue& val, void* p_fiel
       const GenericTuple& t_v = std::get<GenericTuple>(val.val);
       *reinterpret_cast<int2*>(p_field) = int2{static_cast<std::int32_t>(t_v.arr_ints[0]),
                                                static_cast<std::int32_t>(t_v.arr_ints[1])};
+      return;
+    }
+    case FieldType::Size: {
+      const GenericTuple& t_v = std::get<GenericTuple>(val.val);
+      *reinterpret_cast<int2*>(p_field) = int2{static_cast<std::int32_t>(t_v.arr_ints[0]),
+                                               static_cast<std::int32_t>(t_v.arr_ints[1])};
+      return;
+    }
+    case FieldType::Rectangle: {
+      const GenericTuple& t_v = std::get<GenericTuple>(val.val);
+      *reinterpret_cast<Rectangle*>(p_field) =
+          Rectangle{static_cast<std::int32_t>(t_v.arr_ints[0]),
+                    static_cast<std::int32_t>(t_v.arr_ints[1]),
+                    static_cast<std::int32_t>(t_v.arr_ints[2]),
+                    static_cast<std::int32_t>(t_v.arr_ints[3])};
       return;
     }
     case FieldType::Vector2: {
@@ -800,6 +847,21 @@ void AssignToMemory(const FieldDesc& desc, const GenericValue& val, void* p_fiel
             pair_t.second = std::get<std::string>(val_v.val);
           } else if constexpr (std::same_as<V, float>) {
             pair_t.second = std::get<float>(val_v.val);
+          } else if constexpr (std::same_as<V, Rectangle>) {
+            // 字典值 Rectangle(ChromeProvider.Regions;第十三批补)
+            // A Rectangle dictionary value (ChromeProvider.Regions; landed
+            // with the thirteenth batch).
+            const GenericTuple& t_v = std::get<GenericTuple>(val_v.val);
+            pair_t.second = Rectangle{static_cast<std::int32_t>(t_v.arr_ints[0]),
+                                      static_cast<std::int32_t>(t_v.arr_ints[1]),
+                                      static_cast<std::int32_t>(t_v.arr_ints[2]),
+                                      static_cast<std::int32_t>(t_v.arr_ints[3])};
+          } else if constexpr (std::same_as<V, int2>) {
+            // 字典值 int2/Size(第十三批补)| an int2/Size dictionary value
+            // (landed with the thirteenth batch).
+            const GenericTuple& t_v = std::get<GenericTuple>(val_v.val);
+            pair_t.second = int2{static_cast<std::int32_t>(t_v.arr_ints[0]),
+                                 static_cast<std::int32_t>(t_v.arr_ints[1])};
           } else if constexpr (std::same_as<V, std::optional<expr::VariableExpression>>) {
             if (std::holds_alternative<std::string>(val_v.val))
               pair_t.second = expr::VariableExpression{std::get<std::string>(val_v.val)};
@@ -839,6 +901,13 @@ void AssignToMemory(const FieldDesc& desc, const GenericValue& val, void* p_fiel
             break;
           case FieldType::Float:
             assign_pair(K{}, float{});
+            break;
+          case FieldType::Rectangle:
+            assign_pair(K{}, Rectangle{});
+            break;
+          case FieldType::Int2:
+          case FieldType::Size:
+            assign_pair(K{}, int2{});
             break;
           case FieldType::BooleanExpression:
           case FieldType::IntegerExpression:
@@ -939,8 +1008,6 @@ void AssignToMemory(const FieldDesc& desc, const GenericValue& val, void* p_fiel
     case FieldType::DateTime:
     case FieldType::Hotkey:
     case FieldType::HotkeyReference:
-    case FieldType::Size:
-    case FieldType::Rectangle:
     case FieldType::Opaque:
       DefaultUnknownField(desc.str_name);
   }

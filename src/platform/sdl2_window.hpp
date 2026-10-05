@@ -120,6 +120,18 @@ class Sdl2Window {
   /// hides the system cursor (the software-cursor path).
   void SetHardwareCursor(const Sdl2HardwareCursor* ptr_cursor);
 
+  /// 相对鼠标模式(Sdl2PlatformWindow.cs L423-425;CursorManager.Lock/
+  /// Unlock 的接线)。
+  /// The relative mouse mode (Sdl2PlatformWindow.cs L423-425; wired by
+  /// CursorManager.Lock/Unlock).
+  void SetRelativeMouseMode(bool b_enabled);
+
+  /// NativeWindowScale(Sdl2PlatformWindow.cs L69-75;drawable/window 的
+  /// HiDPI 比 = OPT-B5 快照的 scale 字段)。
+  /// NativeWindowScale (Sdl2PlatformWindow.cs L69-75; the drawable/window
+  /// HiDPI ratio = the OPT-B5 snapshot's scale field).
+  float NativeWindowScale() const { return Geom().float_scale; }
+
   /// SDL 窗口句柄(平台内部互通用;调用方不得直接调 SDL 窗口 API 之外的接口)
   /// SDL window handle (platform-internal interoperability).
   void* NativeHandle() const { return ptr_window_; }

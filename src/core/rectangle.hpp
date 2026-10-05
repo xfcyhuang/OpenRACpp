@@ -68,8 +68,8 @@ struct Rectangle {
     return int4_x >= Left() && int4_x < Right() && int4_y >= Top() && int4_y < Bottom();
   }
   constexpr bool Contains(int2 pt_v) const { return Contains(pt_v.X, pt_v.Y); }
-  constexpr bool Contains(Rectangle const& rect_r) const {  // L124-127
-    return *this == Intersect(*this, rect_r);
+  constexpr bool Contains(Rectangle const& rect_r) const {  // L124-127:rect == Intersect(this, rect)
+    return rect_r == Intersect(*this, rect_r);
   }
 
   /// 开区间相交测试(Rectangle.cs L107-110)

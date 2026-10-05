@@ -101,6 +101,20 @@ class Manifest final {
   /// → the IPackageLoader set (Mix, ...).
   const std::vector<std::string>& PackageFormats() const { return vec_packageFormats_; }
 
+  /// SoundFormats(L162-164):声音格式加载器名(逗号分隔串;空 = 空)。
+  /// 消费方:声音格式链(Aud→Wav→Voc→Ogg→Mp3…)。
+  /// SoundFormats (L162-164): the sound-format loader names (a
+  /// comma-separated string; empty when absent). Consumer: the sound-format
+  /// chain (Aud→Wav→Voc→Ogg→Mp3...).
+  const std::vector<std::string>& SoundFormats() const { return vec_soundFormats_; }
+
+  /// SpriteFormats(L165-167):精灵格式加载器名(逗号分隔串;空 = 空)。
+  /// 消费方:SpriteCache/FrameCache 的加载器链(ShpTD/PngSheet/…)。
+  /// SpriteFormats (L165-167): the sprite-format loader names (a
+  /// comma-separated string; empty when absent). Consumer: the loader chain
+  /// of SpriteCache/FrameCache (ShpTD/PngSheet/...).
+  const std::vector<std::string>& SpriteFormats() const { return vec_spriteFormats_; }
+
   /// MapFolders(my.Value 字典;L119 + L198-204)
   /// MapFolders (the my.Value dictionary; L119 + L198-204).
   const std::vector<std::pair<std::string, std::string>>& MapFolders() const {
@@ -123,6 +137,8 @@ class Manifest final {
   const yaml::MiniYaml* yaml_fileSystem_{nullptr};
   std::string str_fileSystemLoader_;
   std::vector<std::string> vec_packageFormats_;
+  std::vector<std::string> vec_soundFormats_;
+  std::vector<std::string> vec_spriteFormats_;
 };
 
 }  // namespace ora::game

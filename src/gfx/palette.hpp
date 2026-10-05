@@ -1,5 +1,6 @@
 // UPSTREAM: OpenRA.Game/Graphics/Palette.cs @b6fc03f L20-160 +
-//           OpenRA.Game/Graphics/PaletteReference.cs @b6fc03f L14-31
+//           OpenRA.Game/Graphics/PaletteReference.cs @b6fc03f L14-31 +
+//           OpenRA.Game/Graphics/PlayerColorRemap.cs @b6fc03f L18-53
 // 调色板值族:IPalette(uint32 ARGB × 256)、ImmutablePalette(不可变;
 // 流构造的字节形态 = r<<2 | r>>6 高位复制 + remapTransparent→0 +
 // remapShadow→140<<24)、MutablePalette(可变 + ApplyRemap)、IPaletteRemap。
@@ -117,6 +118,47 @@ class MutablePalette : public IPalette {
 
  private:
   std::array<std::uint32_t, kPaletteSize> arr_colors_{};
+};
+
+/// 玩家色重映射(PlayerColorRemap.cs L18-53):HSV 域内按目标色的 hue/sat
+/// 重建明度(线性色域运算;remapIndices 内的索引才参与)。**头文件内联实现**
+/// —— formats 层的 R8 加载器消费它,而 gfx 反向依赖 formats,故此处保持
+/// 纯 core 依赖的头部自足。
+/// The player-color remap (PlayerColorRemap.cs L18-53): rebuilds the value
+/// inside the HSV domain against the target color's hue/sat (linear-color
+/// math; only indices inside remapIndices take part). **Implemented inline
+/// in the header** — the formats-layer R8 loader consumes it while gfx
+/// depends on formats the other way, so this stays a core-only header.
+class PlayerColorRemap : public IPaletteRemap {
+ public:
+  PlayerColorRemap(std::span<const std::int32_t> vec_remap_indices, core::Color color_c)
+      : vec_remap_indices_{vec_remap_indices.begin(), vec_remap_indices.end()} {
+    // (hue, saturation, value) = Color.RgbToHsv(color.ToLinear())
+    const auto [fp4_r, fp4_g, fp4_b] = color_c.ToLinear();
+    const auto arr_hsv = core::Color::RgbToHsv(fp4_r, fp4_g, fp4_b);
+    fp4_hue_ = arr_hsv[0];
+    fp4_saturation_ = arr_hsv[1];
+    fp4_value_ = arr_hsv[2];
+  }
+
+  core::Color GetRemappedColor(core::Color color_original, std::int32_t int4_index) const override {
+    if (std::ranges::find(vec_remap_indices_, int4_index) == vec_remap_indices_.end())
+      return color_original;
+
+    // 线性色域起算(撤销预乘 alpha 与 gamma);明度取原色的 HSV V
+    // Start in the linear domain (undo the pre-multiplied alpha and gamma);
+    // the value keeps the original color's HSV V.
+    const auto [fp4_r, fp4_g, fp4_b] = color_original.ToLinear();
+    const float fp4_value_orig = std::max(fp4_r, std::max(fp4_g, fp4_b));
+    const auto arr_rgb = core::Color::HsvToRgb(fp4_hue_, fp4_saturation_, fp4_value_orig * fp4_value_);
+    return core::Color::FromLinear(color_original.A(), arr_rgb[0], arr_rgb[1], arr_rgb[2]);
+  }
+
+ private:
+  std::vector<std::int32_t> vec_remap_indices_;
+  float fp4_hue_ = 0.0f;
+  float fp4_saturation_ = 0.0f;
+  float fp4_value_ = 0.0f;
 };
 
 /// 调色板引用(PaletteReference.cs L14-31;渲染侧持名 + 行索引)。

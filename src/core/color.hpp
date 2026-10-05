@@ -1,8 +1,7 @@
-// UPSTREAM: OpenRA.Game/Primitives/Color.cs @b6fc03f L20-232,374(值类型核心 + TryParse/ToString;
-//          HSV/HSL/线性 gamma 转换属渲染域,Phase 4 随 gfx 移植)
-//          Value-type core + TryParse/ToString (the HSV/HSL/linear-gamma
-//          conversions belong to the rendering domain and arrive with gfx in
-//          Phase 4).
+// UPSTREAM: OpenRA.Game/Primitives/Color.cs @b6fc03f L20-232,374(值类型核心 + TryParse/ToString
+//          + L84-160 的 HSV/线性 gamma 转换,随 Phase 4 第十三批移植)
+//          Value-type core + TryParse/ToString + the L84-160 HSV/linear-gamma
+//          conversions (ported with the Phase 4 thirteenth batch).
 //
 // 语义要点 / Semantic notes:
 //  - TryParse:Trim 后长度必须恰为 6(RRGGBB)或 8(RRGGBBAA),十六进制大小写均可
@@ -88,7 +87,103 @@ struct Color {
     return hex(R()) + hex(G()) + hex(B()) + hex(A());
   }
 
+  // ———— HSV/线性 gamma 转换(Color.cs L84-160;渲染域,随 Phase 4 移植)————
+  // ———— The HSV/linear-gamma conversions (Color.cs L84-160; the rendering
+  //        domain, ported with Phase 4) ————
+
+  /// ToLinear(Color.cs L96-103):撤销预乘 alpha 与 gamma 校正。
+  /// ToLinear (Color.cs L96-103): undoes pre-multiplied alpha and the gamma
+  /// correction.
+  std::array<float, 3> ToLinear() const {
+    const float fp4_a = static_cast<float>(A());
+    return {SrgbToLinear(static_cast<float>(R()) / fp4_a),
+            SrgbToLinear(static_cast<float>(G()) / fp4_a),
+            SrgbToLinear(static_cast<float>(B()) / fp4_a)};
+  }
+
+  /// FromLinear(Color.cs L106-112):gamma 校正 + 预乘 alpha;Math.Round 就近
+  /// 偶舍入到 byte(越界饱和 —— C# (byte)double 转换对 NaN/越界未定义此处取
+  /// 饱和,合法 HSV 域内不可达)。
+  /// FromLinear (Color.cs L106-112): gamma correction + pre-multiplied alpha;
+  /// Math.Round's half-to-even into a byte (saturating out-of-range — the C#
+  /// (byte)double conversion is undefined there; unreachable inside the legal
+  /// HSV domain).
+  static Color FromLinear(std::uint8_t u8_a, float fp4_r, float fp4_g, float fp4_b) {
+    const auto round_channel = [](float fp4_c, float fp4_alpha) {
+      // (byte)Math.Round(float)(.NET 就近偶)
+      // (byte)Math.Round(float) (.NET half-to-even)
+      const float fp4_rounded = std::nearbyint(LinearToSrgb(fp4_c) * fp4_alpha);
+      const std::int64_t int8_v = static_cast<std::int64_t>(fp4_rounded);
+      return static_cast<std::uint8_t>(std::clamp<std::int64_t>(int8_v, 0, 255));
+    };
+    return FromArgb(u8_a, round_channel(fp4_r, u8_a), round_channel(fp4_g, u8_a),
+                    round_channel(fp4_b, u8_a));
+  }
+
+  /// HsvToRgb(Color.cs L114-128;lolengine.net 公式)。
+  /// HsvToRgb (Color.cs L114-128; the lolengine.net formulas).
+  static std::array<float, 3> HsvToRgb(float fp4_h, float fp4_s, float fp4_v) {
+    const float fp4_px = std::abs(fp4_h * 6.0f - 3.0f);
+    const float fp4_py = std::abs(std::fmod(fp4_h + 2.0f / 3.0f, 1.0f) * 6.0f - 3.0f);
+    const float fp4_pz = std::abs(std::fmod(fp4_h + 1.0f / 3.0f, 1.0f) * 6.0f - 3.0f);
+    const auto lerp = [](float fp4_a, float fp4_b, float fp4_t) { return fp4_a + fp4_t * (fp4_b - fp4_a); };
+    const auto clamp01 = [](float fp4_c) { return std::clamp(fp4_c, 0.0f, 1.0f); };
+    return {fp4_v * lerp(1.0f, clamp01(fp4_px - 1.0f), fp4_s),
+            fp4_v * lerp(1.0f, clamp01(fp4_py - 1.0f), fp4_s),
+            fp4_v * lerp(1.0f, clamp01(fp4_pz - 1.0f), fp4_s)};
+  }
+
+  /// RgbToHsv(Color.cs L132-134)。
+  /// RgbToHsv (Color.cs L132-134).
+  static std::array<float, 3> RgbToHsv(std::uint8_t u8_r, std::uint8_t u8_g, std::uint8_t u8_b) {
+    return RgbToHsv(u8_r / 255.0f, u8_g / 255.0f, u8_b / 255.0f);
+  }
+
+  /// RgbToHsv(Color.cs L136-160;灰度 hue/sat 恒 0,负 hue 回绕 [0,1))。
+  /// RgbToHsv (Color.cs L136-160; greyscale carries hue/sat 0, negative
+  /// hue wraps into [0,1)).
+  static std::array<float, 3> RgbToHsv(float fp4_r, float fp4_g, float fp4_b) {
+    const float fp4_max = std::max(fp4_r, std::max(fp4_g, fp4_b));
+    const float fp4_min = std::min(fp4_r, std::min(fp4_g, fp4_b));
+    const float fp4_delta = fp4_max - fp4_min;
+    const float fp4_v = fp4_max;
+    if (fp4_delta == 0.0f)
+      return {0.0f, 0.0f, fp4_v};
+
+    float fp4_hue;
+    if (fp4_r == fp4_max)
+      fp4_hue = (fp4_g - fp4_b) / (6.0f * fp4_delta);
+    else if (fp4_g == fp4_max)
+      fp4_hue = (fp4_b - fp4_r) / (6.0f * fp4_delta) + 1.0f / 3.0f;
+    else
+      fp4_hue = (fp4_r - fp4_g) / (6.0f * fp4_delta) + 2.0f / 3.0f;
+
+    float fp4_h = fp4_hue - static_cast<float>(static_cast<std::int32_t>(fp4_hue));
+    if (fp4_h < 0.0f)
+      fp4_h += 1.0f;
+    return {fp4_h, fp4_delta / fp4_max, fp4_v};
+  }
+
  private:
+  /// SrgbToLinear(Color.cs L84-89;标准 sRGB gamma 公式)。
+  /// SrgbToLinear (Color.cs L84-89; the standard sRGB gamma formula).
+  static float SrgbToLinear(float fp4_c) {
+    // C# Math.Pow 为 double 入参/出参后 (float) 收窄,此处同路径
+    // C# Math.Pow takes/returns doubles before the (float) narrowing; same
+    // path here.
+    return fp4_c <= 0.04045f
+               ? fp4_c / 12.92f
+               : static_cast<float>(std::pow((fp4_c + 0.055f) / 1.055f, 2.4));
+  }
+
+  /// LinearToSrgb(Color.cs L91-94)。
+  /// LinearToSrgb (Color.cs L91-94).
+  static float LinearToSrgb(float fp4_c) {
+    return fp4_c <= 0.0031308f
+               ? fp4_c * 12.92f
+               : 1.055f * static_cast<float>(std::pow(fp4_c, 1.0f / 2.4f)) - 0.055f;
+  }
+
   /// byte.TryParse(NumberStyles.HexNumber):两位恰消费,越界/非十六进制失败
   /// byte.TryParse(NumberStyles.HexNumber): exactly two hex digits consumed;
   /// anything else fails.

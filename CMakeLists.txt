@@ -245,8 +245,14 @@ add_library(ora_gfx STATIC
   src/gfx/renderer.cpp
   src/gfx/renderable.cpp
   src/gfx/world_renderer.cpp
-  src/gfx/terrain_sprite_layer.cpp)
-target_link_libraries(ora_gfx PUBLIC ora_platform ora_sim)
+  src/gfx/terrain_sprite_layer.cpp
+  src/gfx/sprite_loader.cpp
+  src/gfx/sprite_cache.cpp
+  src/gfx/sequence_set.cpp
+  src/gfx/animation.cpp
+  src/gfx/cursor_manager.cpp
+  src/gfx/chrome_provider.cpp)
+target_link_libraries(ora_gfx PUBLIC ora_platform ora_sim PRIVATE ora_formats)
 ora_link_std(ora_gfx)
 
 # Westwood 文件格式族(PORTING_PLAN §Phase 4 formats 第一编 + 第二编 +
@@ -292,10 +298,24 @@ add_library(ora_formats STATIC
   src/formats/vxl_reader.cpp
   src/formats/hva_reader.cpp
   src/formats/idx_reader.cpp
+  src/formats/voc_loader.cpp
+  src/formats/ogg_loader.cpp
+  src/formats/mp3_loader.cpp
+  src/formats/r8_loader.cpp
+  src/formats/png_sheet_loader.cpp
   src/fs/package_entry.cpp
   src/fs/mix_file.cpp
   src/fs/d2k_sound_resources.cpp)
-target_link_libraries(ora_formats PUBLIC ora_core PRIVATE ora_miniz ora_fs)
+# ogg/mp3 解码后端(stb_vorbis/minimp3 单文件,告警不外溢)+ png_sheet 的
+# FieldLoader 值入口(meta)
+# The ogg/mp3 decode backends (the single-file stb_vorbis/minimp3; warnings
+# stay local) + png_sheet's FieldLoader value entries (meta).
+target_include_directories(ora_formats PRIVATE
+  ${CMAKE_SOURCE_DIR}/third_party/StbVorbis
+  ${CMAKE_SOURCE_DIR}/third_party/Minimp3)
+set_source_files_properties(src/formats/ogg_loader.cpp PROPERTIES COMPILE_OPTIONS "-w")
+set_source_files_properties(src/formats/mp3_loader.cpp PROPERTIES COMPILE_OPTIONS "-w")
+target_link_libraries(ora_formats PUBLIC ora_core PRIVATE ora_miniz ora_fs ora_meta)
 ora_link_std(ora_formats)
 
 # ———— 工具与测试 / Tools & tests

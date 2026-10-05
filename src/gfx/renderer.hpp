@@ -177,6 +177,12 @@ class Renderer {
   /// render thread).
   void Present();
 
+  /// WindowScale(Renderer.cs L389:Window.EffectiveWindowScale;CursorManager
+  /// 的软光标缩放消费)。
+  /// WindowScale (Renderer.cs L389: Window.EffectiveWindowScale; consumed by
+  /// CursorManager's software-cursor scaling).
+  float EffectiveWindowScale() const { return window_.Geom().float_scale; }
+
  private:
   /// BeginFrame(Renderer.cs L164-199;OPT-B1 后仅剩 UI 投影参数更新 ——
   /// 默认 FB 的 Clear 与 screen buffer/sprite 重建全数消失)。
@@ -193,7 +199,6 @@ class Renderer {
                 static_cast<std::int32_t>(geom.int4_height * geom.float_scale)};
   }
 
-  float EffectiveWindowScale() const { return window_.Geom().float_scale; }
 
   enum class RenderType { None, World, UI };
 

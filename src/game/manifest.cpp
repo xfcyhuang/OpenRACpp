@@ -179,6 +179,20 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
         vec_packageFormats_.push_back(*node.Key);
   }
 
+  // SoundFormats/SpriteFormats(L162-167):GetValue<ImmutableArray<string>>
+  // (逗号分隔;空值 = 空数组)。消费方 = 声音/精灵格式链工厂。
+  // SoundFormats/SpriteFormats (L162-167):
+  // GetValue<ImmutableArray<string>> (comma-separated; empty = the empty
+  // array). Consumers = the sound/sprite format-chain factories.
+  const auto parse_format_list = [&](const char* chr_key, std::vector<std::string>& vec_out) {
+    if (const yaml::MiniYaml* yaml_node = find_node(chr_key)) {
+      if (yaml_node->Value != nullptr)
+        vec_out = meta::GetStringArrayValue(chr_key, *yaml_node->Value);
+    }
+  };
+  parse_format_list("SoundFormats", vec_soundFormats_);
+  parse_format_list("SpriteFormats", vec_spriteFormats_);
+
   vec_rules_ = YamlListOf(vec_yaml, "Rules");
   vec_sequences_ = YamlListOf(vec_yaml, "Sequences");
   vec_modelSequences_ = YamlListOf(vec_yaml, "ModelSequences");

@@ -2,23 +2,26 @@
 //           OpenRA.Game/Exts.cs @b6fc03f L270-273(NextPowerOf2)
 // 渲染域工具:四边形索引表、FastCreateQuad(顶点生成 + combined.vert 的
 // aVertexAttributes 位域打包)、FastCopyIntoChannel(Indexed8→单通道 /
-// Bgr[a]/Rgb[a]→RGBA 预乘拷贝)、PremultiplyAlpha(uint 快速整数预乘)、
-// RotateQuadInto(绕中心 x-y 旋转)、BoundingRectangle、NextPowerOf2。
+// Bgr[a]/Rgb[a]→RGBA 预乘拷贝)、FastCopyIntoSprite(Png→sheet 的预乘
+// 展开,ChromeProvider 的 Sheet(Stream) 路径,随第十三批)、
+// PremultiplyAlpha(uint 快速整数预乘)、RotateQuadInto(绕中心 x-y 旋转)、
+// BoundingRectangle、NextPowerOf2。
 // 同时给出 core::Vector2/Vector3 的渲染运算(vector_n.hpp 注记的
 // "渲染运算 Phase 4 随 gfx 扩展" 落地点)。
-// Not ported here: FastCopyIntoSprite/RotateQuad(数组分配版)依赖 Png
-// (formats 批次);PremultipliedColorLerp/FromAngle 随 WorldRenderer 批次。
+// Not ported here: RotateQuad(数组分配版)、PremultipliedColorLerp/FromAngle
+// (随 WorldRenderer 批次)。
 // Rendering-domain utilities: the quad-index table, FastCreateQuad (vertex
 // generation with the aVertexAttributes bitfield packing documented in
 // combined.vert), FastCopyIntoChannel (Indexed8 → single channel /
-// Bgr[a]/Rgb[a] → premultiplied RGBA copies), PremultiplyAlpha (the fast
-// integer uint premultiply), RotateQuadInto (rotation about the center in
-// the x-y plane), BoundingRectangle, and NextPowerOf2. Also extends
+// Bgr[a]/Rgb[a] → premultiplied RGBA copies), FastCopyIntoSprite (the
+// Png→sheet premultiplied expansion of ChromeProvider's Sheet(Stream) path,
+// landed with the thirteenth batch), PremultiplyAlpha (the fast integer
+// uint premultiply), RotateQuadInto (rotation about the center in the x-y
+// plane), BoundingRectangle, and NextPowerOf2. Also extends
 // core::Vector2/Vector3 with the rendering arithmetic (the "rendering math
 // extends with gfx in Phase 4" note in vector_n.hpp lands here).
-// Not ported here: FastCopyIntoSprite/RotateQuad (array-allocating
-// overload) depend on Png (formats batch); PremultipliedColorLerp/FromAngle
-// arrive with the WorldRenderer batch.
+// Not ported here: RotateQuad (array-allocating overload) and
+// PremultipliedColorLerp/FromAngle (the WorldRenderer batch).
 #pragma once
 import std;
 
@@ -26,6 +29,7 @@ import std;
 #include "core/int2.hpp"
 #include "core/rectangle.hpp"
 #include "core/vector_n.hpp"
+#include "formats/png.hpp"
 #include "gfx/sprite.hpp"
 #include "gfx/vertex.hpp"
 
@@ -90,6 +94,15 @@ void FastCreateQuad(std::span<Vertex> vec_vertices, core::Vector3 v_o, const Spr
 /// nuts").
 void FastCopyIntoChannel(const Sprite& sprite_dest, std::span<const std::byte> vec_src, SpriteFrameType kind_src_type,
                          bool b_premultiplied = false);
+
+/// Png → sheet 的预乘展开拷贝(Util.cs L203-241):Indexed8 查 Png 自带调色
+/// 板,Rgb[a] 逐通道组装,统一 PremultiplyAlpha 后写 uint32。PNG 不支持
+/// BGR[A](上游 default 抛逐字)。
+/// The Png → sheet premultiplied copy (Util.cs L203-241): Indexed8 indexes
+/// Png's own palette, Rgb[a] assembles channels, and everything writes the
+/// uint32 after PremultiplyAlpha. PNGs carry no BGR[A] (upstream's default
+/// throw verbatim).
+void FastCopyIntoSprite(const Sprite& sprite_dest, const fmt::Png& png_src);
 
 /// 绕中心在 x-y 平面旋转四边形(Util.cs L265-287;des 至少 4 元素;
 /// Matrix3x2.CreateRotation(-rotation) 的 2D 变换逐语义复刻)。

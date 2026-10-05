@@ -32,6 +32,9 @@
 import std;
 #include "field_desc.hpp"
 #include "type_registry.hpp"
+#include "core/int2.hpp"
+#include "core/rectangle.hpp"
+#include "core/vector_n.hpp"
 #include "yaml/mini_yaml.hpp"
 
 namespace ora::meta {
@@ -98,12 +101,21 @@ class MissingFieldsException : public yaml::YamlException {
 void Load(RecordObject* obj_record, const yaml::MiniYaml& yaml_my);
 
 /// GetValue<T>(field, value)(L839-842)的标量便捷入口(测试/加载链外部使用)
-/// The scalar convenience entry of GetValue<T>(field, value) (L839-842), used
-/// by tests and external loading paths.
+/// The scalar convenience entries of GetValue<T>(field, value) (L839-842),
+/// used by tests and external loading paths.
 std::int32_t GetInt32Value(std::string_view str_field, std::string_view sv_value);
 float GetFloatValue(std::string_view str_field, std::string_view sv_value);
 bool GetBoolValue(std::string_view str_field, std::string_view sv_value);
 std::vector<std::string> GetStringArrayValue(std::string_view str_field, std::string_view sv_value);
+
+/// GetValue<Rectangle/Size/Vector2>(field, value):PngSheetLoader/ChromeProvider
+/// 等外部加载路径使用(类型名进错误消息,与上游 GetValue 相同)。
+/// GetValue<Rectangle/Size/Vector2>(field, value): consumed by external
+/// loading paths such as PngSheetLoader/ChromeProvider (the type name enters
+/// the error message, same as upstream's GetValue).
+Rectangle GetRectangleValue(std::string_view str_field, std::string_view sv_value);
+int2 GetSizeValue(std::string_view str_field, std::string_view sv_value);
+core::Vector2 GetVector2Value(std::string_view str_field, std::string_view sv_value);
 
 /// LoadUsing 加载器未实现时的占位(登记偏离用;消息与未知 loader 一致)
 /// Placeholder for unimplemented LoadUsing loaders (for the deviation log;

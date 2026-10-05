@@ -3,14 +3,18 @@
 // 2D integer vector. Field/method names keep the C# originals (X/Y/Sign/Abs/...) for line-by-line audit cross-reference;
 // 因此公有字段不适用 cpp26.md 的变量前缀规范;局部变量仍按规范带类型前缀。
 // therefore public fields are exempt from the cpp26.md variable prefix convention; local variables still carry type prefixes per the convention.
-// 上游 FromVector/ToVector2/ToVector3(System.Numerics 浮点)不移植——仅渲染域使用,后续按需。
-// Upstream FromVector/ToVector2/ToVector3 (System.Numerics floats) are not ported — rendering domain only, add later as needed.
+// 上游 FromVector/ToVector2(System.Numerics 浮点)为渲染域成员,随 Phase 4
+// 第十三批移植(CursorManager/ChromeProvider 消费)。
+// Upstream's FromVector/ToVector2 (System.Numerics floats) are render-domain
+// members, ported with the Phase 4 thirteenth batch (consumed by
+// CursorManager/ChromeProvider).
 // Clamp(Rectangle) 因与 Rectangle 相互依赖,实现在 rectangle.hpp。
 // Clamp(Rectangle) is mutually dependent with Rectangle, so it is implemented in rectangle.hpp.
 #pragma once
 import std;
 
 #include "core/exts_math.hpp"  // Length() 用 ISqrt(原先仅靠包含序偶然可见)| Length() needs ISqrt (previously visible only by include order)
+#include "core/vector_n.hpp"   // ToVector2/FromVector 的浮点向量 | the float vectors of ToVector2/FromVector
 
 namespace ora {
 
@@ -69,6 +73,19 @@ struct int2 {
   }
 
   constexpr int2 Clamp(Rectangle const& rect_r) const;  // 定义在 rectangle.hpp | Defined in rectangle.hpp
+
+  /// ToVector2(int2.cs 渲染域成员):X/Y → float 对。
+  /// ToVector2 (an int2.cs render-domain member): X/Y as a float pair.
+  constexpr core::Vector2 ToVector2() const {
+    return core::Vector2{static_cast<float>(X), static_cast<float>(Y)};
+  }
+
+  /// FromVector(int2.cs 渲染域成员):(int) 向零截断。
+  /// FromVector (an int2.cs render-domain member): (int) truncation towards
+  /// zero.
+  static constexpr int2 FromVector(core::Vector2 v_vec) {
+    return int2{static_cast<std::int32_t>(v_vec.X), static_cast<std::int32_t>(v_vec.Y)};
+  }
 
   friend constexpr int2 operator+(int2 v_a, int2 v_b) { return int2{v_a.X + v_b.X, v_a.Y + v_b.Y}; }
   friend constexpr int2 operator-(int2 v_a, int2 v_b) { return int2{v_a.X - v_b.X, v_a.Y - v_b.Y}; }

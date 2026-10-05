@@ -67,6 +67,12 @@ class Sheet {
   /// upstream's new Sheet(BGRA, worldBuffer.Texture)).
   Sheet(SheetType kind_type, Texture& texture_external);
 
+  /// Png 字节流构造(Sheet.cs L57-66;ChromeProvider 的 BGRA 面使用)。
+  /// The Png-bytes constructor (Sheet.cs L57-66; used by ChromeProvider's
+  /// BGRA face).
+  Sheet(SheetType kind_type, std::span<const std::byte> vec_png_bytes,
+        RenderThread* ptr_render = nullptr);
+
   Sheet(const Sheet&) = delete;
   Sheet& operator=(const Sheet&) = delete;
   Sheet(Sheet&&) = delete;

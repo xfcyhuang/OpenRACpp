@@ -25,6 +25,23 @@ Sheet::Sheet(SheetType kind_type, Texture& texture_external)
       int2_size_{texture_external.Width(), texture_external.Height()},
       kind_type_{kind_type} {}
 
+Sheet::Sheet(SheetType kind_type, std::span<const std::byte> vec_png_bytes, RenderThread* ptr_render)
+    : ptr_render_{ptr_render}, kind_type_{kind_type} {
+  // Sheet(Stream)(L57-66):Png 解码 → 全幅 data → FastCopyIntoSprite →
+  // ReleaseBuffer。上游注释照抄(仅 ChromeProvider 的 BGRA 面使用)。
+  // Sheet(Stream) (L57-66): Png decode → the full-extent data →
+  // FastCopyIntoSprite → ReleaseBuffer. Upstream comment kept (only
+  // ChromeProvider's BGRA face uses it).
+  const fmt::Png png_loading{vec_png_bytes};
+  int2_size_ = int2{png_loading.Width(), png_loading.Height()};
+  opt_data_ = std::vector<std::byte>(4 * static_cast<std::size_t>(int2_size_.X) *
+                                    static_cast<std::size_t>(int2_size_.Y));
+  FastCopyIntoSprite(Sprite{*this, Rectangle{0, 0, int2_size_.X, int2_size_.Y}, TextureChannel::Red},
+                     png_loading);
+
+  ReleaseBuffer();
+}
+
 std::span<std::byte> Sheet::GetData() {
   CreateBuffer();
   return std::span<std::byte>{*opt_data_};

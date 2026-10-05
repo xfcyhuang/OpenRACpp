@@ -260,4 +260,10 @@ void Sdl2Window::SetHardwareCursor(const Sdl2HardwareCursor* ptr_cursor) {
     SDL_ShowCursor(SDL_FALSE);
 }
 
+void Sdl2Window::SetRelativeMouseMode(bool b_enabled) {
+  // Sdl2PlatformWindow.cs L423-425:SetRelativeMouseMode。
+  // Sdl2PlatformWindow.cs L423-425: SetRelativeMouseMode.
+  SDL_SetRelativeMouseMode(b_enabled ? SDL_TRUE : SDL_FALSE);
+}
+
 }  // namespace ora::platform
