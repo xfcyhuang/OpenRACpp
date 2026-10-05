@@ -336,3 +336,22 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D65 | src/formats/targa、dds | Pfim v0.11.3 逐语义移植的形态适配:Allocator.Rent → vector(零初始化语义保留);FileStream 缓冲路径与 MemoryStream 快路径在合法输入下输出一致,C++ 统一走内存路径(CompressedDds 取 InMemoryDecode 控制流);截断输入的异常时机/类型差异(上游 BlockCopy ArgumentOutOfRange / 指针越界)为等价抛点 | 合法资产零触发;上游双路径本就同输出;oracle 六向量 + 合成夹具覆盖已移植路径 |
 | D66 | src/formats/dds | FourCC BC4/BC4s/BC5/BC5s/ATI1/ATI2/DX10(含 BC6h/BC7)未移植,显式抛 "FourCC: X not supported."(上游 BC5/BC5s 可解为 Rgb24 且 DdsLoader 接受;BC4 系/16bpp 系 loader 层亦抛 Unhandled) | mods 零 dds 资产;已移植路径(非压 RGB/DXT1/3/5)全覆盖对拍;需求出现时按 Pfim 同法补 |
 | D67 | src/formats/shp_remastered | 两条正则(FilenameRegex/MetaRegex)以等价手写最左匹配/全串匹配复刻(非正则引擎);meta 失配时上游 ParseGroup 空捕获 FormatException → 等价抛点(消息非逐字);SharpZipLib ZipFile → ora::fs::ReadOnlyZipFile(miniz;条目枚举序 = 中央目录序,同 SharpZipLib 事实序);Pfim 的 TgaSprite/TgaFrame 直接复用 targa.cpp | 合法 meta/帧名下手写解析与正则同语言集;容器读取面一致;夹具 zip 手工构造两语言字节恒等 |
+
+### Phase 4 第七批(2026-10-05):mix 包 + Blowfish(mix/Blowfish/Xcc/D2kSoundResources)
+
+- `src/formats/` 三件:blowfish(Blowfish.cs 全文逐语义:P/S 盒 18+4×256 逐值照搬、密钥扩展的 j 循环取字节与 a<<24|b<<16|c<<8|d 组装、16 轮 Feistel 的 x 交错标志与 Encrypt/Decrypt 镜像、RunCipher 的 SwapBytes 大端装卸与奇数尾元素落 0)、blowfish_key_provider(BlowfishKeyProvider.cs 全文逐语义:固定 base64 公钥 DER 解包、小端 uint32 大数 + 16 位 limb 乘减、InvertBigNum 倒数、GetMulWord 的 Knuth-D 商估计 —— **全部中间量按 64 位累积**(C# int*uint 提升为 long,C++ int*uint32 中途回绕不等价)、CalcKey 平方乘、ProcessPredata 的 (55/a+1) 块分组)、xcc_database(XccLocalDatabase:48 字节头 + count + NUL 串解析 + Data() 写出器(Size = 字符数+条目数+52);XccGlobalDatabase:[int32 count + (name\0 comment\0)*] 块至流尾)。
+- `src/fs/` 三件:package_entry(PackageEntry + PackageHashType:Classic 的 rotate-1 累加与 CRC32 的 (len%4) 字节值填充 + 尾对齐字节复制;大写化 + 4 字节对齐;ToString 的 Names 反查表仅调试用,未移植)、mix_file(MixFile:三格式检测(C&C 首 u16≠0 / RA-TS 标志 / 加密头 = 80B 密钥块 RSA 解密 + 首块探长 + (13+n*12)/8 整块 Blowfish)+ ToDictionaryWithConflictLog 首遇胜出 + ParseIndex(local mix database.dat 内嵌库双哈希命中 + Classic/CRC32 计数择优 + unknown 计数);MixLoader:".mix" 后缀嗅探 + global mix database.dat 惰性单次加载 + ToHashSet 去重;Index 绝对偏移化)、d2k_sound_resources(D2kSoundResources.cs 全文逐语义:u32 头长界定目录区、ASCIIZ + u32 偏移(文件绝对偏移)+ u32 长度、OpenPackage 上游即 "Not implemented")。
+- 接线:Manifest.PackageFormats 解析(标量 = 单元素;ra/cnc/ts = "Mix",d2k = "D2kSoundResources")+ ModData 构造器按名装载(ObjectCreator.GetLoaders 的名字分派等价,未知名逐字抛)→ FileSystem 以包格式加载器集构造(ModData.cs L63-65)。
+- oracle:`tools/golden_gen -- fmt` 增五段(Q/KB/BE/M/X/G):14 个 HashFilename 双哈希向量(上游 PackageEntry 权威)、BlowfishKeyProvider 密钥派生 hex + Blowfish 加密向量(**构造侧走 Program.cs 文末内嵌的 Blowfish/BlowfishKeyProvider 逐字副本 —— 上游 DLL 内为 internal;解析侧走 upstream 别名的 MixLoader.MixFile,副本产密文、上游解密还原 = 跨语言闭环**)、三个合成 mix 夹具(cnc/ra 明文 Classic 哈希 + ts 加密 CRC32 哈希;内嵌 local mix database.dat + global 名集 + unknown.file 未解析条目;ME 行 = 名/绝对偏移/长/CRC32)、XccLocal 往返、XccGlobal 块解析 —— golden_formats.txt 6183 → **6227 行逐行对拍一致**,oracle 双跑确定性验证。
+- 验收(formats_test):纯逻辑新增(Blowfish 公开标准向量 + 往返 + 奇数尾落 0、Xcc 两库往返/截断负例、HashFilename 填充边界、MixFile C&C 最小夹具(dataStart/Contents/GetStream)+ 垃圾密钥块负例 + MixLoader 大小写嗅探、D2kSoundResources 绝对偏移读取 + 重键负例 + 嗅探);双构建 ctest 15/15;门禁 std_import(177 文件)/upstream_check(168 标注)PASS。
+
+### 已登记偏离(PORTING_PLAN §7.5,第七批新增)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D68 | src/fs/package_entry | HashFilename 的哈希域为 ASCII 字节(UTF-8 逐字节):≥0x80 折为 '?'(等价 .NET Encoding.ASCII 的替换),长度按字节数(上游按 UTF-16 字符数);ToUpperInvariant 的非 ASCII 特例(如 ſ→S)不复刻 | 真实 mix 文件名全为 ASCII,两域等价;黄金 Q 向量 14 名全绿 |
+| D69 | src/fs/mix_file | 字节全量驻留 + GetStream 整读返回(i_package 契约);Contents/Index 顺序非契约(上游 Dictionary/HashSet 序本就进程随机化,消费方不迭代序依赖);global 库 TryOpen 未命中缓存空集不再重试(上游保持 null 每 mix 重试) | 形态适配;真实挂载序下 global 库先于 mix 挂载,重试差异不可观测 |
+| D70 | src/fs/mix_file | ParseIndex 的未解析哈希日志(Log.Write "debug")丢弃为 no-op;ReadBlocks 沿用上游宽松界检查(offset+count*2 > Length,实际读 8*count 字节),越界兜底 = SpanReader 等价抛点(消息非逐字);local 库扫描的 unordered_map 迭代序 vs Dictionary 序(仅当同 mix 内同时存在 classic/crc 两键的 local 库条目时选择可异 —— 实际不存在的形态) | 日志非数据面;宽松检查为上游原样;极端角落不可达 |
+| D71 | src/formats/xcc_database | ReadChar 逐字符 = 逐字节(ASCII 域);截断流越界 = SpanReader 等价抛点;Data() 的 ASCII 写出与上游逐字节等价(MakeData 双语对拍) | 名表数据全 ASCII;黄金 X 段对拍 |
+| D72 | src/fs/d2k_sound_resources | Dictionary.Add 重键 ArgumentException → runtime_error(消息含键名,非逐字);流形式 → 全量驻留切片 | 仅坏数据可达;D48 先例延续 |
+| D73 | src/game/ mod_data/manifest | ObjectCreator 反射装载 IPackageLoader → 编译期名字分派表(Mix/D2kSoundResources);未知名抛 "Unable to find a package loader for type 'X'."(逐字);PackageFormats 标量 = 单元素列表(上游 ImmutableArray<string> 字段加载语义) | 无运行时反射(项目优化主轴);mod.yaml 事实形态全为标量 |

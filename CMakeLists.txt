@@ -138,7 +138,7 @@ add_library(ora_game STATIC
   src/game/ruleset.cpp
   src/game/mod_data.cpp
   src/game/loaders.cpp)
-target_link_libraries(ora_game PUBLIC ora_gen PRIVATE ora_fs)
+target_link_libraries(ora_game PUBLIC ora_gen PRIVATE ora_fs ora_formats)
 ora_link_std(ora_game)
 
 # 仿真核心:Actor/World/TraitDictionary/Activity/条件系统/SyncHash/Effects
@@ -221,17 +221,22 @@ add_library(ora_gfx STATIC
 target_link_libraries(ora_gfx PUBLIC ora_platform)
 ora_link_std(ora_gfx)
 
-# Westwood 文件格式族(PORTING_PLAN §Phase 4 formats 第一编 + 第二编):
-# 字节读取器 + 压缩编解码器(LCW/XOR/LZO/RLE0)+ CRC32 + SHP TD/D2/TS +
-# TMP TD/RA/TS 加载器 + PNG(自研,zlib 走 miniz)+ Tga/DDS(Pfim 逐语义)
-# + ShpRemastered(zip 容器)+ EmbeddedSpritePalette;帧契约
-# (ISpriteFrame)在 gfx 层。
-# The Westwood file-format family (PORTING_PLAN §Phase 4, the first and
-# second formats batches): the byte readers + compression codecs
-# (LCW/XOR/LZO/RLE0) + CRC32 + the SHP TD/D2/TS and TMP TD/RA/TS loaders
-# + PNG (in-house, zlib via miniz) + Tga/DDS (Pfim semantics) +
-# ShpRemastered (zip container) + EmbeddedSpritePalette; the frame
-# contract (ISpriteFrame) lives in the gfx layer.
+# Westwood 文件格式族(PORTING_PLAN §Phase 4 formats 第一编 + 第二编 +
+# 第三编 Mix/Blowfish):字节读取器 + 压缩编解码器(LCW/XOR/LZO/RLE0)+
+# CRC32 + SHP TD/D2/TS + TMP TD/RA/TS 加载器 + PNG(自研,zlib 走 miniz)
+# + Tga/DDS(Pfim 逐语义)+ ShpRemastered(zip 容器)+
+# EmbeddedSpritePalette;帧契约(ISpriteFrame)在 gfx 层。Mix 包件
+# (package_entry/mix_file)也编入本库:mix 依赖 Blowfish/Xcc(本库),
+# 而本库经 ShpRemastered 依赖 ora_fs —— 在此拆环。
+# The Westwood file-format family (PORTING_PLAN §Phase 4, the first,
+# second, and third formats batches — the third adds Mix/Blowfish): the
+# byte readers + compression codecs (LCW/XOR/LZO/RLE0) + CRC32 + the SHP
+# TD/D2/TS and TMP TD/RA/TS loaders + PNG (in-house, zlib via miniz) +
+# Tga/DDS (Pfim semantics) + ShpRemastered (zip container) +
+# EmbeddedSpritePalette; the frame contract (ISpriteFrame) lives in the
+# gfx layer. The mix package pieces (package_entry/mix_file) also compile
+# into this library: mix depends on this library's Blowfish/Xcc while the
+# library depends on ora_fs through ShpRemastered — the cycle breaks here.
 add_library(ora_formats STATIC
   src/formats/lcw.cpp
   src/formats/xor_delta.cpp
@@ -246,7 +251,13 @@ add_library(ora_formats STATIC
   src/formats/png.cpp
   src/formats/targa.cpp
   src/formats/dds.cpp
-  src/formats/shp_remastered.cpp)
+  src/formats/shp_remastered.cpp
+  src/formats/blowfish.cpp
+  src/formats/blowfish_key_provider.cpp
+  src/formats/xcc_database.cpp
+  src/fs/package_entry.cpp
+  src/fs/mix_file.cpp
+  src/fs/d2k_sound_resources.cpp)
 target_link_libraries(ora_formats PUBLIC ora_core PRIVATE ora_miniz ora_fs)
 ora_link_std(ora_formats)
 

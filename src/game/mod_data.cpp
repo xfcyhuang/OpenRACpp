@@ -5,9 +5,37 @@
 import std;
 #include "game/mod_data.hpp"
 #include "game/platform.hpp"
+#include "fs/d2k_sound_resources.hpp"
+#include "fs/mix_file.hpp"
 #include "meta/field_loader.hpp"
 
 namespace ora::game {
+
+namespace {
+
+/// ObjectCreator.GetLoaders<IPackageLoader>(ModData.cs L63)的 C++ 等价:
+/// 按 Manifest.PackageFormats 的加载器名构造。未知名 = 上游
+/// InvalidOperationException 文本逐字。
+/// The C++ equivalent of ObjectCreator.GetLoaders<IPackageLoader>
+/// (ModData.cs L63): construct per the loader names in
+/// Manifest.PackageFormats. An unknown name reproduces the upstream
+/// InvalidOperationException text verbatim.
+std::vector<std::unique_ptr<fs::IPackageLoader>> MakePackageLoaders(
+    const std::vector<std::string>& vec_formats) {
+  auto vec_loaders = std::vector<std::unique_ptr<fs::IPackageLoader>>{};
+  for (const std::string& str_format : vec_formats) {
+    if (str_format == "Mix")
+      vec_loaders.push_back(std::make_unique<fs::MixLoader>());
+    else if (str_format == "D2kSoundResources")
+      vec_loaders.push_back(std::make_unique<fs::D2kSoundResourcesLoader>());
+    else
+      throw std::runtime_error{std::format(
+          "Unable to find a package loader for type '{}'.", str_format)};
+  }
+  return vec_loaders;
+}
+
+}  // namespace
 
 // ———— InstalledMods ————
 
@@ -63,7 +91,13 @@ void InstalledMods::InstallResolver(fs::FileSystem& fileSystem) const {
 
 ModData::ModData(const Manifest& manifest_source, const InstalledMods& installedMods,
                  std::string str_engine_dir)
-    : manifest_{std::make_unique<Manifest>(manifest_source.Id(), manifest_source.Package())} {
+    : manifest_{std::make_unique<Manifest>(manifest_source.Id(), manifest_source.Package())},
+      // PackageLoaders → FileSystem 构造(ModData.cs L63-65):包格式加载器
+      // 在 FileSystem 创建时注入(内建 zip 加载器仍随后自动追加)。
+      // PackageLoaders → the FileSystem construction (ModData.cs L63-65):
+      // the package-format loaders inject at FileSystem creation (the
+      // built-in zip loader is still appended afterwards).
+      fs_modFiles_{MakePackageLoaders(manifest_->PackageFormats())} {
   // Platform.ResolvePath 接线 + '$mod' 解析器(ModData 构造器 L61-64 的等价)
   // The Platform.ResolvePath wiring + the '$mod' resolver (the equivalent of
   // the ModData ctor L61-64).

@@ -41,6 +41,15 @@ import std;
 #include "formats/shp_remastered.hpp"
 #include "formats/targa.hpp"
 
+#include "formats/blowfish.hpp"
+#include "formats/blowfish_key_provider.hpp"
+#include "formats/crc32.hpp"
+#include "formats/xcc_database.hpp"
+#include "fs/d2k_sound_resources.hpp"
+#include "fs/file_system.hpp"
+#include "fs/mix_file.hpp"
+#include "fs/package_entry.hpp"
+
 namespace {
 
 std::int32_t int4_failures = 0;
@@ -399,6 +408,308 @@ void TestSheetBuilderFrameAdd() {
   ORA_CHECK(ora::fmt::TryParseShpTD(MakeSyntheticShpTD(vec_blank, int4_w, int4_h), vec_frames));
   const auto sprite_blank = builder.Add(*vec_frames.front());
   ORA_CHECK(sprite_blank.Bounds.Width == 0 && sprite_blank.Bounds.Height == 0);
+}
+
+// ———— 纯逻辑:Mix/Blowfish/Xcc/D2kSoundResources ————
+// ———— Pure logic: Mix/Blowfish/Xcc/D2kSoundResources ————
+
+void TestBlowfish() {
+  // 公开标准测试向量:全零 8 字节密钥 + 全零明文 → 4EF99745 6198DD78
+  // The published standard vector: an all-zero 8-byte key + all-zero
+  // plaintext → 4EF99745 6198DD78.
+  const auto vec_zero_key = std::vector<std::byte>(8, std::byte{0});
+  const ora::fmt::Blowfish fish_zero{vec_zero_key};
+  const auto vec_zero_words = std::vector<std::uint32_t>{0u, 0u};
+  const auto vec_cipher = fish_zero.Encrypt(vec_zero_words);
+  // 上游 RunCipher 的字序契约:uint 按 LE 读入、SwapBytes 后进密码核心、
+  // 出来再 SwapBytes 存回 —— 存储值 0x4597F94E/0x78DD9861 对应规范向量
+  // 字节序 4E F9 99 45 61 98 DD 78。
+  // The upstream RunCipher word-order contract: uints load little-endian,
+  // SwapBytes into the cipher core, and SwapBytes back on store — the
+  // stored 0x4597F94E/0x78DD9861 correspond to the canonical byte order
+  // 4E F9 99 45 61 98 DD 78.
+  ORA_CHECK(vec_cipher.size() == 2 && vec_cipher[0] == 0x4597F94Eu && vec_cipher[1] == 0x78DD9861u);
+
+  // 非平凡密钥的 Encrypt→Decrypt 往返
+  // The Encrypt→Decrypt round trip under a non-trivial key.
+  auto vec_key = std::vector<std::byte>(21);
+  for (std::size_t st_i = 0; st_i < vec_key.size(); st_i++)
+    vec_key[st_i] = static_cast<std::byte>((st_i * 37 + 11) & 0xFF);
+  const ora::fmt::Blowfish fish{vec_key};
+  auto vec_words = std::vector<std::uint32_t>(8);
+  for (std::size_t st_i = 0; st_i < vec_words.size(); st_i++)
+    vec_words[st_i] = static_cast<std::uint32_t>(0x9E3779B9u * (st_i + 1));
+  const auto vec_round = fish.Decrypt(fish.Encrypt(vec_words));
+  ORA_CHECK(vec_round == vec_words);
+
+  // 奇数尾元素:上游 new uint[data.Length] 尾元素落 0(不参与块处理)
+  // The odd trailing element: upstream's new uint[data.Length] leaves it 0
+  // (never touched by the block loop).
+  const auto vec_odd = std::vector<std::uint32_t>{1u, 2u, 3u};
+  const auto vec_odd_out = fish.Encrypt(vec_odd);
+  ORA_CHECK(vec_odd_out.size() == 3 && vec_odd_out[2] == 0);
+
+  // 密钥扩展(P/S 再生成)正确性由标准向量背书;短密钥(<4B)可构造即可
+  // The key schedule (P/S regeneration) is pinned by the standard vector;
+  // a short key (<4B) merely needs to construct.
+  const ora::fmt::Blowfish fish_short{std::span<const std::byte>{vec_zero_key}.first(3)};
+  const auto vec_two_words = std::vector<std::uint32_t>{1u, 2u};
+  ORA_CHECK(fish_short.Encrypt(vec_two_words).size() == 2);
+}
+
+void TestXccDatabases() {
+  // Local:MakeData → 解析往返
+  // Local: the MakeData → parse round trip.
+  const std::vector<std::string> vec_names = {"ALPHA.DAT", "beta.bin", "gamma"};
+  const auto vec_data = ora::fmt::XccLocalDatabase::MakeData(vec_names);
+  const ora::fmt::XccLocalDatabase database{vec_data};
+  ORA_CHECK(database.Entries() == vec_names);
+
+  // 头部魔串 + 尺寸字段公式(文件长 = 52 + 字符数 + 条目数;Size 字段同式)
+  // The header magic + the size formula (the file length = 52 + the char
+  // count + the entry count; the Size field uses the same formula).
+  ORA_CHECK(vec_data.size() == 52 + (9 + 8 + 5) + 3);
+  ORA_CHECK(std::string_view{reinterpret_cast<const char*>(vec_data.data()), 24} ==
+            "XCC by Olaf van der Spek");
+
+  // 截断负例:count 越过流尾 = 上游 EndOfStream 的等价抛点
+  // The truncation negative: a count past the end throws at the
+  // equivalent point of upstream's EndOfStream.
+  auto b_threw = false;
+  try {
+    const ora::fmt::XccLocalDatabase database_bad{std::span<const std::byte>{vec_data}.first(52)};
+  } catch (const std::exception&) {
+    b_threw = true;
+  }
+  ORA_CHECK(b_threw);
+
+  // Global:块结构解析(名称 + 注释双 NUL 串)
+  // Global: the block parse (name + comment NUL pairs).
+  auto vec_global = std::vector<std::byte>{};
+  const auto push_u32 = [&vec_global](std::uint32_t uint4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec_global.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+  };
+  const auto push_sz = [&vec_global](std::string_view sv) {
+    for (const char chr_c : sv)
+      vec_global.push_back(static_cast<std::byte>(chr_c));
+    vec_global.push_back(std::byte{0});
+  };
+  push_u32(2);
+  push_sz("one.dat");
+  push_sz("first");
+  push_sz("two.dat");
+  push_sz("");
+  push_u32(1);
+  push_sz("three.dat");
+  push_sz("note");
+  const ora::fmt::XccGlobalDatabase global{vec_global};
+  ORA_CHECK(global.Entries() ==
+            std::vector<std::string>({"one.dat", "two.dat", "three.dat"}));
+}
+
+void TestPackageEntryHash() {
+  using enum ora::fs::PackageHashType;
+  // 填充语义:abc(3B,1 填充)与 abc\0(4B,0 填充)的 Classic 哈希相等;
+  // CRC32 的填充字节值与 Classic 的 NUL 不同,两哈希不等。
+  // Padding semantics: abc (3 bytes, one pad) hashes Classic-equal to the
+  // 4-byte "abc\0"; CRC32's pad byte value differs from Classic's NUL, so
+  // the two hashes differ.
+  const std::uint32_t uint4_classic_abc = ora::fs::PackageEntry::HashFilename("abc", Classic);
+  ORA_CHECK(uint4_classic_abc != ora::fs::PackageEntry::HashFilename("abc", CRC32));
+  ORA_CHECK(ora::fs::PackageEntry::HashFilename("abcd", Classic) != uint4_classic_abc);
+
+  // 大写化域:A 与 a 同哈希;非 ASCII 折为 '?'
+  // The uppercasing domain: A and a agree; non-ASCII folds to '?'.
+  ORA_CHECK(ora::fs::PackageEntry::HashFilename("AbC", Classic) ==
+            ora::fs::PackageEntry::HashFilename("aBc", Classic));
+}
+
+void TestMixFile() {
+  using enum ora::fs::PackageHashType;
+
+  // ———— C&C 型最小夹具(明文头)————
+  // ———— The minimal C&C-flavored fixture (plaintext header) ————
+  const std::vector<std::string> vec_names = {"data.bin", "local mix database.dat"};
+  auto vec_content0 = std::vector<std::byte>(6);
+  for (std::size_t st_i = 0; st_i < 6; st_i++)
+    vec_content0[st_i] = static_cast<std::byte>(st_i * 41);
+  const std::vector<std::string> vec_db_names = {"data.bin", "local mix database.dat"};
+  const auto vec_db = ora::fmt::XccLocalDatabase::MakeData(vec_db_names);
+
+  auto vec_header = std::vector<std::byte>{};
+  const auto put_u16 = [&vec_header](std::uint16_t uint2_v) {
+    vec_header.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+    vec_header.push_back(static_cast<std::byte>(uint2_v >> 8));
+  };
+  const auto put_u32 = [&vec_header](std::uint32_t uint4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec_header.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+  };
+  put_u16(2);
+  put_u32(6 + vec_db.size());
+  put_u32(ora::fs::PackageEntry::HashFilename(vec_names[0], Classic));
+  put_u32(0);
+  put_u32(6);
+  // 两条目同走 Classic 哈希(真实 TD mix 形态)—— 双型混挂会让 best 索引
+  // 丢弃另一族名。
+  // Both entries hash Classic (the real TD-mix shape) — mixing hash families
+  // would leave the best index dropping the other family's names.
+  put_u32(ora::fs::PackageEntry::HashFilename(vec_names[1], Classic));
+  put_u32(6);
+  put_u32(static_cast<std::uint32_t>(vec_db.size()));
+
+  auto vec_file = vec_header;
+  vec_file.insert(vec_file.end(), vec_content0.begin(), vec_content0.end());
+  vec_file.insert(vec_file.end(), vec_db.begin(), vec_db.end());
+
+  const std::vector<std::string> vec_globals = {"data.bin", "OTHER.FILE"};
+  auto vec_bytes = std::vector<char>{};
+  vec_bytes.resize(vec_file.size());
+  std::memcpy(vec_bytes.data(), vec_file.data(), vec_file.size());
+  const ora::fs::MixFile mix{std::move(vec_bytes), "test.mix", vec_globals};
+
+  // 内嵌 local 库命中 CRC32 哈希 → 两条目全解析;dataStart = 6 + 24 = 30
+  // The embedded local database hits the CRC32 hash → both entries resolve;
+  // dataStart = 6 + 24 = 30.
+  ORA_CHECK(mix.IsCncMix() && !mix.IsEncrypted() && mix.DataStart() == 30);
+  auto vec_contents = mix.Contents();
+  std::ranges::sort(vec_contents);
+  ORA_CHECK(vec_contents == vec_names);
+  ORA_CHECK(mix.Contains("data.bin") && !mix.Contains("OTHER.FILE"));
+  const auto vec_stream = mix.GetStream("data.bin");
+  ORA_CHECK(vec_stream.has_value() && vec_stream->size() == 6 &&
+            static_cast<std::uint8_t>((*vec_stream)[3]) == 123);
+
+  // ———— 加密头负例:垃圾密钥块 → 解密失败抛点 ————
+  // ———— The encrypted-header negative: a garbage keyblock throws at the
+  // decrypt failure point ————
+  auto vec_enc = std::vector<std::byte>{};
+  const auto push_u16e = [&vec_enc](std::uint16_t uint2_v) {
+    vec_enc.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+    vec_enc.push_back(static_cast<std::byte>(uint2_v >> 8));
+  };
+  push_u16e(0);
+  push_u16e(0x2);
+  for (auto int4_i = 0; int4_i < 80; int4_i++)
+    vec_enc.push_back(std::byte{0x5A});
+  // 首块解密出超大 numFiles → ReadBlocks 越界抛(垃圾数据的等价失败)
+  // The first block decrypts to a huge numFiles → ReadBlocks throws
+  // out-of-bounds (the equivalent failure on garbage).
+  auto b_threw = false;
+  try {
+    auto vec_copy = std::vector<char>{};
+    vec_copy.resize(vec_enc.size());
+    std::memcpy(vec_copy.data(), vec_enc.data(), vec_enc.size());
+    const ora::fs::MixFile mix_bad{std::move(vec_copy), "bad.mix", {}};
+  } catch (const std::exception&) {
+    b_threw = true;
+  }
+  ORA_CHECK(b_threw);
+
+  // ———— MixLoader 后缀嗅探(大小写不敏感)+ 解析直通 ————
+  // ———— The MixLoader suffix sniff (case-insensitive) + the parse
+  // passthrough ————
+  ora::fs::FileSystem fileSystem{};
+  ora::fs::MixLoader loader{};
+  std::unique_ptr<ora::fs::IReadOnlyPackage> package;
+  auto vec_span = std::vector<char>{};
+  vec_span.resize(vec_file.size());
+  std::memcpy(vec_span.data(), vec_file.data(), vec_file.size());
+  ORA_CHECK(loader.TryParsePackage(vec_span, "SOME.MIX", fileSystem, package) && package != nullptr);
+  ORA_CHECK(loader.TryParsePackage(vec_span, "some.mix", fileSystem, package));
+  ORA_CHECK(!loader.TryParsePackage(vec_span, "some.dat", fileSystem, package) && package == nullptr);
+}
+
+void TestD2kSoundResources() {
+  auto vec_file = std::vector<std::byte>{};
+  const auto push_u32 = [&vec_file](std::uint32_t uint4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec_file.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+  };
+  const auto push_sz = [&vec_file](std::string_view sv) {
+    for (const char chr_c : sv)
+      vec_file.push_back(static_cast<std::byte>(chr_c));
+    vec_file.push_back(std::byte{0});
+  };
+  // 目录区:两条目;headerLength = 目录字节数(不含自身 4 字节)。
+  // 条目偏移为【文件绝对偏移】(上游 SegmentStream 挂整流),目录止于 4+30
+  // = 34,数据排在其后。
+  // The directory area: two entries; headerLength = the directory byte count
+  // (excluding its own 4 bytes). Entry offsets are ABSOLUTE file offsets
+  // (upstream's SegmentStream wraps the whole stream); the directory ends at
+  // 4 + 30 = 34, with the data laid out after it.
+  // "a.wav"\0(6) + off(4) + len(4) + "btr.wav"\0(8) + off(4) + len(4) = 30
+  const std::size_t st_dir = 6 + 4 + 4 + 8 + 4 + 4;
+  const std::uint32_t uint4_data_start = static_cast<std::uint32_t>(4 + st_dir);
+  push_u32(static_cast<std::uint32_t>(st_dir));
+  push_sz("a.wav");
+  push_u32(uint4_data_start);
+  push_u32(4);
+  push_sz("btr.wav");
+  push_u32(uint4_data_start + 4);
+  push_u32(3);
+  vec_file.push_back(std::byte{0x11});
+  vec_file.push_back(std::byte{0x22});
+  vec_file.push_back(std::byte{0x33});
+  vec_file.push_back(std::byte{0x44});
+  vec_file.push_back(std::byte{0x55});
+  vec_file.push_back(std::byte{0x66});
+  vec_file.push_back(std::byte{0x77});
+
+  auto vec_chars = std::vector<char>{};
+  vec_chars.resize(vec_file.size());
+  std::memcpy(vec_chars.data(), vec_file.data(), vec_file.size());
+  const ora::fs::D2kSoundResources rs{std::move(vec_chars), "sounds.rs"};
+  ORA_CHECK(rs.Contains("a.wav") && rs.Contains("btr.wav") && !rs.Contains("c.wav"));
+  const auto vec_a = rs.GetStream("a.wav");
+  ORA_CHECK(vec_a.has_value() && vec_a->size() == 4 && (*vec_a)[0] == 0x11 && (*vec_a)[3] == 0x44);
+  const auto vec_b = rs.GetStream("btr.wav");
+  ORA_CHECK(vec_b.has_value() && vec_b->size() == 3 && (*vec_b)[2] == 0x77);
+  ora::fs::FileSystem fileSystemForOpen{};
+  ORA_CHECK(rs.OpenPackage("a.wav", fileSystemForOpen) == nullptr);
+
+  // loader 嗅探 | the loader sniff
+  ora::fs::D2kSoundResourcesLoader loader{};
+  ora::fs::FileSystem fileSystem{};
+  std::unique_ptr<ora::fs::IReadOnlyPackage> package;
+  auto vec_span = std::vector<char>{};
+  vec_span.resize(vec_file.size());
+  std::memcpy(vec_span.data(), vec_file.data(), vec_file.size());
+  ORA_CHECK(loader.TryParsePackage(vec_span, "X.RS", fileSystem, package) && package != nullptr);
+  ORA_CHECK(!loader.TryParsePackage(vec_span, "X.WAV", fileSystem, package));
+
+  // 重键负例(Dictionary.Add 抛的等价)| the duplicate-key negative (the
+  // equivalent of Dictionary.Add's throw)
+  auto vec_dup = std::vector<std::byte>{};
+  const auto push_u32d = [&vec_dup](std::uint32_t uint4_v) {
+    for (auto int4_i = 0; int4_i < 4; int4_i++)
+      vec_dup.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+  };
+  const auto push_szd = [&vec_dup](std::string_view sv) {
+    for (const char chr_c : sv)
+      vec_dup.push_back(static_cast<std::byte>(chr_c));
+    vec_dup.push_back(std::byte{0});
+  };
+  // headerLength 须盖住两条目目录(6+4+4)×2 = 28
+  // headerLength must cover the two-entry directory (6+4+4)×2 = 28.
+  push_u32d(28);
+  push_szd("a.wav");
+  push_u32d(0);
+  push_u32d(0);
+  push_szd("a.wav");
+  push_u32d(0);
+  push_u32d(0);
+  auto b_threw = false;
+  try {
+    auto vec_copy = std::vector<char>{};
+    vec_copy.resize(vec_dup.size());
+    std::memcpy(vec_copy.data(), vec_dup.data(), vec_dup.size());
+    const ora::fs::D2kSoundResources rs_bad{std::move(vec_copy), "dup.rs"};
+  } catch (const std::exception&) {
+    b_threw = true;
+  }
+  ORA_CHECK(b_threw);
 }
 
 // ———— 黄金对拍 / The golden differential ————
@@ -1572,6 +1883,205 @@ std::string BuildActualText(const std::string& str_upstream_root) {
                     str_out);
   }
 
+  // 10)~14) Mix/Blowfish/Xcc 段(与 oracle 同构造;Q/KB/BE/M/X/G)。
+  // 10)-14) The Mix/Blowfish/Xcc sections (the same construction as the
+  // oracle; Q/KB/BE/M/X/G).
+  {
+    // Q:双哈希向量(名字表与 oracle 一致)
+    // Q: the dual-hash vectors (the name list shared with the oracle).
+    const std::vector<std::string> vec_hash_names = {
+        "a", "ab", "abc", "abcd", "abcde", "test", "DATA.INI", "data.bin",
+        "IMAGE.SHP", "local mix database.dat", "GDI.SHP", "CONQUER.MIX",
+        "rules.yaml",
+        "averylongfilename_that-exceeds.sixtyfour.characters_0123456789.dat"};
+    for (const std::string& str_name : vec_hash_names)
+      str_out += std::format("Q {} {} {}\n", str_name,
+                             ora::fs::PackageEntry::HashFilename(str_name, ora::fs::PackageHashType::Classic),
+                             ora::fs::PackageEntry::HashFilename(str_name, ora::fs::PackageHashType::CRC32));
+
+    // KB/BE:密钥派生 + 加密向量(keyblock/明文与 oracle 同式)
+    // KB/BE: the key derivation + cipher vector (the keyblock/plaintext
+    // formulas shared with the oracle).
+    auto arr_keyblock = std::array<std::byte, 80>{};
+    for (auto int4_i = 0; int4_i < 80; int4_i++)
+      arr_keyblock[static_cast<std::size_t>(int4_i)] =
+          static_cast<std::byte>((int4_i * 7 + 1) & 0xFF);
+    ora::fmt::BlowfishKeyProvider provider{};
+    const auto arr_bf_key = provider.DecryptKey(arr_keyblock);
+    str_out += std::format("KB {}\n", BytesToHexLower(std::as_bytes(std::span{arr_bf_key})));
+
+    const ora::fmt::Blowfish fish{std::span<const std::byte>{
+        reinterpret_cast<const std::byte*>(arr_bf_key.data()), arr_bf_key.size()}};
+    auto vec_plain = std::vector<std::byte>(16);
+    for (auto int4_i = 0; int4_i < 16; int4_i++)
+      vec_plain[static_cast<std::size_t>(int4_i)] =
+          static_cast<std::byte>((int4_i * 11 + 3) & 0xFF);
+    auto vec_words = std::vector<std::uint32_t>(4);
+    std::memcpy(vec_words.data(), vec_plain.data(), 16);
+    const auto vec_cipher = fish.Encrypt(vec_words);
+    auto vec_cipher_bytes = std::vector<std::byte>(16);
+    std::memcpy(vec_cipher_bytes.data(), vec_cipher.data(), 16);
+    str_out += std::format("BE {}\n", BytesToHexLower(vec_cipher_bytes));
+
+    // M:mix 三型夹具(构造 = oracle 的 MixFileBytes 同式;Classic 哈希走
+    // cnc/ra,CRC32 + Blowfish 头走 ts)
+    // M: the three mix flavors (the construction mirrors the oracle's
+    // MixFileBytes; Classic hashes for cnc/ra, CRC32 + the Blowfish header
+    // for ts).
+    const std::vector<std::string> vec_local_db_names = {"IMAGE.SHP", "data.bin",
+                                                          "local mix database.dat", "not.present"};
+    const std::vector<std::string> vec_entry_names = {"data.bin", "IMAGE.SHP",
+                                                       "local mix database.dat", "unknown.file"};
+    std::vector<std::vector<std::byte>> vec_entry_contents;
+    {
+      auto vec_c0 = std::vector<std::byte>(17);
+      for (auto int4_i = 0; int4_i < 17; int4_i++)
+        vec_c0[static_cast<std::size_t>(int4_i)] =
+            static_cast<std::byte>((int4_i * 13 + 5) % 251);
+      vec_entry_contents.push_back(std::move(vec_c0));
+      auto vec_c1 = std::vector<std::byte>(24);
+      for (auto int4_i = 0; int4_i < 24; int4_i++)
+        vec_c1[static_cast<std::size_t>(int4_i)] =
+            static_cast<std::byte>((int4_i * 29 + 7) % 251);
+      vec_entry_contents.push_back(std::move(vec_c1));
+      vec_entry_contents.push_back(ora::fmt::XccLocalDatabase::MakeData(vec_local_db_names));
+      auto vec_c3 = std::vector<std::byte>(8);
+      for (auto int4_i = 0; int4_i < 8; int4_i++)
+        vec_c3[static_cast<std::size_t>(int4_i)] = static_cast<std::byte>(200 + int4_i);
+      vec_entry_contents.push_back(std::move(vec_c3));
+    }
+    const std::vector<std::string> vec_globals = {"IMAGE.SHP", "data.bin", "not.present",
+                                                   "UNRELATED.TXT"};
+
+    const auto make_mix_bytes = [&](ora::fs::PackageHashType enum_hash,
+                                     std::string_view sv_variant) {
+      auto vec_header = std::vector<std::byte>{};
+      const auto push_u16 = [&vec_header](std::uint16_t uint2_v) {
+        vec_header.push_back(static_cast<std::byte>(uint2_v & 0xFF));
+        vec_header.push_back(static_cast<std::byte>(uint2_v >> 8));
+      };
+      const auto push_u32 = [&vec_header](std::uint32_t uint4_v) {
+        for (auto int4_i = 0; int4_i < 4; int4_i++)
+          vec_header.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+      };
+      std::uint32_t uint4_size = 0;
+      for (const auto& vec_c : vec_entry_contents)
+        uint4_size += static_cast<std::uint32_t>(vec_c.size());
+      push_u16(static_cast<std::uint16_t>(vec_entry_names.size()));
+      push_u32(uint4_size);
+      std::uint32_t uint4_off = 0;
+      for (std::size_t st_i = 0; st_i < vec_entry_names.size(); st_i++) {
+        push_u32(ora::fs::PackageEntry::HashFilename(vec_entry_names[st_i], enum_hash));
+        push_u32(uint4_off);
+        push_u32(static_cast<std::uint32_t>(vec_entry_contents[st_i].size()));
+        uint4_off += static_cast<std::uint32_t>(vec_entry_contents[st_i].size());
+      }
+
+      auto vec_out = std::vector<std::byte>{};
+      if (sv_variant == "cnc") {
+        vec_out = vec_header;
+      } else if (sv_variant == "ra") {
+        vec_out.push_back(std::byte{0});
+        vec_out.push_back(std::byte{0});
+        vec_out.push_back(std::byte{0});
+        vec_out.push_back(std::byte{0});
+        vec_out.insert(vec_out.end(), vec_header.begin(), vec_header.end());
+      } else {
+        // ts(加密):80B 密钥块 + 整头 Blowfish(块数 = (13 + n*12)/8)
+        // ts (encrypted): the 80-byte keyblock + the Blowfish-wrapped header
+        // (blockCount = (13 + n*12)/8).
+        const auto int4_blocks =
+            static_cast<int>((13 + static_cast<long long>(vec_entry_names.size()) * 12) / 8);
+        auto vec_padded = std::vector<std::byte>(static_cast<std::size_t>(int4_blocks) * 8, std::byte{0});
+        std::ranges::copy(vec_header, vec_padded.begin());
+        auto vec_words_h = std::vector<std::uint32_t>(vec_padded.size() / 4);
+        std::memcpy(vec_words_h.data(), vec_padded.data(), vec_padded.size());
+        const auto vec_encrypted = fish.Encrypt(vec_words_h);
+        auto vec_enc_bytes = std::vector<std::byte>(vec_encrypted.size() * 4);
+        std::memcpy(vec_enc_bytes.data(), vec_encrypted.data(), vec_enc_bytes.size());
+
+        vec_out.push_back(std::byte{0});
+        vec_out.push_back(std::byte{0});
+        vec_out.push_back(std::byte{0x02});
+        vec_out.push_back(std::byte{0x00});
+        vec_out.insert(vec_out.end(), arr_keyblock.begin(), arr_keyblock.end());
+        vec_out.insert(vec_out.end(), vec_enc_bytes.begin(), vec_enc_bytes.end());
+      }
+
+      for (const auto& vec_c : vec_entry_contents)
+        vec_out.insert(vec_out.end(), vec_c.begin(), vec_c.end());
+      return vec_out;
+    };
+
+    const auto dump_mix = [&](std::string_view sv_name, std::vector<std::byte> vec_file,
+                              std::string_view sv_variant) {
+      str_out += std::format("M {}\n", sv_name);
+      str_out += std::format("ML {} {}\n", sv_variant, sv_variant == "ts" ? 1 : 0);
+      auto vec_chars = std::vector<char>{};
+      vec_chars.resize(vec_file.size());
+      std::memcpy(vec_chars.data(), vec_file.data(), vec_file.size());
+      const ora::fs::MixFile mix{std::move(vec_chars), std::string{sv_name}, vec_globals};
+
+      auto vec_absolute = mix.AbsoluteIndex();
+      std::ranges::sort(vec_absolute,
+                        [](const auto& a, const auto& b) { return a.first < b.first; });
+      for (const auto& [str_entry_name, entry] : vec_absolute) {
+        const auto vec_content = mix.GetStream(str_entry_name);
+        ORA_CHECK(vec_content.has_value());
+        str_out += std::format("ME {} {} {} {}\n", str_entry_name, entry.uint4_offset,
+                               vec_content->size(),
+                               ora::fmt::CRC32::Calculate(std::as_bytes(std::span{*vec_content})));
+      }
+      str_out += std::format("MU {}\n", vec_entry_names.size() - vec_absolute.size());
+    };
+
+    dump_mix("mix_cnc_classic", make_mix_bytes(ora::fs::PackageHashType::Classic, "cnc"), "cnc");
+    dump_mix("mix_ra_classic", make_mix_bytes(ora::fs::PackageHashType::Classic, "ra"), "ra");
+    dump_mix("mix_ts_crc32_encrypted", make_mix_bytes(ora::fs::PackageHashType::CRC32, "ts"), "ts");
+
+    // X:local 数据库往返(MakeData → 解析;名表与 oracle 一致)
+    // X: the local-database round trip (MakeData → parse; the same name
+    // list as the oracle).
+    {
+      const auto vec_db = ora::fmt::XccLocalDatabase::MakeData(vec_local_db_names);
+      const ora::fmt::XccLocalDatabase database{vec_db};
+      str_out += std::format("X {}\n", database.Entries().size());
+      for (const std::string& str_e : database.Entries())
+        str_out += std::format("XE {}\n", str_e);
+    }
+
+    // G:global 数据库(块构造与 oracle 一致)
+    // G: the global database (the block construction shared with the oracle).
+    {
+      auto vec_global = std::vector<std::byte>{};
+      const auto push_u32 = [&vec_global](std::uint32_t uint4_v) {
+        for (auto int4_i = 0; int4_i < 4; int4_i++)
+          vec_global.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+      };
+      const auto push_sz = [&vec_global](std::string_view sv) {
+        for (const char chr_c : sv)
+          vec_global.push_back(static_cast<std::byte>(chr_c));
+        vec_global.push_back(std::byte{0});
+      };
+      push_u32(2);
+      push_sz("a.dat");
+      push_sz("comment one");
+      push_sz("b.dat");
+      push_sz("second comment");
+      push_u32(1);
+      push_sz("averylongfilename.somewhat.shx");
+      push_sz("");
+      push_u32(1);
+      push_sz("dup.dat");
+      push_sz("x");
+
+      const ora::fmt::XccGlobalDatabase global{vec_global};
+      str_out += std::format("G {}\n", global.Entries().size());
+      for (const std::string& str_e : global.Entries())
+        str_out += std::format("GE {}\n", str_e);
+    }
+  }
+
   return str_out;
 }
 
@@ -1626,6 +2136,11 @@ int main(int argc, char** argv) {
     TestTgaDdsPureLogic();
     TestShpRemasteredPureLogic();
     TestEmbeddedSpritePalette();
+    TestBlowfish();
+    TestXccDatabases();
+    TestPackageEntryHash();
+    TestMixFile();
+    TestD2kSoundResources();
     std::println("pure-logic ok");
     TestGoldenDifferential(argv[1], argv[2]);
   } catch (const std::exception& ex) {

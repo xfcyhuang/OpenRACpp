@@ -166,6 +166,19 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
   if (yaml_fileSystem_->Value != nullptr)
     str_fileSystemLoader_ = *yaml_fileSystem_->Value;
 
+  // PackageFormats(L159-161):存在才取(ImmutableArray<string> 字段加载;
+  // 标量 = 单元素,列表 = 节点键)。C++ mod.yaml 集均为标量("Mix")。
+  // PackageFormats (L159-161): parsed only when present (the
+  // ImmutableArray<string> field load; a scalar is a one-element list, a
+  // list is the node keys). The C++ mod.yaml set is all scalars ("Mix").
+  if (const yaml::MiniYaml* yaml_formats = find_node("PackageFormats")) {
+    if (yaml_formats->Value != nullptr && !yaml_formats->Value->empty())
+      vec_packageFormats_.push_back(*yaml_formats->Value);
+    for (const yaml::MiniYamlNode& node : yaml_formats->Nodes)
+      if (node.Key != nullptr)
+        vec_packageFormats_.push_back(*node.Key);
+  }
+
   vec_rules_ = YamlListOf(vec_yaml, "Rules");
   vec_sequences_ = YamlListOf(vec_yaml, "Sequences");
   vec_modelSequences_ = YamlListOf(vec_yaml, "ModelSequences");

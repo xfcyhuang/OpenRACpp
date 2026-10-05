@@ -94,6 +94,13 @@ class Manifest final {
   /// The FileSystem loader name (the node Value).
   const std::string& FileSystemLoaderName() const { return str_fileSystemLoader_; }
 
+  /// PackageFormats(L159-161):包格式加载器名列表(标量 = 单元素;
+  /// mod.yaml 事实形态)。消费方:ModData → IPackageLoader 集(Mix 等)。
+  /// PackageFormats (L159-161): the package-format loader names (a scalar
+  /// is a one-element list — the de-facto mod.yaml shape). Consumer: ModData
+  /// → the IPackageLoader set (Mix, ...).
+  const std::vector<std::string>& PackageFormats() const { return vec_packageFormats_; }
+
   /// MapFolders(my.Value 字典;L119 + L198-204)
   /// MapFolders (the my.Value dictionary; L119 + L198-204).
   const std::vector<std::pair<std::string, std::string>>& MapFolders() const {
@@ -115,6 +122,7 @@ class Manifest final {
   std::vector<std::pair<std::string, std::string>> vec_mapFolders_;
   const yaml::MiniYaml* yaml_fileSystem_{nullptr};
   std::string str_fileSystemLoader_;
+  std::vector<std::string> vec_packageFormats_;
 };
 
 }  // namespace ora::game

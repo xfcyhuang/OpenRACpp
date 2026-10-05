@@ -79,7 +79,15 @@
 - oracle:`tools/golden_gen -- fmt` 增四段合成夹具(两语言同构造;**stored-deflate zlib 与手工 zip 保证两语言字节恒等**):7 PNG(五滤波/位深 1/2/4/8/PLTE+tRNS 部分/双 IDAT 切分/重复 tEXt/未知块 + **Save 结构对拍 = 块类型序 CRC + IDAT 解压 CRC**,D64)+ 5 TGA(三向 × 24/32bpp + RLE 两型)+ 7 DDS(非压含掩码交换/三 mip/DXT1 插值+透穿/DXT3/DXT5 双梯度)+ 1 ShpRemastered 合成 zip(meta 裁剪帧/缺号空白帧/无 meta 帧/无关条目)—— golden 6096 → **6183 行逐行对拍一致**,oracle 双跑确定性验证
 - 验收(formats_test):纯逻辑新增(PNG 九负例 + Save 往返/块序/CRC 逐块/滤波 0 行流、Tga/DDS/ShpRemastered/EmbeddedSpritePalette 负例与四态);双构建 ctest 15/15;偏离 D63~D67 登记
 
-下一批次(Phase 4 续):Mix+Blowfish、aud/wav(IMA ADPCM)、vqa/wsa、vxl/hva/idx、OpenAL/FreeType、硬件光标、WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)。
+**Phase 4 第七批完成**(mix 包 + Blowfish;2026-10-05):
+
+- `src/formats/` 三件:blowfish(P/S 盒 18+4×256 逐值照搬 + 16 轮 Feistel 逐行 + RunCipher 大端装卸与奇数尾落 0)、blowfish_key_provider("direct C port" 全文逐语义 —— DER 公钥解包/小端大数 16 位 limb/倒数与 Knuth-D 商估计(**全部中间量 64 位累积,对齐 C# int*uint 的 long 提升**)/平方乘/(55/a+1) 块分组)、xcc_database(local 的 48 字节头解析 + Data() 写出;global 的块解析)
+- `src/fs/` 三件:package_entry(Classic rotate-1 与 CRC32 填充字节两哈希)、mix_file(三格式检测 + 加密头 80B 密钥块 RSA→Blowfish 整块解密 + local/global 库双哈希名解析择优;MixLoader 后缀嗅探)、d2k_sound_resources(.rs 目录解析,绝对偏移取内容)
+- 接线:Manifest.PackageFormats 解析 + ModData 按名装载 Mix/D2kSoundResources loader → FileSystem 构造(ModData.cs L63-65 等价)
+- oracle:golden_gen 增 Q/KB/BE/M/X/G 五段(加密夹具**构造侧走内嵌 Blowfish/KeyProvider 逐字副本、解析侧走上游 MixLoader.MixFile = 跨语言闭环**),黄金 6183 → **6227 行逐行对拍一致**,oracle 双跑确定性验证
+- 验收(formats_test):Blowfish 公开标准向量/往返/奇数尾、Xcc 往返与截断负例、HashFilename 填充边界、mix 最小夹具 + 垃圾密钥块负例 + 嗅探、.rs 绝对偏移 + 重键负例;双构建 ctest 15/15;偏离 D68~D73 登记
+
+下一批次(Phase 4 续):aud/wav(IMA ADPCM)、vqa/wsa、vxl/hva/idx、OpenAL/FreeType、硬件光标、WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)。
 
 ## 与上游的差异(优化点与偏离登记)
 
@@ -101,12 +109,12 @@
 
 ### 与上游不同步处(偏离登记摘要)
 
-当前登记 **D1~D67**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
+当前登记 **D1~D73**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
 
 - **yaml/fs(D1~D9)**:异常类型统一为 YamlException(消息文本逐字一致)、惰性枚举物化为 vector、null/"" 键合流等——合法输入下行为等价或不可观测;
 - **meta/加载链(D10~D24)**:TypeConverter 兜底未实现(实际字段类型已全覆盖,不可达)、字典字段为插入序 vector(dump 协议按键排序)、三 mod 解析快照以 C++ 侧固化(D24:C# `--dump` 工具受 ALC 程序集副本环境制约,恢复后可再对拍校准)等;
 - **sim/net(D25~D34)**:Initialize 观察者去重形态差异(受端幂等)、**trait 工厂与所有权待 Phase 5 随 World arena 接线(D26/D27)**、`Target.FromCell` 以 square 网格公式桩换算(D28,Phase 5 接 Map)、UI/大厅命令族静默吞并(D29,Phase 6/7 接线)、SyncReport 未接(D30,上游默认关闭)等;
-- **平台/渲染(第一批 D35~D40、第二批 D41~D45、第三批 D46~D50、第四批 D51~D57)**:命令缓冲替代装箱消息队列、统一线程模型、NPOT、KHR_debug、纹理生命周期契约(替代 glIsTexture 驱逐)、持久映射 VB/VAO 缓存/blend diff/单级合成等;输入层形态适配(退出上报/时钟注入/X1X2 IsRepeat);**格式族第一编(D58~D62)**:Stream → SpanReader、loader 链独立起读、Data null/空统一、越界异常 runtime_error 等价抛点、帧数据 shared_ptr 共享;**格式族第二编(D63~D67)**:zlib 层 miniz 形态(D63)、Save 的 deflate 字节依实现(D64)、Pfim 双路径统一(D65)、BC4/5/DX10 拒绝(D66)、正则手写复刻(D67);**主循环、mods 运行时 trait、UI、服务器、Lua 脚本(Phase 5-8 范围)尚未移植**——见上方状态节。
+- **平台/渲染(第一批 D35~D40、第二批 D41~D45、第三批 D46~D50、第四批 D51~D57)**:命令缓冲替代装箱消息队列、统一线程模型、NPOT、KHR_debug、纹理生命周期契约(替代 glIsTexture 驱逐)、持久映射 VB/VAO 缓存/blend diff/单级合成等;输入层形态适配(退出上报/时钟注入/X1X2 IsRepeat);**格式族第一编(D58~D62)**:Stream → SpanReader、loader 链独立起读、Data null/空统一、越界异常 runtime_error 等价抛点、帧数据 shared_ptr 共享;**格式族第二编(D63~D67)**:zlib 层 miniz 形态(D63)、Save 的 deflate 字节依实现(D64)、Pfim 双路径统一(D65)、BC4/5/DX10 拒绝(D66)、正则手写复刻(D67);**mix 包族第三编(D68~D73)**:HashFilename 哈希域 ASCII(D68)、mix 字节驻留/顺序非契约/global 库不重试(D69)、未解析日志丢弃 + ReadBlocks 宽松界照抄(D70)、Xcc ASCII 域(D71)、.rs 重键等价抛(D72)、loader 名字分派表(D73);**主循环、mods 运行时 trait、UI、服务器、Lua 脚本(Phase 5-8 范围)尚未移植**——见上方状态节。
 
 ## 许可证与归属
 
@@ -194,7 +202,15 @@ The engine is rewritten from scratch to match the exact semantics of the upstrea
 - Oracle: `tools/golden_gen -- fmt` gains four synthetic-fixture sections (the same construction in both languages; **stored-deflate zlib and the hand-rolled zip keep the two languages byte-identical**): 7 PNGs (all five filters / bit depths 1/2/4/8 / PLTE + partial tRNS / the two-chunk IDAT split / duplicate tEXt / an unknown chunk + **the Save structural differential = the chunk-type-order CRC + the IDAT-decompressed CRC**, D64) + 5 TGAs (three orientations × 24/32bpp + two RLE flavors) + 7 DDSs (uncompressed with the mask swap / three mips / DXT1 interpolated + punch-through / DXT3 / DXT5 both gradients) + 1 ShpRemastered synthetic zip (a meta-cropped frame / a blank gap frame / a plain frame / an unrelated entry) — the golden grows 6096 → **6183 lines matching line for line**, with the oracle's cross-run determinism verified
 - Acceptance (formats_test): new pure logic (nine PNG negatives + the Save round trip / chunk order / per-chunk CRCs / filter-0 row stream, Tga/Dds/ShpRemastered/EmbeddedSpritePalette negatives and four states); ctest 15/15 on both builds; deviations D63–D67 registered
 
-Next batch (Phase 4 continued): Mix+Blowfish, aud/wav (IMA ADPCM), vqa/wsa, vxl/hva/idx, OpenAL/FreeType, hardware cursors, and WorldRenderer/render collection (OPT-A7 SOA + the frame arena).
+**Phase 4 seventh batch complete** (the mix package + Blowfish; 2026-10-05):
+
+- Three files in `src/formats/`: blowfish (the 18 + 4×256 P/S boxes copied value for value + the 16-round Feistel line by line + RunCipher's big-endian load/store with the odd trailing element zeroed), blowfish_key_provider (the "direct C port" kept verbatim — the DER public-key unwrap / little-endian bignums over 16-bit limbs / the reciprocal and Knuth-D quotient estimation (**all intermediates accumulate in 64 bits, matching C#'s int*uint promotion to long**) / square-and-multiply / the (55/a+1) block grouping), xcc_database (the local 48-byte-header parse + the Data() writer; the global block parse)
+- Three files in `src/fs/`: package_entry (the Classic rotate-1 and the CRC32 pad-byte hashes), mix_file (the three-format detection + the encrypted header's 80-byte keyblock RSA→Blowfish whole-block decrypt + the local/global database dual-hash name resolution; the MixLoader suffix sniff), d2k_sound_resources (the .rs directory parse with absolute-offset content)
+- Wiring: Manifest.PackageFormats parsing + ModData constructing the Mix/D2kSoundResources loaders by name → the FileSystem construction (the ModData.cs L63-65 equivalent)
+- Oracle: golden_gen gains the five Q/KB/BE/M/X/G sections (the encrypted fixture's **construction side runs the embedded verbatim Blowfish/KeyProvider copies while parsing runs the upstream MixLoader.MixFile — a cross-language closed loop**), the golden growing 6183 → **6227 lines matching line for line**, with the oracle's cross-run determinism verified
+- Acceptance (formats_test): the Blowfish published standard vector / round trip / odd-tail, the Xcc round trips and truncation negatives, HashFilename padding boundaries, the minimal mix fixture + the garbage-keyblock negative + the sniff, the .rs absolute offsets + the duplicate-key negative; ctest 15/15 on both builds; deviations D68–D73 registered
+
+Next batch (Phase 4 continued): aud/wav (IMA ADPCM), vqa/wsa, vxl/hva/idx, OpenAL/FreeType, hardware cursors, and WorldRenderer/render collection (OPT-A7 SOA + the frame arena).
 
 ## Differences from upstream (optimizations & registered deviations)
 
@@ -216,12 +232,12 @@ The bigger items ahead (a render command buffer replacing the boxing message que
 
 ### Not-yet-synced with upstream (registered-deviation summary)
 
-Currently **D1–D67** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
+Currently **D1–D73** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
 
 - **yaml/fs (D1–D9)**: exception types unified into YamlException (message texts verbatim), lazy enumerations materialized into vectors, null/"" key coalescing, etc. — behavior-equivalent or unobservable for valid inputs;
 - **meta/loading chain (D10–D24)**: the TypeConverter fallback not implemented (actual field types are fully covered, unreachable), dictionary fields as insertion-ordered vectors (dump protocol sorts by key), the three-mod parse snapshots frozen on the C++ side (D24: the C# `--dump` tool is constrained by the ALC assembly-copy environment; re-differential once restored), etc.;
 - **sim/net (D25–D34)**: the Initialize observer-dedup shape differs (receiving ends are idempotent), **the trait factory and ownership await Phase 5 wiring into the World arena (D26/D27)**, `Target.FromCell` stubbed with the square-grid formula (D28, Map lands in Phase 5), UI/lobby command families silently swallowed (D29, wired in Phase 6/7), SyncReport not wired (D30, off by default upstream), etc.;
-- **Platform/render (first batch D35–D40, second D41–D45, third D46–D50, fourth D51–D57)**: the command buffer replacing the boxing message queue, the unified threading model, NPOT, KHR_debug, the texture lifetime contract (replacing the glIsTexture eviction), the persistent-mapped VBs/VAO cache/blend diff/single-pass compositing, etc., plus input-layer shape adaptations (exit reporting / clock injection / X1X2 IsRepeat); **the first formats installment (D58–D62)**: Stream → SpanReader, loaders each starting fresh at offset 0, Data null/empty unified, out-of-bounds exceptions as equivalent runtime_error throws, frame data shared via shared_ptr; **the second formats installment (D63–D67)**: the zlib layer's miniz shape (D63), Save's implementation-defined deflate bytes (D64), the Pfim dual-path unification (D65), the BC4/5/DX10 rejection (D66), the hand-written regex reproductions (D67); **the main loop, runtime mods traits, UI, server, and Lua scripting (Phases 5–8) are not ported yet** — see the status section above.
+- **Platform/render (first batch D35–D40, second D41–D45, third D46–D50, fourth D51–D57)**: the command buffer replacing the boxing message queue, the unified threading model, NPOT, KHR_debug, the texture lifetime contract (replacing the glIsTexture eviction), the persistent-mapped VBs/VAO cache/blend diff/single-pass compositing, etc., plus input-layer shape adaptations (exit reporting / clock injection / X1X2 IsRepeat); **the first formats installment (D58–D62)**: Stream → SpanReader, loaders each starting fresh at offset 0, Data null/empty unified, out-of-bounds exceptions as equivalent runtime_error throws, frame data shared via shared_ptr; **the second formats installment (D63–D67)**: the zlib layer's miniz shape (D63), Save's implementation-defined deflate bytes (D64), the Pfim dual-path unification (D65), the BC4/5/DX10 rejection (D66), the hand-written regex reproductions (D67); **the mix-package family, third installment (D68–D73)**: HashFilename's ASCII hash domain (D68), the mix byte residency / non-contractual ordering / no global-database retry (D69), the dropped unresolved log + ReadBlocks' loose bounds check kept verbatim (D70), the Xcc ASCII domain (D71), the .rs duplicate-key equivalent throw (D72), the loader name-dispatch table (D73); **the main loop, runtime mods traits, UI, server, and Lua scripting (Phases 5–8) are not ported yet** — see the status section above.
 
 ## License & Attribution
 
