@@ -11,6 +11,7 @@ import std;
 
 #include <SDL2/SDL.h>  // 第三方 C 头(std_import_check 白名单登记) | third-party C header (registered in the std_import_check whitelist)
 
+#include "platform/sdl2_hardware_cursor.hpp"
 #include "platform/sdl2_window.hpp"
 
 namespace ora::platform {
@@ -210,6 +211,53 @@ WindowGeomSnapshot Sdl2Window::Geom() const {
       .int4_height = static_cast<std::int32_t>((uint8_packed >> 16) & 0xFFFF),
       .float_scale = static_cast<float>((uint8_packed >> 32) & 0xFFFF) / 256.0f,
   };
+}
+
+std::optional<Sdl2HardwareCursor> Sdl2Window::CreateHardwareCursor(
+    std::string_view str_name, int int4_width, int int4_height,
+    std::span<const std::uint8_t> span_data, int2 int2_hotspot, bool b_pixel_double) {
+  try {
+    int int4_cur_width = int4_width;
+    int int4_cur_height = int4_height;
+    std::vector<std::uint8_t> vec_data{span_data.begin(), span_data.end()};
+
+    // 窗口 scale 足够大时像素倍增(macOS 由系统代劳,其余平台自做;
+    // Sdl2PlatformWindow.cs L386-392)。scale 取 OPT-B5 快照(D87)。
+    // Pixel-double when the window scale is large enough (macOS does it for
+    // us; every other platform does it itself — Sdl2PlatformWindow.cs
+    // L386-392). The scale reads the OPT-B5 snapshot (D87).
+    if (Geom().float_scale > 1.5f) {
+      vec_data = DoublePixelData(vec_data, int4_cur_width, int4_cur_height);
+      int4_cur_width = 2 * int4_cur_width;
+      int4_cur_height = 2 * int4_cur_height;
+      int2_hotspot = int2{2 * int2_hotspot.X, 2 * int2_hotspot.Y};
+    }
+
+    // 玩家请求时除"默认"光标外全部再倍增一次
+    // Scale all but the "default" cursor if requested by the player.
+    if (b_pixel_double) {
+      vec_data = DoublePixelData(vec_data, int4_cur_width, int4_cur_height);
+      int4_cur_width = 2 * int4_cur_width;
+      int4_cur_height = 2 * int4_cur_height;
+      int2_hotspot = int2{2 * int2_hotspot.X, 2 * int2_hotspot.Y};
+    }
+
+    Sdl2HardwareCursor cursor{int4_cur_width, int4_cur_height, vec_data, int2_hotspot};
+    if (cursor.Cursor() == nullptr)
+      return std::nullopt;  // D87:上游泄漏 surface 靠 GC;此处光标对象析构即释放
+    return cursor;           // D87: upstream leaks the surface to the GC; here the cursor object's destructor frees it
+  } catch (const std::exception& ex) {
+    std::println(stderr, "Failed to create hardware cursor `{}` - {}", str_name, ex.what());
+    return std::nullopt;
+  }
+}
+
+void Sdl2Window::SetHardwareCursor(const Sdl2HardwareCursor* ptr_cursor) {
+  if (ptr_cursor != nullptr && ptr_cursor->Cursor() != nullptr) {
+    SDL_ShowCursor(SDL_TRUE);
+    SDL_SetCursor(static_cast<SDL_Cursor*>(ptr_cursor->Cursor()));
+  } else
+    SDL_ShowCursor(SDL_FALSE);
 }
 
 }  // namespace ora::platform

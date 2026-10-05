@@ -185,16 +185,35 @@ add_library(ora_sdl2 INTERFACE)
 target_include_directories(ora_sdl2 INTERFACE ${CMAKE_SOURCE_DIR}/third_party/SDL2/include)
 target_link_libraries(ora_sdl2 INTERFACE ${CMAKE_SOURCE_DIR}/third_party/SDL2/lib/libSDL2.dll.a)
 
+# OpenAL Soft 1.24.3 头 + freetype 2.14.1 头(third_party/OpenAL、
+# third_party/FreeType,官方包逐字节;运行时 DLL 经 LoadLibrary 直连,
+# 无链接期依赖)。第十一批:OpenAL 引擎/FreeType 字体(OPT-B2 真结构体)。
+# The OpenAL Soft 1.24.3 headers + the FreeType 2.14.1 headers
+# (third_party/OpenAL, third_party/FreeType; verbatim official packages.
+# Runtime DLLs connect via LoadLibrary — no link-time dependency). Batch 11:
+# the OpenAL engine / FreeType fonts (OPT-B2 real structs).
+add_library(ora_openal INTERFACE)
+target_include_directories(ora_openal INTERFACE ${CMAKE_SOURCE_DIR}/third_party/OpenAL/include)
+add_library(ora_freetype INTERFACE)
+target_include_directories(ora_freetype INTERFACE ${CMAKE_SOURCE_DIR}/third_party/FreeType/include)
+
 # 平台层:GL 类型/常量 + 加载器(OPT-A6)+ SDL2 窗口与原子几何快照(OPT-B5)
-# + 输入泵(Keycode 枚举/修饰符/多击/motion 合并)
+# + 输入泵(Keycode 枚举/修饰符/多击/motion 合并)+ OpenAL 引擎与接口族
+# (池 256/实例限 3/jthread 流式)+ FreeType 字体(OPT-B2)+ SDL2 硬件光标
 # The platform layer: GL types/constants + loader (OPT-A6), the SDL2
-# window with the atomic geometry snapshot (OPT-B5), and the input pump
-# (the Keycode enum/modifiers/multi-tap/motion coalescing).
+# window with the atomic geometry snapshot (OPT-B5), the input pump (the
+# Keycode enum/modifiers/multi-tap/motion coalescing), the OpenAL engine and
+# interface family (the 256 pool / the 3-instance cap / jthread streaming),
+# the FreeType font (OPT-B2), and the SDL2 hardware cursor.
 add_library(ora_platform STATIC
   src/platform/gl_loader.cpp
   src/platform/sdl2_input.cpp
-  src/platform/sdl2_window.cpp)
-target_link_libraries(ora_platform PUBLIC ora_core ora_sdl2)
+  src/platform/sdl2_window.cpp
+  src/platform/al_loader.cpp
+  src/platform/openal_sound_engine.cpp
+  src/platform/freetype_font.cpp
+  src/platform/sdl2_hardware_cursor.cpp)
+target_link_libraries(ora_platform PUBLIC ora_core ora_sdl2 ora_openal ora_freetype)
 ora_link_std(ora_platform)
 
 # 渲染核心:值类型命令 + SPSC 无锁队列(OPT-A5)+ 渲染线程(状态 diff,O6)
@@ -367,12 +386,25 @@ endforeach()
 # desktop-GL integration (OPT-A5/A6/B1/B5; auto-SKIP on headless hosts).
 # SDL2.dll is copied alongside so ctest runs directly.
 add_executable(platform_test tests/platform_test.cpp)
-target_link_libraries(platform_test PRIVATE ora_gfx ora_sdl2)
+target_link_libraries(platform_test PRIVATE ora_gfx ora_sdl2 ora_meta)
 ora_link_std(platform_test)
 add_custom_command(TARGET platform_test POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
-          ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:platform_test>)
-add_test(NAME platform_test COMMAND platform_test)
+          ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:platform_test>
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/third_party/OpenAL/bin/OpenAL32.dll $<TARGET_FILE_DIR:platform_test>
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/third_party/FreeType/bin/freetype6.dll $<TARGET_FILE_DIR:platform_test>)
+# 第十一批:字形黄金对拍(golden_fonts.txt 由 tools/golden_gen --fonts 再生;
+# 字体资产取自上游 mods)
+# Batch 11: the glyph golden differential (golden_fonts.txt regenerates via
+# tools/golden_gen --fonts; the font assets come from upstream mods).
+if(EXISTS ${CMAKE_SOURCE_DIR}/tests/golden_fonts.txt)
+  add_test(NAME platform_test COMMAND platform_test
+           ${ORA_UPSTREAM_ROOT} ${CMAKE_SOURCE_DIR}/tests/golden_fonts.txt)
+else()
+  add_test(NAME platform_test COMMAND platform_test)
+endif()
 
 # Phase 4 第三批验收:Sheet/SheetBuilder/Sprite 几何 + Palette 家族 +
 # HardwarePalette dirty 行(OPT-A7)纯逻辑断言,及 GL 集成上传读回

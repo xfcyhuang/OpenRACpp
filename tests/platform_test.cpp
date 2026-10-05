@@ -15,6 +15,11 @@ import std;
 #include <cstdio>  // stderr 为宏,不穿越 import 边界(规范允许的并用正形态) | stderr is a macro; the spec-sanctioned mixed form
 
 #include "gfx/gfx_command.hpp"
+#include "meta/dump_format.hpp"
+#include "platform/al_loader.hpp"
+#include "platform/dummy_sound_engine.hpp"
+#include "platform/freetype_font.hpp"
+#include "platform/openal_sound_engine.hpp"
 #include "platform/sdl2_input.hpp"
 
 #if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
@@ -24,6 +29,7 @@ import std;
 #include "gfx/render_thread.hpp"
 #include "gfx/shader.hpp"
 #include "gfx/texture.hpp"
+#include "platform/sdl2_hardware_cursor.hpp"
 #include "platform/sdl2_window.hpp"
 #endif
 
@@ -856,7 +862,491 @@ void TestGlResourceWrappers() {
 
 }  // namespace
 
-int main() {
+// ———— 第十一批:OpenAL/FreeType/硬件光标 ————
+// ———— Batch 11: OpenAL / FreeType / hardware cursors ————
+
+/// AL 格式码四组合(OpenAlSoundEngine.cs L109-115)。
+/// The four AL format combinations (OpenAlSoundEngine.cs L109-115).
+void TestMakeAlFormat() {
+  using ora::platform::MakeAlFormat;
+  ORA_CHECK(MakeAlFormat(1, 16) == AL_FORMAT_MONO16);
+  ORA_CHECK(MakeAlFormat(1, 8) == AL_FORMAT_MONO8);
+  ORA_CHECK(MakeAlFormat(2, 16) == AL_FORMAT_STEREO16);
+  ORA_CHECK(MakeAlFormat(2, 8) == AL_FORMAT_STEREO8);
+}
+
+/// 双 NUL 设备表解析(QueryDevices 内层循环的纯函数面)。
+/// The double-NUL device-list parser (the pure face of QueryDevices' inner
+/// loop).
+void TestParseAlDeviceList() {
+  // 字面量 "\0" 会被 C++ 截断,显式组缓冲(表尾后 1 字节哨兵防越读)
+  // C++ truncates "\0" literals, so buffers are built explicitly (plus one
+  // sentinel byte past the terminator against over-reads).
+  //
+  // 上游怪癖照抄(OpenAlSoundEngine.cs L79-92):C# do-while 的 continue 跳到
+  // 条件判定 —— 读完名字末字节后 offset 恰落其 NUL,循环在 flush 前退出,
+  // 故非空名表恒得空结果(上游 QueryDevices 实际恒返回 [],AvailableDevices
+  // 只剩 Default Output)。C++ 逐语句照抄 = 与该怪癖行为一致(bug 兼容)。
+  // Upstream quirk kept (OpenAlSoundEngine.cs L79-92): a C# do-while's
+  // continue jumps to the condition — after the last byte of a name the
+  // offset lands on its NUL and the loop exits before flushing, so any
+  // non-empty-name list yields the empty result (upstream's QueryDevices in
+  // fact always returns [], leaving AvailableDevices with just the Default
+  // Output). The C++ port copies statement by statement = identical behavior
+  // (bug compatible).
+  const std::array<char, 13> arr_two{'A', 'l', 'p', 'h', 'a', '\0', 'B', 'e', 't', 'a', '\0', '\0', '\0'};
+  const std::vector<std::string> vec_two = ora::platform::ParseAlDeviceList(arr_two.data());
+  ORA_CHECK(vec_two.empty());
+
+  // 单条即表尾:同怪癖 | one entry that is also the end: same quirk
+  const std::array<char, 8> arr_one{'s', 'o', 'l', 'o', '\0', '\0', '\0', '\0'};
+  const std::vector<std::string> vec_one = ora::platform::ParseAlDeviceList(arr_one.data());
+  ORA_CHECK(vec_one.empty());
+
+  // 空串条目(首字节即 NUL):b == 0 分支先 flush 再查条件 → 恒得一条空名
+  // An empty-string entry (first byte already a NUL): the b == 0 branch
+  // flushes before the condition → exactly one empty name.
+  const std::array<char, 4> arr_empty{'\0', '\0', '\0', '\0'};
+  const std::vector<std::string> vec_empty = ora::platform::ParseAlDeviceList(arr_empty.data());
+  ORA_CHECK(vec_empty.size() == 1);
+  ORA_CHECK(vec_empty[0].empty());
+}
+
+/// Play2D 门控:同源实例限 3 / 分组距离 / 帧窗 / relative 匹配 / 衰减公式
+/// (OpenAlSoundEngine.cs L211-243;浮点期望值以同式计算,精确相等)。
+/// The Play2D gate: the 3-per-source cap / the grouping distance / the frame
+/// window / the relative match / the attenuation formula
+/// (OpenAlSoundEngine.cs L211-243; float expectations computed by the same
+/// expression, exact equality).
+void TestEvaluatePlayGate() {
+  using ora::platform::EvaluatePlayGate;
+  using ora::platform::GateProbeSlot;
+  using ora::WPos;
+
+  // 空池:恒放行,atten = 0.66 * (256/256)
+  // Empty pool: always allowed, atten = 0.66 * (256/256).
+  {
+    const auto gate = EvaluatePlayGate({}, true, 7, WPos{}, 0);
+    ORA_CHECK(!gate.b_deny);
+    ORA_CHECK(gate.fp4_atten == 0.66f * ((256 - 0 * 0.5f) / 256));
+  }
+
+  // 同源 × 同位 × 同帧:第 4 次拒(第 3 个在播实例触发 ++instances == 3)
+  // Same source × same position × same tick: the 4th play denied (the third
+  // in-flight instance triggers ++instances == 3).
+  {
+    std::vector<GateProbeSlot> vec_slots(3);
+    for (GateProbeSlot& slot : vec_slots) {
+      slot.b_is_active = true;
+      slot.b_is_relative = true;
+      slot.uintp_source_id = 7;
+      slot.int4_frame_started = 0;
+      slot.pos = WPos{};
+    }
+    ORA_CHECK(EvaluatePlayGate(vec_slots, true, 7, WPos{}, 0).b_deny);
+    // 换源/换帧窗/换距离任一不满足 → 放行
+    // A different source / frame window / distance each restores the allow.
+    ORA_CHECK(!EvaluatePlayGate(vec_slots, true, 8, WPos{}, 0).b_deny);
+    ORA_CHECK(!EvaluatePlayGate(vec_slots, true, 7, WPos{}, 5).b_deny);
+    ORA_CHECK(!EvaluatePlayGate(vec_slots, true, 7, WPos{2730, 0, 0}, 0).b_deny);
+    // 2729 < 2730:仍在组内,拒 | 2729 < 2730: still inside the group, denied
+    ORA_CHECK(EvaluatePlayGate(vec_slots, true, 7, WPos{2729, 0, 0}, 0).b_deny);
+  }
+
+  // relative 不匹配的槽不进 activeCount(衰减不受影响)
+  // Slots with a mismatched relative flag never enter activeCount (the
+  // attenuation stays unaffected).
+  {
+    GateProbeSlot slot_other;
+    slot_other.b_is_active = true;
+    slot_other.b_is_relative = false;
+    slot_other.uintp_source_id = 7;
+    slot_other.pos = WPos{};
+    const GateProbeSlot arr[] = {slot_other};
+    const auto gate = EvaluatePlayGate(arr, true, 9, WPos{}, 0);
+    ORA_CHECK(!gate.b_deny);
+    ORA_CHECK(gate.fp4_atten == 0.66f);
+  }
+
+  // activeCount 进衰减:10 个活跃(同 relative、异源 → 只进计数不进实例)
+  // → 0.66 * ((256 - 5)/256)。注意上游 ++activeCount 在 relative 检查之后:
+  // relative 不匹配的槽连计数也不进(上段已证)。
+  // activeCount feeds the attenuation: 10 active slots with the matching
+  // relative flag but distinct sources → counted without the instance gate →
+  // 0.66 * ((256 - 5)/256). Note upstream's ++activeCount sits after the
+  // relative check: a mismatched slot never even counts (previous block).
+  {
+    std::vector<GateProbeSlot> vec_slots(10);
+    for (std::size_t int4_i = 0; int4_i < vec_slots.size(); int4_i++) {
+      vec_slots[int4_i].b_is_active = true;
+      vec_slots[int4_i].b_is_relative = true;
+      vec_slots[int4_i].uintp_source_id = 100 + int4_i;  // 异源:距离过滤前即跳过 | distinct source: skipped before the distance filter
+      vec_slots[int4_i].pos = WPos{};
+    }
+    const auto gate = EvaluatePlayGate(vec_slots, true, 42, WPos{}, 100);
+    ORA_CHECK(!gate.b_deny);
+    ORA_CHECK(gate.fp4_atten == 0.66f * ((256 - 10 * 0.5f) / 256));
+  }
+}
+
+/// 内存向量流(Play2DStream 测试的 IPcmStream)。
+/// An in-memory vector stream (the IPcmStream of the Play2DStream tests).
+class VectorPcmStream final : public ora::platform::IPcmStream {
+ public:
+  explicit VectorPcmStream(std::vector<std::uint8_t> vec_data)
+      : vec_data_{std::move(vec_data)} {}
+
+  std::optional<std::size_t> Length() const override { return vec_data_.size(); }
+  std::size_t Read(std::span<std::uint8_t> span_dst) override {
+    const std::size_t int4_take = std::min(span_dst.size(), vec_data_.size() - int4_pos_);
+    std::copy_n(vec_data_.data() + int4_pos_, int4_take, span_dst.data());
+    int4_pos_ += int4_take;
+    return int4_take;
+  }
+
+ private:
+  std::vector<std::uint8_t> vec_data_;
+  std::size_t int4_pos_ = 0;
+};
+
+/// OpenAL 活测(openal-soft 的 "Null" 后端,无音频硬件可跑;DLL/设备不可用
+/// 时整段 SKIP)。
+/// The OpenAL live test (openal-soft's "Null" backend runs without audio
+/// hardware; the whole section SKIPs when the DLL/device is unavailable).
+void TestOpenAlEngineLive() {
+  if (std::getenv("ORA_SKIP_AL") != nullptr)
+    return;
+
+  const ora::al::AlLoadResult load = ora::al::LoadAlDefault();
+  if (!load.b_ok) {
+    std::println("SKIP: OpenAL32.dll 不可用(缺 {}) | SKIP: OpenAL32.dll unavailable (missing {})",
+                 load.str_missing, load.str_missing);
+    return;
+  }
+
+  std::optional<ora::platform::OpenAlSoundEngine> opt_engine;
+  try {
+    opt_engine.emplace(std::string{"Null"});
+  } catch (const std::exception& ex) {
+    std::println("SKIP: OpenAL Null 设备打开失败({}) | SKIP: OpenAL Null device failed ({})",
+                 ex.what(), ex.what());
+    return;
+  }
+
+  auto& engine = *opt_engine;
+  ORA_CHECK(!engine.Dummy());
+
+  // 设备表:默认输出恒在首位
+  // The device list: the default output always leads.
+  const std::vector<ora::platform::SoundDevice> vec_devices = engine.AvailableDevices();
+  ORA_CHECK(!vec_devices.empty());
+  ORA_CHECK(!vec_devices[0].str_device.has_value());
+  ORA_CHECK(vec_devices[0].str_label == "Default Output");
+
+  engine.SetVolume(0.5f);
+  ORA_CHECK(engine.GetVolume() == 0.5f);
+
+  // 0.1 秒 440Hz mono16 正弦(测试夹具,与上游语义无关)
+  // 0.1 s of 440 Hz mono16 sine (a test fixture, unrelated to upstream).
+  std::vector<std::uint8_t> vec_pcm;
+  for (int int4_i = 0; int4_i < 4410; int4_i++) {
+    const double fp8_sample = std::sin(2.0 * 3.14159265358979323846 * 440.0 * int4_i / 44100.0) * 8000.0;
+    const auto int4_s = static_cast<std::int16_t>(fp8_sample);
+    vec_pcm.push_back(static_cast<std::uint8_t>(int4_s & 0xFF));
+    vec_pcm.push_back(static_cast<std::uint8_t>((int4_s >> 8) & 0xFF));
+  }
+
+  auto* const ptr_source = engine.AddSoundSourceFromMemory(vec_pcm, 1, 16, 44100);
+  ORA_CHECK(ptr_source != nullptr);
+
+  // 门控活测:同位同帧第 4 次拒(3 个在播实例)。上游实例计数不查
+  // Complete —— 已停声的槽仍计数(探针实证),故本段须先于任何其他播放。
+  // The live gate: the 4th same-position same-tick play denied (3 in-flight
+  // instances). Upstream's instance count never checks Complete — a stopped
+  // sound's slot still counts (probe-proven) — so this section must precede
+  // every other play.
+  {
+    std::vector<std::unique_ptr<ora::platform::ISound>> vec_holding;
+    for (int int4_i = 0; int4_i < 3; int4_i++) {
+      auto up_play = engine.Play2D(ptr_source, true, true, ora::WPos::Zero(), 1.0f, true);
+      ORA_CHECK(up_play != nullptr);
+      vec_holding.push_back(std::move(up_play));
+    }
+    ORA_CHECK(engine.Play2D(ptr_source, false, true, ora::WPos::Zero(), 1.0f, true) == nullptr);
+    engine.StopAllSounds();
+  }
+
+  // 基本播放:音量读写 / 停止即 Complete
+  // Basic playback: volume read-write / stopped means Complete.
+  auto up_sound = engine.Play2D(ptr_source, false, true, ora::WPos::Zero(), 1.0f, false);
+  ORA_CHECK(up_sound != nullptr);
+  ORA_CHECK(up_sound->GetVolume() == 1.0f);
+  up_sound->SetVolume(0.25f);
+  ORA_CHECK(up_sound->GetVolume() == 0.25f);
+  ORA_CHECK(up_sound->SeekPosition() >= 0.0f);
+  engine.StopSound(up_sound.get());
+  ORA_CHECK(up_sound->Complete());
+  up_sound.reset();
+
+  // 流式:Play2DStream 返回后 Stop 加入线程;停止即任务完结
+  // Streaming: Stop joins the Play2DStream thread; stopped means the task
+  // completed.
+  {
+    auto up_stream = engine.Play2DStream(
+        std::make_unique<VectorPcmStream>(vec_pcm), 1, 16, 44100, false, true,
+        ora::WPos::Zero(), 0.75f);
+    ORA_CHECK(up_stream != nullptr);
+    std::this_thread::sleep_for(std::chrono::milliseconds{50});
+    engine.StopSound(up_stream.get());  // ISound 无 Stop 面(上游同),经引擎分发
+                                        // ISound has no Stop face (as upstream); dispatched through the engine
+    ORA_CHECK(up_stream->Complete());
+  }
+
+  // 池耗尽与回收:播到 TryGet 失败,StopAll 后复播成功
+  // Pool exhaustion and recycle: play until TryGet fails, then play again
+  // after StopAll.
+  {
+    std::vector<std::unique_ptr<ora::platform::ISound>> vec_holding;
+    int int4_played = 0;
+    for (;;) {
+      auto up_play = engine.Play2D(ptr_source, true, true, ora::WPos::Zero(), 1.0f, false);
+      if (up_play == nullptr)
+        break;
+      ++int4_played;
+      vec_holding.push_back(std::move(up_play));
+      if (int4_played > 300)  // 256 槽 + 余量即异常 | 256 slots plus slack is abnormal
+        break;
+    }
+    ORA_CHECK(int4_played >= 16);  // 至少一组典型 voice 限额 | at least a typical voice quota
+    ORA_CHECK(int4_played <= ora::platform::kAlPoolSize);
+    engine.StopAllSounds();
+    // 停止的声可被回收路径复用(Complete → 重挂)
+    // Stopped sounds take the recycle path (Complete → rebind).
+    auto up_again = engine.Play2D(ptr_source, false, true, ora::WPos::Zero(), 1.0f, false);
+    ORA_CHECK(up_again != nullptr);
+  }
+
+  engine.SetListenerPosition(ora::WPos{1024, 1024, 0});
+  engine.SetSoundVolume(0.5f, nullptr, nullptr);
+  engine.SetAllSoundsPaused(true);
+  engine.SetAllSoundsPaused(false);
+}
+
+/// Dummy 引擎空面(容错回落目标)。
+/// The dummy engine's no-op face (the tolerance fallback target).
+void TestDummySoundEngine() {
+  ora::platform::DummySoundEngine engine;
+  ORA_CHECK(engine.Dummy());
+  const std::vector<ora::platform::SoundDevice> vec_devices = engine.AvailableDevices();
+  ORA_CHECK(vec_devices.size() == 1);
+  ORA_CHECK(vec_devices[0].str_label == "No Sound Output");
+  ORA_CHECK(engine.GetVolume() == 0.0f);
+
+  std::array<std::uint8_t, 4> arr_bytes{};
+  auto* const ptr_source = engine.AddSoundSourceFromMemory(arr_bytes, 1, 16, 22050);
+  auto up_sound = engine.Play2D(ptr_source, false, true, ora::WPos::Zero(), 1.0f, true);
+  ORA_CHECK(up_sound != nullptr);
+  ORA_CHECK(!up_sound->Complete());
+  ORA_CHECK(engine.Play2DStream(nullptr, 1, 16, 22050, false, true, ora::WPos::Zero(), 1.0f) ==
+            nullptr);
+  delete ptr_source;
+}
+
+/// FreeType 字形:基本形态 + 垃圾字体负例 + 黄金对拍(DLL 不可用 SKIP)。
+/// FreeType glyphs: the basic shapes + the garbage-font negative + the golden
+/// differential (SKIP when the DLL is unavailable).
+void TestFreetypeFont(const char* ptr_upstream_root, const char* ptr_golden_path) {
+  if (std::getenv("ORA_SKIP_FT") != nullptr)
+    return;
+
+  const ora::platform::FreetypeLoadResult load = ora::platform::LoadFreetypeDefault();
+  if (!load.b_ok) {
+    std::println("SKIP: freetype6.dll 不可用(缺 {}) | SKIP: freetype6.dll unavailable (missing {})",
+                 load.str_missing, load.str_missing);
+    return;
+  }
+
+  // 垃圾字节字体 → "Failed to initialize font"(消息逐字)
+  // A garbage font → "Failed to initialize font" (message verbatim).
+  const std::array<std::uint8_t, 16> arr_garbage{};
+  bool b_threw = false;
+  try {
+    const ora::platform::FreeTypeFont font_bad{arr_garbage};
+  } catch (const std::runtime_error& ex) {
+    b_threw = std::string_view{ex.what()} == "Failed to initialize font";
+  }
+  ORA_CHECK(b_threw);
+
+  if (ptr_upstream_root == nullptr || ptr_golden_path == nullptr)
+    return;  // 无参运行:仅离线部分 | argumentless run: offline part only
+
+  // 黄金镜像循环:与 golden_gen --fonts 同一矩阵(4 字体 × 3 尺寸 × 2 缩放
+  // × 9 码点),行序逐行对拍。
+  // The golden mirror loop: the same matrix as golden_gen --fonts (4 fonts ×
+  // 3 sizes × 2 scales × 9 code points), compared line for line.
+  std::ifstream stream_golden{std::filesystem::path{ptr_golden_path}};
+  if (!stream_golden.is_open()) {
+    std::println(stderr, "FAIL golden_fonts 打不开 | cannot open golden_fonts: {}", ptr_golden_path);
+    ++int4_failures;
+    return;
+  }
+
+  const std::array<const char*, 4> arr_fonts = {
+      "mods/common/FreeSans.ttf", "mods/common/FreeSansBold.ttf",
+      "mods/d2k/Dune2k.ttf", "mods/ra/ZoodRangmah.ttf"};
+  const std::array<int, 3> arr_sizes = {7, 12, 16};
+  const std::array<float, 2> arr_scales = {1.0f, 1.25f};
+  const std::array<std::uint32_t, 9> arr_chars = {'A', 'a', 'Z', '0', ' ', '~', 0x00E9,
+                                                  0x4E2D, 0xD800};
+
+  std::int64_t int8_lines = 0;
+  std::int64_t int8_glyphs = 0;
+  std::string str_line;
+  for (const char* str_rel : arr_fonts) {
+    std::ifstream stream_font{std::filesystem::path{ptr_upstream_root} / str_rel,
+                              std::ios::binary};
+    if (!stream_font.is_open()) {
+      std::println(stderr, "FAIL 字体打不开 | cannot open font: {}", str_rel);
+      ++int4_failures;
+      continue;
+    }
+    const std::vector<std::uint8_t> vec_font{std::istreambuf_iterator<char>{stream_font},
+                                             std::istreambuf_iterator<char>{}};
+    ora::platform::FreeTypeFont font{vec_font};
+
+    if (!std::getline(stream_golden, str_line) || str_line != std::format("G {}", str_rel)) {
+      std::println(stderr, "FAIL golden_fonts 段头(期望 G {})| golden_fonts header (expected G {})",
+                   str_rel, str_rel);
+      ++int4_failures;
+      return;
+    }
+    int8_lines++;
+
+    for (const int int4_size : arr_sizes) {
+      for (const float fp4_scale : arr_scales) {
+        for (const std::uint32_t uint4_cp : arr_chars) {
+          const ora::platform::FontGlyph glyph = font.CreateGlyph(uint4_cp, int4_size, fp4_scale);
+          std::string str_hex = "-";
+          if (!glyph.vec_data.empty()) {
+            str_hex.clear();
+            for (const std::uint8_t uint1_byte : glyph.vec_data)
+              str_hex += std::format("{:02X}", uint1_byte);
+          }
+          const std::string str_expect = std::format(
+              "GL {} {} u{:04X} ADV {} OFF {} {} W {} H {} X {}", int4_size,
+              ora::meta::FormatFloatNet(fp4_scale), uint4_cp,
+              ora::meta::FormatFloatNet(glyph.fp4_advance), glyph.offset.X, glyph.offset.Y,
+              glyph.int4_width, glyph.int4_height, str_hex);
+
+          if (!std::getline(stream_golden, str_line)) {
+            std::println(stderr, "FAIL golden_fonts 提前尽 | golden_fonts ended early");
+            ++int4_failures;
+            return;
+          }
+          int8_lines++;
+          int8_glyphs++;
+          if (str_line != str_expect) {
+            std::println(stderr, "FAIL 字形不一致({} size={} scale={}):\n  golden: {}\n  cpp:   {}",
+                         str_rel, int4_size, fp4_scale, str_line, str_expect);
+            ++int4_failures;
+            return;  // 首个失配即停(报告定位)| stop at the first mismatch (for locating)
+          }
+        }
+      }
+    }
+  }
+
+  // 尾部不得有余行 | no trailing lines allowed
+  ORA_CHECK(!std::getline(stream_golden, str_line));
+  std::println("OpenAL/FreeType 黄金: {} 行 / {} 字形一致 | golden: {} lines / {} glyphs identical",
+               int8_lines, int8_glyphs, int8_lines, int8_glyphs);
+}
+
+#ifdef ORA_HAS_DESKTOP_GL
+
+/// 光标位图倍增(Sdl2PlatformWindow.cs L364-377 纯函数面):2×2 → 4×4。
+/// Cursor-bitmap doubling (the pure face of Sdl2PlatformWindow.cs L364-377):
+/// 2×2 → 4×4.
+void TestDoublePixelData() {
+  // 4 像素 RGBA,通道值各不相同以便核对邻域复制
+  // Four distinct RGBA pixels so the neighborhood copy is checkable.
+  const std::array<std::uint8_t, 16> arr_src{0x10, 0x11, 0x12, 0x13, 0x20, 0x21, 0x22, 0x23,
+                                             0x30, 0x31, 0x32, 0x33, 0x40, 0x41, 0x42, 0x43};
+  const std::vector<std::uint8_t> vec_scaled = ora::platform::DoublePixelData(arr_src, 2, 2);
+  ORA_CHECK(vec_scaled.size() == 64);
+
+  // 期望:输出 (y,x) = 输入 (y/2, x/2) 的 4 字节
+  // Expectation: output (y,x) = the 4 bytes of input (y/2, x/2).
+  std::vector<std::uint8_t> vec_expect(64, 0);
+  for (int int4_y = 0; int4_y < 4; int4_y++) {
+    for (int int4_x = 0; int4_x < 4; int4_x++) {
+      for (int int4_i = 0; int4_i < 4; int4_i++)
+        vec_expect[4 * (static_cast<std::size_t>(int4_y) * 4 + int4_x) + int4_i] =
+            arr_src[4 * (static_cast<std::size_t>(int4_y / 2) * 2 + int4_x / 2) + int4_i];
+    }
+  }
+  ORA_CHECK(vec_scaled == vec_expect);
+}
+
+/// 硬件光标活测(SDL 视频不可用 SKIP):建光标 / 窗口集成(pixelDouble 与
+/// scale>1.5 两条倍增路径经 DoublePixelData 纯面已覆盖,此处走真实 SDL)。
+/// The hardware-cursor live test (SKIP without SDL video): cursor creation
+/// and the window integration (both doubling paths — pixelDouble and
+/// scale>1.5 — are covered through the pure DoublePixelData face; this runs
+/// the real SDL path).
+void TestHardwareCursorLive() {
+  if (std::getenv("ORA_SKIP_GL") != nullptr)
+    return;
+  if (!ora::platform::InitSdl2Video())
+    return;
+
+  // 不透明白 2×2 | opaque white 2×2
+  std::vector<std::uint8_t> vec_pixels(2 * 2 * 4, 0);
+  for (std::size_t int4_i = 0; int4_i < 4; int4_i++) {
+    vec_pixels[4 * int4_i + 0] = 0xFF;
+    vec_pixels[4 * int4_i + 1] = 0xFF;
+    vec_pixels[4 * int4_i + 2] = 0xFF;
+    vec_pixels[4 * int4_i + 3] = 0xFF;
+  }
+
+  bool b_ok = true;
+  try {
+    const ora::platform::Sdl2HardwareCursor cursor{2, 2, vec_pixels, ora::int2{1, 1}};
+    b_ok = cursor.Cursor() != nullptr;
+  } catch (const std::exception& ex) {
+    std::println("光标直建抛错({})| direct cursor build threw ({})", ex.what(), ex.what());
+    b_ok = false;
+  }
+  ORA_CHECK(b_ok);
+
+  // 窗口集成:普通 1× 缩放不倍增;pixelDouble 走倍增
+  // Window integration: at 1× scale no doubling; pixelDouble doubles.
+  ora::platform::Sdl2Window::Desc desc;
+  desc.int4_width = 64;
+  desc.int4_height = 48;
+  auto opt_window = ora::platform::Sdl2Window::Create(desc);
+  if (!opt_window.has_value()) {
+    std::println("SKIP: 窗口不可用(光标集成)| SKIP: no window (cursor integration)");
+    return;
+  }
+
+  auto opt_cursor = opt_window->CreateHardwareCursor("test", 2, 2, vec_pixels, ora::int2{1, 1},
+                                                     false);
+  const bool b_scale_single = opt_window->Geom().float_scale <= 1.5f;
+  ORA_CHECK(opt_cursor.has_value() || !b_scale_single);
+  if (opt_cursor.has_value()) {
+    opt_window->SetHardwareCursor(&*opt_cursor);
+    opt_window->SetHardwareCursor(nullptr);
+  }
+
+  auto opt_cursor_doubled = opt_window->CreateHardwareCursor("test2x", 2, 2, vec_pixels,
+                                                             ora::int2{0, 0}, true);
+  ORA_CHECK(opt_cursor_doubled.has_value() || !b_scale_single);
+}
+
+#endif  // ORA_HAS_DESKTOP_GL
+
+int main(int int4_argc, char** argv) {
   TestSpscSingleThread();
   TestSpscTwoThreads();
 
@@ -865,9 +1355,22 @@ int main() {
   TestMakeButtonAndModifiers();
   TestScaleAwayFromZero();
 
+  // 第十一批:OpenAL 纯逻辑 + 活测 + Dummy;FreeType 黄金 | Batch 11: the
+  // OpenAL pure logic + live test + dummy; the FreeType golden differential.
+  TestMakeAlFormat();
+  TestParseAlDeviceList();
+  TestEvaluatePlayGate();
+  TestOpenAlEngineLive();
+  TestDummySoundEngine();
+  const char* ptr_upstream_root = int4_argc > 1 ? argv[1] : nullptr;
+  const char* ptr_golden_fonts = int4_argc > 2 ? argv[2] : nullptr;
+  TestFreetypeFont(ptr_upstream_root, ptr_golden_fonts);
+
 #ifdef ORA_HAS_DESKTOP_GL
   TestKeycodeAgainstSdl();
   TestPumpInputSynthetic();
+  TestDoublePixelData();
+  TestHardwareCursorLive();
   int int4_argc_dummy = 0;
   char* argv_dummy = nullptr;
   TestGlIntegration(int4_argc_dummy, &argv_dummy);
@@ -878,6 +1381,6 @@ int main() {
     std::println(stderr, "platform_test: {} 项失败 | {} failure(s)", int4_failures, int4_failures);
     return 1;
   }
-  std::println("platform_test: PASS(SPCS 队列 + 输入层 + GL 集成与资源封装)");
+  std::println("platform_test: PASS(SPCS 队列 + 输入层 + OpenAL/FreeType/光标 + GL 集成与资源封装)");
   return 0;
 }

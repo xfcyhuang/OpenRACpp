@@ -14,7 +14,11 @@
 #pragma once
 import std;
 
+#include "core/int2.hpp"
+
 namespace ora::platform {
+
+class Sdl2HardwareCursor;  // 前置:CreateHardwareCursor 返回 optional<光标>| forward: CreateHardwareCursor returns optional<cursor>
 
 /// 窗口模式(Sdl2PlatformWindow.cs 的 WindowMode 枚举)
 /// Window modes (the WindowMode enum of Sdl2PlatformWindow.cs)
@@ -98,6 +102,23 @@ class Sdl2Window {
   /// 几何快照(OPT-B5:无锁一次读)。
   /// Geometry snapshot (OPT-B5: one lock-free read).
   WindowGeomSnapshot Geom() const;
+
+  /// 创建硬件光标(Sdl2PlatformWindow.cs L379-405):非 macOS 且窗口
+  /// scale > 1.5f 时先像素倍增(本平台恒满足"非 macOS"),pixelDouble 再
+  /// 倍增一次;建败返回 nullopt(D87:上游 try/catch → log + null)。
+  /// Creates a hardware cursor (Sdl2PlatformWindow.cs L379-405): pixel-
+  /// doubles first when non-macOS and the window scale > 1.5f (always
+  /// "non-macOS" on this platform), then again when pixelDouble; a build
+  /// failure returns nullopt (D87: upstream's try/catch → log + null).
+  [[nodiscard]] std::optional<Sdl2HardwareCursor> CreateHardwareCursor(
+      std::string_view str_name, int int4_width, int int4_height,
+      std::span<const std::uint8_t> span_data, int2 int2_hotspot, bool b_pixel_double);
+
+  /// 设置当前光标(Sdl2PlatformWindow.cs L412-421):空指针 = 隐藏系统光标
+  /// (软光标路径)。
+  /// Sets the current cursor (Sdl2PlatformWindow.cs L412-421): a null pointer
+  /// hides the system cursor (the software-cursor path).
+  void SetHardwareCursor(const Sdl2HardwareCursor* ptr_cursor);
 
   /// SDL 窗口句柄(平台内部互通用;调用方不得直接调 SDL 窗口 API 之外的接口)
   /// SDL window handle (platform-internal interoperability).
