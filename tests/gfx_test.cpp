@@ -30,7 +30,11 @@ import std;
 #include "gfx/hardware_palette.hpp"
 #include "gfx/sheet.hpp"
 #include "gfx/renderer.hpp"
+#include "gfx/renderable.hpp"
 #include "gfx/sprite_renderer.hpp"
+#include "gfx/terrain_sprite_layer.hpp"
+#include "gfx/world_renderer.hpp"
+#include "sim/world.hpp"
 
 #if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
 #define ORA_HAS_DESKTOP_GL 1
@@ -40,6 +44,9 @@ import std;
 #endif
 
 namespace {
+
+using namespace ora;      // WPos/WVec/int2/CPos/MPos 测试面简写 | test-file shorthand
+using namespace ora::gfx;  // Vector2/3 的渲染运算符(operator* 等)| the rendering operators of Vector2/3
 
 std::int32_t int4_failures = 0;
 
@@ -782,6 +789,411 @@ void TestRgbaColorRendererGeometry() {
   }
 }
 
+// ———— 第十二批纯逻辑:RenderItem 排序/分段(OPT-A7)+ WorldRenderer 坐标
+// 与调色板面 + TerrainSpriteLayer 的 SOA 组合等价 ————
+// ———— Twelfth-batch pure logic: the RenderItem sort/segmentation (OPT-A7) +
+// WorldRenderer's coordinate and palette faces + TerrainSpriteLayer's SOA
+// composition equivalence ————
+
+/// 便捷:仅填排序键字段的测试 RenderItem。
+/// Convenience: a test RenderItem with only the sort-key fields filled.
+ora::gfx::RenderItem MakeKeyItem(std::int32_t int4_y, std::int32_t int4_z, std::int32_t int4_z_offset,
+                                 ora::gfx::RenderableKind kind) {
+  ora::gfx::RenderItem item;
+  item.kind = kind;
+  item.wpos_pos = WPos{0, int4_y, int4_z};
+  item.int4_z_offset = int4_z_offset;
+  return item;
+}
+
+void TestRenderItemSortAndSegments() {
+  ora::FrameArena arena{4096};
+
+  // 排序:键 = Y+Z+ZOffset(int 回绕),平局按收集序。
+  // Sorting: key = Y+Z+ZOffset (int wraparound), ties by collection order.
+  {
+    std::vector<ora::gfx::RenderItem> vec_items;
+    vec_items.push_back(MakeKeyItem(500, 0, 0, ora::gfx::RenderableKind::Sprite));    // key 500
+    vec_items.push_back(MakeKeyItem(100, 0, 0, ora::gfx::RenderableKind::UISprite));  // key 100
+    vec_items.push_back(MakeKeyItem(100, 0, 0, ora::gfx::RenderableKind::Sprite));    // key 100(同键,后收)
+    vec_items.push_back(MakeKeyItem(0, 100, 0, ora::gfx::RenderableKind::MarkerTile));  // key 100(再同键)
+    vec_items.push_back(MakeKeyItem(0, 0, 50, ora::gfx::RenderableKind::Sprite));     // key 50
+
+    const std::size_t size_mark = arena.Mark();
+    const auto vec_sorted = ora::gfx::SortRenderablesByZ(vec_items, arena);
+    ORA_CHECK(vec_sorted.size() == 5);
+    ORA_CHECK(vec_sorted[0].int4_z_offset == 50);                              // 50 最前 | 50 first
+    ORA_CHECK(vec_sorted[1].kind == ora::gfx::RenderableKind::UISprite);       // 100 组按收集序 | the 100 group in collection order
+    ORA_CHECK(vec_sorted[2].kind == ora::gfx::RenderableKind::Sprite);
+    ORA_CHECK(vec_sorted[3].kind == ora::gfx::RenderableKind::MarkerTile);
+    ORA_CHECK(vec_sorted[4].wpos_pos.Y == 500);
+    arena.Rewind(size_mark);
+  }
+
+  // 负键(int 回绕域)仍按带符号序 —— 上游 (long)key 装载前的 int 加法。
+  // Negative keys (the int-wraparound domain) keep the signed order — the
+  // int additions upstream performs before the (long)key lift.
+  {
+    std::vector<ora::gfx::RenderItem> vec_items;
+    vec_items.push_back(MakeKeyItem(-300, 0, 0, ora::gfx::RenderableKind::Sprite));
+    vec_items.push_back(MakeKeyItem(200, 0, 0, ora::gfx::RenderableKind::Sprite));
+    const std::size_t size_mark = arena.Mark();
+    const auto vec_sorted = ora::gfx::SortRenderablesByZ(vec_items, arena);
+    ORA_CHECK(vec_sorted[0].wpos_pos.Y == -300);
+    arena.Rewind(size_mark);
+  }
+
+  // 空 TargetLine 的 Pos = First() 等价抛("Sequence contains no elements")。
+  // The empty TargetLine's Pos = First() throws equivalently ("Sequence
+  // contains no elements").
+  {
+    std::vector<ora::gfx::RenderItem> vec_items;
+    vec_items.push_back(ora::gfx::MakeTargetLineRenderable({}, ora::core::Color::FromArgb(255, 255, 0, 0), 1, 1));
+    bool b_threw = false;
+    try {
+      const std::size_t size_mark = arena.Mark();
+      ora::gfx::SortRenderablesByZ(vec_items, arena);
+      arena.Rewind(size_mark);
+    } catch (const std::runtime_error& error_runtime) {
+      b_threw = std::string_view{error_runtime.what()} == "Sequence contains no elements";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  // 计数分段:kind 首遇序为段序,段内 = 收集序(= GroupBy 两阶稳定序)。
+  // Counting segmentation: first-encounter kind order between segments,
+  // collection order within (= GroupBy's two-level stable order).
+  {
+    std::vector<ora::gfx::RenderItem> vec_items;
+    vec_items.push_back(MakeKeyItem(1, 0, 0, ora::gfx::RenderableKind::UISprite));    // UI 首遇 | UI first
+    vec_items.push_back(MakeKeyItem(2, 0, 0, ora::gfx::RenderableKind::Sprite));
+    vec_items.push_back(MakeKeyItem(3, 0, 0, ora::gfx::RenderableKind::UISprite));
+    vec_items.push_back(MakeKeyItem(4, 0, 0, ora::gfx::RenderableKind::MarkerTile));  // Marker 首遇 | Marker first
+    vec_items.push_back(MakeKeyItem(5, 0, 0, ora::gfx::RenderableKind::Sprite));
+    vec_items.push_back(MakeKeyItem(6, 0, 0, ora::gfx::RenderableKind::UISprite));
+
+    const std::size_t size_mark = arena.Mark();
+    const auto segments = ora::gfx::SegmentByKind(vec_items, arena);
+    ORA_CHECK(segments.int4_kind_order_count == 3);
+    ORA_CHECK(segments.arr_kind_order[0] == ora::gfx::RenderableKind::UISprite);
+    ORA_CHECK(segments.arr_kind_order[1] == ora::gfx::RenderableKind::Sprite);
+    ORA_CHECK(segments.arr_kind_order[2] == ora::gfx::RenderableKind::MarkerTile);
+    ORA_CHECK(segments.arr_counts[static_cast<std::int32_t>(ora::gfx::RenderableKind::UISprite)] == 3);
+    ORA_CHECK(segments.arr_counts[static_cast<std::int32_t>(ora::gfx::RenderableKind::Sprite)] == 2);
+    ORA_CHECK(segments.arr_counts[static_cast<std::int32_t>(ora::gfx::RenderableKind::MarkerTile)] == 1);
+    ORA_CHECK(segments.arr_starts[static_cast<std::int32_t>(ora::gfx::RenderableKind::UISprite)] == 0);
+    ORA_CHECK(segments.arr_starts[static_cast<std::int32_t>(ora::gfx::RenderableKind::Sprite)] == 3);
+    ORA_CHECK(segments.arr_starts[static_cast<std::int32_t>(ora::gfx::RenderableKind::MarkerTile)] == 5);
+    // 段内收集序(Y 递增 = 收集序)| within-segment collection order (the
+    // ascending Y = the collection order)
+    ORA_CHECK(segments.vec_segmented[0].wpos_pos.Y == 1);
+    ORA_CHECK(segments.vec_segmented[1].wpos_pos.Y == 3);
+    ORA_CHECK(segments.vec_segmented[2].wpos_pos.Y == 6);
+    ORA_CHECK(segments.vec_segmented[3].wpos_pos.Y == 2);
+    ORA_CHECK(segments.vec_segmented[4].wpos_pos.Y == 5);
+    arena.Rewind(size_mark);
+  }
+}
+
+void TestWorldRendererCoordinatesAndPalettes() {
+  ora::sim::World world{};
+  ora::gfx::WorldRenderer::Desc desc;
+  desc.int2_tile_size = {32, 32};
+  desc.int4_tile_scale = 1024;
+  desc.ptr_renderer = nullptr;  // 纯逻辑(调色板走数据模式)| pure logic (the data-only palette mode)
+  ora::gfx::WorldRenderer wr{world, desc};
+
+  // ScreenPosition/Screen3DPosition(L402-425)。
+  // ScreenPosition/Screen3DPosition (L402-425).
+  const auto vec_pos = wr.ScreenPosition(WPos{512, 2048, 512});
+  ORA_CHECK(vec_pos.X == 16.0f && vec_pos.Y == 48.0f);
+  const auto vec_3d = wr.Screen3DPosition(WPos{512, 2048, 512});
+  ORA_CHECK(vec_3d.X == 16.0f && vec_3d.Y == 48.0f && vec_3d.Z == 64.0f);
+
+  // ScreenPxPosition 的 Math.Round 就近偶舍入:0.5 → 0、1.5 → 2(L427-432)。
+  // ScreenPxPosition's Math.Round half-to-even: 0.5 → 0, 1.5 → 2 (L427-432).
+  ORA_CHECK(wr.ScreenPxPosition(WPos{16, 16, 0}) == int2(0, 0));
+  ORA_CHECK(wr.ScreenPxPosition(WPos{48, 48, 0}) == int2(2, 2));
+
+  // Screen3DPxPosition 只整 xy 不整 z(L434-439)。
+  // Screen3DPxPosition rounds x/y only, never z (L434-439).
+  const auto vec_3dpx = wr.Screen3DPxPosition(WPos{16, 48, 0});
+  ORA_CHECK(vec_3dpx.X == 0.0f && vec_3dpx.Y == 2.0f && vec_3dpx.Z == 1.5f);
+
+  // ScreenVectorComponents/ScreenVector/ScreenPxOffset(L442-462)。
+  // ScreenVectorComponents/ScreenVector/ScreenPxOffset (L442-462).
+  const auto vec_components = wr.ScreenVectorComponents(WVec{1024, 2048, 512});
+  ORA_CHECK(vec_components.X == 32.0f && vec_components.Y == 48.0f && vec_components.Z == 16.0f);
+  const auto arr_vec = wr.ScreenVector(WVec{1024, 2048, 512});
+  ORA_CHECK(arr_vec[0] == 32.0f && arr_vec[1] == 48.0f && arr_vec[2] == 16.0f && arr_vec[3] == 1.0f);
+  ORA_CHECK(wr.ScreenPxOffset(WVec{512, 512, 0}) == int2(16, 16));
+
+  // ProjectedPosition(L468-471):TileScale*px/Tile 整除向零截断。
+  // ProjectedPosition (L468-471): TileScale*px/Tile truncates towards zero.
+  const WPos wpos_projected = wr.ProjectedPosition({16, 48});
+  ORA_CHECK(wpos_projected.X == 512 && wpos_projected.Y == 1536 && wpos_projected.Z == 0);
+
+  // —— 调色板面(L105-138)——
+  // —— The palette faces (L105-138) ——
+  ORA_CHECK(wr.Palette("") == nullptr);  // 空名 null(L109)| empty name → null (L109)
+
+  wr.AddPalette("terrain", MakeGradientPalette(0xFF000000), false);
+  const auto* ptr_ref_a = wr.Palette("terrain");
+  const auto* ptr_ref_b = wr.Palette("terrain");
+  ORA_CHECK(ptr_ref_a != nullptr && ptr_ref_a == ptr_ref_b);  // GetOrAdd 缓存 | the GetOrAdd cache
+
+  // 高度增长触发 PaletteInvalidated;allowOverwrite 的 Replace 不增长。
+  // A height growth fires PaletteInvalidated; the allowOverwrite Replace
+  // does not grow.
+  std::int32_t int4_invalidated = 0;
+  const auto uint8_token = wr.SubscribePaletteInvalidated([&]() { ++int4_invalidated; });
+  wr.AddPalette("player", MakeGradientPalette(0xFF100000), false);
+  ORA_CHECK(int4_invalidated >= 1);  // 1→2 行 = NextPowerOf2 增长 | rows 1→2 = a NextPowerOf2 growth
+  wr.AddPalette("player", MakeGradientPalette(0xFF200000), false, true);  // overwrite → ReplacePalette
+  ORA_CHECK(wr.Palette("player")->Palette().At(0) == 0xFF200000u);        // 缓存引用同步(L131-132)
+  wr.UnsubscribePaletteInvalidated(uint8_token);
+
+  // —— RefreshPalette 的 modifier 面(L393-397;IPaletteModifier 注入)——
+  // —— RefreshPalette's modifier face (L393-397; the IPaletteModifier
+  //    injection) ——
+  struct DoublingModifier final : ora::gfx::IPaletteModifier {
+    void AdjustPalette(std::map<std::string, ora::gfx::MutablePalette, std::less<>>& map_mutable) override {
+      const auto it = map_mutable.find("mutable");
+      if (it == map_mutable.end())
+        return;
+      for (auto i = 0; i < ora::gfx::kPaletteSize; ++i) {
+        const std::uint32_t uint4_color = it->second.At(i);
+        const std::uint32_t uint4_r = std::min<std::uint32_t>((uint4_color >> 16 & 0xFF) * 2, 255);
+        it->second.SetAt(i, (uint4_color & 0xFF00FFFFu) | uint4_r << 16);
+      }
+    }
+  };
+  wr.AddPalette("mutable", MakeGradientPalette(0xFF000000), true);  // allowModifiers = 可变 | mutable
+  const std::uint32_t uint4_before = wr.hardware_palette().GetPalette("mutable").At(10);
+  DoublingModifier modifier;
+  const std::array<ora::gfx::IPaletteModifier*, 1> arr_modifiers{&modifier};
+  wr.RefreshPalette(arr_modifiers);
+  // ApplyModifiers 后可变调色板重置回原色(modifier 无状态逐帧调整)。
+  // After ApplyModifiers the mutable palette resets to its original colors
+  // (stateless per-frame adjustments).
+  ORA_CHECK(wr.hardware_palette().GetPalette("mutable").At(10) == uint4_before);
+}
+
+/// 假地形光照:恒定 tint + 订阅表。
+/// A fake terrain lighting: constant tint + a subscription table.
+class FakeTerrainLighting final : public ora::gfx::ITerrainLighting {
+ public:
+  ora::core::Vector3 vec_tint{0.5f, 1.0f, 2.0f};
+
+  ora::core::Vector3 TintAt(const WPos&) const override { return vec_tint; }
+  std::uint64_t AddCellChangedListener(std::function<void(MPos)>) override { return 0; }
+  void RemoveCellChangedListener(std::uint64_t) override {}
+};
+
+void TestTerrainSpriteLayerLogic() {
+  // 上游 AOS 参考实现:直接以 (palette, tint) 整写 FastCreateQuad —— 组合
+  // 等价的逐字节对照物(OPT-C5 同型)。
+  // The upstream AOS reference: FastCreateQuad writing (palette, tint) whole
+  // — the byte-for-byte counterpart of the composition equivalence (the
+  // OPT-C5 style).
+  const auto MakeAosReference = [](const ora::gfx::Sprite& sprite_r, std::int32_t int4_palette_index,
+                                   const ora::core::Vector3& vec_tint_effective, float float_alpha) {
+    std::array<ora::gfx::Vertex, 4> arr_reference{};
+    ora::gfx::FastCreateQuad(arr_reference, ora::core::Vector3{11.0f, 22.0f, 5.0f}, sprite_r, int2{0, 0},
+                             int4_palette_index, 0, 1.0f * sprite_r.vec_size, vec_tint_effective, float_alpha);
+    return arr_reference;
+  };
+
+  ora::sim::World world{};
+  ora::gfx::WorldRenderer::Desc desc;
+  desc.int2_tile_size = {24, 24};
+  desc.int4_tile_scale = 1024;
+  ora::gfx::WorldRenderer wr{world, desc};
+  wr.SetTerrainSurface(ora::gfx::TerrainMapSurface::MakeSquareDefault({4, 3}));
+
+  ora::gfx::HardwarePalette palette_hw{nullptr};  // 数据模式 | data-only mode
+  palette_hw.AddPalette("terrain", MakeGradientPalette(0xFF000000), false);
+  const ora::gfx::PaletteReference ref_terrain{"terrain", palette_hw.GetPaletteIndex("terrain"),
+                                               palette_hw.GetPalette("terrain"), palette_hw};
+
+  ora::gfx::SheetBuilder builder{ora::gfx::SheetType::Indexed, 64, 1, nullptr};
+  const auto sprite_tile = builder.Allocate({8, 8});
+
+  // 空精灵 = SheetBuilder 的零尺寸 Allocate(上游 TerrainSpriteLayer 的调用方
+  // 以 Sequence 空帧/专门 1×1 白帧充当;此处取零尺寸占位)。
+  // The empty sprite = SheetBuilder's zero-size Allocate (upstream callers
+  // fill the slot with a sequence's empty frame or a dedicated 1×1 white
+  // frame; a zero-size placeholder serves here).
+  const auto sprite_empty = builder.Allocate({0, 0});
+
+  ora::gfx::TerrainSpriteLayer layer{world, wr, sprite_empty, ora::gfx::BlendMode::Alpha, false, nullptr};
+  ORA_CHECK(layer.kind_blend() == ora::gfx::BlendMode::Alpha);
+
+  // Update(带调色板;blend 匹配)→ 脏行 + 顶点(低 16 位,sampler 0)+
+  // corner tint 全一 + 调色板登记。
+  // Update (with a palette; matching blend) → the dirty row + vertices (the
+  // low 16 bits, sampler 0) + all-ones corner tints + the palette
+  // registration.
+  layer.Update(MPos{1, 1}, &sprite_tile, &ref_terrain, ora::core::Vector3{11.0f, 22.0f, 5.0f}, 1.0f, 1.0f, false);
+  ORA_CHECK(layer.RowDirtyForTest(1));
+  ORA_CHECK(layer.PaletteAtForTest(MPos{1, 1}) == &ref_terrain);
+  {
+    const auto vec_vertices = layer.VerticesForTest();
+    ORA_CHECK(vec_vertices.size() == 4 * 4 * 3);
+    // OPT-A7:顶点 c 只含低 16 位(调色板行上传点组合)。
+    // OPT-A7: the vertex c carries the low 16 bits only (the palette row
+    // composes at the upload).
+    ORA_CHECK((vec_vertices[16].c & 0xFFFF0000u) == 0);
+    ORA_CHECK(vec_vertices[20].r == 1.0f && vec_vertices[20].a == 1.0f);
+  }
+
+  // ComposeRow == AOS 参考(无光照:tint = alpha × One)。
+  // ComposeRow == the AOS reference (no lighting: tint = alpha × One).
+  layer.ComposeRow(1);
+  {
+    const auto arr_reference = MakeAosReference(sprite_tile, ref_terrain.TextureIndex(),
+                                                ora::core::Vector3{1.0f, 1.0f, 1.0f}, 1.0f);
+    const auto& vec_staging = layer.StagingForTest();
+    for (std::size_t i = 0; i < 4; ++i) {
+      ORA_CHECK(vec_staging[4 + i].x == arr_reference[i].x);  // 目标格在行内第 4 顶点起 | the target cell starts at vertex 4 within the row
+      ORA_CHECK(vec_staging[4 + i].c == arr_reference[i].c);
+      ORA_CHECK(vec_staging[4 + i].r == arr_reference[i].r);
+      ORA_CHECK(vec_staging[4 + i].a == arr_reference[i].a);
+    }
+  }
+
+  // 调色板失效(AddPalette 高度增长)→ 全行标脏,无逐顶点工作。
+  // Palette invalidation (an AddPalette height growth) → every row dirty,
+  // zero per-vertex work.
+  layer.Draw(1, 1);  // 清行 1 的脏 | clears row 1's dirty
+  ORA_CHECK(!layer.RowDirtyForTest(1));
+  wr.AddPalette("player", MakeGradientPalette(0xFF100000), false);
+  ORA_CHECK(layer.RowDirtyForTest(0) && layer.RowDirtyForTest(1) && layer.RowDirtyForTest(2));
+
+  // Clear(cell) → 空精灵四顶点 + 调色板 null。
+  // Clear(cell) → the empty sprite's four vertices + a null palette.
+  layer.Update(MPos{2, 1}, &sprite_tile, &ref_terrain, ora::core::Vector3{0, 0, 0}, 1.0f, 1.0f, false);
+  layer.Clear(CPos{2, 1});
+  ORA_CHECK(layer.PaletteAtForTest(MPos{2, 1}) == nullptr);
+  {
+    const auto vec_vertices = layer.VerticesForTest();
+    const std::size_t size_offset = 16 /* 行 1 × vertexRowStride */ + 4 * 2;  // 行 1 内格 2 | cell 2 within row 1
+    for (std::size_t i = 0; i < 4; ++i)
+      // 空精灵 = Indexed sheet 的 Red 通道位(0<<1|1 = 0x01);上游空精灵由调用
+      // 方给 RGBA 白帧,通道位随其 = 0x02 —— 位模式随精灵,非恒 0。
+      // The empty sprite carries the Indexed sheet's Red channel bit
+      // (0<<1|1 = 0x01); upstream's caller-supplied RGBA white frame would
+      // pack 0x02 — the bits belong to the sprite, never a constant zero.
+      ORA_CHECK(vec_vertices[size_offset + i].c == 0x01u);
+  }
+
+  // —— 光照路径:corner tint 四角采样;ignoreTint 复位 One;组合 == AOS ——
+  // —— The lighting path: the four-corner corner-tint sampling; ignoreTint
+  //    resetting to One; composition == AOS ——
+  {
+    ora::gfx::WorldRenderer wr_lit{world, desc};
+    wr_lit.SetTerrainSurface(ora::gfx::TerrainMapSurface::MakeSquareDefault({4, 3}));
+    FakeTerrainLighting lighting;
+    wr_lit.SetTerrainLighting(&lighting);
+
+    ora::gfx::TerrainSpriteLayer layer_lit{world, wr_lit, sprite_empty, ora::gfx::BlendMode::Alpha, false, nullptr};
+    layer_lit.Update(MPos{1, 1}, &sprite_tile, &ref_terrain, ora::core::Vector3{11.0f, 22.0f, 5.0f}, 1.0f, 0.5f,
+                     false);
+    const auto vec_tints = layer_lit.CornerTintForTest();
+    const std::size_t size_offset = 4 * 4 * 1 + 4 * 1;
+    for (std::size_t i = 0; i < 4; ++i) {
+      ORA_CHECK(vec_tints[size_offset + i].X == 0.5f);
+      ORA_CHECK(vec_tints[size_offset + i].Y == 1.0f);
+      ORA_CHECK(vec_tints[size_offset + i].Z == 2.0f);
+    }
+
+    // 组合 == 上游 AOS 参考:tint 参数 = alpha × One,RGB 复算 = alpha ×
+    // weights —— 两域重合(头注论证)。
+    // Composition == the upstream AOS reference: the tint argument =
+    // alpha × One with the RGB recompute = alpha × weights — the two
+    // domains coincide (the header argument).
+    layer_lit.ComposeRow(1);
+    const auto arr_reference = MakeAosReference(
+        sprite_tile, ref_terrain.TextureIndex(),
+        0.5f * ora::core::Vector3{0.5f, 1.0f, 2.0f},  // alpha × weights
+        0.5f);
+    const auto& vec_staging = layer_lit.StagingForTest();
+    for (std::size_t i = 0; i < 4; ++i) {
+      ORA_CHECK(vec_staging[4 + i].r == arr_reference[i].r);
+      ORA_CHECK(vec_staging[4 + i].g == arr_reference[i].g);
+      ORA_CHECK(vec_staging[4 + i].b == arr_reference[i].b);
+      ORA_CHECK(vec_staging[4 + i].a == arr_reference[i].a);
+    }
+
+    // ignoreTint → corner 复位 One(上游 RGB = v.A × One 的组合域等价)。
+    // ignoreTint → the corner resets to One (the composition-domain
+    // equivalent of upstream's RGB = v.A × One).
+    layer_lit.Update(MPos{1, 1}, &sprite_tile, &ref_terrain, ora::core::Vector3{11.0f, 22.0f, 5.0f}, 1.0f, 0.5f,
+                     true);
+    const ora::core::Vector3 vec_tint_one{1.0f, 1.0f, 1.0f};
+    for (std::size_t i = 0; i < 4; ++i)
+      ORA_CHECK(vec_tints[size_offset + i] == vec_tint_one);
+  }
+
+  // —— 负例与怪癖 ——
+  // —— Negatives and quirks ——
+  bool b_threw = false;
+  try {
+    ora::gfx::Sheet sheet_other{ora::gfx::SheetType::Indexed, {4, 4}, nullptr};
+    auto sprite_other = sprite_tile;
+    sprite_other.kind_blend = ora::gfx::BlendMode::None;  // blend 不匹配 | blend mismatch
+    layer.Update(MPos{0, 0}, &sprite_other, nullptr, ora::core::Vector3{}, 1.0f, 1.0f, false);
+  } catch (const std::runtime_error& error_runtime) {
+    b_threw = std::string_view{error_runtime.what()} == "Attempted to add sprite with a different blend mode";
+  }
+  ORA_CHECK(b_threw);
+
+  // 9 张不同 sheet → 第 9 张满槽 "Sheet overflow"(槽 0 保留给 null)。
+  // Nine distinct sheets → the ninth overflows ("Sheet overflow"; slot 0 is
+  // reserved for null).
+  b_threw = false;
+  try {
+    std::array<ora::gfx::Sheet, 9> arr_sheets{
+        ora::gfx::Sheet{ora::gfx::SheetType::Indexed, {4, 4}, nullptr},
+        ora::gfx::Sheet{ora::gfx::SheetType::Indexed, {4, 4}, nullptr},
+        ora::gfx::Sheet{ora::gfx::SheetType::Indexed, {4, 4}, nullptr},
+        ora::gfx::Sheet{ora::gfx::SheetType::Indexed, {4, 4}, nullptr},
+        ora::gfx::Sheet{ora::gfx::SheetType::Indexed, {4, 4}, nullptr},
+        ora::gfx::Sheet{ora::gfx::SheetType::Indexed, {4, 4}, nullptr},
+        ora::gfx::Sheet{ora::gfx::SheetType::Indexed, {4, 4}, nullptr},
+        ora::gfx::Sheet{ora::gfx::SheetType::Indexed, {4, 4}, nullptr},
+        ora::gfx::Sheet{ora::gfx::SheetType::Indexed, {4, 4}, nullptr}};
+    for (int i = 0; i < 9; ++i) {
+      const auto sprite_i = builder.Allocate({4, 4});  // 全在 builder 自己的 sheet 上 | all on the builder's own sheet
+      // 改指到独立 sheet(保持 blend/通道)| repoint to the standalone sheet
+      auto sprite_rep = sprite_i;
+      sprite_rep.ptr_sheet = &arr_sheets[static_cast<std::size_t>(i)];
+      layer.Update(MPos{0, 0}, &sprite_rep, nullptr, ora::core::Vector3{}, 1.0f, 1.0f, false);
+    }
+  } catch (const std::runtime_error& error_runtime) {
+    b_threw = std::string_view{error_runtime.what()} == "Sheet overflow";
+  }
+  ORA_CHECK(b_threw);
+
+  // 界外格早退(L193-195 的 contains 检查;samplers 登记发生在前 —— 上游
+  // 语句序照抄:界外 update 也会占 sheet 槽,本条锁此怪癖)。
+  // The out-of-bounds early-out (the contains check of L193-195; the
+  // samplers register first — upstream's statement order kept verbatim: an
+  // out-of-bounds update still takes a sheet slot, locked here).
+  {
+    ora::gfx::WorldRenderer wr_bounds{world, desc};
+    wr_bounds.SetTerrainSurface(ora::gfx::TerrainMapSurface::MakeSquareDefault({4, 3}));
+    ora::gfx::TerrainSpriteLayer layer_bounds{world, wr_bounds, sprite_empty, ora::gfx::BlendMode::Alpha, false,
+                                              nullptr};
+    ora::gfx::Sheet sheet_out{ora::gfx::SheetType::Indexed, {4, 4}, nullptr};
+    auto sprite_out = sprite_tile;
+    sprite_out.ptr_sheet = &sheet_out;
+    layer_bounds.Update(MPos{9, 9}, &sprite_out, nullptr, ora::core::Vector3{}, 1.0f, 1.0f, false);
+    for (std::int32_t int4_row = 0; int4_row < 3; ++int4_row)
+      ORA_CHECK(!layer_bounds.RowDirtyForTest(int4_row));  // 早退不标脏 | the early-out marks nothing dirty
+  }
+}
+
 #ifdef ORA_HAS_DESKTOP_GL
 
 // ———— GL 集成:Sheet 上传(全量 + 子区域)/缓冲转移 GL 路径/调色板 OPT-C5 ————
@@ -1191,6 +1603,101 @@ void TestGlFourthBatch() {
     renderer.EndFrame();
     render.FlushAndWait();
   }
+
+  // —— 第十二批:WorldRenderer 收集/绘制链 + TerrainSpriteLayer 的 GL 路径 ——
+  // —— Twelfth batch: the WorldRenderer collection/draw chain + the
+  //    TerrainSpriteLayer GL path ——
+  {
+    ora::gfx::Renderer::Desc desc_renderer_twelfth;
+    desc_renderer_twelfth.int4_vertex_batch_size = 256;
+    desc_renderer_twelfth.str_combined_vert = str_vert;
+    desc_renderer_twelfth.str_combined_frag = str_frag;
+    ora::gfx::Renderer renderer_twelfth{window, render, desc_renderer_twelfth};
+
+    ora::sim::World world{};
+    ora::gfx::WorldRenderer::Desc desc_wr;
+    desc_wr.int2_tile_size = {32, 32};
+    desc_wr.int4_tile_scale = 1024;
+    desc_wr.ptr_renderer = &renderer_twelfth;
+    ora::gfx::WorldRenderer wr{world, desc_wr};
+    wr.SetTerrainSurface(ora::gfx::TerrainMapSurface::MakeSquareDefault({4, 3}));
+
+    struct ViewportStub final : ora::gfx::IViewportSurface {
+      int2 WorldToViewPx(int2 int2_world) override { return int2_world; }
+      int2 WorldToViewPx(const ora::core::Vector3& vec_world) override {
+        return int2{static_cast<std::int32_t>(vec_world.X), static_cast<std::int32_t>(vec_world.Y)};
+      }
+      Rectangle GetScissorBounds(bool) override { return Rectangle{0, 0, 64, 48}; }
+      int2 TopLeft() override { return {0, 0}; }
+      int2 BottomRight() override { return {64, 48}; }
+    } viewport;
+    wr.SetViewport(&viewport);
+
+    wr.AddPalette("red", MakeSolidPalette(0xFFFF0000), false);
+    wr.AddPalette("green", MakeSolidPalette(0xFF00FF00), false);
+    const auto* ptr_ref_red = wr.Palette("red");
+    const auto* ptr_ref_green = wr.Palette("green");
+    ORA_CHECK(ptr_ref_red != nullptr && ptr_ref_green != nullptr);
+
+    ora::gfx::SheetBuilder builder{ora::gfx::SheetType::Indexed, 64, 1, &render};
+    std::array<std::byte, 64> arr_indices{};
+    arr_indices.fill(std::byte{0xC8});
+    const auto sprite_tile = builder.Add(arr_indices, ora::gfx::SpriteFrameType::Indexed8, {8, 8});
+    const auto sprite_empty = builder.Allocate({0, 0});
+
+    // 地形层:格 (0,0) 绿 tile(世界 px 12..20)²;行 0..2 绘制。
+    // The terrain layer: cell (0,0) a green tile (world px 12..20)²; rows
+    // 0..2 drawn.
+    ora::gfx::TerrainSpriteLayer layer{world, wr, sprite_empty, ora::gfx::BlendMode::Alpha, false, &render};
+    layer.Update(CPos{0, 0}, &sprite_tile, ptr_ref_green, 1.0f, 1.0f, false);
+    ORA_CHECK(layer.RowDirtyForTest(0));
+    wr.hooks().fn_render_terrain = [&](ora::gfx::WorldRenderer&, ora::gfx::IViewportSurface&) { layer.Draw(0, 2); };
+
+    // 收集源:红精灵 renderable,世界位 (416,416,0) → 屏幕 (9..17)²(与绿
+    // tile 部分重叠;prepared 绘制在地形之后 → 重叠区红压绿)。
+    // The collection source: a red sprite renderable at world (416,416,0) →
+    // screen (9..17)² (partially overlapping the green tile; prepared draws
+    // after the terrain → red over green in the overlap).
+    wr.hooks().fn_collect_renderables = [&](ora::gfx::WorldRenderer& wr_source, int2, int2) {
+      wr_source.AddRenderable(ora::gfx::MakeSpriteRenderable(
+          sprite_tile, WPos{416, 416, 0}, WVec{}, 0, ptr_ref_red, 1.0f, 1.0f,
+          ora::core::Vector3{1.0f, 1.0f, 1.0f}, ora::gfx::TintModifiers::None, false));
+    };
+
+    renderer_twelfth.SetMaximumViewportSize({64, 48});
+    renderer_twelfth.BeginWorld({32.0f, 24.0f}, {64, 48});
+    wr.PrepareRenderables({});
+    ORA_CHECK(wr.PreparedRenderablesForTest().size() == 1);
+    wr.Draw();
+    renderer_twelfth.BeginUI();
+    renderer_twelfth.Flush();
+    render.FlushAndWait();
+
+    // world FBO 64×48 blit ×2 到 128×96 表面:world (10,10) = 红,(18,18) =
+    // 绿,界外 = world FBO clear(黑)。
+    // The world FBO (64×48) blits ×2 onto the 128×96 surface: world (10,10)
+    // = red, (18,18) = green, elsewhere the world FBO's clear (black).
+    const auto geom = window.Geom();
+    const float float_scale = geom.float_scale;
+    const auto Pixel = [&](float float_x, float float_y) {
+      return ReadPixelAt(static_cast<std::int32_t>(float_x * float_scale),
+                         static_cast<std::int32_t>(float_y * float_scale));
+    };
+    ORA_CHECK(ExpectPixel(Pixel(20, 20), 255, 0, 0));
+    ORA_CHECK(ExpectPixel(Pixel(36, 36), 0, 255, 0));
+    const auto arr_pixel_bg = Pixel(100, 60);
+    ORA_CHECK(arr_pixel_bg[0] <= 3 && arr_pixel_bg[1] <= 3 && arr_pixel_bg[2] <= 3);
+
+    // 脏行已被 Draw 消费;帧末清列(验证收集缓冲复用语义)。
+    // Draw consumed the dirty rows; DrawAnnotations clears the lists (the
+    // collection-buffer reuse semantics verified).
+    ORA_CHECK(!layer.RowDirtyForTest(0));
+    wr.DrawAnnotations();
+    ORA_CHECK(wr.PreparedRenderablesForTest().empty());
+
+    renderer_twelfth.EndFrame();
+    render.FlushAndWait();
+  }
 }
 
 #endif  // ORA_HAS_DESKTOP_GL
@@ -1210,6 +1717,9 @@ int main() {
   TestResolveTextureIndexAndEpoch();
   TestComputeWorldSpriteParams();
   TestRgbaColorRendererGeometry();
+  TestRenderItemSortAndSegments();
+  TestWorldRendererCoordinatesAndPalettes();
+  TestTerrainSpriteLayerLogic();
 
 #ifdef ORA_HAS_DESKTOP_GL
   TestGlSheetAndPalette();
@@ -1220,6 +1730,6 @@ int main() {
     std::println(stderr, "gfx_test: {} 项失败 | {} failure(s)", int4_failures, int4_failures);
     return 1;
   }
-  std::println("gfx_test: PASS(Sheet/Palette/HardwarePalette + SpriteRenderer(持久 VB 槽回绕/BlendSpan/VAO)+ 单级合成 Renderer)");
+  std::println("gfx_test: PASS(Sheet/Palette/HardwarePalette + SpriteRenderer(持久 VB 槽回绕/BlendSpan/VAO)+ 单级合成 Renderer + WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena)+ TerrainSpriteLayer(SOA 分离数组))");
   return 0;
 }

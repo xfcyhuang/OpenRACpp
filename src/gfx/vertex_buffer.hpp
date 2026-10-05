@@ -101,6 +101,15 @@ class VertexBuffer {
   /// false) counterpart).
   void InitStatic(std::span<const std::byte> vec_bytes);
 
+  /// 静态形态的子区域更新(上游 IVertexBuffer.SetData(T[], srcOffset,
+  /// dstOffset, count) —— TerrainSpriteLayer 的脏行上传,L225-228;经
+  /// BufferSubData 命令,目标 GL_STATIC_DRAW 缓冲)。
+  /// The static form's sub-range update (upstream IVertexBuffer.SetData(T[],
+  /// srcOffset, dstOffset, count) — TerrainSpriteLayer's dirty-row upload,
+  /// L225-228; via the BufferSubData command onto the GL_STATIC_DRAW
+  /// buffer).
+  void UpdateStaticSubData(std::uint32_t uint4_byte_offset, std::span<const std::byte> vec_bytes);
+
   /// 写入持久区(槽 slot,槽内偏移 0;渲染线程等槽 fence 后 memcpy)。
   /// Writes into the persistent store (slot slot, offset 0 within it; the
   /// render thread awaits the slot fence, then memcpys).

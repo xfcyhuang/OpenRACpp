@@ -220,11 +220,17 @@ ora_link_std(ora_platform)
 # + Shader/Texture 封装(OPT-A6:uniform 整数化 + RAII 纹理句柄)
 # + Sprite/Sheet/SheetBuilder/Palette 家族 + HardwarePalette(OPT-A7:调色板
 # dirty 行)+ 顶点/四边形生成(第三批)
+# + WorldRenderer/渲染收集(OPT-A7 SOA + 帧 arena:RenderItem POD/排序分段/
+# 三列表复用)+ 四引擎 renderable + TerrainSpriteLayer(第十二批;
+# 依赖 ora_sim 的 World/Actor 面)
 # The render core: value-type commands + the SPSC lock-free ring (OPT-A5),
 # the render thread (state diff, OPT-A6), the Shader/Texture wrappers
-# (OPT-A6: integer uniforms + RAII texture handles), and — third batch —
-# the Sprite/Sheet/SheetBuilder/Palette family + HardwarePalette (OPT-A7:
-# palette dirty rows) + vertex/quad generation.
+# (OPT-A6: integer uniforms + RAII texture handles), and — third batch — the
+# Sprite/Sheet/SheetBuilder/Palette family + HardwarePalette (OPT-A7:
+# palette dirty rows) + vertex/quad generation; twelfth batch — the
+# WorldRenderer/render collection (OPT-A7 SOA + frame arena: the RenderItem
+# POD, sort/segmentation, three reused lists) + the four engine renderables
+# + TerrainSpriteLayer (depends on ora_sim's World/Actor faces).
 add_library(ora_gfx STATIC
   src/gfx/render_thread.cpp
   src/gfx/shader.cpp
@@ -236,8 +242,11 @@ add_library(ora_gfx STATIC
   src/gfx/vertex_buffer.cpp
   src/gfx/frame_buffer.cpp
   src/gfx/sprite_renderer.cpp
-  src/gfx/renderer.cpp)
-target_link_libraries(ora_gfx PUBLIC ora_platform)
+  src/gfx/renderer.cpp
+  src/gfx/renderable.cpp
+  src/gfx/world_renderer.cpp
+  src/gfx/terrain_sprite_layer.cpp)
+target_link_libraries(ora_gfx PUBLIC ora_platform ora_sim)
 ora_link_std(ora_gfx)
 
 # Westwood 文件格式族(PORTING_PLAN §Phase 4 formats 第一编 + 第二编 +

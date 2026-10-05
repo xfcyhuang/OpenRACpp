@@ -122,6 +122,23 @@ void VertexBuffer::InitStatic(std::span<const std::byte> vec_bytes) {
   }
 }
 
+void VertexBuffer::UpdateStaticSubData(std::uint32_t uint4_byte_offset, std::span<const std::byte> vec_bytes) {
+  assert(!b_persistent_ && uint4_buffer_ != 0);
+  if (GfxCmd* ptr_cmd = render_.queue().Reserve(GfxCmdKind::BindBuffer, 0); ptr_cmd != nullptr) {
+    ptr_cmd->uint4_a = gl::GL_ARRAY_BUFFER;
+    ptr_cmd->uint4_b = uint4_buffer_;
+    render_.queue().CommitBare();
+  }
+  if (GfxCmd* ptr_cmd = render_.queue().Reserve(GfxCmdKind::BufferSubData,
+                                                static_cast<std::uint32_t>(vec_bytes.size()));
+      ptr_cmd != nullptr) {
+    ptr_cmd->uint4_a = gl::GL_ARRAY_BUFFER;
+    ptr_cmd->uint4_b = uint4_byte_offset;
+    ptr_cmd->uint4_c = static_cast<std::uint32_t>(vec_bytes.size());
+    render_.queue().Commit(vec_bytes.data());
+  }
+}
+
 void VertexBuffer::WriteSlot(std::uint32_t uint4_slot, std::span<const std::byte> vec_bytes) {
   assert(b_persistent_ && uint4_slot < uint4_slots_);
   if (GfxCmd* ptr_cmd = render_.queue().Reserve(GfxCmdKind::WritePersistent,
