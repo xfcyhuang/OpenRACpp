@@ -1,2 +1,3 @@
 tests/golden_core.txt -text
 tests/golden_yaml.txt -text
+tests/golden_formats.txt -text

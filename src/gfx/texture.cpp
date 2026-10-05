@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/Texture.cs @7d57605 L43-236(实现体)
+// UPSTREAM: OpenRA.Platforms.Default/Texture.cs @b6fc03f L43-236(实现体)
 // 实现体翻译:PrepareTexture 的 6 参数序列、BGRA 上传、UNPACK 行打包、
 // RGBA16F 浮点路径、glGetTexImage 读回。所有 GL 访问经命令队列(渲染线程
 // 独占上下文);纹理操作绑 unit 0(与上游 glBindTexture 的当前单元语义一致

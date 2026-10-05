@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/HardwarePalette.cs @7d57605 L18-161 +
-//           OpenRA.Game/Traits/IPaletteModifier.cs @7d57605(接口)
+// UPSTREAM: OpenRA.Game/Graphics/HardwarePalette.cs @b6fc03f L18-161 +
+//           OpenRA.Game/Traits/IPaletteModifier.cs @b6fc03f(接口)
 // 硬件调色板:256×N 纹理(行 0 保留为"无色移占位"—— 上游 PERF 注释保留)+
 // ColorShifts 浮点纹理(HSV 色移参数,combined.frag 的 rgb2hsv 消费)。
 // 可变调色板经 modifier 每次调整后写回缓冲并上传;ApplyModifiers 末尾把

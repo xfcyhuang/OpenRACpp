@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/XccLocalDatabase.cs @7d57605 L19-69
-//          OpenRA.Mods.Cnc/FileFormats/XccGlobalDatabase.cs @7d57605 L18-60
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/XccLocalDatabase.cs @b6fc03f L19-69
+//          OpenRA.Mods.Cnc/FileFormats/XccGlobalDatabase.cs @b6fc03f L18-60
 // Xcc 数据库两件:local(mix 内嵌的文件名表,48 字节头 + count + NUL 串)
 // 与 global(重复块 [int32 count + (name\0 comment\0)*] 至流尾)。解析逐
 // 语义;Local 另带 Data() 写出器(上游同),供 mix 夹具构造与 oracle 对拍。

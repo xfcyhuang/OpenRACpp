@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpD2Loader.cs @7d57605 L17-172(全文)
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpD2Loader.cs @b6fc03f L17-172(全文)
 // Dune II 的 SHP 图像:帧头(flags/宽/高/数据长)+ 可选调色板查表
 // (PaletteTable/VariableLengthTable;无表时默认 256 项恒等表改四项)+
 // 可选 LCW 预解压 + RLE0(Format2)扫描线。帧偏移表支持 2/4 字节两型

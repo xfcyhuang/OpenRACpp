@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Platform.cs @7d57605(platform.hpp 的实现;
+// UPSTREAM: OpenRA.Game/Platform.cs @b6fc03f(platform.hpp 的实现;
 //          ResolvePath 逐语义,见 hpp 头注)
 //          Implementation of platform.hpp — the verbatim ResolvePath; see
 //          the hpp header notes.

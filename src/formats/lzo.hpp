@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/LZOCompression.cs @7d57605 L49-291(minilzo 2.06 的 C# 移植,逐控制流照抄)
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/LZOCompression.cs @b6fc03f L49-291(minilzo 2.06 的 C# 移植,逐控制流照抄)
 // LZO1X 解压(minilzo 子集)。上游由 Frank Razenberg 自 minilzo 源码
 // 预处理输出机械移植(goto 语义差异以 gt* 布尔改写);C++ 侧原生支持
 // goto,控制流与标签按 C# 版逐分支对照落地(含 MatchNext 后的双重读

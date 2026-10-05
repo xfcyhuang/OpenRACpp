@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpTDLoader.cs @7d57605 L17-331
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpTDLoader.cs @b6fc03f L17-331
 // 实现文件:IsShpTD / ShpTDSprite 构造(ImageHeader 表 + 引用链 +
 // Decompress)/ TrimmedFrame 收边,逐句照抄;Stream → SpanReader。
 // Implementation file: IsShpTD / the ShpTDSprite construction (the

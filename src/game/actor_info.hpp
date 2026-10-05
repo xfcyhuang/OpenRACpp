@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/GameRules/ActorInfo.cs @7d57605 L18-201(逐语义重写)
+// UPSTREAM: OpenRA.Game/GameRules/ActorInfo.cs @b6fc03f L18-201(逐语义重写)
 //          + OpenRA.Game/Primitives/TypeDictionary.cs L30-141(本文件所需的
 //          最小子集:接口名过滤查询)
 //          Full rewrite of ActorInfo.cs + the minimal TypeDictionary subset

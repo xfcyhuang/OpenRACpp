@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/VqaVideo.cs @7d57605 L19-545(全文)
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/VqaVideo.cs @b6fc03f L19-545(全文)
 // + OpenRA.Mods.Cnc/VideoLoaders/VqaLoader.cs L18-61(IsWestwoodVqa 嗅探
 // 与 TryParseVideo 面)。
 // Westwood VQA 视频:FORM/WVQA/VQHD 头 + FINF 帧偏移表(0x40000000 标志

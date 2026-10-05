@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Manifest.cs @7d57605(manifest.hpp 的实现;
+// UPSTREAM: OpenRA.Game/Manifest.cs @b6fc03f(manifest.hpp 的实现;
 //          Include 展开/Merge/各节解析,见 hpp 头注)
 //          Implementation of manifest.hpp — the Include expansion/Merge/
 //          section parsing; see the hpp header notes.

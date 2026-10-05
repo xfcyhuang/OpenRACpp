@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/OpenGL.cs @7d57605 L240-669(801 行手写绑定段)
+// UPSTREAM: OpenRA.Platforms.Default/OpenGL.cs @b6fc03f L240-669(801 行手写绑定段)
 // OPT-A6(docs/OPTIMIZATION_TRACKER.md):函数指针直连(经 SDL_GL_GetProcAddress 一次加载),
 // 无委托双重装箱、无每次调用的 CheckGLError 轮询 —— Debug 构建注册 KHR_debug 回调,
 // Release 构建零错误检查。KHR_debug 为可选扩展(缺失不致命)。

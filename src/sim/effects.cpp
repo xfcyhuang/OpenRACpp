@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Effects/DelayedAction.cs @7d57605 L18-36(实现)
+// UPSTREAM: OpenRA.Game/Effects/DelayedAction.cs @b6fc03f L18-36(实现)
 //          DelayedAction implementation.
 #include "sim/effects.hpp"
 

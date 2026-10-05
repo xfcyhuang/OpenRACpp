@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/FileFormats/ImaAdpcmReader.cs @7d57605
+// UPSTREAM: OpenRA.Mods.Common/FileFormats/ImaAdpcmReader.cs @b6fc03f
 // L18-31(表)与 L33-85(两函数):逐句照抄;byte[]/Span → span。
 // [UPSTREAM continued] ImaAdpcmReader.cs L18-31 (the tables) and L33-85 (both
 // functions): copied statement by statement; byte[]/Span → span.

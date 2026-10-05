@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/Int32Matrix4x4.cs @7d57605 L16-66(全类型)
+// UPSTREAM: OpenRA.Game/Primitives/Int32Matrix4x4.cs @b6fc03f L16-66(全类型)
 // 32 位整数 4×4 矩阵,WRot 的旋转矩阵表示(定点数,1024 == 1.0)。
 // 字段名保留 C# 原名(M11..M44)以保持审计对照;ToString 上游为字符串拼接,移植为 format。
 // 32-bit integer 4x4 matrix, the rotation-matrix representation of WRot (fixed-point, 1024 == 1.0).

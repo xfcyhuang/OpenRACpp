@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/FileFormats/WavReader.cs @7d57605 L20-305
+// UPSTREAM: OpenRA.Mods.Common/FileFormats/WavReader.cs @b6fc03f L20-305
 // (全文)+ OpenRA.Mods.Common/AudioLoaders/WavLoader.cs L20-49(IsWave 嗅
 // 探与 TryParseSound 的 catch 面)。
 // RIFF/WAVE 解析:块循环(奇地址对齐衬垫、fmt/fact/data/LIST 及未知块

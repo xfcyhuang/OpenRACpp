@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/Target.cs @7d57605(实现部分:值语义核心)
+// UPSTREAM: OpenRA.Game/Traits/Target.cs @b6fc03f(实现部分:值语义核心)
 //          The implementation half of Target.cs (the value-semantics core).
 #include "sim/target.hpp"
 

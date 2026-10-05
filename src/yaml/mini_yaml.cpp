@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/MiniYaml.cs @7d57605 L22-791(全文件逐语义重写)
+// UPSTREAM: OpenRA.Game/MiniYaml.cs @b6fc03f L22-791(全文件逐语义重写)
 // 依赖的 BCL 语义在对应位置标注:
 //  - StreamExts.cs L200-248 ReadAllLinesAsMemory(流式行切分,含 BOM/行尾 \r)
 //  - MiniYaml.cs L405 String.Split(["\r\n","\n"])(字符串行切分,保留末尾空行)

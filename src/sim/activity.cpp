@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Activities/Activity.cs @7d57605 L95-226(实现部分)
+// UPSTREAM: OpenRA.Game/Activities/Activity.cs @b6fc03f L95-226(实现部分)
 //          The implementation half of Activity.cs.
 #include "sim/activity.hpp"
 

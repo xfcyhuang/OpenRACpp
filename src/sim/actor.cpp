@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Actor.cs @7d57605 L129-615(实现部分;渲染面除外)
+// UPSTREAM: OpenRA.Game/Actor.cs @b6fc03f L129-615(实现部分;渲染面除外)
 //          The implementation half of Actor.cs (render surface excluded).
 #include "sim/actor.hpp"
 

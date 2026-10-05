@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/WsaVideo.cs @7d57605(全文)+
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/WsaVideo.cs @b6fc03f(全文)+
 // WsaLoader.cs:逐句照抄。帧体 = LCW 解压 + XOR delta;LoadFrame 每帧
 // 的 new byte[] 以成员 vector 每帧重置零代替(上游中间帧恒新零数组,
 // 字节面等价;仅复用存储)。flags≠1 的 paletteBytes null → NRE 等价抛

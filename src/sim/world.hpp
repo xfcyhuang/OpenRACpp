@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/World.cs @7d57605 L28-650(仿真核心逐语义重写;
+// UPSTREAM: OpenRA.Game/World.cs @b6fc03f L28-650(仿真核心逐语义重写;
 //          Map/ModData/GameSpeed/ScreenMap/Selection/OrderGenerator 完整
 //          构造链 Phase 5 随 Game 落地,本期以注入面承载 —— 机制面 [tick 序/
 //          帧末任务/SyncHash/actors 有序遍历/effects] 完整移植)

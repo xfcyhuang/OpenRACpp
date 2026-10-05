@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/Sdl2PlatformWindow.cs @7d57605 L124-215,270-353,538-587
+// UPSTREAM: OpenRA.Platforms.Default/Sdl2PlatformWindow.cs @b6fc03f L124-215,270-353,538-587
 // 实现:窗口创建/模式切换式样、GL 属性序列(DOUBLEBUFFER=1,RGB888,ALPHA=0;Modern=3.2
 // Core / Embedded=3.0 ES)、HiDPI scale = drawable/window(Sdl2PlatformWindow.cs L270-276)、
 // 事件泵。几何快照为打包原子量(OPT-B5)。

@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/SpriteLoaders/EmbeddedSpritePalette.cs
-// @7d57605 L16-35(全文逐语义)
+// @b6fc03f L16-35(全文逐语义)
 // 帧级调色板协商:帧专属字典命中优先,否则文件级兜底;两者皆无 → false。
 // 形态:Dictionary<int,uint[]> → 有序 map(仅 TryGetValue 语义,无序敏);
 // uint[](null)→ optional<vector>(帧级字典的 null 值条目上游返回 false,

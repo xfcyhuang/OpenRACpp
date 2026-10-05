@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/BlowfishKeyProvider.cs @7d57605 L19-491
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/BlowfishKeyProvider.cs @b6fc03f L19-491
 #include "formats/blowfish_key_provider.hpp"
 
 namespace ora::fmt {

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.D2k/PackageLoaders/D2kSoundResources.cs @7d57605
+// UPSTREAM: OpenRA.Mods.D2k/PackageLoaders/D2kSoundResources.cs @b6fc03f
 //          L20-94(全文逐语义)
 // d2k 声音资源包(.rs):u32 头长界定目录区,条目 = ASCIIZ 名 + u32 偏移 +
 // u32 长度;内容按文件绝对偏移切取。OpenPackage 上游即 "Not implemented"

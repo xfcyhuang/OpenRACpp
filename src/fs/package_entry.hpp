@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileSystem/PackageEntry.cs @7d57605 L21-117
+// UPSTREAM: OpenRA.Mods.Cnc/FileSystem/PackageEntry.cs @b6fc03f L21-117
 // mix 目录项 + 双哈希:Classic(RA1/TD 的 rotate-add 32 位)与 CRC32(TS)。
 // HashFilename 逐语义:大写化 + 4 字节对齐填充;Classic 填 NUL,CRC32 填
 // (length % 4) 字节值并复制尾对齐字节。上游 ToString 的 Names 反查表仅

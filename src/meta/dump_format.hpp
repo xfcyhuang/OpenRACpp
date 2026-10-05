@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @7d57605 L996-1018(dump 协议的值
+// UPSTREAM: OpenRA.Game/FieldLoader.cs @b6fc03f L996-1018(dump 协议的值
 //          格式化 —— FieldSaver.FormatValue 语义面;协议由 schema_dumper
 //          --dump 与 tests/golden_rules 共享,与 C# 侧 Program.cs DumpValue
 //          逐分支对齐)

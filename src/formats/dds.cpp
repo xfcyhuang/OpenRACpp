@@ -1,11 +1,11 @@
 // UPSTREAM: NONE —— Pfim v0.11.3 逐语义移植(见 dds.hpp 头注的文件清单);
-// 上游 OpenRA 消费面 DdsLoader.cs @7d57605。RGB565 插值为 float 逐字
+// 上游 OpenRA 消费面 DdsLoader.cs @b6fc03f。RGB565 插值为 float 逐字
 // (Lerp + (byte)(x+0.5f) 截断);mip 尺寸的 Width/2^i 走 double 截断;
 // CompressedDds 统一走 InMemoryDecode 控制流(D65);D66 = BC4/5/DX10
 // 系显式拒绝。
 // UPSTREAM: NONE — the verbatim-semantics port of Pfim v0.11.3 (see
 // dds.hpp's header note for the file list); the OpenRA consumer face is
-// DdsLoader.cs @7d57605. The RGB565 interpolation keeps the float math
+// DdsLoader.cs @b6fc03f. The RGB565 interpolation keeps the float math
 // verbatim (Lerp + the (byte)(x+0.5f) truncation); mip dimensions use the
 // double-truncating Width/2^i; CompressedDds unifies on the InMemoryDecode
 // control flow (D65); D66 = the explicit rejection of the BC4/5/DX10

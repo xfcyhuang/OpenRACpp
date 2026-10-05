@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Connection.cs @7d57605 L73-96(EchoConnection
+// UPSTREAM: OpenRA.Game/Network/Connection.cs @b6fc03f L73-96(EchoConnection
 //          .Receive)
 //          EchoConnection.Receive.
 #include "net/connection.hpp"

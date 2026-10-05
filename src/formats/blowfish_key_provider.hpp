@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/BlowfishKeyProvider.cs @7d57605 L19-491
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/BlowfishKeyProvider.cs @b6fc03f L19-491
 // (全文逐语义;"direct C port" 的上游原话保持 —— 逐控制流照抄)
 // mix 加密头的 80 字节密钥块 → 56 字节 Blowfish 密钥:固定公钥(42 字节
 // DER,内嵌 base64)的 63..0 位 RSA 指数运算,小字节序 uint32 大数 + 16

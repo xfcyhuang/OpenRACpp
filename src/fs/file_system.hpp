@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FileSystem/FileSystem.cs @7d57605 L20-303(逐语义重写)
+// UPSTREAM: OpenRA.Game/FileSystem/FileSystem.cs @b6fc03f L20-303(逐语义重写)
 //          (IReadOnlyFileSystem 同文件 L20-27)
 // 挂载顺序 = 覆盖优先级:后挂载的包在文件索引中排在列表尾部,查找取最后一个
 // 包含该文件的包(GetFromCache 的 LastOrDefault,L193-199)。

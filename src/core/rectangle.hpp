@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/Rectangle.cs @7d57605 L17-129(除浮点/Size 依赖部分)
+// UPSTREAM: OpenRA.Game/Primitives/Rectangle.cs @b6fc03f L17-129(除浮点/Size 依赖部分)
 // 轴对齐整数矩形。字段/方法名保留 C# 原名以保持审计对照。
 // Axis-aligned integer rectangle. Field/method names keep the C# originals for audit cross-reference.
 // 未移植:Location/Size 属性与 int2,Size 构造(依赖 Size 类型,后续图形阶段补);

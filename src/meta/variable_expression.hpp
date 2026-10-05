@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Support/VariableExpression.cs @7d57605 L22-983(全文件逐语义重写)
+// UPSTREAM: OpenRA.Game/Support/VariableExpression.cs @b6fc03f L22-983(全文件逐语义重写)
 //          Full-file statement-by-statement rewrite of upstream
 //          VariableExpression.cs.
 //

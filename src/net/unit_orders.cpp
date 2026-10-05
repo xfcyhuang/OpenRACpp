@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/UnitOrders.cs @7d57605(实现部分:可运行子集)
+// UPSTREAM: OpenRA.Game/Network/UnitOrders.cs @b6fc03f(实现部分:可运行子集)
 //          The implementation half of UnitOrders.cs (runnable subset).
 #include "net/unit_orders.hpp"
 

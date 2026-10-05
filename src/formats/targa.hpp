@@ -1,6 +1,6 @@
 // UPSTREAM: NONE —— Pfim v0.11.3(src/Pfim/targa/{Targa,TargaHeader,
 // UncompressedTarga,CompressedTarga}.cs)逐语义移植;上游 OpenRA 经
-// OpenRA.Mods.Common/SpriteLoaders/TgaLoader.cs @7d57605 间接消费(IsTga
+// OpenRA.Mods.Common/SpriteLoaders/TgaLoader.cs @b6fc03f 间接消费(IsTga
 // 的字节判定逐字取自 TgaLoader.cs L24-53)。
 // 真彩 Targa 解码:18 字节头(图像类型/色图规格/原点/描述字节的 4-5 位
 // 定向)、非压缩与 RLE 两解码器 × 四向原点(BottomLeft/BottomRight/

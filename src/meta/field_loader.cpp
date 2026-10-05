@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @7d57605 L27-1032(field_loader.hpp 的实现)
+// UPSTREAM: OpenRA.Game/FieldLoader.cs @b6fc03f L27-1032(field_loader.hpp 的实现)
 //          Implementation of field_loader.hpp.
 // 分派结构 / Dispatch structure:
 //  - Load(L754-796):描述表字段循环 + MissingFieldsException;GeneratedRecord

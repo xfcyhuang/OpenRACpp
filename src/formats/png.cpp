@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FileFormats/Png.cs @7d57605 L29-592(实现半;头文件为契约半)
+// UPSTREAM: OpenRA.Game/FileFormats/Png.cs @b6fc03f L29-592(实现半;头文件为契约半)
 // 形态适配汇总见 png.hpp 头注。zlib:miniz mz_uncompress / mz_compress
 // (third_party/miniz;import std 门禁白名单)。
 // See png.hpp's header note for the shape-adaptation summary. zlib: miniz's

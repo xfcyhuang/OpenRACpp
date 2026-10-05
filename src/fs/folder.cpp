@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FileSystem/Folder.cs @7d57605 L19-110(逐语义重写)
+// UPSTREAM: OpenRA.Game/FileSystem/Folder.cs @b6fc03f L19-110(逐语义重写)
 // 标准库一律经 folder.hpp 的 import std;(工程门禁:禁止 #include <标准头>)
 // All standard-library entities come via import std; in folder.hpp (project
 // gate: no #include <std headers>).

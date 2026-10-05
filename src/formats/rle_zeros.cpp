@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/FileFormats/RLEZerosCompression.cs @7d57605 L19-36
+// UPSTREAM: OpenRA.Mods.Common/FileFormats/RLEZerosCompression.cs @b6fc03f L19-36
 // 实现文件:逐句照抄;byte[] → span。
 // Implementation file: copied statement by statement; byte[] → span.
 #include "formats/rle_zeros.hpp"

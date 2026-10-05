@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/XORDeltaCompression.cs @7d57605 L16-82
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/XORDeltaCompression.cs @b6fc03f L16-82
 // 实现文件:六 case 逐句照抄;byte[] → span。
 // Implementation file: the six cases copied statement by statement;
 // byte[] → span.

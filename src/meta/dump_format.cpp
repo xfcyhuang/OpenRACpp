@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @7d57605(dump_format.hpp 的实现;
+// UPSTREAM: OpenRA.Game/FieldLoader.cs @b6fc03f(dump_format.hpp 的实现;
 //          .NET float/WDist/枚举格式化复刻,见 hpp 头注)
 //          Implementation of dump_format.hpp — the .NET float/WDist/enum
 //          formatting replicas; see the hpp header notes.

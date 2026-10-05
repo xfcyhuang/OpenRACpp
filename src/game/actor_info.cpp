@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/GameRules/ActorInfo.cs @7d57605(actor_info.hpp
+// UPSTREAM: OpenRA.Game/GameRules/ActorInfo.cs @b6fc03f(actor_info.hpp
 //          的实现;LoadTraitInfo/拓扑序逐语义,见 hpp 头注)
 //          Implementation of actor_info.hpp — LoadTraitInfo and the
 //          topological order verbatim; see the hpp header notes.

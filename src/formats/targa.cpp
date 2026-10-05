@@ -1,11 +1,11 @@
 // UPSTREAM: NONE —— Pfim v0.11.3 逐语义移植(targa/ 四件 + Targa.cs 骨架);
-// 上游 OpenRA 消费面 TgaLoader.cs @7d57605。适配汇总见 targa.hpp 头注。
+// 上游 OpenRA 消费面 TgaLoader.cs @b6fc03f。适配汇总见 targa.hpp 头注。
 // 忠实保留的上游怪癖:TopLeft-RLE 行紧排(不按 stride 跳衬垫)、
 // 15bpp 的 PixelDepthBytes=1 截断、色图应用 newLen = depthBytes×DataLen
 // (非宽高积)。缓冲流/快路径统一(D65)。
 // UPSTREAM: NONE — the verbatim-semantics port of Pfim v0.11.3 (the four
 // targa/ files + the Targa.cs skeleton); the OpenRA consumer face is
-// TgaLoader.cs @7d57605. See targa.hpp's header note. Upstream quirks kept
+// TgaLoader.cs @b6fc03f. See targa.hpp's header note. Upstream quirks kept
 // faithfully: the TopLeft-RLE tight row packing (no stride skips), the
 // PixelDepthBytes=1 truncation at 15bpp, and the color-map application's
 // newLen = depthBytes×DataLen (not width×height). Buffered/fast paths

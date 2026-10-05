@@ -1,6 +1,6 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteRenderer.cs @7d57605 L20-305(实现)+
-//           OpenRA.Game/Graphics/RgbaSpriteRenderer.cs @7d57605 L17-58 +
-//           OpenRA.Game/Graphics/RgbaColorRenderer.cs @7d57605 L20-256
+// UPSTREAM: OpenRA.Game/Graphics/SpriteRenderer.cs @b6fc03f L20-305(实现)+
+//           OpenRA.Game/Graphics/RgbaSpriteRenderer.cs @b6fc03f L17-58 +
+//           OpenRA.Game/Graphics/RgbaColorRenderer.cs @b6fc03f L20-256
 // 头文件携带完整 UPSTREAM 锚点与第四批优化挂接说明。
 // Implementations; the header carries the full UPSTREAM anchors and the
 // fourth-batch optimization wiring notes.

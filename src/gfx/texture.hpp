@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/Texture.cs @7d57605 L18-237(逐方法)
+// UPSTREAM: OpenRA.Platforms.Default/Texture.cs @b6fc03f L18-237(逐方法)
 // 语义面:BGRA 字节序上传(internal:桌面 RGBA8 / ES BGRA)、SetSubData 的
 // UNPACK_ROW_LENGTH/SKIP 行打包、RGBA16F 浮点路径(调色板)、读回走桌面
 // glGetTexImage(GLES FBO 回读分支随 ES 档位批次)、ScaleFilter 变更触发

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/OpenGL.cs @7d57605 L12-238(类型/常量手抄段)
+// UPSTREAM: OpenRA.Platforms.Default/OpenGL.cs @b6fc03f L12-238(类型/常量手抄段)
 // GL 3.2 Core + GLES3 共用子集的类型与常量(上游 103 个常量全量收录,值与拼写逐一对照)。
 // OPT-A6(docs/OPTIMIZATION_TRACKER.md):不引入 glGetError 轮询 —— 错误检查由
 // KHR_debug 回调承担(Debug 构建),Release 构建零错误检查调用;此处仅定义类型与常量。

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpRALoader.cs @7d57605 L17-102
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpRALoader.cs @b6fc03f L17-102
 // 实现文件:TmpRAFrame / IsTmpRA / ParseFrames 逐句照抄;Stream →
 // SpanReader。
 // Implementation file: TmpRAFrame / IsTmpRA / ParseFrames copied

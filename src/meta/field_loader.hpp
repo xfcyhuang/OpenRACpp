@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @7d57605 L27-1032(全文件逐语义重写)
+// UPSTREAM: OpenRA.Game/FieldLoader.cs @b6fc03f L27-1032(全文件逐语义重写)
 //          Full-file statement-by-statement rewrite of upstream FieldLoader.cs.
 //
 // 机制对照 / Mechanism mapping:

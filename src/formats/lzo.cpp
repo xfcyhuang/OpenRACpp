@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/LZOCompression.cs @7d57605 L49-291
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/LZOCompression.cs @b6fc03f L49-291
 // 实现文件:LZO1xDecompress 逐控制流照抄(标签 first_literal_run/
 // match/match_done/eof_found 与 gtFirstLiteralRun/gtMatchDone 布尔保留);
 // unsafe 指针 → uint8_t*;未对齐 32/16 位读写 → memcpy。

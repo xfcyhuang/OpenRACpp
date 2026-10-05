@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/ObjectCreator.cs @7d57605 L21-168(按名实例化/类型查找)
+// UPSTREAM: OpenRA.Game/ObjectCreator.cs @b6fc03f L21-168(按名实例化/类型查找)
 //          + OpenRA.Game/Traits/TraitsInterfaces.cs L342-351(TraitInfo 基类)
 //          Name-based instantiation/type lookup + the TraitInfo base class.
 //

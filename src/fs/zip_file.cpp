@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FileSystem/ZipFile.cs @7d57605 L20-261(只读路径逐语义重写)
+// UPSTREAM: OpenRA.Game/FileSystem/ZipFile.cs @b6fc03f L20-261(只读路径逐语义重写)
 #include "fs/zip_file.hpp"
 
 #include <miniz.h>

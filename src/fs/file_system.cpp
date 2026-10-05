@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FileSystem/FileSystem.cs @7d57605 L20-303(逐语义重写)
+// UPSTREAM: OpenRA.Game/FileSystem/FileSystem.cs @b6fc03f L20-303(逐语义重写)
 // 全文件仅经 file_system.hpp 的 import std; 引入标准库(工程门禁:
 // 禁止 #include <标准头>)。
 // All standard-library entities come via import std; in file_system.hpp

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileSystem/MixFile.cs @7d57605 L24-248(逐语义重写)
+// UPSTREAM: OpenRA.Mods.Cnc/FileSystem/MixFile.cs @b6fc03f L24-248(逐语义重写)
 // mix 包:三格式(C&C 无标志头 / RA-TS 带 u16 标志 / 加密头 = 80 字节
 // 密钥块 RSA 解密 + Blowfish 块解密)+ 哈希 → 文件名解析(local mix
 // database.dat 内嵌库 + global 库双哈希命中计数择优)。

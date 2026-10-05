@@ -1,6 +1,6 @@
-// UPSTREAM: OpenRA.Game/Map/MapGrid.cs @7d57605 L20(地图网格类型枚举)
-//          OpenRA.Game/MPos.cs @7d57605 L17-93(MPos/PPos)
-//          OpenRA.Game/CPos.cs @7d57605 L19-146(除 Lua 脚本绑定接口)
+// UPSTREAM: OpenRA.Game/Map/MapGrid.cs @b6fc03f L20(地图网格类型枚举)
+//          OpenRA.Game/MPos.cs @b6fc03f L17-93(MPos/PPos)
+//          OpenRA.Game/CPos.cs @b6fc03f L19-146(除 Lua 脚本绑定接口)
 // 单元格坐标族:CPos(单元格位,12/12/8 位打包)、MPos(地图位)、PPos(投影位)。
 // Cell coordinate family: CPos (cell position, 12/12/8-bit packed), MPos (map position), PPos (projected position).
 // CPos.ToMPos 与 MPos.ToCPos 互相依赖,故三类型合置于本文件并按依赖序定义。

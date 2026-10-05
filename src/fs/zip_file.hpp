@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FileSystem/ZipFile.cs @7d57605 L20-261(只读路径逐语义重写)
+// UPSTREAM: OpenRA.Game/FileSystem/ZipFile.cs @b6fc03f L20-261(只读路径逐语义重写)
 // ReadWriteZipFile(更新/删除条目)推迟到 Phase 6 地图保存(miniz writer 实现),
 // 已登记 docs/COVERAGE.md。
 // The read-only paths are rewritten statement-by-statement; ReadWriteZipFile

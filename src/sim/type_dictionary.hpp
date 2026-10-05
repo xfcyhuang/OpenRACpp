@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/TypeDictionary.cs @7d57605 L19-183(逐语义
+// UPSTREAM: OpenRA.Game/Primitives/TypeDictionary.cs @b6fc03f L19-183(逐语义
 //          重写;Type 键 → gen::TypeId,泛型容器 → TypeId 桶 + void* 载荷)
 //          Verbatim-semantics rewrite; the Type key becomes gen::TypeId and
 //          the generic container a TypeId-bucketed void* store.

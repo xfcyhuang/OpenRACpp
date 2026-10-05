@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/TickTime.cs @7d57605 L16-60(逐语义重写;
+// UPSTREAM: OpenRA.Game/Network/TickTime.cs @b6fc03f L16-60(逐语义重写;
 //          Game.TimestepJankThreshold 常量随值内联 = 250,Game.RunTime 时钟
 //          经回调注入 —— Game 静态面 Phase 5)
 //          Verbatim-semantics rewrite; the Game.TimestepJankThreshold

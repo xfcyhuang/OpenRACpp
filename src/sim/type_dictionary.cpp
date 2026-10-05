@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/TypeDictionary.cs @7d57605(实现部分)
+// UPSTREAM: OpenRA.Game/Primitives/TypeDictionary.cs @b6fc03f(实现部分)
 //          The implementation half of TypeDictionary.cs.
 #include "sim/type_dictionary.hpp"
 

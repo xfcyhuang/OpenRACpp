@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpRemasteredLoader.cs @7d57605
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpRemasteredLoader.cs @b6fc03f
 // L24-121(实现半;头文件为契约半)。两条正则的等价手写解析:
 //   - FilenameRegex 惰性 .+?[\-_]:自左向右找首个使"前缀 + 恰 4 数字 +
 //     .tga 恰尽"成立的 -/_ 位置(前缀含分隔符);

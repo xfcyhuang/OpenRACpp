@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/Target.cs @7d57605 L18-293(仿真核心子集逐语义
+// UPSTREAM: OpenRA.Game/Traits/Target.cs @b6fc03f L18-293(仿真核心子集逐语义
 //          重写;FrozenActor 依赖 Shroud/FrozenActorLayer,Phase 5 落地前以
 //          前向指针承载 —— 上游 FrozenActorLayer 为 null 时同样落 Invalid 分支)
 //          Verbatim-semantics rewrite of the sim-core subset; FrozenActor

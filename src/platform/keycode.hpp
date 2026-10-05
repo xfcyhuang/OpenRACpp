@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Input/Keycode.cs @7d57605 L24-257(枚举体逐值照搬)
+// UPSTREAM: OpenRA.Game/Input/Keycode.cs @b6fc03f L24-257(枚举体逐值照搬)
 // 上游注释:"Duplicated from SDL 2.0.1, with the addition of MOUSE4 and
 // MOUSE5" —— 值域与 SDL_Keycode 完全一致(platform_test 以 SDL 头常量对照
 // 断言)。Fluent 键名表(KeycodeExts.KeycodeFluentKeys)属 Phase 6 本地化,

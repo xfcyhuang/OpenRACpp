@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Player.cs @7d57605 L27-337(仿真核心子集;Shroud/
+// UPSTREAM: OpenRA.Game/Player.cs @b6fc03f L27-337(仿真核心子集;Shroud/
 //          FrozenActorLayer/FactionInfo/Scripting 面 Phase 5/8 落地)
 //          The sim-core subset of Player.cs (Shroud/FrozenActorLayer/
 //          FactionInfo/Scripting surfaces land in Phase 5/8).

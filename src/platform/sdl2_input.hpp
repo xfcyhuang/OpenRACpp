@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Input/IInputHandler.cs @7d57605 L17-83(数据面)+
+// UPSTREAM: OpenRA.Game/Input/IInputHandler.cs @b6fc03f L17-83(数据面)+
 // OpenRA.Platforms.Default/Sdl2Input.cs L19-252(事件泵)+ MultiTapDetection.cs L17-83(多击检测)
 // 形态适配:上游 PumpInput 内对 Game.Exit() 的直接调用改为返回值 b_quit_requested
 // (Game 编排归 Phase 5);TapHistory/MultiTapDetection 的 DateTime.Now 改为

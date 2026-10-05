@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Order.cs @7d57605(实现部分:逐字节序列化)
+// UPSTREAM: OpenRA.Game/Network/Order.cs @b6fc03f(实现部分:逐字节序列化)
 //          The implementation half of Order.cs (byte-exact serialization).
 #include "net/order.hpp"
 

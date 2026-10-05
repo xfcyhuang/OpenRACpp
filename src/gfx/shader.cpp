@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/Shader.cs @7d57605 L29-259(实现体)
+// UPSTREAM: OpenRA.Platforms.Default/Shader.cs @b6fc03f L29-259(实现体)
 // 实现体翻译:CompileShaderObject({VERSION} 替换 + 编译 + 状态检查)、
 // program 组装(属性循环/fragColor/attach/link)、active uniform 枚举、
 // Set*/PrepareRender/Bind。GL 访问全部经命令队列;同步往返仅构造期发生。

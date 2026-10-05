@@ -1,7 +1,7 @@
 // UPSTREAM: NONE —— Pfim v0.11.3(src/Pfim/dds/{Dds,DdsHeader,
 // UncompressedDds,CompressedDds,Dxt1Dds,Dxt3Dds,Dxt5Dds,Bc5Dds}.cs)逐语义
 // 移植;上游 OpenRA 经 OpenRA.Mods.Common/SpriteLoaders/DdsLoader.cs
-// @7d57605 间接消费(IsDds 的魔数判定逐字取自 DdsLoader.cs L24-31)。
+// @b6fc03f 间接消费(IsDds 的魔数判定逐字取自 DdsLoader.cs L24-31)。
 // DDS 子集:124 字节头 + 32 字节像素格式(ThreeCC 分派)、非压缩 RGB
 // (8/16/24/32bpp + 位掩码 R/B 交换 + Rgba16 半字节交换 + mip 链)、
 // DXT1/3/5 块解码(RGB565 浮点插值逐字 + 3 位 alpha 梯度)。Data = 全

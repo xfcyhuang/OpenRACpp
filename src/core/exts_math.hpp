@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Exts.cs @7d57605 L282-373(ISqrt 家族与 √2 近似)
+// UPSTREAM: OpenRA.Game/Exts.cs @b6fc03f L282-373(ISqrt 家族与 √2 近似)
 // 整数平方根:逐位算法,无浮点;三种舍入模式与上游逐一对应。
 // 负数输入上游抛 InvalidOperationException,此处以契约断言承接(ORA_PRE 过渡形态)。
 // Integer square root: bit-by-bit algorithm, no floating point; the three rounding modes match upstream one-to-one.

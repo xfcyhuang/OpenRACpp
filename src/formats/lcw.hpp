@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/LCWCompression.cs @7d57605 L16-167(全文)
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/LCWCompression.cs @b6fc03f L16-167(全文)
 // Lempel-Castle-Welch 算法(aka Format80)。解码五 case 逐分支照抄:
 //   case1 = 0x80|n 之后的 n 字节原样拷贝(n==0 即终止标记);
 //   case2 = 回拷 ((i&0x70)>>4)+3 字节自 destIndex-rpos;

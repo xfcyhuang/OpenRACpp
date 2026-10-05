@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/Video.cs @7d57605 L14-36(IVideo)+
+// UPSTREAM: OpenRA.Game/Graphics/Video.cs @b6fc03f L14-36(IVideo)+
 // VideoLoader.cs L16-31(IVideoLoader/GetVideo 链)。
 // 视频契约:逐帧 BGRA 帧数据 + 帧推进/复位 + 可选音频(22050Hz 16bit
 // PCM,由具体格式解码为非交错字节流)。C# 属性面映射为 const 方法面;

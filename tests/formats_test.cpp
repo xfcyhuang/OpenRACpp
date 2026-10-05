@@ -57,6 +57,10 @@ import std;
 #include "formats/wav_reader.hpp"
 #include "formats/westwood_compressed.hpp"
 
+#include "formats/hva_reader.hpp"
+#include "formats/idx_reader.hpp"
+#include "formats/vxl_reader.hpp"
+
 namespace {
 
 std::int32_t int4_failures = 0;
@@ -1122,6 +1126,160 @@ void TestVqaWsaVideo() {
                 "System.NullReferenceException: Object reference not set to an instance of an object.";
     }
     ORA_CHECK(b_threw);
+  }
+}
+
+void TestVxlHvaIdx() {
+  // VxlReader 坏头(消息逐字;恰 16 字节使前缀检查失败)| the VxlReader
+  // bad header (verbatim; exactly 16 bytes so the prefix check fails)
+  {
+    auto vec = std::vector<std::byte>{};
+    for (const char chr_c : std::string_view{"Voxel AnimXXXXZ"})
+      vec.push_back(static_cast<std::byte>(chr_c));
+    vec.push_back(std::byte{0});
+    auto b_threw = false;
+    try {
+      const auto vxl = ora::fmt::VxlReader{vec};
+      (void)vxl;
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} == "System.IO.InvalidDataException: Invalid vxl header";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  // MatrixInverse:单位阵自逆;零阵 det==0 → nullopt(上游 null)。
+  // MatrixInverse: the identity is its own inverse; the zero matrix's
+  // det==0 → nullopt (upstream null).
+  {
+    const auto arr_identity = std::array<float, 16>{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    const auto arr_inv = ora::fmt::MatrixInverse(arr_identity);
+    ORA_CHECK(arr_inv.has_value());
+    ORA_CHECK(*arr_inv == arr_identity);
+    ORA_CHECK(!ora::fmt::MatrixInverse(std::array<float, 16>{}).has_value());
+  }
+
+  // HvaReader 不可逆矩阵(消息逐字,含文件名/节号/帧号):1 帧 × 1 肢体
+  // 的全零 12 浮点(det == 0)。
+  // The HvaReader non-invertible matrix (the message verbatim, with the
+  // file name/section/frame numbers): 1 frame × 1 limb of twelve zero
+  // floats (det == 0).
+  {
+    auto vec = std::vector<std::byte>{};
+    vec.insert(vec.end(), 16, std::byte{0});  // 文件名 | the file name
+    vec.push_back(std::byte{1});              // frames = 1
+    vec.insert(vec.end(), 3, std::byte{0});
+    vec.push_back(std::byte{1});              // limbs = 1
+    vec.insert(vec.end(), 3, std::byte{0});
+    vec.insert(vec.end(), 16, std::byte{0});       // 肢体名 | the limb name
+    vec.insert(vec.end(), 12 * 4, std::byte{0});   // 全零 12 浮点 | twelve zero floats
+    auto b_threw = false;
+    try {
+      const auto hva = ora::fmt::HvaReader{vec, "zero.hva"};
+      (void)hva;
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} ==
+                "System.IO.InvalidDataException: The transformation matrix for HVA file `zero.hva` section 0 frame 0 "
+                "is invalid because it is not invertible!";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  // IdxReader 头部负例(消息逐字,含实得值)| the IdxReader header
+  // negatives (messages verbatim, with the found values)
+  {
+    auto vec = std::vector<std::byte>{};
+    for (const char chr_c : std::string_view{"GABX"})
+      vec.push_back(static_cast<std::byte>(chr_c));
+    auto b_threw = false;
+    try {
+      const auto idx = ora::fmt::IdxReader{vec};
+      (void)idx;
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} ==
+                "System.IO.InvalidDataException: Unable to load Idx file, did not find magic id, found GABX instead";
+    }
+    ORA_CHECK(b_threw);
+  }
+  {
+    auto vec = std::vector<std::byte>{};
+    for (const char chr_c : std::string_view{"GABA"})
+      vec.push_back(static_cast<std::byte>(chr_c));
+    for (const std::uint8_t uint1_b : {3, 0, 0, 0})
+      vec.push_back(static_cast<std::byte>(uint1_b));
+    auto b_threw = false;
+    try {
+      const auto idx = ora::fmt::IdxReader{vec};
+      (void)idx;
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} ==
+                "System.IO.InvalidDataException: Unable to load Idx file, did not find magic number 2, found 3 "
+                "instead";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  // IdxEntry 无 NUL 的 16 字符名:name[..-1] 的 .NET 10 双行
+  // ArgumentOutOfRangeException 等价抛(实测锚定)。
+  // The IdxEntry 16-char no-NUL name: the .NET 10 two-line
+  // ArgumentOutOfRangeException equivalent of name[..-1] (probed and
+  // anchored).
+  {
+    auto vec = std::vector<std::byte>{};
+    for (const char chr_c : std::string_view{"GABA"})
+      vec.push_back(static_cast<std::byte>(chr_c));
+    for (const std::uint8_t uint1_b : {2, 0, 0, 0, 1, 0, 0, 0})
+      vec.push_back(static_cast<std::byte>(uint1_b));
+    for (const char chr_c : std::string_view{"abcdefghijklmnop"})
+      vec.push_back(static_cast<std::byte>(chr_c));
+    for (auto int4_i = 0; int4_i < 20; int4_i++)
+      vec.push_back(std::byte{0});
+    auto b_threw = false;
+    try {
+      const auto idx = ora::fmt::IdxReader{vec};
+      (void)idx;
+    } catch (const std::runtime_error& ex) {
+      b_threw = std::string_view{ex.what()} ==
+                "System.ArgumentOutOfRangeException: length ('-1') must be a non-negative value. (Parameter "
+                "'length')\nActual value was -1.";
+    }
+    ORA_CHECK(b_threw);
+  }
+
+  // IdxEntry pos==0 怪癖:NUL 首字节不截断,Filename = 16 NUL + ".wav";
+  // ToString 的 0x{x8} 小写十六进制。
+  // The IdxEntry pos==0 quirk: a leading NUL does not truncate and the
+  // Filename = 16 NULs + ".wav"; ToString's lowercase 0x{x8} hex.
+  {
+    auto vec = std::vector<std::byte>{};
+    for (const char chr_c : std::string_view{"GABA"})
+      vec.push_back(static_cast<std::byte>(chr_c));
+    for (const std::uint8_t uint1_b : {2, 0, 0, 0, 1, 0, 0, 0})
+      vec.push_back(static_cast<std::byte>(uint1_b));
+    vec.insert(vec.end(), 16, std::byte{0});
+    const auto arr_tail = std::array<std::uint32_t, 5>{0xDEADBEEF, 0x1, 22050, 0x2A, 0x200};
+    for (const auto uint4_v : arr_tail)
+      for (auto int4_i = 0; int4_i < 4; int4_i++)
+        vec.push_back(static_cast<std::byte>(uint4_v >> (8 * int4_i)));
+
+    const auto idx = ora::fmt::IdxReader{vec};
+    ORA_CHECK(idx.int4_sound_count == 1);
+    ORA_CHECK(idx.vec_entries.size() == 1);
+    const auto& entry = idx.vec_entries[0];
+    auto str_expect = std::string{};
+    for (auto int4_i = 0; int4_i < 16; int4_i++)
+      str_expect += '\0';
+    str_expect += ".wav";
+    ORA_CHECK(entry.str_filename == str_expect);
+    ORA_CHECK(entry.uint4_offset == 0xDEADBEEF);
+    ORA_CHECK(entry.uint4_length == 1);
+    ORA_CHECK(entry.uint4_sample_rate == 22050);
+    ORA_CHECK(entry.uint4_flags == 0x2A);
+    ORA_CHECK(entry.uint4_chunk_size == 0x200);
+    auto str_tostring_expect = std::string{};
+    for (auto int4_i = 0; int4_i < 16; int4_i++)
+      str_tostring_expect += '\0';
+    str_tostring_expect += ".wav - offset 0xdeadbeef - length 0x00000001";
+    ORA_CHECK(entry.ToString() == str_tostring_expect);
   }
 }
 
@@ -3277,6 +3435,320 @@ std::string BuildActualText(const std::string& str_upstream_root) {
     AppendVideoLines("wsa_shp_like", make_wsa_file(1, 4, 4, false, {vec_terminator}, 0), false, str_out);
   }
 
+  // 19) VXL/HVA/IDX 合成夹具(与 oracle 第 19 段同构造)。
+  // 19) The synthetic VXL/HVA/IDX fixtures (the same construction as the
+  // oracle's section 19).
+  {
+    const auto esc = [](std::string_view sv) {
+      auto str_out2 = std::string{};
+      for (const char chr_c : sv) {
+        if (chr_c == '\0')
+          str_out2 += "\\0";
+        else
+          str_out2.push_back(chr_c);
+      }
+      return str_out2;
+    };
+    const auto ex_line = [](const std::exception& ex) {
+      auto str_msg = std::string_view{ex.what()};
+      const auto st_colon = str_msg.find(": ");
+      if (st_colon != std::string_view::npos && str_msg.substr(0, st_colon).starts_with("System."))
+        str_msg = str_msg.substr(st_colon + 2);
+      auto str_out2 = std::string{};
+      for (const char chr_c : str_msg)
+        if (chr_c == '\n')
+          str_out2 += "\\n";
+        else
+          str_out2.push_back(chr_c);
+      return str_out2;
+    };
+    const auto put_f32 = [](std::vector<std::byte>& vec, float fp4_v) {
+      const auto uint4_bits = std::bit_cast<std::uint32_t>(fp4_v);
+      VqPutU32L(vec, uint4_bits);
+    };
+    const auto put_name16 = [](std::vector<std::byte>& vec, std::string_view sv_name) {
+      for (auto int4_i = 0; int4_i < 16; int4_i++)
+        vec.push_back(static_cast<std::size_t>(int4_i) < sv_name.size()
+                          ? static_cast<std::byte>(sv_name[static_cast<std::size_t>(int4_i)])
+                          : std::byte{0});
+    };
+
+    struct VxlRun {
+      int int4_skip;
+      int int4_count;
+    };
+    using VxlCol = std::optional<std::vector<VxlRun>>;
+
+    const auto make_vox = [](int int4_col, int int4_run, int int4_k) {
+      return std::pair<std::uint8_t, std::uint8_t>{
+          static_cast<std::uint8_t>((int4_col * 7 + int4_run * 13 + int4_k * 3) & 0xFF),
+          static_cast<std::uint8_t>((int4_k * 31 + 5) & 0xFF)};
+    };
+
+    const auto make_vxl_limb_data = [&](int int4_sx, int int4_sy, const std::vector<VxlCol>& vec_cols) {
+      const auto int4_base_size = int4_sx * int4_sy;
+      auto vec = std::vector<std::byte>{};
+      auto vec_streams = std::vector<std::byte>{};
+      auto vec_offs = std::vector<std::int32_t>(static_cast<std::size_t>(int4_base_size));
+      for (auto int4_i = 0; int4_i < int4_base_size; int4_i++) {
+        if (!vec_cols[static_cast<std::size_t>(int4_i)].has_value()) {
+          vec_offs[static_cast<std::size_t>(int4_i)] = -1;
+          continue;
+        }
+
+        vec_offs[static_cast<std::size_t>(int4_i)] = static_cast<std::int32_t>(vec_streams.size());
+        const auto& vec_runs = *vec_cols[static_cast<std::size_t>(int4_i)];
+        for (auto int4_r = 0; int4_r < static_cast<int>(vec_runs.size()); int4_r++) {
+          const auto run = vec_runs[static_cast<std::size_t>(int4_r)];
+          vec_streams.push_back(static_cast<std::byte>(run.int4_skip));
+          vec_streams.push_back(static_cast<std::byte>(run.int4_count));
+          for (auto int4_k = 0; int4_k < run.int4_count; int4_k++) {
+            const auto [uint1_c, uint1_n] = make_vox(int4_i, int4_r, int4_k);
+            vec_streams.push_back(static_cast<std::byte>(uint1_c));
+            vec_streams.push_back(static_cast<std::byte>(uint1_n));
+          }
+
+          vec_streams.push_back(static_cast<std::byte>(run.int4_count));  // 重复 count
+        }
+      }
+
+      for (const auto int4_o : vec_offs)
+        VqPutU32L(vec, static_cast<std::uint32_t>(int4_o));
+      vec.insert(vec.end(), static_cast<std::size_t>(4 * int4_base_size), std::byte{0});  // 跳过表
+      vec.insert(vec.end(), vec_streams.begin(), vec_streams.end());
+      return vec;
+    };
+
+    struct VxlLimbSpec {
+      std::string str_name;
+      float fp4_scale;
+      std::array<float, 6> arr_bounds;
+      std::array<std::uint8_t, 3> arr_size;
+      std::uint8_t uint1_type;
+      std::vector<std::byte> vec_data;
+    };
+
+    const auto make_vxl_file = [&](const std::vector<VxlLimbSpec>& vec_limbs, int int4_gap) {
+      auto vec = std::vector<std::byte>{};
+      // 注意:含 \0 的字面量不能用 strlen 语义的 string_view(会截断),
+      // 逐字符 + 显式 NUL。
+      // Note: a literal with \0 must not go through a strlen-semantics
+      // string_view (it truncates); assemble char by char + an explicit NUL.
+      for (const char chr_c : std::string_view{"Voxel Animation"})
+        vec.push_back(static_cast<std::byte>(chr_c));
+      vec.push_back(std::byte{0});
+      VqPutU32L(vec, 0);
+      VqPutU32L(vec, static_cast<std::uint32_t>(vec_limbs.size()));
+      VqPutU32L(vec, 0);
+      const auto st_body_size_pos = vec.size();
+      VqPutU32L(vec, 0);  // bodySize(装配后回填)
+      vec.insert(vec.end(), 770, std::byte{0});
+
+      for (const auto& limb : vec_limbs) {
+        put_name16(vec, limb.str_name);
+        vec.insert(vec.end(), 12, std::byte{0});
+      }
+
+      const auto st_data_base = vec.size();  // = 802 + 28*LC
+      auto vec_offs = std::vector<std::uint32_t>{};
+      for (const auto& limb : vec_limbs) {
+        vec_offs.push_back(static_cast<std::uint32_t>(vec.size() - st_data_base));
+        vec.insert(vec.end(), limb.vec_data.begin(), limb.vec_data.end());
+      }
+
+      vec.insert(vec.end(), static_cast<std::size_t>(int4_gap), static_cast<std::byte>('G'));
+      const auto uint4_body_size = static_cast<std::uint32_t>(vec.size() - st_data_base);
+      vec[st_body_size_pos] = static_cast<std::byte>(uint4_body_size & 0xFF);
+      vec[st_body_size_pos + 1] = static_cast<std::byte>((uint4_body_size >> 8) & 0xFF);
+      vec[st_body_size_pos + 2] = static_cast<std::byte>((uint4_body_size >> 16) & 0xFF);
+      vec[st_body_size_pos + 3] = static_cast<std::byte>((uint4_body_size >> 24) & 0xFF);
+
+      for (std::size_t st_i = 0; st_i < vec_limbs.size(); st_i++) {
+        const auto& limb = vec_limbs[st_i];
+        VqPutU32L(vec, vec_offs[st_i]);
+        vec.insert(vec.end(), 8, std::byte{0});
+        put_f32(vec, limb.fp4_scale);
+        vec.insert(vec.end(), 48, std::byte{0});
+        for (const auto fp4_f : limb.arr_bounds)
+          put_f32(vec, fp4_f);
+        vec.push_back(static_cast<std::byte>(limb.arr_size[0]));
+        vec.push_back(static_cast<std::byte>(limb.arr_size[1]));
+        vec.push_back(static_cast<std::byte>(limb.arr_size[2]));
+        vec.push_back(static_cast<std::byte>(limb.uint1_type));
+      }
+
+      return vec;
+    };
+
+    const auto append_vxl_lines = [&](std::string_view sv_name, std::span<const std::byte> vec_file,
+                                      std::string& str_target) {
+      str_target += std::format("XQ {}\n", sv_name);
+      try {
+        const auto vxl = ora::fmt::VxlReader{vec_file};
+        str_target += std::format("XC {}\n", vxl.uint4_limb_count);
+        for (std::size_t st_i = 0; st_i < vxl.vec_limbs.size(); st_i++) {
+          const auto& limb = vxl.vec_limbs[st_i];
+          str_target += std::format("XB {} {} {}", st_i, esc(limb.str_name),
+                                    ora::meta::FormatFloatNet(limb.fp4_scale));
+          for (const auto fp4_f : limb.arr_bounds)
+            str_target += " " + ora::meta::FormatFloatNet(fp4_f);
+          str_target += std::format(" {} {} {} {} {}\n", static_cast<int>(limb.arr_size[0]),
+                                    static_cast<int>(limb.arr_size[1]), static_cast<int>(limb.arr_size[2]),
+                                    static_cast<int>(limb.enum_type), limb.uint4_voxel_count);
+          for (auto int4_y = 0; int4_y < limb.arr_size[1]; int4_y++)
+            for (auto int4_x = 0; int4_x < limb.arr_size[0]; int4_x++) {
+              const auto st_slot =
+                  static_cast<std::size_t>(int4_x) + static_cast<std::size_t>(int4_y) * limb.arr_size[0];
+              if (limb.vec_column_present[st_slot] == 0)
+                continue;
+              const auto& vec_column = limb.vec_voxel_map[st_slot];
+              str_target += std::format("XCM {} {} {} {}\n", st_i, int4_x, int4_y, vec_column.size());
+              for (const auto& [uint1_z, element] : vec_column)
+                str_target += std::format("XM {} {} {} {} {} {}\n", st_i, int4_x, int4_y,
+                                          static_cast<int>(uint1_z), static_cast<int>(element.uint1_color),
+                                          static_cast<int>(element.uint1_normal));
+            }
+        }
+      } catch (const std::exception& ex) {
+        str_target += std::format("XX {} EX {}\n", sv_name, ex_line(ex));
+      }
+    };
+
+    const auto hva_cell = [](int int4_j, int int4_i) {
+      const auto int4_n = int4_i % 2;
+      return std::array<float, 12>{
+          // NOLINT(*)
+          static_cast<float>(int4_n + 1), 0.0f,                                   0.0f, int4_j + 0.5f,
+          0.0f,                          static_cast<float>(int4_n + 2),         1.0f, static_cast<float>(int4_i) - 0.25f,
+          0.0f,                          1.0f, static_cast<float>(int4_n + 3), static_cast<float>(int4_j * 2)};
+    };
+
+    const auto make_hva_file = [&](std::uint32_t uint4_frames, std::uint32_t uint4_limbs,
+                                   const std::function<std::array<float, 12>(int, int)>& fn_cell) {
+      auto vec = std::vector<std::byte>{};
+      put_name16(vec, "hvafile");
+      VqPutU32L(vec, uint4_frames);
+      VqPutU32L(vec, uint4_limbs);
+      for (std::uint32_t uint4_i = 0; uint4_i < uint4_limbs; uint4_i++)
+        put_name16(vec, std::format("limb{}", uint4_i));
+      for (std::uint32_t uint4_j = 0; uint4_j < uint4_frames; uint4_j++)
+        for (std::uint32_t uint4_i = 0; uint4_i < uint4_limbs; uint4_i++)
+          for (const auto fp4_f : fn_cell(static_cast<int>(uint4_j), static_cast<int>(uint4_i)))
+            put_f32(vec, fp4_f);
+      return vec;
+    };
+
+    const auto append_hva_lines = [&](std::string_view sv_name, std::span<const std::byte> vec_file,
+                                      std::string& str_target) {
+      str_target += std::format("HQ {} ", sv_name);
+      try {
+        const auto hva = ora::fmt::HvaReader{vec_file, sv_name};
+        str_target += std::format("{} {}\n", hva.uint4_frame_count, hva.uint4_limb_count);
+        for (auto uint4_j = 0u; uint4_j < hva.uint4_frame_count; uint4_j++)
+          for (auto uint4_i = 0u; uint4_i < hva.uint4_limb_count; uint4_i++) {
+            str_target += std::format("HT {} {}", uint4_j, uint4_i);
+            for (auto int4_k = 0; int4_k < 16; int4_k++)
+              str_target += " " + ora::meta::FormatFloatNet(
+                                     hva.vec_transforms[16 * (hva.uint4_limb_count * uint4_j + uint4_i) +
+                                                        static_cast<std::size_t>(int4_k)]);
+            str_target += '\n';
+          }
+      } catch (const std::exception& ex) {
+        str_target += std::format("EX {}\n", ex_line(ex));
+      }
+    };
+
+    struct IdxSpec {
+      std::string str_name;
+      std::uint32_t uint4_off;
+      std::uint32_t uint4_len;
+      std::uint32_t uint4_rate;
+      std::uint32_t uint4_flags;
+      std::uint32_t uint4_chunk;
+    };
+
+    const auto make_idx_file = [&](std::string_view sv_magic, int int4_two, const std::vector<IdxSpec>& vec_entries) {
+      auto vec = std::vector<std::byte>{};
+      for (const char chr_c : sv_magic)
+        vec.push_back(static_cast<std::byte>(chr_c));
+      VqPutU32L(vec, static_cast<std::uint32_t>(int4_two));
+      VqPutU32L(vec, static_cast<std::uint32_t>(vec_entries.size()));
+      for (const auto& entry : vec_entries) {
+        put_name16(vec, entry.str_name);
+        VqPutU32L(vec, entry.uint4_off);
+        VqPutU32L(vec, entry.uint4_len);
+        VqPutU32L(vec, entry.uint4_rate);
+        VqPutU32L(vec, entry.uint4_flags);
+        VqPutU32L(vec, entry.uint4_chunk);
+      }
+
+      return vec;
+    };
+
+    const auto append_idx_lines = [&](std::string_view sv_name, std::span<const std::byte> vec_file,
+                                      std::string& str_target) {
+      str_target += std::format("IQ {} ", sv_name);
+      try {
+        const auto idx = ora::fmt::IdxReader{vec_file};
+        str_target += std::format("{}\n", idx.int4_sound_count);
+        for (const auto& entry : idx.vec_entries) {
+          str_target += std::format("IE {} {} {} {} {} {}\n", esc(entry.str_filename), entry.uint4_offset,
+                                    entry.uint4_length, entry.uint4_sample_rate, entry.uint4_flags,
+                                    entry.uint4_chunk_size);
+          str_target += std::format("IT {}\n", esc(entry.ToString()));
+        }
+      } catch (const std::exception& ex) {
+        str_target += std::format("EX {}\n", ex_line(ex));
+      }
+    };
+
+    // 1) VXL:两肢体(TS/RA2 型),含空列、count 0 空 Dictionary 列、首游程
+    //    skip>0、整空行、恰 16 字符满名、足注前 'G' 间隙。
+    auto vec_l0_cols = std::vector<VxlCol>(12);
+    vec_l0_cols[0] = std::vector<VxlRun>{{1, 2}, {0, 3}};
+    vec_l0_cols[2] = std::vector<VxlRun>{{2, 1}, {1, 2}};
+    vec_l0_cols[3] = std::vector<VxlRun>{{5, 0}};
+    vec_l0_cols[4] = std::vector<VxlRun>{{3, 2}};
+    vec_l0_cols[6] = std::vector<VxlRun>{{0, 5}};
+    vec_l0_cols[7] = std::vector<VxlRun>{{4, 1}};
+    auto vec_l1_cols = std::vector<VxlCol>(4);
+    vec_l1_cols[0] = std::vector<VxlRun>{{0, 3}};
+    vec_l1_cols[2] = std::vector<VxlRun>{{1, 1}, {1, 1}};
+    vec_l1_cols[3] = std::vector<VxlRun>{{2, 1}};
+
+    const auto vec_vxl_file = make_vxl_file(
+        {VxlLimbSpec{"turret", 0.5f, {-1.25f, 2.5f, -0.125f, 1.5f, 3.75f, -2.25f}, {4, 3, 5}, 2,
+                     make_vxl_limb_data(4, 3, vec_l0_cols)},
+         VxlLimbSpec{"bodyfull12345678", 0.03125f, {-100.5f, 100.5f, 0.0f, 1.0f, -1.0f, 16.0f}, {2, 2, 3}, 4,
+                     make_vxl_limb_data(2, 2, vec_l1_cols)}},
+        3);
+    append_vxl_lines("vxl_basic", vec_vxl_file, str_out);
+
+    // 2) VXL 负例:坏头(恰 16 字节,前缀检查失败而非 ReadASCII(16) 的
+    //    越界)| a bad header (exactly 16 bytes, the prefix check failing
+    //    rather than ReadASCII(16) running off the end)
+    auto vec_bad_head = std::vector<std::byte>{};
+    for (const char chr_c : std::string_view{"Voxel AnimXXXXZ"})
+      vec_bad_head.push_back(static_cast<std::byte>(chr_c));
+    vec_bad_head.push_back(std::byte{0});
+    append_vxl_lines("vxl_badhead", vec_bad_head, str_out);
+
+    // 3) HVA:2 帧 × 2 肢体 + 零矩阵负例。
+    append_hva_lines("hva_basic", make_hva_file(2, 2, hva_cell), str_out);
+    append_hva_lines("hva_singular", make_hva_file(1, 1, [](int, int) { return std::array<float, 12>{}; }),
+                     str_out);
+
+    // 4) IDX:三条目 + 魔数与版本两负例。
+    append_idx_lines("idx_basic",
+                     make_idx_file("GABA", 2,
+                                   {IdxSpec{"a10rumor", 0x1234, 0x5678, 22050, 0, 0},
+                                    IdxSpec{"", 0xFFFFFFFF, 0, 8000, 7, 4096},
+                                    IdxSpec{"buzzer", 0, 0xFFFFFFFF, 44100, 1, 512}}),
+                     str_out);
+    append_idx_lines("idx_badmagic", make_idx_file("GABX", 2, {}), str_out);
+    append_idx_lines("idx_badtwo", make_idx_file("GABA", 3, {}), str_out);
+  }
+
   return str_out;
 }
 
@@ -3341,6 +3813,7 @@ int main(int argc, char** argv) {
     TestAudReader();
     TestWavReader();
     TestVqaWsaVideo();
+    TestVxlHvaIdx();
     std::println("pure-logic ok");
     TestGoldenDifferential(argv[1], argv[2]);
   } catch (const std::exception& ex) {

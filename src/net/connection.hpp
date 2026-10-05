@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Connection.cs @7d57605 L24-97(IConnection +
+// UPSTREAM: OpenRA.Game/Network/Connection.cs @b6fc03f L24-97(IConnection +
 //          EchoConnection 逐语义重写;NetworkConnection/ReplayConnection 随
 //          Phase 7 网络/回放落地)
 //          IConnection + EchoConnection, verbatim-semantics; Network

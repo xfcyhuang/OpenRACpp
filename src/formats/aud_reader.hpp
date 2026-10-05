@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/AudReader.cs @7d57605 L20-205(全文)
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/AudReader.cs @b6fc03f L20-205(全文)
 // + OpenRA.Mods.Cnc/AudioLoaders/AudLoader.cs L20-73(IsAud 嗅探与
 // TryParseSound 的 catch 面)。
 // Westwood .aud 音频:12 字节头(sampleRate/dataSize/outputSize/flags/

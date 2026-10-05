@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/World.cs @7d57605 L178-627(实现部分;仿真核心)
+// UPSTREAM: OpenRA.Game/World.cs @b6fc03f L178-627(实现部分;仿真核心)
 //          The implementation half of World.cs (sim core).
 #include "sim/world.hpp"
 

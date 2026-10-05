@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/WVec.cs @7d57605 L20-109(除 Lua 脚本绑定接口)
+// UPSTREAM: OpenRA.Game/WVec.cs @b6fc03f L20-109(除 Lua 脚本绑定接口)
 // 三维世界向量:全整数定点,1024 单位 = 1 cell。
 // LerpQuadratic 上游用 decimal(96 位十进制整数)防溢出;此处以 __int128 精确整数除法
 // 复刻,商向零截断与 decimal 一致——理论差异仅当商的小数展开连续 12+ 个 9 并触发

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpTSLoader.cs @7d57605 L17-200
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpTSLoader.cs @b6fc03f L17-200
 // 实现文件:TmpTSFrame(菱形展开/extra 回填)/ TmpTSDepthFrame /
 // UnpackTileData / IsTmpTS / ParseFrames 逐句照抄;Stream → SpanReader。
 // 索引 .at():上游数组负/越界索引抛 IndexOutOfRange 的等价抛点(合法

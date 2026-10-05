@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @7d57605(24 个 [FieldLoader.LoadUsing]
+// UPSTREAM: OpenRA.Game/FieldLoader.cs @b6fc03f(24 个 [FieldLoader.LoadUsing]
 //          加载器的逐语义移植,schema_dumper --scan 清单;各 loader 的源文件
 //          行号在对应函数注记):
 //          The verbatim-semantics port of all 24 [FieldLoader.LoadUsing]

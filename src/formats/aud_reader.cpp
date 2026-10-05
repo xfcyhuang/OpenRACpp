@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/AudReader.cs @7d57605 + AudLoader.cs
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/AudReader.cs @b6fc03f + AudLoader.cs
 // 的嗅探/try 面:逐句照抄;两解码流(ReadOnlyAdapterStream 的
 // BufferData 循环)物化为整段输出 —— Queue<byte> 逐字节 Enqueue 改
 // vector 追加,上游 return true(流尽)改循环退出,数据面逐字节等价。

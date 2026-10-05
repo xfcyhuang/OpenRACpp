@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @7d57605 L531-566(ParseVector2/ParseVector3
+// UPSTREAM: OpenRA.Game/FieldLoader.cs @b6fc03f L531-566(ParseVector2/ParseVector3
 //          的 X/Y/Z 数据语义与往返格式;System.Numerics.Vector2/3 的最小等价物)
 //          The X/Y/Z data semantics and round-trip format of
 //          ParseVector2/ParseVector3 (a minimal equivalent of

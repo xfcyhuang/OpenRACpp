@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FileFormats/CRC32.cs @7d57605 L19-133(全文)
+// UPSTREAM: OpenRA.Game/FileFormats/CRC32.cs @b6fc03f L19-133(全文)
 // 查表 CRC32:初始与终结均折叠进 polynomial 参数(Calculate 的
 // poly=0xFFFFFFFF 默认形态即标准 CRC-32;static_assert 以标准测试向量
 // "123456789" → 0xCBF43926 锁表)。Update/Finish 链式形态供 PNG/mix

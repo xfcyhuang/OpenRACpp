@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Renderer.cs @7d57605 L24-585(实现)
+// UPSTREAM: OpenRA.Game/Renderer.cs @b6fc03f L24-585(实现)
 // 头文件携带完整 UPSTREAM 锚点、OPT-B1 单级合成论证与形态适配清单。
 // Implementation of Renderer.cs; the header carries the full UPSTREAM
 // anchors, the OPT-B1 single-pass compositing argument, and the shape

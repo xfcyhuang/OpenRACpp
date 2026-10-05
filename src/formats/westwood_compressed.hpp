@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/FileFormats/WestwoodCompressedReader.cs
-// @7d57605 L18-86(全文)
+// @b6fc03f L18-86(全文)
 // Westwood 块压缩音频解码( AUD 的 WS 编码):五分支按命令字节高 2 位
 // 分派 —— 00:每码字节 4 个 2 位差分(±2/±1);01:每码字节 2 个 4 位
 // 差分(±9..±8 表);10 且 count&0x20:单样点跳变((sbyte)(count<<3)>>3

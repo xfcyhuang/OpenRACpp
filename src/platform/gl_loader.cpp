@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/OpenGL.cs @7d57605 L506-669(Bind<T> 加载段)
+// UPSTREAM: OpenRA.Platforms.Default/OpenGL.cs @b6fc03f L506-669(Bind<T> 加载段)
 // 表驱动单次加载;KHR_debug 双候选探测(无后缀 core 4.3 / KHR / ARB 后缀),
 // 对应上游 OpenGL.cs L550-562 的后缀拼接探测。
 // Table-driven one-shot loading; KHR_debug probes two candidates (the

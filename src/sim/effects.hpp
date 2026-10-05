@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Effects/IEffect.cs @7d57605 L16-28
+// UPSTREAM: OpenRA.Game/Effects/IEffect.cs @b6fc03f L16-28
 //          + OpenRA.Game/Effects/DelayedAction.cs L18-37
 //          + OpenRA.Game/Effects/DelayedImpact.cs(结构对照;渲染面 Phase 4)
 //          IEffect.cs + DelayedAction.cs + DelayedImpact.cs (structure

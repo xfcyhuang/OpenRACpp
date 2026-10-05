@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/OrderManager.cs @7d57605 L22-334(逐语义重写;
+// UPSTREAM: OpenRA.Game/Network/OrderManager.cs @b6fc03f L22-334(逐语义重写;
 //          SyncReport/TextNotificationsManager/Game 静态面以桩/注入承载 ——
 //          Phase 5/6/7 接线)
 //          Verbatim-semantics rewrite; the SyncReport/TextNotifications

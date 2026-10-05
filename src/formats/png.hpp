@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FileFormats/Png.cs @7d57605 L29-592(全文逐语义)
+// UPSTREAM: OpenRA.Game/FileFormats/Png.cs @b6fc03f L29-592(全文逐语义)
 // 自研 PNG 编解码器(OPT-B3:上游自研 592 行,PORTING_PLAN 决定照抄保行为
 // 一致,含 Indexed8 读写):块循环(IHDR/PLTE/tRNS/IDAT/tEXt/IEND/未知块
 // 跳过)、PngIdatStream 的 IDAT 链缝合、zlib 解压 + 五滤波反解(None/Sub/

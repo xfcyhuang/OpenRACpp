@@ -1,6 +1,6 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteRenderer.cs @7d57605 L20-305(逐方法)+
-//           OpenRA.Game/Graphics/RgbaSpriteRenderer.cs @7d57605 L17-58 +
-//           OpenRA.Game/Graphics/RgbaColorRenderer.cs @7d57605 L20-256
+// UPSTREAM: OpenRA.Game/Graphics/SpriteRenderer.cs @b6fc03f L20-305(逐方法)+
+//           OpenRA.Game/Graphics/RgbaSpriteRenderer.cs @b6fc03f L17-58 +
+//           OpenRA.Game/Graphics/RgbaColorRenderer.cs @b6fc03f L20-256
 // SpriteRenderer:8 纹理槽批渲染 + BlendSpan 交错混合段 + SetRenderStateForSprite
 // 的槽位映射(含 SpriteWithSecondaryData 的双 sheet 逻辑与满槽 flush 重试),
 // 逐行复刻;Flush 的绘制路径挂接第四批的持久映射 VB(OPT-A5:顶点一次

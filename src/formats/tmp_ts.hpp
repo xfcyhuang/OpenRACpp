@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpTSLoader.cs @7d57605 L17-200(全文)
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpTSLoader.cs @b6fc03f L17-200(全文)
 // Tiberian Sun 的 TMP 地形 tile 集:菱形 tile(UnpackTileData:行宽自 4
 // 起 +4/-4 递变,展开进矩形帧)+ 悬崖附加数据(flags&1 时 bounds 与主
 // 帧联合、extra 两层主/深度回填)+ 深度通道作为第二组帧(tiles[k+

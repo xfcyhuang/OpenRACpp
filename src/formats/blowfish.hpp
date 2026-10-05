@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/Blowfish.cs @7d57605 L14-409(全文逐语义)
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/Blowfish.cs @b6fc03f L14-409(全文逐语义)
 // 标准 Blowfish(ECB,63 字节密钥上限任意长):18 项 P 盒 + 4×256 S 盒逐值
 // 照搬;密钥扩展与 16 轮 Feistel 控制流逐行等价(x 交错标志、Encrypt/Decrypt
 // 的 P[0]/P[17] 首尾异或、输出 a/b 交换)。RunCipher 的 SwapBytes 大端字序

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpRALoader.cs @7d57605 L17-102(全文)
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpRALoader.cs @b6fc03f L17-102(全文)
 // Red Alert 的 TMP 地形 tile 集:与 TmpTD 同构,头布局多 4 字节
 // (imgStart@16、魔数 @26 u16 == 0x2c73)、indexStart@36。空 tile 语义
 // 同 TD。

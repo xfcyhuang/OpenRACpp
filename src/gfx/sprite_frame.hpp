@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteLoader.cs @7d57605 L53-71
+// UPSTREAM: OpenRA.Game/Graphics/SpriteLoader.cs @b6fc03f L53-71
 // ISpriteFrame:格式加载器(SHP/TMP/PNG…)对渲染侧暴露的帧契约。
 // 上游为 C# 属性(Type/Size/FrameSize/Offset/Data/DisableExportPadding);
 // C++ 侧为纯虚 getter —— 字段语义逐一对应:

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/FileFormats/ImaAdpcmReader.cs @7d57605 L16-87(全文)
+// UPSTREAM: OpenRA.Mods.Common/FileFormats/ImaAdpcmReader.cs @b6fc03f L16-87(全文)
 // IMA ADPCM 单样点解码 + 4 字节组解码:IndexAdjust 8 项 / StepTable 89 项
 // 逐值照搬;delta = StepTable[index]*b/4 + StepTable[index]/8 的两次整除
 // 均为 C# int 除(向零截断);current/index 的饱和边界 32767/-32768 与

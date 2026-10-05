@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FileSystem/Folder.cs @7d57605 L19-110(逐语义重写)
+// UPSTREAM: OpenRA.Game/FileSystem/Folder.cs @b6fc03f L19-110(逐语义重写)
 // 目录包:Contents 顺序影响哈希(上游注释 L34),此处按字节序排序——
 // mods 的 ASCII 文件名集合下与 C# .Order()(culture 序)等价,已登记 COVERAGE。
 // Directory package: the Contents order matters for hashing (upstream comment

@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Platforms.Default/ThreadedGraphicsContext.cs @7d57605 L188-820(线程循环与 GL 分发)+
-//           OpenRA.Platforms.Default/Sdl2GraphicsContext.cs @7d57605 L159-269(DrawPrimitives/DrawElements/
+// UPSTREAM: OpenRA.Platforms.Default/ThreadedGraphicsContext.cs @b6fc03f L188-820(线程循环与 GL 分发)+
+//           OpenRA.Platforms.Default/Sdl2GraphicsContext.cs @b6fc03f L159-269(DrawPrimitives/DrawElements/
 //           Clear/Enable-DisableDepthBuffer/SetBlendMode 的 GL 序列)
 // 命令消费的 GL 分发 + 状态 diff(绑定缓存:program/fbo/vao/纹理单元/blend)。
 // SetBlendMode 的 9 模式映射逐上游(Sdl2GraphicsContext.cs L207-269);blend

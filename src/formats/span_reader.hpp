@@ -64,6 +64,12 @@ class SpanReader {
   /// Upstream ReadInt32: the bit pattern reinterpreted.
   std::int32_t ReadInt32() { return static_cast<std::int32_t>(ReadUInt32()); }
 
+  /// 上游 ReadSingle(StreamExts.cs L135-140):4 字节小端位模式转 float
+  /// (BitConverter.ToSingle)。
+  /// Upstream ReadSingle (StreamExts.cs L135-140): the 4 little-endian
+  /// bytes' bit pattern as a float (BitConverter.ToSingle).
+  float ReadSingle() { return std::bit_cast<float>(ReadUInt32()); }
+
   /// 读 count 字节返回区间(零拷贝;上游 ReadBytes(int) 分配新数组)。
   /// Reads count bytes as a subspan (zero-copy; upstream's ReadBytes(int)
   /// allocates a fresh array).

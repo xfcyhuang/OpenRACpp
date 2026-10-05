@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/Sheet.cs @7d57605 L19-196 +
-//           OpenRA.Game/Graphics/SheetBuilder.cs @7d57605 L34-175
+// UPSTREAM: OpenRA.Game/Graphics/Sheet.cs @b6fc03f L19-196 +
+//           OpenRA.Game/Graphics/SheetBuilder.cs @b6fc03f L34-175
 // Sheet:CPU 侧像素缓冲 + 惰性 GL 纹理;dirty 全量/子区域上传自动切换
 // (dirtyRegion 且纹理尺寸匹配时 SetSubData,否则 SetData);缓冲可释放
 // (ReleaseBuffer 提交后丢弃,转移给下一张 sheet 复用)。

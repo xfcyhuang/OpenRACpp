@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/ThreadedGraphicsContext.cs @7d57605 L188-820(渲染线程宿主)
+// UPSTREAM: OpenRA.Platforms.Default/ThreadedGraphicsContext.cs @b6fc03f L188-820(渲染线程宿主)
 // OPT-A5(docs/OPTIMIZATION_TRACKER.md):统一线程模型 —— 渲染线程永远存在并独占 GL 上下文
 // (上游 Windows 窗口模式禁用渲染线程的特例不复刻,Sdl2PlatformWindow.cs L345-353);
 // 命令消费见 gfx_command.hpp。OPT-A6:消费侧对 Bind* 类命令做状态 diff(仅变化时发 GL

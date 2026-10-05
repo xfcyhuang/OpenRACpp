@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/GameRules/Ruleset.cs @7d57605 L23-281(逐语义重写)+
+// UPSTREAM: OpenRA.Game/GameRules/Ruleset.cs @b6fc03f L23-281(逐语义重写)+
 //          OpenRA.Game/Primitives/ActorInfoDictionary.cs L18-55(SystemActors 补齐)
 //          Full rewrite of Ruleset.cs + the ActorInfoDictionary SystemActors
 //          backfill.

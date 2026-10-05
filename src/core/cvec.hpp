@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/CVec.cs @7d57605 L20-146(除 Lua 脚本绑定接口)
+// UPSTREAM: OpenRA.Game/CVec.cs @b6fc03f L20-146(除 Lua 脚本绑定接口)
 // 单元格向量(细胞坐标差)。字段/方法名保留 C# 原名以保持审计对照。
 // Cell vector (difference of cell coordinates). Field/method names keep the C# originals for audit cross-reference.
 // Lua Scripting 接口(#region Scripting interface)属 Phase 8 脚本绑定层,此处不移植。

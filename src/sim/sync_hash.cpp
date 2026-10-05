@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Sync.cs @7d57605(实现部分:注册表 + AssertUnsynced)
+// UPSTREAM: OpenRA.Game/Sync.cs @b6fc03f(实现部分:注册表 + AssertUnsynced)
 //          The implementation half of Sync.cs (registries +
 //          AssertUnsynced).
 #include "sim/sync_hash.hpp"

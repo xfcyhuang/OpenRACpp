@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/WPos.cs @7d57605 L20-79(除 Lua 脚本绑定接口)
-//          OpenRA.Game/WPos.cs @7d57605 L143-168(IEnumerableExtensions.Average)
+// UPSTREAM: OpenRA.Game/WPos.cs @b6fc03f L20-79(除 Lua 脚本绑定接口)
+//          OpenRA.Game/WPos.cs @b6fc03f L143-168(IEnumerableExtensions.Average)
 // 三维世界坐标(点,区别于 WVec 向量)。
 // LerpQuadratic 与 WVec 版的关键差异:offset 不先截断,(offset + Z) 在 decimal 域
 // 相加后统一向零截断再 Clamp 到 int 范围——向零截断在跨零时不满足平移不变,

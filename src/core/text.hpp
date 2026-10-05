@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/MiniYaml.cs @7d57605 L295,L299(.Trim() 调用点的 BCL 语义支撑)
+// UPSTREAM: OpenRA.Game/MiniYaml.cs @b6fc03f L295,L299(.Trim() 调用点的 BCL 语义支撑)
 // 复刻 .NET 的 char.IsWhiteSpace / MemoryExtensions.Trim:MiniYaml/FieldLoader 的
 // Replicates .NET char.IsWhiteSpace / MemoryExtensions.Trim: the key/value trimming of MiniYaml/FieldLoader
 // 键值裁剪依赖该语义(Unicode 空白集含 NBSP/U+1680/U+2000-200A/U+3000 等),

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/ModData.cs @7d57605(mod_data.hpp 的实现;
+// UPSTREAM: OpenRA.Game/ModData.cs @b6fc03f(mod_data.hpp 的实现;
 //          Phase 2 最小集挂载链,见 hpp 头注)
 //          Implementation of mod_data.hpp — the Phase 2 minimal mount
 //          chain; see the hpp header notes.

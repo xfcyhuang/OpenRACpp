@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Exts.cs @7d57605 L485-566(Parse*/TryParse*Invariant 家族)
+// UPSTREAM: OpenRA.Game/Exts.cs @b6fc03f L485-566(Parse*/TryParse*Invariant 家族)
 //          + FieldLoader.cs L146-591(标量 ParseXxx 委托体)
 //          The Parse*/TryParse*Invariant family + the scalar ParseXxx delegate
 //          bodies of FieldLoader.

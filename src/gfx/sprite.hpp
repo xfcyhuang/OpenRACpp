@@ -1,7 +1,7 @@
-// UPSTREAM: OpenRA.Game/Graphics/Sprite.cs @7d57605 L18-82 +
-//           OpenRA.Game/Graphics/SheetBuilder.cs @7d57605 L26-32(SheetType)+
-//           OpenRA.Game/Graphics/PlatformInterfaces.cs @7d57605 L36-48(BlendMode)+
-//           OpenRA.Game/Graphics/SpriteLoader.cs @7d57605 L24-59(SpriteFrameType)
+// UPSTREAM: OpenRA.Game/Graphics/Sprite.cs @b6fc03f L18-82 +
+//           OpenRA.Game/Graphics/SheetBuilder.cs @b6fc03f L26-32(SheetType)+
+//           OpenRA.Game/Graphics/PlatformInterfaces.cs @b6fc03f L36-48(BlendMode)+
+//           OpenRA.Game/Graphics/SpriteLoader.cs @b6fc03f L24-59(SpriteFrameType)
 // 精灵值类型:Bounds/Sheet/BlendMode/Channel/ZRamp/Size/Offset 全 readonly 逐字段;
 // 归一化纹理坐标 Left/Top/Right/Bottom 在构造期预计算(含 1/128 像素 inset,
 // 防 GPU 在非 1:1 帧缓冲上采样溢出采样到精灵矩形外 —— 上注释逐句保留)。

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/XORDeltaCompression.cs @7d57605 L14-82(全文)
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/XORDeltaCompression.cs @b6fc03f L14-82(全文)
 // 与既有数据异或合并的增量流(aka Format40)。六 case 逐分支照抄:
 // case1/2 跳过;case3/5 逐字节 XOR;case4/6 单值 XOR。终止 = 0x80 0x00
 // 0x0000(word 0)。SHPTD 的 XORPrev/XORLCW 帧引用它。

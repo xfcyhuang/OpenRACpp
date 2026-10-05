@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/UnitOrders.cs @7d57605 L48-431(可运行子集:
+// UPSTREAM: OpenRA.Game/Network/UnitOrders.cs @b6fc03f L48-431(可运行子集:
 //          default→ResolveOrder 分发链 + PauseGame;UI/大厅命令族随 Phase
 //          6/7 接线,未实现分支静默吞并保持 order 流不中断 —— 上游多数
 //          分支本就是 UI 通知面)

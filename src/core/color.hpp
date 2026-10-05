@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/Color.cs @7d57605 L20-232,374(值类型核心 + TryParse/ToString;
+// UPSTREAM: OpenRA.Game/Primitives/Color.cs @b6fc03f L20-232,374(值类型核心 + TryParse/ToString;
 //          HSV/HSL/线性 gamma 转换属渲染域,Phase 4 随 gfx 移植)
 //          Value-type core + TryParse/ToString (the HSV/HSL/linear-gamma
 //          conversions belong to the rendering domain and arrive with gfx in

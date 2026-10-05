@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/FrameBuffer.cs @7d57605 L19-157(逐方法)
+// UPSTREAM: OpenRA.Platforms.Default/FrameBuffer.cs @b6fc03f L19-157(逐方法)
 // 语义面:颜色纹理 + 深度 renderbuffer 附件、Bind 的 viewport 保存/恢复与
 // clear(clearColor + COLOR|DEPTH)、Unbind 恢复 viewport、scissor 断言
 // ("Attempting to unbind FrameBuffer with an active scissor region.")、

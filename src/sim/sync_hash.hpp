@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Sync.cs @7d57605 L23-211(逐语义重写;反射 Emit 的
+// UPSTREAM: OpenRA.Game/Sync.cs @b6fc03f L23-211(逐语义重写;反射 Emit 的
 //          哈希生成协议 → 编译期哈希函数族 + gen/sync_gen.cpp 成员表)
 //          Verbatim-semantics rewrite; the Reflection.Emit hash generation
 //          protocol becomes the compile-time hash function family + the

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/WAngle.cs @7d57605 L24-269(除 Lua 脚本绑定接口)
+// UPSTREAM: OpenRA.Game/WAngle.cs @b6fc03f L24-269(除 Lua 脚本绑定接口)
 // 一维定点角:1024 单位 = 360°。整数三角学:查表 + 无分支位技巧,
 // 所有分支化写法(掩码取绝对值、瀑布二分)逐行照抄上游,任何"化简"都可能破坏对拍。
 // 表数据照抄上游 L224-269(CosineTable: short[257],TanTable: int[257])。

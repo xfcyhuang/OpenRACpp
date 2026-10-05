@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/SpriteLoaders/ShpTSLoader.cs @7d57605 L17-163(全文)
+// UPSTREAM: OpenRA.Mods.Common/SpriteLoaders/ShpTSLoader.cs @b6fc03f L17-163(全文)
 // Tiberian Sun 的 SHP 图像:24 字节/帧头表(x/y/宽/高/格式/文件偏移),
 // 奇数宽高向上取偶(半像素偏移防御,Offset 记录取整差);三种格式:
 // Format3 = RLE0(Format2)压缩扫描线(每行 u16 前缀长);Format2 =

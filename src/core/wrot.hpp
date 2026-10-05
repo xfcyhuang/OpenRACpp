@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/WRot.cs @7d57605 L19-221(全类型)
+// UPSTREAM: OpenRA.Game/WRot.cs @b6fc03f L19-221(全类型)
 // 三维世界旋转:公开欧拉角(Roll/Pitch/Yaw)+ 内部整数四元数(1024 == 1.0)。
 // 上游 x/y/z/w 为 private;C++ 侧公开——黄金对拍与后续序列化需要读取四元数分量,
 // 只读约束以命名与注释约定(修改四元数而不重导欧拉角会破坏不变量)。

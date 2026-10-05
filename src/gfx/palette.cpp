@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/Palette.cs @7d57605 L20-160 +
-//           OpenRA.Game/Graphics/PaletteReference.cs @7d57605 L14-31(实现)
+// UPSTREAM: OpenRA.Game/Graphics/Palette.cs @b6fc03f L20-160 +
+//           OpenRA.Game/Graphics/PaletteReference.cs @b6fc03f L14-31(实现)
 // Implementations of the palette family (headers in palette.hpp carry the
 // full UPSTREAM anchors and deviation notes).
 #include "gfx/palette.hpp"

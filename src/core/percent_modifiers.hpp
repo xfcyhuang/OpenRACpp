@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Util.cs @7d57605 L203-211(ApplyPercentageModifiers)
+// UPSTREAM: OpenRA.Mods.Common/Util.cs @b6fc03f L203-211(ApplyPercentageModifiers)
 // 百分比修正链的精确十进制语义:上游以 C# decimal(128 位软十进制)逐项乘 p/100m,
 // 最后 (int) 向零截断。100=2²×5² 保证 p/100 恒为有限小数;实践值域(number ≤ 10 位、
 // 百分比 ≤ 4 位、链长 ≤ 4,见 Armament/Health/Mobile 等 22 个调用点)内 decimal 乘法

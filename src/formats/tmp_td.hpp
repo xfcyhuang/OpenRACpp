@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpTDLoader.cs @7d57605 L17-99(全文)
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpTDLoader.cs @b6fc03f L17-99(全文)
 // Command & Conquer TD 的 TMP 地形 tile 集:头(w/h/imgStart/indexEnd/
 // indexStart)+ 单字节 tile 索引(255 = 空 tile)。魔数:@16 u32 == 0
 // 且 @20 u32 == 0x0D1AFFFF。空 tile 的 Data = 空、Size = (0,0)、

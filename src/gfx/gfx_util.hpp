@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/Util.cs @7d57605 L23-320(渲染域子集)+
-//           OpenRA.Game/Exts.cs @7d57605 L270-273(NextPowerOf2)
+// UPSTREAM: OpenRA.Game/Graphics/Util.cs @b6fc03f L23-320(渲染域子集)+
+//           OpenRA.Game/Exts.cs @b6fc03f L270-273(NextPowerOf2)
 // 渲染域工具:四边形索引表、FastCreateQuad(顶点生成 + combined.vert 的
 // aVertexAttributes 位域打包)、FastCopyIntoChannel(Indexed8→单通道 /
 // Bgr[a]/Rgb[a]→RGBA 预乘拷贝)、PremultiplyAlpha(uint 快速整数预乘)、

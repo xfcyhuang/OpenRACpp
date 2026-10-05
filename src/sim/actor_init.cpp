@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Map/ActorInitializer.cs @7d57605 L223-262(OwnerInit)
+// UPSTREAM: OpenRA.Game/Map/ActorInitializer.cs @b6fc03f L223-262(OwnerInit)
 //          The OwnerInit half of ActorInitializer.cs.
 #include "sim/actor_init.hpp"
 

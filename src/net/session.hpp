@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Session.cs @7d57605 L1-286(锁步/大厅最小面;完整
+// UPSTREAM: OpenRA.Game/Network/Session.cs @b6fc03f L1-286(锁步/大厅最小面;完整
 //          序列化与大厅协议 Phase 7 落地)
 //          The lockstep/lobby minimal surface of Session.cs (the full
 //          Session serialization and lobby protocol land in Phase 7).

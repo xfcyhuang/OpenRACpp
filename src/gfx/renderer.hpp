@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Renderer.cs @7d57605 L24-585(逐方法)
+// UPSTREAM: OpenRA.Game/Renderer.cs @b6fc03f L24-585(逐方法)
 // 帧编排:BeginWorld(world FBO 渲染)→ BeginUI(合成 + UI)→ EndFrame(Present)。
 // OPT-B1(docs/OPTIMIZATION_TRACKER.md)单级合成 —— 上游三级 pow2 链
 // (world FBO → screen FBO → 默认帧缓冲;1920×1080 窗口被迫 2048² 双 FBO,

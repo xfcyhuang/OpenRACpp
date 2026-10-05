@@ -261,6 +261,9 @@ add_library(ora_formats STATIC
   src/formats/wav_reader.cpp
   src/formats/vqa_video.cpp
   src/formats/wsa_video.cpp
+  src/formats/vxl_reader.cpp
+  src/formats/hva_reader.cpp
+  src/formats/idx_reader.cpp
   src/fs/package_entry.cpp
   src/fs/mix_file.cpp
   src/fs/d2k_sound_resources.cpp)

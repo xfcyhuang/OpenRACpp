@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/Sdl2Input.cs @7d57605 L19-252 + MultiTapDetection.cs L17-83
+// UPSTREAM: OpenRA.Platforms.Default/Sdl2Input.cs @b6fc03f L19-252 + MultiTapDetection.cs L17-83
 // 事件泵逐事件移植:修饰符泵前一次(SDL_GetModState)、motion 合并
 // (pendingMotion 只保留最后一条,左/中/右键事件先 flush)、X1X2 转伪键盘
 // (MOUSE4/MOUSE5)、滚轮位置取 SDL_GetMouseState、文本输入 UTF-8、

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileSystem/MixFile.cs @7d57605 L24-248(逐语义重写)
+// UPSTREAM: OpenRA.Mods.Cnc/FileSystem/MixFile.cs @b6fc03f L24-248(逐语义重写)
 #include "fs/mix_file.hpp"
 
 #include "formats/blowfish.hpp"

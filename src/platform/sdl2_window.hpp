@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/Sdl2PlatformWindow.cs @7d57605 L34-587(窗口创建/模式/GL 属性段)
+// UPSTREAM: OpenRA.Platforms.Default/Sdl2PlatformWindow.cs @b6fc03f L34-587(窗口创建/模式/GL 属性段)
 // OPT-B5(docs/OPTIMIZATION_TRACKER.md):窗口几何为打包 atomic<u64> 快照,getter 无锁 ——
 // 替代上游每个属性 getter 各取一把 lock(Sdl2PlatformWindow.cs L42-120,scissor 等热路径
 // 每帧多次读)。OPT-A5:GL 上下文由渲染线程创建并持有(统一线程模型,上游

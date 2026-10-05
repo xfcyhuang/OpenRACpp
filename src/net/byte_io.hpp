@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Order.cs @7d57605 L345-487(BinaryWriter/Reader 字节协议的 Order 序列化消费面)
+// UPSTREAM: OpenRA.Game/Network/Order.cs @b6fc03f L345-487(BinaryWriter/Reader 字节协议的 Order 序列化消费面)
 //          字节协议)—— 兼容层,行为对齐(MSDN 语义):
 //          - 整型/浮点:小端
 //          - string:7-bit 变长长度前缀(每字节低 7 位,高位继续)+ UTF-8 字节

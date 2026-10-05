@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/BitSet.cs @7d57605 L20-173(全类型逐语义重写)
+// UPSTREAM: OpenRA.Game/Primitives/BitSet.cs @b6fc03f L20-173(全类型逐语义重写)
 //          Full-type statement-by-statement rewrite of upstream BitSet.cs.
 // 已登记偏离(docs/COVERAGE.md)/ Registered deviations (docs/COVERAGE.md):
 //  1. 位图用 uint64_t 承载(C# BigInteger 无界);每标签 64 个不同字符串即 abort

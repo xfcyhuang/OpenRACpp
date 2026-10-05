@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @7d57605 L937-975(schema_dumper --gen
+// UPSTREAM: OpenRA.Game/FieldLoader.cs @b6fc03f L937-975(schema_dumper --gen
 //          的运行时载体 —— C# 反射对象模型 FieldLoadInfo 的值形态等价)
 //          The runtime carrier of schema_dumper --gen output — the
 //          value-shaped equivalent of the C# reflection FieldLoadInfo model.
