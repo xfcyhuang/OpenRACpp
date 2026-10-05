@@ -192,6 +192,17 @@ void Texture::SetDataFromReadBuffer(std::int32_t int4_x, std::int32_t int4_y, st
 }
 
 std::vector<std::byte> Texture::GetData() {
+  // glGetTexImage 读取的是**当前活动单元**上绑定到 GL_TEXTURE_2D 的纹理;
+  // 必须先绑定自己(第三批 gfx_test 实证:palette 双纹理场景下不绑定会
+  // 读到最后一次 PrepareTexture 留下的其它纹理 —— ColorShifts 的 RGBA16F
+  // 被 BGRA/UB 读成全零;消费端绑定 diff 与 GL 状态同步更新,无副作用)。
+  // glGetTexImage reads whichever texture is bound to GL_TEXTURE_2D on the
+  // *active* unit; bind ourselves first (proven by the third-batch
+  // gfx_test: with two textures in play, the unbound read returned
+  // whatever the last PrepareTexture left bound — ColorShifts' RGBA16F
+  // read as all-zero under BGRA/UB; the consumer-side binding diff and
+  // the GL state stay in sync, so this has no side effects).
+  PostBindTextureUnit0(render_.queue(), uint4_texture_);
   std::vector<std::byte> vec_data(std::size_t(4) * int4_width_ * int4_height_);
   render_.GetTexImage(vec_data.size(), vec_data.data());
   return vec_data;

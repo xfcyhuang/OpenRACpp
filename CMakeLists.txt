@@ -199,13 +199,21 @@ ora_link_std(ora_platform)
 
 # 渲染核心:值类型命令 + SPSC 无锁队列(OPT-A5)+ 渲染线程(状态 diff,O6)
 # + Shader/Texture 封装(OPT-A6:uniform 整数化 + RAII 纹理句柄)
+# + Sprite/Sheet/SheetBuilder/Palette 家族 + HardwarePalette(OPT-A7:调色板
+# dirty 行)+ 顶点/四边形生成(第三批)
 # The render core: value-type commands + the SPSC lock-free ring (OPT-A5),
-# the render thread (state diff, OPT-A6), and the Shader/Texture wrappers
-# (OPT-A6: integer uniforms + RAII texture handles).
+# the render thread (state diff, OPT-A6), the Shader/Texture wrappers
+# (OPT-A6: integer uniforms + RAII texture handles), and — third batch —
+# the Sprite/Sheet/SheetBuilder/Palette family + HardwarePalette (OPT-A7:
+# palette dirty rows) + vertex/quad generation.
 add_library(ora_gfx STATIC
   src/gfx/render_thread.cpp
   src/gfx/shader.cpp
-  src/gfx/texture.cpp)
+  src/gfx/texture.cpp
+  src/gfx/gfx_util.cpp
+  src/gfx/sheet.cpp
+  src/gfx/palette.cpp
+  src/gfx/hardware_palette.cpp)
 target_link_libraries(ora_gfx PUBLIC ora_platform)
 ora_link_std(ora_gfx)
 
@@ -312,3 +320,19 @@ add_custom_command(TARGET platform_test POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:platform_test>)
 add_test(NAME platform_test COMMAND platform_test)
+
+# Phase 4 第三批验收:Sheet/SheetBuilder/Sprite 几何 + Palette 家族 +
+# HardwarePalette dirty 行(OPT-A7)纯逻辑断言,及 GL 集成上传读回
+# (Sheet 子区域/dirty region、调色板 OPT-C5 增量 == 全量;无桌面自动 SKIP)。
+# Phase 4 third-batch acceptance: pure-logic assertions on the
+# Sheet/SheetBuilder/Sprite geometry, the Palette family, and the
+# HardwarePalette dirty rows (OPT-A7), plus GL-integration upload readbacks
+# (Sheet sub-regions/dirty regions, and the palette OPT-C5 incremental ==
+# full equivalence; auto-SKIP on headless hosts).
+add_executable(gfx_test tests/gfx_test.cpp)
+target_link_libraries(gfx_test PRIVATE ora_gfx ora_sdl2)
+ora_link_std(gfx_test)
+add_custom_command(TARGET gfx_test POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:gfx_test>)
+add_test(NAME gfx_test COMMAND gfx_test)

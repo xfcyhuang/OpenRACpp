@@ -240,3 +240,30 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D43 | src/gfx/shader | 链接成功后即刻 DeleteShader 两个编译对象(上游保留) | 已链接 program 内嵌产物,GL 规范允许;省显存与驱动对象数,无行为差异 |
 | D44 | src/gfx/texture | Texture RAII:析构异步发 DeleteTextures(命令序保证晚于既有引用);SetData/SetEmpty/SetFloatData 无 pow2 校验(D37 的组成部分,上表已登记此处为封装层落点) | 上游手动 Dispose + 泄漏容忍;OPT-B1 的引擎级 NPOT 决策 |
 | D45 | src/gfx/shader | Shader::Bind() 重播属性指针时同时 EnableVertexAttribArray(上游构造期一次 enable,全局单 VAO 模型) | C++ 侧 VAO 化后 enable 状态属各 VAO;Bind 语义 = "该 VAO 上属性状态完备",与上游可观察行为等价(VAO 缓存随 SpriteRenderer 批次,tracker OPT-A6 注) |
+
+### Phase 4 第三批(2026-10-05):Sheet/SheetBuilder/Sprite + Palette 家族 + HardwarePalette(OPT-A7)
+
+- `src/gfx/sprite.hpp`:TextureChannel/BlendMode/SpriteFrameType/SheetType 四枚举 + Sprite(bounds/预计算 1/128 inset 归一化坐标)+ SpriteWithSecondaryData(无 inset 二级坐标;b_secondary 判别位 = 上游 `is` 测试的等价物);
+- `src/gfx/vertex.hpp`:Vertex 48B 逐字段 + combined 属性表 constexpr(static_assert 布局契约);
+- `src/gfx/gfx_util.hpp/.cpp`:CreateQuadIndices、FastCreateQuad 两形态(aVertexAttributes 位域打包逐位 = combined.vert 注释契约)、FastCopyIntoChannel(单通道 ChannelMasks "nuts" 序 + Bgra32 逐行 memcpy 快路径 + Bgr/Rgb 慢路径 + PremultiplyAlpha uint32 快速整数预乘)、RotateQuadInto(Matrix3x2.CreateRotation(-r) 的 2D 变换)、BoundingRectangle((int) 向零截断)、NextPowerOf2;core::Vector2/3 渲染运算扩展(vector_n.hpp 的 Phase 4 注记落地);
+- `src/gfx/sheet.hpp/.cpp`:Sheet(CPU 缓冲 + 惰性纹理、dirty 全量/子区域自动切换、ReleaseBuffer 提交后释放、转移复用)+ SheetBuilder(shelf 打包/行高推进/margin、Indexed 四通道轮换 R→G→B→A→换 sheet、BGRA 直接换 sheet、空 sprite 不占位、FrameTypeToSheetType);
+- `src/gfx/palette.hpp/.cpp`:IPalette/ImmutablePalette(768B 字节流构造的 <<2|>>6 高位复制 + remapTransparent/remapShadow)/MutablePalette(SetColor/ApplyRemap/SetFromPalette)/IPaletteRemap/PaletteReference;
+- `src/gfx/hardware_palette.hpp/.cpp`:HardwarePalette(行 0 保留、索引 = 已有数+1、高度 NextPowerOf2(index+1) 扩容**保留旧行**、ReplacePalette 重建、SetColorShift 延迟上传、ApplyModifiers 调整→上传→重置);IPaletteModifier 接口。
+
+**验收(2026-10-05,gfx_test)**
+
+- 纯逻辑:SheetBuilder shelf 几何(换行/行高/margin/空 sprite/顶行高承接)、通道轮换 R→G→B→A→换 sheet 与 BGRA 直换、Sheet dirtyRegion 并集(含无参 Commit 仍并集不重置)、palette 字节流构造边界(255→252|3=255、64→0、65→4)与重映射、CopyToArray 字节序/目标偏移、HardwarePalette 索引/高度增长/ApplyModifiers 重置/异常路径消息逐字、PremultiplyAlpha 边界(a=255 恒等/0 归零/128 精确/1 最低位)、FastCreateQuad 位域全位断言(主/次通道、双 sampler、调色板行、inset UV、旋转四角)、FastCopyIntoChannel 全路径(Indexed8 单通道掩码/Bgra32 快慢路径/Bgr24/Rgba32)、CreateQuadIndices/NextPowerOf2/BoundingRectangle/RotateQuadInto;
+- GL 集成:SheetBuilder 拼装 → GetTexture 全量上传读回(行距/序号完整)、子区域 CommitBufferedData → SetSubData 路径(脏行更新、行外不变)、缓冲转移 GL 路径(src 提交后释放、dst 接收清零缓冲并照常上传)、HardwarePalette Initialize 全量 + ReplacePalette 单行**增量** + ApplyModifiers 增量;**OPT-C5 断言:每次上传后调色板纹理读回与裸纹理全量 SetData 同 CPU 缓冲的参考读回逐字节一致**;
+- 双构建 ctest 14/14;门禁 112 标注 / 123 文件 PASS。
+
+**实现过程修出两个真 bug(全部由测试暴露)**:HardwarePalette 高度增长误用 assign 清零缓冲(上游 Array.Resize 保留旧行 —— 行内容断言实证,OPT-C5 纹理==缓冲对比测不出此类"一致地错");Texture::GetData 未绑定自身即调 glGetTexImage(读回的是活动单元上最后绑定的任意纹理 —— palette 双纹理场景读成 ColorShifts 的 RGBA16F 全零,且两帧 GetData 同读一纹理使对比恒真)。
+
+### 已登记偏离(PORTING_PLAN §7.5,第三批新增)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D46 | src/gfx/sheet | Game.Renderer 全局访问 → RenderThread* 注入(空 = 上游 Game.Renderer==null 的 Utility 纯数据路径,GetTexture 断言挡);ReleaseBufferAndTryTransferTo 转移"清零缓冲"改为重新分配(上游转移原数组对象复用);Sheet(Stream)(Png 解码)与 AsPng 随 formats 批次 | 去全局化必经;数组对象复用仅 GC 分配语义,内容同为全零、行为等价;Png 依赖 formats 加载链 |
+| D47 | src/gfx/sheet | SheetBuilder::Add 的 ISpriteFrame/Png 重载随 formats 批次,当前为字节区间重载;构造函数增 RenderThread* 尾参(默认空) | 调用面等价;ISpriteFrame 接口随 shp/tmp 加载器落地 |
+| D48 | src/gfx/palette | IEnumerable<uint> 构造 → span;流构造改为 768B 字节区间(调用方负责读流);GetColor/AsReadOnly 扩展方法 → core::Color::FromArgb / const 引用(ReadOnlyPalette 包装类不需要);InvalidOperationException → std::runtime_error(消息文本逐字) | 合法输入下行为等价;C++ const 引用天然只读 |
+| D49 | src/gfx/hardware_palette | 三 Dictionary → std::map(遍历仅写互不相交行,顺序不可观测);OPT-A7 调色板 dirty 行:单行 ReplacePalette/ApplyModifiers 走逐行 SetSubData 增量(脏行过半启发式退回全量 SetData;ColorShifts 表保持全量);纯数据模式(render 空)路径决策与脏位推进照常、仅 GL 发射跳过 | 上游 L132-154 每次无条件全量上传;OPT-C5:上传字节与落点相同,渲染结果逐像素一致(gfx_test 读回断言);map 顺序不可观测论证见左 |
+| D50 | src/gfx/texture | Texture::GetData() 读回前先绑定自身到单元 0(glGetTexImage 作用于活动单元当前绑定;绑定与读回同队列保序) | 上游单线程同上下文内 GetData 前调用方必有 Bind 语义;命令队列模式下不绑定会读到任意残留绑定(第三批实证);消费端绑定 diff 与 GL 状态同步,无副作用 |
