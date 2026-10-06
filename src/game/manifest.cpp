@@ -194,6 +194,15 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
   parse_format_list("SoundFormats", vec_soundFormats_);
   parse_format_list("SpriteFormats", vec_spriteFormats_);
 
+  // DefaultOrderGenerator(Manifest.cs L153-154):单标量(World 构造的
+  // DefaultOrderGenerator 名字分派键)
+  // DefaultOrderGenerator (Manifest.cs L153-154): a single scalar (the
+  // name-dispatch key of the World construction).
+  if (const yaml::MiniYaml* yaml_entry = find_node("DefaultOrderGenerator")) {
+    if (yaml_entry->Value != nullptr)
+      str_defaultOrderGenerator_ = *yaml_entry->Value;
+  }
+
   // SpriteSequenceFormat(L171-172):单标量
   // SpriteSequenceFormat (L171-172): a single scalar.
   if (const yaml::MiniYaml* yaml_entry = find_node("SpriteSequenceFormat")) {

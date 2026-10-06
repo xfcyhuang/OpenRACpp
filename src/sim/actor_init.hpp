@@ -178,6 +178,12 @@ class OwnerInit : public ActorInit, public ISingleInstanceInit {
   explicit OwnerInit(Player* value);
   explicit OwnerInit(std::string str_internal_name);
 
+  // ActorInit → TraitBase 的纯虚收尾(init 非 trait,注册面为空;
+  // GetTraitTypeId 由 ORA_INIT_TYPE 提供)
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+
   /// Value(world)(L239-241):显式 Player 优先,否则按 InternalName 找首个
   /// Value(world) (L239-241): an explicit Player wins; otherwise the first
   /// player with the InternalName.

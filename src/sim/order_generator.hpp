@@ -35,4 +35,22 @@ class IOrderGenerator {
                                 std::span<Actor* const> selected) = 0;          // L27
 };
 
+// ———— DefaultOrderGenerator 名字分派注册表(World.cs L185-192 的
+//      ObjectCreator.FindType + ctor(World) 反射构造 → 注册表面)————
+// ———— The DefaultOrderGenerator name-dispatch registry (the registry face
+//      of World.cs L185-192's ObjectCreator.FindType + ctor(World)
+//      reflection construct) ————
+
+class World;
+
+/// 未知名异常文本("… is not a valid DefaultOrderGenerator"逐字)
+/// The unknown-name exception text ("… is not a valid
+/// DefaultOrderGenerator" verbatim).
+void RegisterOrderGenerator(
+    std::string str_name,
+    std::function<std::unique_ptr<IOrderGenerator>(World&)> fn_factory);
+bool OrderGeneratorRegistered(const std::string& str_name);
+std::unique_ptr<IOrderGenerator> CreateOrderGenerator(
+    const std::string& str_name, World& world);
+
 }  // namespace ora::sim

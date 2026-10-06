@@ -28,12 +28,18 @@ import std;
 
 #include "core/bitset.hpp"
 #include "core/cell_pos.hpp"
+#include "core/long_bitset.hpp"
 #include "core/mersenne_twister.hpp"
 #include "core/wangle.hpp"
+#include "core/wdist.hpp"
 #include "core/wpos.hpp"
 #include "core/wrot.hpp"
 #include "gen/interfaces_gen.h"
 #include "yaml/mini_yaml.hpp"
+
+namespace ora::mods::pathfinding {
+class LocomotorInfo;  // Mods.Common;寻路批的类型面(a pathfinding-batch type)
+}
 
 namespace ora::gfx {
 class WorldRenderer;  // 渲染域注入面(Phase 4)| the render-domain injection face.
@@ -42,6 +48,7 @@ class WorldRenderer;  // 渲染域注入面(Phase 4)| the render-domain injectio
 namespace ora::net {
 struct Order;
 class OrderManager;
+struct SessionClient;
 }  // namespace ora::net
 
 namespace ora::sim {
@@ -50,6 +57,15 @@ class Actor;
 class Player;
 class World;
 class Activity;
+struct Target;
+
+/// Player.cs L37 的位标签 + LongBitSet 全量位集(core/long_bitset.hpp)
+/// The Player.cs L37 bit tag + the full LongBitSet (core/long_bitset.hpp).
+/// (置于本处以解 player.hpp 的循环包含 | placed here to break the
+/// player.hpp include cycle)
+class PlayerBitMask {};
+
+using PlayerMaskSet = LongBitSet<PlayerBitMask>;
 
 /// core::BitSet 的标签类型(TargetableType/DamageType/CrushClass ——
 /// TraitsInterfaces.cs L46/L530/L647 的类型标签;BitSet 模板参数)
@@ -390,7 +406,10 @@ class ITargetablePositions {
   virtual std::vector<WPos> TargetablePositions(Actor& self) = 0;
 };
 
-/// TraitsInterfaces.cs L649-654
+/// TraitsInterfaces.cs L649-654(双 CrushableBy 重载:bool 询问 +
+/// 掩码并集面 —— UpdateCellBlocking 消费后者)
+/// TraitsInterfaces.cs L649-654 (both CrushableBy overloads: the bool
+/// query + the mask-union face — UpdateCellBlocking consumes the latter).
 class ICrushable {
  public:
   static constexpr gen::TypeId kTypeId =
@@ -398,6 +417,8 @@ class ICrushable {
   virtual ~ICrushable() = default;
   virtual bool CrushableBy(Actor& self, Actor& crusher,
                            const core::BitSet<CrushClass>& crush_classes) = 0;
+  virtual PlayerMaskSet CrushableByMask(
+      Actor& self, const core::BitSet<CrushClass>& crush_classes) = 0;
 };
 
 // ———— Phase 5 第一批接口增量(TraitsInterfaces.cs / Mods.Common)————
@@ -409,7 +430,7 @@ class IWorldLoaded {
  public:
   static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IWorldLoaded;
   virtual ~IWorldLoaded() = default;
-  virtual void WorldLoaded(World& world, gfx::WorldRenderer& wr) = 0;
+  virtual void WorldLoaded(World& world, gfx::WorldRenderer* wr) = 0;
 };
 
 class IPostWorldLoaded {
@@ -417,7 +438,7 @@ class IPostWorldLoaded {
   static constexpr gen::TypeId kTypeId =
       gen::TypeId::OpenRA_Traits_IPostWorldLoaded;
   virtual ~IPostWorldLoaded() = default;
-  virtual void PostWorldLoaded(World& world, gfx::WorldRenderer& wr) = 0;
+  virtual void PostWorldLoaded(World& world, gfx::WorldRenderer* wr) = 0;
 };
 
 /// TraitsInterfaces.cs L~:INotifySelection / INotifySelected
@@ -506,6 +527,286 @@ class IVisibilityModifier {
       gen::TypeId::OpenRA_Traits_IVisibilityModifier;
   virtual ~IVisibilityModifier() = default;
   virtual bool IsVisible(Actor& self, Player* by_player) = 0;
+};
+
+// ———— Phase 5 第二批接口增量(TraitsInterfaces.cs 引擎侧 + Mods.Common)————
+// ———— The batch-17 interface additions (TraitsInterfaces.cs engine side +
+//      Mods.Common) ————
+
+/// OpenRA.Mods.Common/TraitsInterfaces.cs L757:[Flags] MovementType
+/// OpenRA.Mods.Common/TraitsInterfaces.cs L757: [Flags] MovementType.
+enum class MovementType : std::int32_t {
+  None = 0,
+  Horizontal = 1,
+  Vertical = 2,
+  Turn = 4,
+};
+
+/// LocomoterExts.HasMovementType(Locomotor.cs L44-48;HasFlag 的位测等价)
+/// LocomoterExts.HasMovementType (Locomotor.cs L44-48): the bit-test
+/// equivalent of HasFlag.
+inline bool HasMovementType(MovementType m, MovementType movement_type) {
+  return (static_cast<std::int32_t>(m) &
+          static_cast<std::int32_t>(movement_type)) ==
+         static_cast<std::int32_t>(movement_type);
+}
+
+/// OpenRA.Mods.Common/TraitsInterfaces.cs L858:BlockedByActor
+/// OpenRA.Mods.Common/TraitsInterfaces.cs L858: BlockedByActor.
+enum class BlockedByActor : std::int32_t { None, Immovable, Stationary, All };
+
+/// OpenRA.Game/Traits/TraitsInterfaces.cs L130:[Flags] TargetModifiers
+/// OpenRA.Game/Traits/TraitsInterfaces.cs L130: [Flags] TargetModifiers.
+enum class TargetModifiers : std::int32_t {
+  None = 0,
+  ForceAttack = 1,
+  ForceQueue = 2,
+  ForceMove = 4,
+};
+
+constexpr TargetModifiers operator|(TargetModifiers a, TargetModifiers b) {
+  return static_cast<TargetModifiers>(static_cast<std::int32_t>(a) |
+                                      static_cast<std::int32_t>(b));
+}
+
+/// TraitsInterfaces.cs L234-268:IActorMap(实现 = Mods.Common ActorMap)
+/// TraitsInterfaces.cs L234-268: IActorMap (implemented by Mods.Common's
+/// ActorMap).
+class ICustomMovementLayer;  // Mods.Common(L492);定义于本文件下方
+// Mods.Common 的 LocomotorInfo 前置声明已在文件头(全局域)完成
+// (the Mods.Common LocomotorInfo fwd declaration is at the file head,
+// global scope).
+// (前置于 ora::sim 打开前 —— 全局限定名查找不落入 ora::sim 内的嵌套域)
+// (declared before ora::sim opens — the global qualification avoids the
+// nested-domain lookup)
+
+class IActorMap {
+ public:
+  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IActorMap;
+  virtual ~IActorMap() = default;
+  virtual std::vector<Actor*> GetActorsAt(CPos a) = 0;
+  virtual std::vector<Actor*> GetActorsAt(CPos a, SubCell sub) = 0;
+  virtual bool HasFreeSubCell(CPos cell, bool check_transient = true) = 0;
+  virtual SubCell FreeSubCell(CPos cell, SubCell preferred_sub_cell = SubCell::Any,
+                              bool check_transient = true) = 0;
+  virtual SubCell FreeSubCell(CPos cell, SubCell preferred_sub_cell,
+                              const std::function<bool(Actor&)>& check_if_blocker) = 0;
+  virtual bool AnyActorsAt(CPos a) = 0;
+  virtual bool AnyActorsAt(CPos a, SubCell sub, bool check_transient = true) = 0;
+  virtual bool AnyActorsAt(CPos a, SubCell sub,
+                           const std::function<bool(Actor&)>& with_condition) = 0;
+  virtual std::vector<Actor*> AllActors() = 0;
+  virtual void AddInfluence(Actor* self, IOccupySpace* ios) = 0;
+  virtual void RemoveInfluence(Actor* self, IOccupySpace* ios) = 0;
+  virtual int AddCellTrigger(const std::vector<CPos>& cells,
+                             std::function<void(Actor&)> on_entry,
+                             std::function<void(Actor&)> on_exit) = 0;
+  virtual std::vector<CPos> TriggerPositions() = 0;
+  virtual void RemoveCellTrigger(int id) = 0;
+  virtual int AddProximityTrigger(const WPos& pos, const WDist& range,
+                                  const WDist& v_range,
+                                  std::function<void(Actor&)> on_entry,
+                                  std::function<void(Actor&)> on_exit) = 0;
+  virtual void RemoveProximityTrigger(int id) = 0;
+  virtual void UpdateProximityTrigger(int id, const WPos& new_pos,
+                                      const WDist& new_range,
+                                      const WDist& new_v_range) = 0;
+  virtual void AddPosition(Actor* a, IOccupySpace* ios) = 0;
+  virtual void RemovePosition(Actor* a, IOccupySpace* ios) = 0;
+  virtual void UpdatePosition(Actor* a, IOccupySpace* ios) = 0;
+  virtual std::vector<Actor*> ActorsInBox(const WPos& a, const WPos& b) = 0;
+  virtual WDist LargestActorRadius() const = 0;
+  virtual WDist LargestBlockingActorRadius() const = 0;
+  virtual void UpdateOccupiedCells(IOccupySpace* ios) = 0;
+  /// CellUpdated 事件 → 回调表(construct 序)| the CellUpdated event →
+  /// callbacks in registration order.
+  virtual void AddCellUpdatedListener(std::function<void(CPos)> fn) = 0;
+  /// GetCustomMovementLayers 扩展方法(ActorMapWorldExts L684-688)的接口化
+  /// 承载(C++ 分层下扩展方法 → 接口成员;形状适配登记 COVERAGE)
+  /// The interface carrier of the GetCustomMovementLayers extension method
+  /// (ActorMapWorldExts L684-688) (extension method → an interface member
+  /// under the C++ layering — the shape adaptation is registered in
+  /// COVERAGE).
+  virtual std::span<ICustomMovementLayer* const> CustomMovementLayers()
+      const = 0;
+};
+
+/// TraitsInterfaces.cs L508-511:IControlGroupsInfo | IControlGroupsInfo
+/// (TraitsInterfaces.cs L508-511).
+class IControlGroupsInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IControlGroupsInfo;
+  virtual const std::vector<std::string>& Groups() const = 0;
+};
+
+/// TraitsInterfaces.cs L513-522:IControlGroups | IControlGroups
+/// (TraitsInterfaces.cs L513-522).
+class IControlGroups {
+ public:
+  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IControlGroups;
+  virtual ~IControlGroups() = default;
+  virtual const std::vector<std::string>& Groups() const = 0;
+  virtual void SelectControlGroup(int group) = 0;
+  virtual void CreateControlGroup(int group) = 0;
+  virtual void AddSelectionToControlGroup(int group) = 0;
+  virtual void CombineSelectionWithControlGroup(int group) = 0;
+  virtual void AddToControlGroup(Actor* a, int group) = 0;
+  virtual void RemoveFromControlGroup(Actor* a) = 0;
+  virtual std::optional<int> GetControlGroupForActor(Actor* a) = 0;
+  virtual std::vector<Actor*> GetActorsInControlGroup(int group) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L492-501:ICustomMovementLayer(具体实现
+/// 为 mod 侧 trait;本批无实现 —— 数组恒 [null])
+/// Mods.Common/TraitsInterfaces.cs L492-501: ICustomMovementLayer (the
+/// concrete implementations are mod traits; none this batch — the array
+/// stays [null]).
+class ICustomMovementLayer {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ICustomMovementLayer;
+  virtual ~ICustomMovementLayer() = default;
+  virtual std::uint8_t Index() const = 0;
+  virtual bool InteractsWithDefaultLayer() const = 0;
+  virtual bool ReturnToGroundLayerOnIdle() const = 0;
+  virtual bool EnabledForLocomotor(
+      const ora::mods::pathfinding::LocomotorInfo& li) const = 0;
+  virtual short EntryMovementCost(
+      const ora::mods::pathfinding::LocomotorInfo& li, CPos cell) const = 0;
+  virtual short ExitMovementCost(
+      const ora::mods::pathfinding::LocomotorInfo& li, CPos cell) const = 0;
+  virtual std::uint8_t GetTerrainIndex(CPos cell) const = 0;
+  virtual WPos CenterOfCell(CPos cell) const = 0;
+};
+
+/// TraitsInterfaces.cs L395-400:IAssignSpawnPoints(实现随 SpawnPoints
+/// mod trait 批;接口先锚定) | IAssignSpawnPoints (TraitsInterfaces.cs
+/// L395-400; the implementation lands with the SpawnPoints trait batch).
+class IAssignSpawnPoints {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IAssignSpawnPoints;
+  virtual ~IAssignSpawnPoints() = default;
+  virtual CPos AssignHomeLocation(World& world, net::SessionClient& client,
+                                  MersenneTwister& player_random) = 0;
+  virtual int SpawnPointForPlayer(Player* player) = 0;
+};
+
+/// TraitsInterfaces.cs L402-406:IAssignSpawnPointsInfo | the Info face.
+class IAssignSpawnPointsInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IAssignSpawnPointsInfo;
+};
+
+/// TraitsInterfaces.cs L408-412:IBotInfo(AI 面随 Phase 8;接口锚定)
+/// TraitsInterfaces.cs L408-412: IBotInfo (the AI face lands in Phase 8;
+/// the interface anchors now).
+class IBotInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IBotInfo;
+  virtual std::string Type() const = 0;
+  virtual std::string Name() const = 0;
+};
+
+/// TraitsInterfaces.cs L414-420:IBot | IBot.
+class IBot {
+ public:
+  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IBot;
+  virtual ~IBot() = default;
+  virtual void Activate(Player* p) = 0;
+  virtual void QueueOrder(net::Order* order) = 0;
+  virtual const IBotInfo* Info() const = 0;
+  virtual Player* GetPlayer() const = 0;
+};
+
+/// TraitsInterfaces.cs L624:IUnlocksRenderPlayer | IUnlocksRenderPlayer
+/// (TraitsInterfaces.cs L624).
+class IUnlocksRenderPlayer {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IUnlocksRenderPlayer;
+  virtual ~IUnlocksRenderPlayer() = default;
+  virtual bool RenderPlayerUnlocked() const = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L~:INotifyDamage 家族 + IDamageModifier
+/// (Health 的通知面;Damage/AttackInfo 见上方定义)
+/// The Mods.Common INotifyDamage family + IDamageModifier (Health's
+/// notification faces; Damage/AttackInfo are defined above).
+class INotifyDamage {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyDamage;
+  virtual ~INotifyDamage() = default;
+  virtual void Damaged(Actor& self, const AttackInfo& ai) = 0;
+};
+
+class INotifyDamageStateChanged {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyDamageStateChanged;
+  virtual ~INotifyDamageStateChanged() = default;
+  virtual void DamageStateChanged(Actor& self, const AttackInfo& ai) = 0;
+};
+
+class INotifyKilled {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyKilled;
+  virtual ~INotifyKilled() = default;
+  virtual void Killed(Actor& self, const AttackInfo& ai) = 0;
+};
+
+class INotifyAppliedDamage {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyAppliedDamage;
+  virtual ~INotifyAppliedDamage() = default;
+  virtual void AppliedDamage(Actor& self, Actor& hit, const AttackInfo& ai) = 0;
+};
+
+class IDamageModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IDamageModifier;
+  virtual ~IDamageModifier() = default;
+  virtual int GetDamageModifier(Actor* attacker,
+                                const Damage& damage) const = 0;
+};
+
+/// TraitsInterfaces.cs L123-127:IIssueOrder + L141-148:IOrderTargeter
+/// (订单目标器面;具体 trait 随 Mobile/Building 批接入 —— 本批无实现,
+/// UnitOrderGenerator 的空集行为即部分覆盖装配面的上游等价)
+/// TraitsInterfaces.cs L123-127 IIssueOrder + L141-148 IOrderTargeter (the
+/// order-targeter faces; concrete traits arrive with the Mobile/Building
+/// batches — no implementations this batch, so UnitOrderGenerator's
+/// empty-set behavior is the upstream equivalent under the partial-
+/// coverage assembly face).
+class IOrderTargeter {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IOrderTargeter;
+  virtual ~IOrderTargeter() = default;
+  virtual std::string OrderID() const = 0;
+  virtual int OrderPriority() const = 0;
+  virtual bool CanTarget(Actor& self, const Target& target,
+                         TargetModifiers& modifiers,
+                         std::string& cursor) = 0;
+  virtual bool IsQueued() const = 0;
+  virtual bool TargetOverridesSelection(Actor& self, const Target& target,
+                                        std::span<Actor* const> actors_at,
+                                        CPos xy, TargetModifiers modifiers) = 0;
+};
+
+class IIssueOrder {
+ public:
+  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IIssueOrder;
+  virtual ~IIssueOrder() = default;
+  virtual std::vector<IOrderTargeter*> Orders() = 0;
+  virtual net::Order* IssueOrder(Actor& self, IOrderTargeter* order,
+                                 const Target& target, bool queued) = 0;
 };
 
 /// trait 运行时对象的公共基(C# object 等价;TypeDictionary/TraitDictionary

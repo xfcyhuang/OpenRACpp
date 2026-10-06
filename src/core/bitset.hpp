@@ -119,6 +119,19 @@ class BitSet {
     return set_ret;
   }
 
+  /// 原始位构造(meta 值袋以原始位承载 BitSet 字段 —— dump 协议注释;
+  /// C# 侧为 internal 位构造的值袋等价面)
+  /// The raw-bits construction (the meta value bag carries BitSet fields
+  /// as raw bits — the dump-protocol note; the bag-value equivalent of
+  /// C#'s internal bit ctor).
+  static BitSet FromRawBits(std::uint64_t uint8_bits) {
+    BitSet set_ret;
+    set_ret.uint8_bits_ = uint8_bits;
+    return set_ret;
+  }
+
+  std::uint64_t RawBits() const { return uint8_bits_; }
+
   /// ToString():分配序逗号连接(BitSet.cs L94-97)
   /// ToString(): comma-joined in allocation order (BitSet.cs L94-97).
   std::string ToString() const {

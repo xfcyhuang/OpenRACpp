@@ -210,6 +210,10 @@ class Map final {
   const CellLayer<std::uint8_t>& CustomTerrain() const {
     return *ptr_custom_terrain_;
   }
+  /// 变更面(Locomotor.WorldLoaded 的 CustomTerrain.CellEntryChanged 挂载)
+  /// The mutable face (Locomotor.WorldLoaded's CustomTerrain.
+  /// CellEntryChanged wiring).
+  CellLayer<std::uint8_t>& CustomTerrainRef() { return *ptr_custom_terrain_; }
 
   /// ProjectedCells(L265;SetBounds 装配) | ProjectedCells (L265).
   std::span<const PPos> ProjectedCells() const { return vec_projected_cells_; }
@@ -392,5 +396,20 @@ class Map final {
 
   Params params_;
 };
+
+// ———— CellLayerBase<T>(const Map&) 的延后定义(cell_layer.hpp 声明,
+// 本处 Map 完整 —— 循环包含的拆解点;定义须落在类所属的 ora::map 命名
+// 空间内 —— 本文件尾仍处于其中)
+// The deferred definition of CellLayerBase<T>(const Map&) (declared in
+// cell_layer.hpp, defined here where Map is complete — the include-cycle
+// break point; the definition must live in the class's own ora::map
+// namespace, which is still open at this file's tail).
+template <class T>
+CellLayerBase<T>::CellLayerBase(const Map& map_world)
+    : size_{map_world.MapSize()},
+      bounds_{Rectangle::FromLTRB(0, 0, size_.Width, size_.Height)},
+      grid_type_{map_world.Grid().Type},
+      vec_entries_(static_cast<std::size_t>(size_.Width) *
+                   static_cast<std::size_t>(size_.Height)) {}
 
 }  // namespace ora::map

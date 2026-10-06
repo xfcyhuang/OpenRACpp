@@ -23,8 +23,8 @@ ScreenMap::ScreenMap(World& world, int bin_size)
       partitioned_renderable_actors_{ScreenMapBinWidth(world), ScreenMapBinHeight(world), bin_size},
       partitioned_renderable_effects_{ScreenMapBinWidth(world), ScreenMapBinHeight(world), bin_size} {}
 
-void ScreenMap::WorldLoaded(World& world, gfx::WorldRenderer& wr) {
-  ptr_world_renderer_ = &wr;
+void ScreenMap::WorldLoaded(World& world, gfx::WorldRenderer* wr) {
+  ptr_world_renderer_ = wr;
 }
 
 void ScreenMap::AddOrUpdate(Actor* a) {

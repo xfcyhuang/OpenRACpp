@@ -32,6 +32,7 @@
 import std;
 
 #include "core/arena.hpp"
+#include "core/long_bitset.hpp"
 #include "core/mersenne_twister.hpp"
 #include "map/map.hpp"
 #include "sim/actor.hpp"
@@ -48,6 +49,7 @@ import std;
 namespace ora::net {
 class OrderManager;
 struct Order;
+struct Session;
 }  // namespace ora::net
 
 namespace ora::game {
@@ -67,6 +69,12 @@ struct WorldSimParams {
   int int4_random_seed = 0;        // LobbyInfo.GlobalSettings.RandomSeed
   int int4_timestep = 40;          // GameSpeed.Timestep(默认 40ms)
   WorldType type = WorldType::Regular;
+  map::Map* ptr_map = nullptr;     // 地图注入面(ActorMap/寻路的测试装配;
+                                   // 全量 ctor 走 Map/ModData/OM 链)
+                                   // The map injection face (the test
+                                   // assembly of ActorMap/pathfinding; the
+                                   // full ctor goes through the
+                                   // Map/ModData/OM chain).
 };
 
 /// 子格中心换算器签名(Target.FromCell 的注入面)
@@ -96,6 +104,10 @@ class World final {
   // ———— 玩家面(L53-135)————
   const std::vector<Player*>& Players() const { return vec_players_; }
   void SetPlayers(std::vector<Player*> players, Player* local_player);
+  /// Player 对象所有权(上游 GC 的显式等价;CreateMapPlayers 消费)
+  /// The Player-object ownership (the explicit GC equivalent; consumed by
+  /// CreateMapPlayers).
+  Player* AdoptPlayer(std::unique_ptr<Player> player);
   Player* LocalPlayer() const { return p_local_player_; }
   Player* RenderPlayer() const { return p_render_player_; }
   void SetRenderPlayer(Player* p);  // L91-104
@@ -105,12 +117,76 @@ class World final {
   void SetWorldActor(Actor* a) { p_world_actor_ = a; }
 
   // ———— 系统面(L141-146/202-209)————
-  /// IActorMap(Mods.Common ActorMap trait)随下一批 —— 解析面空位
-  /// IActorMap lands next batch — the resolution face stays empty.
+  /// ActorMap(L140:世界 actor 的 IActorMap trait —— Phase 5 第二批接线)
+  /// ActorMap (L140: the world actor's IActorMap trait — wired in Phase 5
+  /// batch 2).
+  IActorMap* ActorMapFace() const { return ptr_actor_map_; }
+  /// ControlGroups(L169) | ControlGroups (L169).
+  IControlGroups* ControlGroups() const { return ptr_control_groups_; }
+  /// ActorMap 解析面的测试注入(全量 ctor 由 WorldActor trait 解析)
+  /// The test injection of the ActorMap resolution face (the full ctor
+  /// resolves it from the WorldActor trait).
+  void SetActorMapFace(IActorMap* ptr_map_face) { ptr_actor_map_ = ptr_map_face; }
   ScreenMap* ScreenMapFace() const { return ptr_screen_map_; }
   ISelection* Selection() const { return ptr_selection_; }
   IOrderGenerator* OrderGenerator() const { return ptr_order_generator_; }
   void SetOrderGenerator(IOrderGenerator* ptr_generator);  // L156-167
+  /// 所有权接管的换面(CancelInputMode/ctor 的注册表构造产物)
+  /// The ownership-taking face (the registry products of
+  /// CancelInputMode/ctor).
+  void AdoptOrderGenerator(std::unique_ptr<IOrderGenerator> ptr_generator);
+
+  /// LobbyInfo(L138:OM 的大厅面) | LobbyInfo (L138: the OM's lobby face).
+  net::Session& LobbyInfo();
+
+  /// RulesContainTemporaryBlocker(L233) | RulesContainTemporaryBlocker
+  /// (L233).
+  bool RulesContainTemporaryBlocker() const {
+    return b_rules_contain_temporary_blocker_;
+  }
+
+  /// GetCustomMovementLayers(ActorMapWorldExts L684-688 的接口化承载)
+  /// GetCustomMovementLayers (the interface carrier of ActorMapWorldExts
+  /// L684-688).
+  std::span<ICustomMovementLayer* const> CustomMovementLayers() {
+    return ptr_actor_map_ != nullptr ? ptr_actor_map_->CustomMovementLayers()
+                                     : std::span<ICustomMovementLayer* const>{};
+  }
+
+  /// AllPlayersMask/NoPlayersMask(L53-54):CreateMapPlayers 装配前者
+  /// AllPlayersMask/NoPlayersMask (L53-54): CreateMapPlayers fills the
+  /// former.
+  PlayerMaskSet AllPlayersMask;
+  PlayerMaskSet NoPlayersMask;
+
+  /// Game.LocalClientId / Game.IsHost 的注入面(引擎装配侧;JoinLocal 面
+  /// 与 D101 系)| the Game.LocalClientId / Game.IsHost injection faces.
+  void SetLocalClientId(int id) { int4_local_client_id_ = id; }
+  int LocalClientId() const { return int4_local_client_id_; }
+  void SetIsHostResolver(std::function<bool()> fn) {
+    fn_is_host_ = std::move(fn);
+  }
+  bool IsHost() const { return fn_is_host_ ? fn_is_host_() : false; }
+
+  /// FogObscures(L106-108):Shroud 面随该批 —— 本批经注入承载(缺省
+  /// false = 无战争迷雾;上游缺 Shroud 时此处抛 NRE,消费面本批为空 ——
+  /// COVERAGE 登记)
+  /// FogObscures (L106-108): the Shroud faces land with that batch —
+  /// carried by injection here (the default false = no fog; upstream throws
+  /// an NRE without Shroud and this batch has no consumers — in COVERAGE).
+  void SetFogObscuresResolver(std::function<bool(Actor&)> fn_actor,
+                              std::function<bool(const CPos&)> fn_cell) {
+    fn_fog_obscures_actor_ = std::move(fn_actor);
+    fn_fog_obscures_cell_ = std::move(fn_cell);
+  }
+  bool FogObscures(Actor& a) {
+    return RenderPlayer() != nullptr &&
+           (fn_fog_obscures_actor_ ? fn_fog_obscures_actor_(a) : false);
+  }
+  bool FogObscures(const CPos& p) {
+    return RenderPlayer() != nullptr &&
+           (fn_fog_obscures_cell_ ? fn_fog_obscures_cell_(p) : false);
+  }
 
   /// 上游 trait 查询的"缺实例"异常文本(ActorMap/ControlGroups 等待补批)
   /// The missing-instance exception text of the upstream trait queries.
@@ -328,16 +404,12 @@ class World final {
     RunUnsynced(true, this, std::forward<Fn>(fn));
   }
 
-  /// CancelInputMode(L172)的注入面(defaultOrderGeneratorType 反射构造;
-  /// 注册表工厂随 DefaultOrderGenerator trait 批) | the CancelInputMode
-  /// injection face.
-  void SetCancelInputMode(std::function<void()> fn) {
-    fn_cancel_input_mode_ = std::move(fn);
-  }
-  void CancelInputMode() {
-    if (fn_cancel_input_mode_)
-      fn_cancel_input_mode_();
-  }
+  /// CancelInputMode(L172):经 DefaultOrderGenerator 注册表重造
+  /// (defaultOrderGeneratorType.GetConstructor(World) 的注册表等价)
+  /// CancelInputMode (L172): rebuilt through the DefaultOrderGenerator
+  /// registry (the registry equivalent of the GetConstructor(World)
+  /// reflection construct).
+  void CancelInputMode();
 
  private:
   // C# internal(同程序集可见)的友元等价:Actor 构造调 NextAID
@@ -366,6 +438,9 @@ class World final {
   MersenneTwister mt_local_;
 
   std::vector<Player*> vec_players_;
+  std::vector<std::unique_ptr<Player>> vec_owned_players_;  // 玩家所有权
+                                                            // the player
+                                                            // ownership.
   Player* p_local_player_ = nullptr;
   Player* p_render_player_ = nullptr;
   Actor* p_world_actor_ = nullptr;
@@ -376,8 +451,16 @@ class World final {
   std::function<int(const ISync*)> fn_sync_effect_hash_;
 
   ScreenMap* ptr_screen_map_ = nullptr;      // L142
-  ISelection* ptr_selection_ = nullptr;      // L169
+  IActorMap* ptr_actor_map_ = nullptr;       // L140
+  IControlGroups* ptr_control_groups_ = nullptr;  // L169
+  ISelection* ptr_selection_ = nullptr;      // L166
   IOrderGenerator* ptr_order_generator_ = nullptr;  // L155
+  std::unique_ptr<IOrderGenerator> owned_order_generator_;  // 注册表产物的
+                                                            // 所有权面(the
+                                                            // registry
+                                                            // product's
+                                                            // ownership)
+  std::string str_default_order_generator_;           // L153(defaultOrderGeneratorType)
   std::vector<IValidateOrder*> vec_order_validators_;   // L145
   std::vector<INotifyPlayerDisconnected*> vec_notify_disconnected_;  // L146
   bool b_rules_contain_temporary_blocker_ = false;       // L174
@@ -388,7 +471,10 @@ class World final {
   bool b_pause_shellmap_ = false;                        // PauseShellmap 值面
 
   std::function<bool()> fn_is_replay_;
-  std::function<void()> fn_cancel_input_mode_;
+  std::function<bool()> fn_is_host_;
+  int int4_local_client_id_ = 0;  // Game.LocalClientId 注入面
+  std::function<bool(Actor&)> fn_fog_obscures_actor_;
+  std::function<bool(const CPos&)> fn_fog_obscures_cell_;
   std::function<void()> fn_sound_stop_audio_;
   std::function<void()> fn_sound_stop_video_;
   std::function<void(bool)> fn_sound_disable_all_sounds_;

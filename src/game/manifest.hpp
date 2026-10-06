@@ -148,6 +148,12 @@ class Manifest final {
     return vec_mapFolders_;
   }
 
+  /// DefaultOrderGenerator(Manifest.cs L153-154)| DefaultOrderGenerator
+  /// (Manifest.cs L153-154).
+  const std::string& DefaultOrderGenerator() const {
+    return str_defaultOrderGenerator_;
+  }
+
  private:
   std::string str_id_;
   fs::IReadOnlyPackage* pkg_package_;
@@ -161,6 +167,7 @@ class Manifest final {
       vec_notifications_, vec_music_, vec_tileSets_, vec_chromeMetrics_,
       vec_serverTraits_;
   std::vector<std::pair<std::string, std::string>> vec_mapFolders_;
+  std::string str_defaultOrderGenerator_;
   const yaml::MiniYaml* yaml_fileSystem_{nullptr};
   std::string str_fileSystemLoader_;
   std::vector<std::string> vec_packageFormats_;

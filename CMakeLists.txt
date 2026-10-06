@@ -172,6 +172,9 @@ add_library(ora_sim STATIC
   src/sim/spatially_partitioned.cpp
   src/sim/screen_map.cpp
   src/sim/selection.cpp
+  src/sim/actor_map.cpp
+  src/sim/control_groups.cpp
+  src/sim/player.cpp
   src/sim/trait_registry.cpp
   src/sim/world.cpp)
 # gen/interfaces_gen.h 位于仓库根(gen/ 目录),TypeId 头需根 include
@@ -286,7 +289,16 @@ add_library(ora_mods STATIC
   src/mods/classic_sprite_sequence.cpp
   src/mods/classic_tileset_specific_sprite_sequence.cpp
   src/mods/d2k_sprite_sequence.cpp
-  src/mods/sequence_loader_factory.cpp)
+  src/mods/sequence_loader_factory.cpp
+  src/mods/create_map_players.cpp
+  src/mods/health.cpp
+  src/mods/unit_order_generator.cpp
+  src/mods/pathfinding/cell_info_layer_pool.cpp
+  src/mods/pathfinding/dense_path_graph.cpp
+  src/mods/pathfinding/path_search.cpp
+  src/mods/pathfinding/locomotor.cpp
+  src/mods/pathfinding/hierarchical_path_finder.cpp
+  src/mods/pathfinding/path_finder.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats)
 ora_link_std(ora_mods)
 
@@ -459,6 +471,27 @@ add_executable(game_test tests/game_test.cpp)
 target_link_libraries(game_test PRIVATE ora_game)
 ora_link_std(game_test)
 add_test(NAME game_test COMMAND game_test ${ORA_UPSTREAM_ROOT})
+
+# Phase 5 第二批验收:寻路套件(A*/双向/HPF 面)+ ActorMap/ControlGroups/
+# Player 关系面/ResolveFaction(纯逻辑 + 真实 ra 地形全链)
+# The Phase 5 batch-2 acceptance: the pathfinding suite (A*/bidirectional/
+# HPF faces) + the ActorMap/ControlGroups/Player relationship faces/
+# ResolveFaction (pure logic + the real-ra-terrain full chain).
+add_executable(path_test tests/path_test.cpp)
+target_link_libraries(path_test PRIVATE
+  ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
+  ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
+  ora_miniz ora_sdl2 ora_openal ora_freetype)
+ora_link_std(path_test)
+# 运行库就近拷贝(map_test 同型)| runtime-DLL copies (the map_test shape).
+add_custom_command(TARGET path_test POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:path_test>
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/third_party/OpenAL/bin/OpenAL32.dll $<TARGET_FILE_DIR:path_test>
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/third_party/FreeType/bin/freetype6.dll $<TARGET_FILE_DIR:path_test>)
+add_test(NAME path_test COMMAND path_test ${ORA_UPSTREAM_ROOT})
 
 # 仿真核心单测(PORTING_PLAN §Phase 3 验收:TraitDictionary/Activity/条件
 # 系统/Order 字节级序列化/OrderIO/EchoConnection 锁步 10⁶ tick)

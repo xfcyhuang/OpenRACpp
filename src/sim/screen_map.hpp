@@ -53,7 +53,7 @@ class ScreenMap final : public TraitBase, public IWorldLoaded {
   ORA_TRAIT_INTERFACES(ScreenMap, OpenRA_Traits_ScreenMap, IWorldLoaded)
 
   /// WorldLoaded(L82) | WorldLoaded (L82).
-  void WorldLoaded(World& world, gfx::WorldRenderer& wr) override;
+  void WorldLoaded(World& world, gfx::WorldRenderer* wr) override;
 
   // ———— Actor 面(L96-106)————
   void AddOrUpdate(Actor* a);

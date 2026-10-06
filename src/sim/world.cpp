@@ -39,14 +39,20 @@ World::World(map::Map& map_world, game::ModData& mod_data,
       mt_shared_(om.LobbyInfo().global_settings.RandomSeed),
       mt_local_(0),  // LocalRandom:UI 域(同步面禁隐式播种 —— 显式 0)
       type_(type) {
-  // L185-192:DefaultOrderGenerator 校验 + 构造(ObjectCreator 反射面 →
-  // DefaultOrderGenerator trait 注册表随该 trait 批;文本保留)
+  // L185-192:DefaultOrderGenerator 校验 + 注册表构造(ObjectCreator 反射
+  // 面 → 名字分派注册表;异常文本逐字)
+  // L185-192: the DefaultOrderGenerator check + the registry construct
+  // (the ObjectCreator reflection face → the name-dispatch registry; the
+  // exception texts verbatim).
   const game::Manifest& manifest = mod_data.ManifestRef();
-  (void)manifest;
-  // 上游:string.IsNullOrEmpty(Manifest.DefaultOrderGenerator) 抛
-  // "mod.yaml must define a DefaultOrderGenerator" —— Manifest 尚无该面,
-  // 随 DefaultOrderGenerator trait 批补;此处跳过缺失面
-  // (the Manifest.DefaultOrderGenerator face lands with that trait batch).
+  str_default_order_generator_ = manifest.DefaultOrderGenerator();
+  if (str_default_order_generator_.empty())
+    throw std::runtime_error("mod.yaml must define a DefaultOrderGenerator");
+  if (!OrderGeneratorRegistered(str_default_order_generator_))
+    throw std::runtime_error(std::format("{} is not a valid DefaultOrderGenerator",
+                                         str_default_order_generator_));
+  owned_order_generator_ = CreateOrderGenerator(str_default_order_generator_, *this);
+  ptr_order_generator_ = owned_order_generator_.get();
 
   // GameSpeed(L194-197)
   const game::GameSpeeds& game_speeds = mod_data.GetOrCreateGameSpeeds();
@@ -64,19 +70,27 @@ World::World(map::Map& map_world, game::ModData& mod_data,
   TypeDictionary empty_dict;
   p_world_actor_ = CreateActor(world_actor_type, empty_dict);
 
-  // ActorMap(Mods.Common)随下一批 —— Trait<IActorMap> 解析面空位
+  ptr_actor_map_ = p_world_actor_->TraitOrDefault<IActorMap>();
+  if (ptr_actor_map_ == nullptr)
+    ThrowMissingTrait("OpenRA.Traits.IActorMap");
   ptr_screen_map_ = p_world_actor_->TraitOrDefault<ScreenMap>();
   if (ptr_screen_map_ == nullptr)
     ThrowMissingTrait("OpenRA.Traits.ScreenMap");
   ptr_selection_ = p_world_actor_->TraitOrDefault<ISelection>();
   if (ptr_selection_ == nullptr)
     ThrowMissingTrait("OpenRA.Traits.ISelection");
+  ptr_control_groups_ = p_world_actor_->TraitOrDefault<IControlGroups>();
+  if (ptr_control_groups_ == nullptr)
+    ThrowMissingTrait("OpenRA.Traits.IControlGroups");
   vec_order_validators_ =
       p_world_actor_->TraitsImplementing<IValidateOrder>();
   vec_notify_disconnected_ =
       p_world_actor_->TraitsImplementing<INotifyPlayerDisconnected>();
 
-  // L211:LongBitSet<PlayerBitMask>.Reset()(uint64 承载 —— 无需复位)
+  // L211:LongBitSet<PlayerBitMask>.Reset()(玩家创建前复位位分配器)
+  // L211: LongBitSet<PlayerBitMask>.Reset() (rewinds the allocator before
+  // player creation).
+  PlayerMaskSet::Reset();
 
   // Create an isolated RNG ...(上游注释)
   MersenneTwister player_random{om.LobbyInfo().global_settings.RandomSeed};
@@ -102,7 +116,8 @@ World::World(map::Map& map_world, game::ModData& mod_data,
 
 // ———— 测试构造(Phase 3 注入面)————
 World::World(WorldSimParams params)
-    : int4_timestep_(params.int4_timestep),
+    : ptr_map_{params.ptr_map},
+      int4_timestep_(params.int4_timestep),
       int4_replay_timestep_(params.int4_timestep),
       mt_shared_(params.int4_random_seed),
       mt_local_(0),
@@ -157,6 +172,15 @@ void World::SetPlayers(std::vector<Player*> players, Player* local_player) {
   p_render_player_ = local_player;  // L134(renderPlayer 直写字段)
 }
 
+Player* World::AdoptPlayer(std::unique_ptr<Player> player) {
+  // 上游 GC 的显式等价(SetPlayers 前建链的 CreatePlayers 面)
+  // The explicit GC equivalent (the CreatePlayers face building before
+  // SetPlayers).
+  Player* raw = player.get();
+  vec_owned_players_.push_back(std::move(player));
+  return raw;
+}
+
 void World::SetRenderPlayer(Player* p) {
   // L91-104
   if (p_local_player_ == nullptr || p_local_player_->UnlockedRenderPlayer()) {
@@ -166,11 +190,44 @@ void World::SetRenderPlayer(Player* p) {
 }
 
 void World::SetOrderGenerator(IOrderGenerator* ptr_generator) {
-  // L156-167
+  // L156-167(注入面:清除注册表产物的所有权)
+  // L156-167 (the injection face: releases the registry product's
+  // ownership).
   RunUnsynced(true, this, [&] {});
   if (ptr_order_generator_ != nullptr)
     ptr_order_generator_->Deactivate();
+  owned_order_generator_.reset();
   ptr_order_generator_ = ptr_generator;
+}
+
+void World::AdoptOrderGenerator(std::unique_ptr<IOrderGenerator> ptr_generator) {
+  // L156-167 的所有权接管形态(注册表产物)
+  // The ownership-taking form of L156-167 (the registry products).
+  RunUnsynced(true, this, [&] {});
+  if (ptr_order_generator_ != nullptr)
+    ptr_order_generator_->Deactivate();
+  owned_order_generator_ = std::move(ptr_generator);
+  ptr_order_generator_ = owned_order_generator_.get();
+}
+
+void World::CancelInputMode() {
+  // L172:defaultOrderGeneratorType.GetConstructor(World)?.Invoke → 注册表
+  // 重造(未注册 = null 复位)
+  // L172: the GetConstructor(World)?.Invoke → the registry rebuild (an
+  // unregistered name resets to null).
+  if (str_default_order_generator_.empty() ||
+      !OrderGeneratorRegistered(str_default_order_generator_)) {
+    AdoptOrderGenerator(nullptr);
+    return;
+  }
+  AdoptOrderGenerator(CreateOrderGenerator(str_default_order_generator_, *this));
+}
+
+net::Session& World::LobbyInfo() {
+  // L138:LobbyInfo => OrderManager.LobbyInfo
+  if (p_order_manager_ == nullptr)
+    throw std::runtime_error("NullReferenceException");
+  return p_order_manager_->LobbyInfo();
 }
 
 Actor* World::AdoptActor(std::unique_ptr<Actor> a) {
@@ -261,10 +318,11 @@ void World::Remove(Actor* a) {
 }
 
 void World::AddToMaps(Actor* self, IOccupySpace* ios) {
-  // L237-242(ActorMap 半段随 ActorMap 批)
+  // L237-242
+  ptr_actor_map_->AddInfluence(self, ios);
+  ptr_actor_map_->AddPosition(self, ios);
   if (ptr_screen_map_ != nullptr)
     ptr_screen_map_->AddOrUpdate(self);
-  (void)ios;
 }
 
 void World::UpdateMaps(Actor* self, IOccupySpace* ios) {
@@ -273,14 +331,15 @@ void World::UpdateMaps(Actor* self, IOccupySpace* ios) {
     return;
   if (ptr_screen_map_ != nullptr)
     ptr_screen_map_->AddOrUpdate(self);
-  (void)ios;
+  ptr_actor_map_->UpdatePosition(self, ios);
 }
 
 void World::RemoveFromMaps(Actor* self, IOccupySpace* ios) {
   // L253-258
+  ptr_actor_map_->RemoveInfluence(self, ios);
+  ptr_actor_map_->RemovePosition(self, ios);
   if (ptr_screen_map_ != nullptr)
     ptr_screen_map_->Remove(self);
-  (void)ios;
 }
 
 void World::Add(std::unique_ptr<IEffect> e) {
@@ -421,6 +480,50 @@ sim::Target World::TargetFromCell(const CPos& cell,
   return t;
 }
 
+// ———— DefaultOrderGenerator 名字分派注册表(order_generator.hpp 的实现)
+// ———— The DefaultOrderGenerator name-dispatch registry (the
+// order_generator.hpp implementation).
+namespace {
+
+std::vector<std::pair<std::string,
+                      std::function<std::unique_ptr<IOrderGenerator>(World&)>>>&
+OrderGeneratorEntries() {
+  static std::vector<
+      std::pair<std::string,
+                std::function<std::unique_ptr<IOrderGenerator>(World&)>>>
+      entries;
+  return entries;
+}
+
+}  // namespace
+
+void RegisterOrderGenerator(
+    std::string str_name,
+    std::function<std::unique_ptr<IOrderGenerator>(World&)> fn_factory) {
+  auto& entries = OrderGeneratorEntries();
+  // 重复注册 = 装配错误(先到先得,与 TraitRegistry 同形)
+  // A duplicate registration is an assembly error (first wins, the same
+  // shape as TraitRegistry).
+  if (!std::any_of(entries.begin(), entries.end(),
+                   [&](const auto& e) { return e.first == str_name; }))
+    entries.emplace_back(std::move(str_name), std::move(fn_factory));
+}
+
+bool OrderGeneratorRegistered(const std::string& str_name) {
+  const auto& entries = OrderGeneratorEntries();
+  return std::any_of(entries.begin(), entries.end(),
+                     [&](const auto& e) { return e.first == str_name; });
+}
+
+std::unique_ptr<IOrderGenerator> CreateOrderGenerator(const std::string& str_name,
+                                                      World& world) {
+  for (const auto& [name, factory] : OrderGeneratorEntries())
+    if (name == str_name)
+      return factory(world);
+  return nullptr;  // 上游 FindType null → ?.Invoke 的 null 面
+                   // the null face of FindType null → ?.Invoke.
+}
+
 void World::IssueOrder(net::Order* o) {
   // L151:sink 分发(见 world.hpp 注记;缺 sink = OM 缺失的 NRE 等价抛)
   if (fn_issue_order_ == nullptr)
@@ -474,18 +577,18 @@ void World::LoadComplete(gfx::WorldRenderer* wr) {
 
   // ScreenMap must be initialized before anything else(上游注释)
   if (ptr_screen_map_ != nullptr)
-    ptr_screen_map_->WorldLoaded(*this, *wr);
+    ptr_screen_map_->WorldLoaded(*this, wr);
 
   for (auto* iwl : p_world_actor_->TraitsImplementing<IWorldLoaded>()) {
     // These have already been initialized(上游注释)
     if (iwl == dynamic_cast<IWorldLoaded*>(ptr_screen_map_))
       continue;
-    iwl->WorldLoaded(*this, *wr);
+    iwl->WorldLoaded(*this, wr);
   }
 
   for (auto* p : vec_players_)
     for (auto* iwl : p->PlayerActor()->TraitsImplementing<IWorldLoaded>())
-      iwl->WorldLoaded(*this, *wr);
+      iwl->WorldLoaded(*this, wr);
 
   // gameInfo.AddPlayer / DisabledSpawnPoints / StartTimeUtc(L289-294;
   // GameInformation 随 Phase 7)
@@ -495,11 +598,11 @@ void World::LoadComplete(gfx::WorldRenderer* wr) {
 void World::PostLoadComplete(gfx::WorldRenderer* wr) {
   // L300-310
   for (auto* iwl : p_world_actor_->TraitsImplementing<IPostWorldLoaded>())
-    iwl->PostWorldLoaded(*this, *wr);
+    iwl->PostWorldLoaded(*this, wr);
 
   for (auto* p : vec_players_)
     for (auto* iwl : p->PlayerActor()->TraitsImplementing<IPostWorldLoaded>())
-      iwl->PostWorldLoaded(*this, *wr);
+      iwl->PostWorldLoaded(*this, wr);
 }
 
 void World::OnPlayerWinStateChanged(Player& player) {
@@ -521,7 +624,7 @@ void World::OnClientDisconnected(int client_id) {
       np->PlayerDisconnected(*p_world_actor_, *player);
 
     for (auto* p : vec_players_)
-      (void)p;  // p.PlayerDisconnected(player)(Player 侧随玩家链批)
+      p->PlayerDisconnected(*player);  // L558
 
     // gameInfo.DisconnectFrame(L559-561;随 Phase 7)
   }

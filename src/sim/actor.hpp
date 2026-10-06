@@ -125,6 +125,12 @@ class Actor final {
   WPos CenterPosition() const; // L85
   bool IsDead() const;               // L82
 
+  /// OccupiesSpace(L85 的单值语义:最后写入者) | OccupiesSpace (the L85
+  /// single-value semantics: last writer wins).
+  IOccupySpace* OccupiesSpace() const {
+    return vec_occupy_space_.empty() ? nullptr : vec_occupy_space_.back();
+  }
+
   // ———— Tick(L272-290)————
   void Tick();
 

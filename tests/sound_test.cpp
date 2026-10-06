@@ -145,8 +145,8 @@ void TestSoundFacade(const std::string& str_upstream_root) {
 
   // 本地玩家过滤:非本地静默
   // The local-player filter: non-local stays silent.
-  ora::sim::Player player_local{nullptr, "Local", "Local", 0};
-  ora::sim::Player player_other{nullptr, "Other", "Other", 1};
+  ora::sim::Player player_local{"Local", "Local", 0};
+  ora::sim::Player player_other{"Other", "Other", 1};
   snd_sound.SetLocalPlayer(&player_local);
   ORA_CHECK(snd_sound.PlayToPlayer(ora::sound::SoundType::UI, &player_local, "gun5.aud") != nullptr);
   ORA_CHECK(snd_sound.PlayToPlayer(ora::sound::SoundType::UI, &player_other, "gun5.aud") == nullptr);

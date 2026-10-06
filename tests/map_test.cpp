@@ -21,6 +21,7 @@ void RegisterGeneratedAll();
 #include "sim/selection.hpp"
 #include "sim/trait_registry.hpp"
 #include "sim/spatially_partitioned.hpp"
+#include "mods/create_map_players.hpp"
 #include "sim/world.hpp"
 
 using namespace ora;
@@ -244,6 +245,12 @@ int main(int argc, char** argv) {
   gen::RegisterGeneratedAll();
   game::RegisterGameLoaders();
   ora::sim::RegisterWorldTraits();
+  // mods 侧 trait 注册(本批:ActorMap/ControlGroups/CreateMapPlayers/
+  // Health/Locomotor/PathFinder + UnitOrderGenerator 名字分派)
+  // The mods-side trait registrations (this batch: ActorMap/ControlGroups/
+  // CreateMapPlayers/Health/Locomotor/PathFinder + the UnitOrderGenerator
+  // name dispatch).
+  ora::mods::RegisterCommonTraits();
 
   TestSha1();
   TestCellRegions();

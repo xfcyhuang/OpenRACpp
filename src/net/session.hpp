@@ -10,8 +10,18 @@
 //    The OrderManager/UnitOrders consumption surface: GlobalSettings
 //    (RandomSeed/NetFrameInterval/OptionOrDefault/EnableSyncReports),
 //    Clients (Index/IsBot/State/Team), ClientWithIndex/NonBotClients.
+//  - 玩家创建链消费面(Phase 5 第二批):Slots(PlayerReference/LockFaction)、
+//    ClientInSlot、Client 的 Bot(类型串)/Handicap/Fingerprint/Color/
+//    IsAdmin 面(C# nullable 串 → 空串承载);完整大厅协议 Phase 7
+//    The player-creation-chain consumption faces (Phase 5 batch 2):
+//    Slots (PlayerReference/LockFaction), ClientInSlot, the Client's
+//    Bot (type string)/Handicap/Fingerprint/Color/IsAdmin faces (C#
+//    nullable strings carried as ""); the full lobby protocol lands in
+//    Phase 7.
 #pragma once
 import std;
+
+#include "core/color.hpp"
 
 namespace ora::net {
 
@@ -26,12 +36,36 @@ struct SessionClient {
   int Index = 0;
   std::string Name;
   std::string IpAddress;
-  std::string Faction;  // Game.JoinLocal 装配面 | the Game.JoinLocal face
-  int SpawnPoint = 0;   // 同上 | ditto
+  std::string Faction;    // Game.JoinLocal 装配面 | the Game.JoinLocal face
+  int SpawnPoint = 0;     // 同上 | ditto
   int Team = 0;
   bool IsBot = false;
   bool IsObserver = false;
+  bool IsAdmin = false;   // Session.Client.IsAdmin | (the same).
+  std::string Bot;        // null 承载为空串(bot 类型名)| null as "" (the
+                          // bot type name).
+  std::string Slot;       // 客户端所在槽键(空 = 无槽)| the client's slot
+                          // key (empty = no slot).
+  int Handicap = 0;       // Session.Client.Handicap | (the same).
+  std::string Fingerprint;  // 同上 | ditto.
+  core::Color Color{core::Color::FromArgbRaw(0xFF4B4B4B)};  // 大厅色面
+                            // (JoinLocal 装配覆盖)| the lobby color face.
   ClientState State = ClientState::Invalid;
+};
+
+/// Session.Slot(玩家创建链消费面;完整 Slot 字段随 Phase 7 大厅批)
+/// Session.Slot (the player-creation-chain consumption face; the full Slot
+/// fields land with the Phase 7 lobby batch).
+struct SessionSlot {
+  std::string PlayerReference;  // 上游槽的 pr 名 | the slot's pr name.
+  bool Closed = false;
+  bool Locked = false;
+  bool AllowBots = true;
+  bool LockFaction = false;
+  bool LockColor = false;
+  bool LockSpawn = false;
+  bool LockTeam = false;
+  bool Required = false;
 };
 
 /// Session.GlobalSettings(最小面)
@@ -51,9 +85,12 @@ struct SessionGlobalSettings {
   }
 };
 
-/// Session(最小面容器)
+/// Session(最小面容器) | Session (the minimal container).
 struct Session {
   std::vector<SessionClient> vec_clients;
+  /// Slots:插入序字典(Slot 键为 yaml 键)| Slots: the insertion-ordered
+  /// dictionary (the slot key is the yaml key).
+  std::vector<std::pair<std::string, SessionSlot>> vec_slots;
   SessionGlobalSettings global_settings;
 
   SessionClient* ClientWithIndex(int index) {
@@ -69,6 +106,15 @@ struct Session {
       if (!c.IsBot)
         out.push_back(&c);
     return out;
+  }
+
+  /// ClientInSlot(slot)(Session.cs:Clients.FirstOrDefault(c => c.Slot ==
+  /// slot)):缺客户端 → null | ClientInSlot(slot): no client → null.
+  SessionClient* ClientInSlot(const std::string& str_slot) {
+    for (auto& c : vec_clients)
+      if (c.Slot == str_slot)
+        return &c;
+    return nullptr;
   }
 };
 

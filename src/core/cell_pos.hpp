@@ -164,3 +164,10 @@ constexpr CPos MPos::ToCPos(MapGridType grid_type) const {
 }
 
 }  // namespace ora
+
+template <>
+struct std::hash<ora::CPos> {
+  size_t operator()(const ora::CPos& cell) const noexcept {
+    return std::hash<std::int32_t>{}(cell.Bits);
+  }
+};

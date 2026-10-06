@@ -150,6 +150,16 @@
 
 下一批次(Phase 5 第二批):ActorMap/ControlGroups world trait + Player 创建链(CreateMapPlayers)+ DefaultOrderGenerator;寻路全套(A* + HPF,OPT-A2);mods 核心 trait 起步(Health/Mobile 一族,OPT-A3/A4/A9 的物化与缓存面)。
 
+**Phase 5 第二批完成**(ActorMap/ControlGroups + Player 创建链 + UnitOrderGenerator + 寻路全套 OPT-A2 + Health/Locomotor;2026-10-07):
+
+- `src/core/` 两件:priority_queue(PriorityQueue.cs 全文:"层级加倍"二叉最小堆**原样保留** —— 平局弹出序进入寻路结果,OPT-A2/C4 对拍前提;三态 Compare 静态协议)、long_bitset(LongBitSet.cs 全文:进程级分配器 + 位集合族,World ctor 的 Reset 锚点保留)
+- `src/sim/` 五件增量:trait_interfaces 批接口(IActorMap/IControlGroups/ICustomMovementLayer/IBot 族/INotifyDamage 族/IIssueOrder/IOrderTargeter/BlockedByActor/MovementType/TargetModifiers/PlayerBitMask 权威定义)、**actor_map**(ActorMap.cs 全文:影响层链表 + bins 位置缓存 + Cell/Proximity 触发器 + LargestActorRadius 的值袋形状求值)、**control_groups**(ControlGroups.cs 全文:组表/通知/存档序列化)、**player 全量重写**(Player.cs:ResolveFaction 随机阵营展开 ≤10 轮/PlayerActor 构造怪癖/关系掩码/ResolvedPlayerName;FactionInfo 值袋解析)、world 接线(ctor 的 ActorMap/ControlGroups 解析 + DefaultOrderGenerator 注册表校验逐字 + AddToMaps/UpdateMaps/RemoveFromMaps 全序 + AdoptPlayer 所有权 + FogObscures 注入)
+- `src/net/` + `src/game/`:session.hpp 的 Slot/Client 字段族 + Slots/ClientInSlot(创建链消费面);input.hpp(IInputHandler.cs L26/L38 + Settings.cs L29 最小承载);manifest 增 DefaultOrderGenerator 字段
+- `src/mods/` 四件 + **pathfinding/ 九件**(新库族):create_map_players(CreateMapPlayers.cs 全文:非可玩地图玩家 → 槽位玩家 → Everyone 观战者;SetupPlayerMasks 含上游 HACK 语义)、health(Health.cs 全文:DamageState 阶梯/decimal 修正链 → percent_modifiers OPT-A1 + 栈上定长缓冲 OPT-A9/[VerifySync] HP 哈希注册)、unit_order_generator(OrderGenerator/UnitOrderGenerator 全文:TargetForInput/OrderForUnit 两轮目标器回退/InputOverridesSelection/GetCursor)、**寻路全套**:图类型构造校验逐字 + **OPT-A2 世代标记层池**(取出即 ++epoch 免 O(地图) 清零,读面缺省 CellInfo 逐字节一致)+ 稠密图成员暂存缓冲(免每展开分配)+ DirectedNeighbors 表逐项 + PathSearch 全文(Closed 排水/Expand/FindBidiPath)+ **Locomotor 全文**(CellCache 三集合/CanMoveFreelyInto 阶梯/IsBlockedBy/代价表 + 阻挡缓存;Mobile/Building/ITemporaryBlocker 挂点恒 false 面 —— 部分覆盖装配)+ **HPF 全文**(BuildGrid 泛洪/AbstractGraphWithInsertedEdges 插入期物化/单源双向 + 多源单向/RebuildDomains/AbstractNodeForCost 高速公路延迟汇入)+ PathFinder 全文(多源对称交换/邻近快路径)
+- 验收:新 path_test(优先队列序/LongBitSet 全族/图类型校验/稀疏图 A* + 双向/Player 关系掩码 + ResolveFaction 确定性 + **真实 ra 地形全链**:Locomotor 代价表 → 全高墙 NoPath → 开口绕行 → 邻近快路径 + HPF 域查询;ActorMap 影响面/子格面/触发器;ControlGroups;**41 检查全绿**)。ctest **19 → 20** 双构建全绿;门禁 std_import(324 文件)/upstream_check(312 标注)PASS;偏离 D114~D119 登记;修出三个真问题(PriorityQueue 把三态 Compare 误作 bool 谓词致平局分支失效、堆序破坏 —— UBSan 实证;ActorMap 构造漏建 0 层影响层;CellLayerBase(const Map&) 延后定义的 ODR 域错)
+
+下一批次(Phase 5 第三批):Mobile + IPositionable/BodyOrientation 一族(Locomotor 挂点换实)+ Move 活动 + Weapons/Warheads 起步(Armament/Projectile,OPT-A9 的开火链零分配)。
+
 ## 与上游的差异(优化点与偏离登记)
 
 本项目以**语义等价**为第一原则(黄金对拍验证),在此基础上于 C++ 侧做有意优化;凡无法或有意不逐语义等价处,在 [docs/COVERAGE.md](docs/COVERAGE.md) 登记偏离(**未登记的偏离视为 bug**)。
@@ -170,7 +180,7 @@
 
 ### 与上游不同步处(偏离登记摘要)
 
-当前登记 **D1~D113**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
+当前登记 **D1~D119**(全文见 [docs/COVERAGE.md](docs/COVERAGE.md)),按模块:
 
 - **yaml/fs(D1~D9)**:异常类型统一为 YamlException(消息文本逐字一致)、惰性枚举物化为 vector、null/"" 键合流等——合法输入下行为等价或不可观测;
 - **meta/加载链(D10~D24)**:TypeConverter 兜底未实现(实际字段类型已全覆盖,不可达)、字典字段为插入序 vector(dump 协议按键排序)、三 mod 解析快照以 C++ 侧固化(D24:C# `--dump` 工具受 ALC 程序集副本环境制约,恢复后可再对拍校准)等;
@@ -332,7 +342,15 @@ The engine is rewritten from scratch to match the exact semantics of the upstrea
 - Increments: SessionClient gains Faction/SpawnPoint (the JoinLocal face); RunUnsynced supports void callables (upstream's Action face)
 - Acceptance: the new ui_test (ActionQueue timing/reentrancy/null-throw, WidgetArgs, Mediator subscribe/dispatch, the Widget tree's expression bounds/RenderOrigin/Get exception texts/Logic splitting, the focus yield chain and Hidden force, hover transitions, the Ui window stack's hide/restore/notify counts/ResetAll, PostInit subscription and Removed unsubscribe, Clone deep-copy and the IsDisabled source-read quirk, ChromeMetrics override/miss, the WidgetLoader full pipeline + exception-text matrix + the double-'@' semantics, Game's dual TickTime pacing/the world-null early return/StartGame→TryTick frame advance/JoinLocal/delayed-action→Exit Loop convergence/Run cleanup); ctest **17 → 18** green on both builds; the std_import (268 files)/upstream_check (256 tags) gates PASS; deviations D101–D106 registered; two real problems fixed (Widget::Removed wrongly clearing LogicObjects — the BecameHidden snapshot quirk depends on it; Ui::ResetAll keeping upstream's order destroyed the visible stack top under C++ ownership — proven by ASan, now drains the window stack first)
 
-Next batch (Phase 5): the full World/Map wiring (Map/ScreenMap/Selection/OrderGenerator + StartGame/MapCache assembling Game), the trait factory into the World arena (D26/D27), and the first mods render traits (the WithSpriteBody family connecting ISpriteSequence).
+**Phase 5 second installment complete** (ActorMap/ControlGroups + the player-creation chain + UnitOrderGenerator + the full pathfinding suite OPT-A2 + Health/Locomotor; 2026-10-07):
+
+- Two new files in `src/core/`: priority_queue (the whole of PriorityQueue.cs: the "levels-doubled" binary min-heap **kept verbatim** — the tie pop order enters path results, the OPT-A2/C4 differential precondition; the three-way Compare static protocol) and long_bitset (the whole of LongBitSet.cs: the process-level allocator + the bit-set family, with the World ctor's Reset anchor kept).
+- Five increments under `src/sim/`: the batch interfaces in trait_interfaces (IActorMap/IControlGroups/ICustomMovementLayer/IBot family/INotifyDamage family/IIssueOrder/IOrderTargeter/BlockedByActor/MovementType/TargetModifiers/the authoritative PlayerBitMask), **actor_map** (the whole of ActorMap.cs: the influence linked lists + the bin position caches + the Cell/Proximity triggers + LargestActorRadius evaluated from the bag's nested shape records), **control_groups** (the whole of ControlGroups.cs: the group table/notifications/save serialization), the **full Player rewrite** (Player.cs: ResolveFaction's random-faction expansion ≤10 rounds/the PlayerActor construction quirk/the relationship masks/ResolvedPlayerName; FactionInfo parsed from the bag), and the World wiring (the ctor's ActorMap/ControlGroups resolution + the DefaultOrderGenerator registry checks verbatim + the full AddToMaps/UpdateMaps/RemoveFromMaps order + AdoptPlayer ownership + the FogObscures injection).
+- `src/net/` + `src/game/`: session.hpp's Slot/Client field family + Slots/ClientInSlot (the creation-chain consumption face); input.hpp (the minimal carrier of IInputHandler.cs L26/L38 + Settings.cs L29); Manifest gains the DefaultOrderGenerator field.
+- Four files + **pathfinding/ nine files** under `src/mods/` (a new library family): create_map_players (the whole of CreateMapPlayers.cs: the unplayable map players → the slot players → the Everyone spectator; SetupPlayerMasks with the upstream HACK semantics), health (the whole of Health.cs: the DamageState ladder/the decimal chain → percent_modifiers OPT-A1 + a stack fixed buffer OPT-A9/the [VerifySync] HP hash registration), unit_order_generator (the whole of OrderGenerator/UnitOrderGenerator: TargetForInput/OrderForUnit's two-round targeter fallback/InputOverridesSelection/GetCursor), and the **full pathfinding suite**: the graph-type construction checks verbatim + the **OPT-A2 generation-stamped layer pool** (checkout is ++epoch with no O(map) clear, the read face's default CellInfo byte-identical) + the dense graph's member scratch buffer (no per-expansion allocation) + the DirectedNeighbors tables item for item + the whole of PathSearch (Closed draining/Expand/FindBidiPath) + the whole of **Locomotor** (the CellCache trio/CanMoveFreelyInto's ladder/IsBlockedBy/the cost table + blocking cache; the Mobile/Building/ITemporaryBlocker hooks as always-false faces — the partial-coverage assembly) + the whole of **HPF** (BuildGrid flood fill/AbstractGraphWithInsertedEdges materialized at insert/single-source bidirectional + multi-source unidirectional/RebuildDomains/AbstractNodeForCost's highway-merge delay) + the whole of PathFinder (the multi-source symmetry swap/the adjacency fast path).
+- Acceptance: the new path_test (the priority-queue order/the full LongBitSet family/the graph-type checks/the sparse-graph A* + bidirectional/the Player relationship masks + ResolveFaction determinism + **the real-ra-terrain full chain**: the Locomotor cost table → the full-height wall NoPath → the gap detour → the adjacency fast path + the HPF domain queries; the ActorMap influence/subcell/trigger faces; ControlGroups; **41 checks all green**). ctest **19 → 20** on both builds; the std_import (324 files)/upstream_check (312 tags) gates PASS; deviations D114–D119 registered; three real problems fixed (PriorityQueue treating the three-way Compare as a bool predicate, breaking the tie branch and the heap order — UBSan proven; ActorMap's ctor missing the layer-0 influence layer; the ODR-domain error of the CellLayerBase(const Map&) deferred definition).
+
+Next batch (Phase 5 third installment): the Mobile + IPositionable/BodyOrientation family (plugging the Locomotor hooks in) + the Move activities + the Weapons/Warheads start (Armament/Projectile, OPT-A9's zero-allocation firing chain).
 
 ## Differences from upstream (optimizations & registered deviations)
 
@@ -354,7 +372,7 @@ The bigger items ahead (a render command buffer replacing the boxing message que
 
 ### Not-yet-synced with upstream (registered-deviation summary)
 
-Currently **D1–D106** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
+Currently **D1–D119** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
 
 - **yaml/fs (D1–D9)**: exception types unified into YamlException (message texts verbatim), lazy enumerations materialized into vectors, null/"" key coalescing, etc. — behavior-equivalent or unobservable for valid inputs;
 - **meta/loading chain (D10–D24)**: the TypeConverter fallback not implemented (actual field types are fully covered, unreachable), dictionary fields as insertion-ordered vectors (dump protocol sorts by key), the three-mod parse snapshots frozen on the C++ side (D24: the C# `--dump` tool is constrained by the ALC assembly-copy environment; re-differential once restored), etc.;
