@@ -5,6 +5,7 @@
 import std;
 #include "game/manifest.hpp"
 #include "meta/field_loader.hpp"
+#include "meta/parse.hpp"
 
 namespace ora::game {
 
@@ -198,6 +199,23 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
   if (const yaml::MiniYaml* yaml_entry = find_node("SpriteSequenceFormat")) {
     if (yaml_entry->Value != nullptr)
       str_spriteSequenceFormat_ = *yaml_entry->Value;
+  }
+
+  // TerrainFormat(Manifest.cs L174):单标量 | TerrainFormat (L174): a single
+  // scalar.
+  if (const yaml::MiniYaml* yaml_entry = find_node("TerrainFormat")) {
+    if (yaml_entry->Value != nullptr)
+      str_terrainFormat_ = *yaml_entry->Value;
+  }
+
+  // MapCompatibility(Manifest.cs L147-151):Allow inherited mods to import
+  // parent maps(上游注释;[Id] + SupportsMapsFrom 逗号展开)
+  vec_mapCompatibility_.push_back(str_id_);
+  if (const yaml::MiniYaml* yaml_entry = find_node("SupportsMapsFrom")) {
+    if (yaml_entry->Value != nullptr) {
+      for (const std::string_view part : meta::SplitComma(*yaml_entry->Value))
+        vec_mapCompatibility_.emplace_back(part);
+    }
   }
 
   vec_rules_ = YamlListOf(vec_yaml, "Rules");

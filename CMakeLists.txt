@@ -130,21 +130,35 @@ ora_link_std(ora_gen)
 # (PORTING_PLAN §Phase 2)
 # The game loading chain: Manifest/Ruleset/ActorInfo/WeaponInfo + the 24
 # LoadUsing loaders (PORTING_PLAN §Phase 2).
+add_library(ora_terrain STATIC
+  src/terrain/map_grid.cpp
+  src/terrain/terrain_info.cpp)
+target_link_libraries(ora_terrain PUBLIC ora_gen)
+ora_link_std(ora_terrain)
+
 add_library(ora_game STATIC
   src/game/platform.cpp
   src/game/manifest.cpp
   src/game/actor_info.cpp
   src/game/game_records.cpp
+  src/game/game_speed.cpp
   src/game/ruleset.cpp
   src/game/mod_data.cpp
   src/game/loaders.cpp)
-target_link_libraries(ora_game PUBLIC ora_gen PRIVATE ora_fs ora_formats)
+target_link_libraries(ora_game PUBLIC ora_gen ora_terrain PRIVATE ora_fs ora_formats)
 ora_link_std(ora_game)
 
 # 仿真核心:Actor/World/TraitDictionary/Activity/条件系统/SyncHash/Effects
 # (PORTING_PLAN §Phase 3)
 # The simulation core: Actor/World/TraitDictionary/Activity/condition
 # system/SyncHash/Effects (PORTING_PLAN §Phase 3).
+add_library(ora_map STATIC
+  src/map/map.cpp
+  src/map/map_players.cpp
+  src/map/map_cache.cpp)
+target_link_libraries(ora_map PUBLIC ora_game)
+ora_link_std(ora_map)
+
 add_library(ora_sim STATIC
   gen/sync_gen.cpp
   src/sim/trait_dictionary.cpp
@@ -155,12 +169,16 @@ add_library(ora_sim STATIC
   src/sim/actor.cpp
   src/sim/target.cpp
   src/sim/effects.cpp
+  src/sim/spatially_partitioned.cpp
+  src/sim/screen_map.cpp
+  src/sim/selection.cpp
+  src/sim/trait_registry.cpp
   src/sim/world.cpp)
 # gen/interfaces_gen.h 位于仓库根(gen/ 目录),TypeId 头需根 include
 # gen/interfaces_gen.h lives at the repo root (gen/); the TypeId header
 # needs the root on the include path.
 target_include_directories(ora_sim PUBLIC ${CMAKE_SOURCE_DIR})
-target_link_libraries(ora_sim PUBLIC ora_gen)
+target_link_libraries(ora_sim PUBLIC ora_gen ora_map PRIVATE ora_gfx)
 ora_link_std(ora_sim)
 
 # 网络层:Order 序列化/OrderIO 线协议/OrderManager 锁步/EchoConnection
@@ -429,6 +447,14 @@ add_test(NAME meta_test COMMAND meta_test)
 # 三代表 trait 端到端断言(§Phase 2 R2 对冲;期望值人工对照上游源码)
 # The three-representative-trait end-to-end assertions (the §Phase 2 R2
 # hedge; expected values hand-verified against upstream sources).
+add_executable(map_test tests/map_test.cpp)
+target_link_libraries(map_test PRIVATE
+  ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
+  ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
+  ora_miniz ora_sdl2 ora_openal ora_freetype)
+ora_link_std(map_test)
+add_test(NAME map_test COMMAND map_test ${ORA_UPSTREAM_ROOT})
+
 add_executable(game_test tests/game_test.cpp)
 target_link_libraries(game_test PRIVATE ora_game)
 ora_link_std(game_test)

@@ -16,6 +16,9 @@ import std;
 #include "fs/folder.hpp"
 #include "game/manifest.hpp"
 #include "game/ruleset.hpp"
+#include "game/game_speed.hpp"
+#include "terrain/map_grid.hpp"
+#include "terrain/terrain_info.hpp"
 
 namespace ora::game {
 
@@ -52,7 +55,9 @@ class InstalledMods final {
                                                            // ownership of Manifest.Package).
 };
 
-/// ModData 的 Phase 2 最小集(ModData.cs L29)
+/// ModData 的 Phase 2 最小集 + Phase 5 第一批全局数据面(ModData.cs L29)
+/// The Phase 2 minimal ModData + the batch-16 global-data face (ModData.cs
+/// L29).
 class ModData final {
  public:
   /// str_engine_dir:'^EngineDir' 展开值(上游仓库根)
@@ -64,10 +69,32 @@ class ModData final {
   fs::FileSystem& ModFiles() { return fs_modFiles_; }
   Ruleset& DefaultRules();
 
+  /// GetOrCreate<MapGrid>()(ModData.cs L221-231):mod.yaml 的 "Grid" 节点
+  /// 优先,缺省 = 默认构造(上游 ObjectCreator.CreateBasic 等价)
+  /// GetOrCreate<MapGrid>() (ModData.cs L221-231): the mod.yaml "Grid" node
+  /// wins; the default-constructed form is the lazy fallback (the
+  /// ObjectCreator.CreateBasic equivalent).
+  map::MapGrid& GetOrCreateMapGrid();
+
+  /// DefaultTerrainInfo(ModData.cs L114-131):manifest.TileSets 逐文件经
+  /// TerrainFormat 加载器解析,以 t.Id 为键缓存(懒初始化)
+  /// DefaultTerrainInfo (ModData.cs L114-131): each manifest.TileSets file
+  /// parses through the TerrainFormat loader, cached by t.Id (lazy).
+  const map::ITerrainInfo& GetTerrainInfo(std::string_view str_id);
+
+  /// GetOrCreate<GameSpeeds>()(mod.yaml 的 "GameSpeeds" 节点;缺省 = 空表)
+  /// GetOrCreate<GameSpeeds>() (the mod.yaml "GameSpeeds" node; the lazy
+  /// default is an empty table).
+  GameSpeeds& GetOrCreateGameSpeeds();
+
  private:
   std::unique_ptr<Manifest> manifest_;
   fs::FileSystem fs_modFiles_;
   std::unique_ptr<Ruleset> ruleset_default_;  // Lazy<Ruleset> 的等价 / the Lazy<Ruleset> equivalent.
+  std::unique_ptr<map::MapGrid> grid_;             // GetOrCreate<MapGrid> 面 | the GetOrCreate<MapGrid> face.
+  std::unique_ptr<GameSpeeds> game_speeds_;   // GetOrCreate<GameSpeeds> 面 | the GetOrCreate face.
+  std::vector<std::pair<std::string, std::unique_ptr<map::ITerrainInfo>>>
+      vec_terrain_info_;  // DefaultTerrainInfo 懒缓存 | the lazy cache.
 };
 
 }  // namespace ora::game

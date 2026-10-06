@@ -28,10 +28,16 @@ import std;
 
 #include "core/bitset.hpp"
 #include "core/cell_pos.hpp"
+#include "core/mersenne_twister.hpp"
 #include "core/wangle.hpp"
 #include "core/wpos.hpp"
 #include "core/wrot.hpp"
 #include "gen/interfaces_gen.h"
+#include "yaml/mini_yaml.hpp"
+
+namespace ora::gfx {
+class WorldRenderer;  // 渲染域注入面(Phase 4)| the render-domain injection face.
+}  // namespace ora::gfx
 
 namespace ora::net {
 struct Order;
@@ -80,13 +86,12 @@ inline bool HasRelationship(PlayerRelationship r, PlayerRelationship rel) {
          static_cast<std::int32_t>(rel);
 }
 
-/// TraitsInterfaces.cs L322:SubCell : byte
-enum class SubCell : std::uint8_t {
-  Invalid = 0xFF,
-  Any = 0xFE,
-  FullCell = 0,
-  First = 1,
-};
+/// TraitsInterfaces.cs L322:SubCell : byte(cell 域常量,权威定义在
+/// core/cell_pos.hpp —— Phase 5 地图层共用;此处保留 sim 命名空间别名)
+/// TraitsInterfaces.cs L322: SubCell : byte (a cell-domain constant whose
+/// authoritative definition lives in core/cell_pos.hpp — shared with the
+/// map layer from Phase 5; the sim-namespace alias stays).
+using SubCell = ora::SubCell;
 
 /// Player.cs L35:WinState
 enum class WinState : std::int32_t { Undefined, Won, Lost };
@@ -393,6 +398,95 @@ class ICrushable {
   virtual ~ICrushable() = default;
   virtual bool CrushableBy(Actor& self, Actor& crusher,
                            const core::BitSet<CrushClass>& crush_classes) = 0;
+};
+
+// ———— Phase 5 第一批接口增量(TraitsInterfaces.cs / Mods.Common)————
+// ———— The batch-16 interface additions (TraitsInterfaces.cs / Mods.Common)
+//      ————
+
+/// TraitsInterfaces.cs L~:IWorldLoaded / IPostWorldLoaded
+class IWorldLoaded {
+ public:
+  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IWorldLoaded;
+  virtual ~IWorldLoaded() = default;
+  virtual void WorldLoaded(World& world, gfx::WorldRenderer& wr) = 0;
+};
+
+class IPostWorldLoaded {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IPostWorldLoaded;
+  virtual ~IPostWorldLoaded() = default;
+  virtual void PostWorldLoaded(World& world, gfx::WorldRenderer& wr) = 0;
+};
+
+/// TraitsInterfaces.cs L~:INotifySelection / INotifySelected
+class INotifySelection {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_INotifySelection;
+  virtual ~INotifySelection() = default;
+  virtual void SelectionChanged() = 0;
+};
+
+class INotifySelected {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_INotifySelected;
+  virtual ~INotifySelected() = default;
+  virtual void Selected(Actor& self) = 0;
+};
+
+/// TraitsInterfaces.cs L~:IGameOver / INotifyPlayerDisconnected
+class IGameOver {
+ public:
+  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IGameOver;
+  virtual ~IGameOver() = default;
+  virtual void GameOver(World& world) = 0;
+};
+
+class INotifyPlayerDisconnected {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_INotifyPlayerDisconnected;
+  virtual ~INotifyPlayerDisconnected() = default;
+  virtual void PlayerDisconnected(Actor& self, Player& player) = 0;
+};
+
+/// TraitsInterfaces.cs L~:ICreatePlayers
+class ICreatePlayers {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_ICreatePlayers;
+  virtual ~ICreatePlayers() = default;
+  virtual void CreatePlayers(World& world, MersenneTwister& player_random) = 0;
+};
+
+/// TraitsInterfaces.cs L~:INotifyGameLoading / INotifyGameLoaded
+class INotifyGameLoading {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_INotifyGameLoading;
+  virtual ~INotifyGameLoading() = default;
+  virtual void GameLoading(World& world) = 0;
+};
+
+class INotifyGameLoaded {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_INotifyGameLoaded;
+  virtual ~INotifyGameLoaded() = default;
+  virtual void GameLoaded(World& world) = 0;
+};
+
+/// TraitsInterfaces.cs L~:IGameSaveTraitData
+class IGameSaveTraitData {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IGameSaveTraitData;
+  virtual ~IGameSaveTraitData() = default;
+  virtual std::vector<yaml::MiniYamlNode> IssueTraitData(Actor& self) = 0;
+  virtual void ResolveTraitData(Actor& self, const yaml::MiniYaml& data) = 0;
 };
 
 /// TraitsInterfaces.cs L231-232(可见性查询;CanBeViewedByPlayer 消费)

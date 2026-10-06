@@ -18,6 +18,18 @@ namespace ora {
 /// Map grid type (MapGrid.cs L20): RectangularIsometric is used for RA2-style isometric maps
 enum class MapGridType : std::uint8_t { Rectangular, RectangularIsometric };
 
+/// 子格枚举(TraitsInterfaces.cs L322;cell 域常量,Phase 5 起地图/仿真两侧
+/// 共用 —— 单一权威定义置此,sim 命名空间以别名承接)
+/// The SubCell enum (TraitsInterfaces.cs L322; a cell-domain constant shared
+/// by the map and sim sides from Phase 5 — the single authoritative
+/// definition sits here; the sim namespace carries an alias).
+enum class SubCell : std::uint8_t {
+  Invalid = 0xFF,
+  Any = 0xFE,
+  FullCell = 0,
+  First = 1,
+};
+
 /// 地图(存储)坐标(MPos.cs L17)
 /// Map (storage) coordinates (MPos.cs L17)
 struct CPos;  // 前置声明:ToCPos 返回类型,定义在后 | Forward declaration: return type of ToCPos, defined later

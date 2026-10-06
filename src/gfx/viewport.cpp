@@ -250,7 +250,7 @@ CPos Viewport::ViewToWorld(int2 int2_view) {
       vec_screen.clear();
       for (const WVec& v_c : surface.fn_ramp_corners(uv.ToCPos(surface.kind_grid_type)))
         vec_screen.push_back(wr_.ScreenPxPosition(wpos_pos + v_c));
-      if (PolygonContains(vec_screen, int2_world))
+      if (gfx::PolygonContains(vec_screen, int2_world))
         return uv.ToCPos(surface.kind_grid_type);
     }
   }

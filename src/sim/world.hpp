@@ -1,45 +1,46 @@
-// UPSTREAM: OpenRA.Game/World.cs @b6fc03f L28-650(仿真核心逐语义重写;
-//          Map/ModData/GameSpeed/ScreenMap/Selection/OrderGenerator 完整
-//          构造链 Phase 5 随 Game 落地,本期以注入面承载 —— 机制面 [tick 序/
-//          帧末任务/SyncHash/actors 有序遍历/effects] 完整移植)
-//          Verbatim-semantics rewrite of the sim core; the full
-//          Map/ModData/GameSpeed/ScreenMap/Selection/OrderGenerator
-//          construction chain lands with Game in Phase 5, carried here by
-//          injection surfaces — the mechanics (tick order / frame-end
-//          tasks / SyncHash / ordered actor iteration / effects) are fully
-//          ported.
+// UPSTREAM: OpenRA.Game/World.cs @b6fc03f L28-650(逐语义重写;gameInfo/
+// ReplayMetadata/存档包面随 Phase 7 批)
+//          Verbatim-semantics rewrite (gameInfo/ReplayMetadata/the save
+//          package faces land with the Phase 7 batches).
 //
 // 机制对照 / Mechanism mapping:
 //  - actors: SortedDictionary<uint, Actor> → std::map<uint32_t, Actor*>
-//    (遍历序 = ActorID 升序,确定性关键);actor 对象所有权在
-//    vec_owned_actors_(创建序;Dispose 逆序销毁语义见 Dispose)
-//    actors: SortedDictionary<uint, Actor> → std::map<uint32_t, Actor*>
-//    (iteration order = ascending ActorID, determinism-critical); actor
-//    object ownership sits in vec_owned_actors_ (creation order; the
-//    dispose-newest-first semantics live in Dispose).
-//  - effects 三列表(effects/unpartitionedEffects/syncedEffects)→ 三平行
-//    视图 + 单一所有权表(Remove/RemoveAll 同步维护;ISync 收集保 SyncHash)
-//    The three effect lists → three parallel views over one ownership
-//    table (Remove/RemoveAll maintain all; the ISync collection feeds
-//    SyncHash).
-//  - frameEndActions: Queue<Action<World>> → std::queue<std::function<
-//    void(World&)>>(while drain,任务可再入队 —— C# 语义)
-//  - trait 对象所有权:计划 §4.5 为 World arena(Phase 0 遗留项);本期以
-//    World 级 unique_ptr 表承载,actor Dispose 只摘字典引用 —— COVERAGE 登记
-//    Trait object ownership: per plan §4.5 a World arena (a Phase 0
-//    leftover); carried meanwhile by a World-level unique_ptr table —
-//    actor Dispose only drops dictionary references — in COVERAGE.
+//    (遍历序 = ActorID 升序,确定性关键)
+//    actors: SortedDictionary → std::map (iteration order = ascending
+//    ActorID, determinism-critical).
+//  - trait 对象所有权:D26/D27 —— 上游 GC;C++ = WorldArena(§4.5 每局世界
+//    区;bump + 逆序析构登记)。actor 的 Dispose 只摘字典引用,对象内存随
+//    World 析构的 arena.Reset 统一蒸发;FrameArena 之外的字段(条件系统/
+//    std::function)由登记表逆序析构
+//    Trait object ownership (D26/D27): upstream GC; C++ = the WorldArena
+//    (§4.5; bump + reverse-order destructor registration). An actor's
+//    Dispose only drops dictionary references — the memory evaporates with
+//    arena.Reset when the World dies.
+//  - ScreenMap/Selection/ControlGroups/OrderValidators/notifyDisconnected:
+//    WorldActor.Trait<>() 的构造期解析(全量 ctor;测试 ctor 保持注入面)
+//    Resolved at construction from the WorldActor (the full ctor; the test
+//    ctor keeps the injection faces).
+//  - IActorMap:ActorMap trait(Mods.Common)随下一批 —— 本批解析面留空位
+//    (AddToMaps/UpdateMaps/RemoveFromMaps 的 ActorMap 半段以空判跳过;
+//    COVERAGE 登记)
+//    IActorMap: the ActorMap trait lands next batch — the resolution face
+//    is left empty this batch (the ActorMap half of AddToMaps/... skips on
+//    null; in COVERAGE).
 //  - SyncHash(L482-512):公式逐项(n 计数器跨段连续;乘法回绕 -fwrapv)
-//    SyncHash (L482-512): the formula term by term (the n counter is
-//    continuous across segments; multiplication wraps under -fwrapv).
+//    SyncHash (L482-512): the formula term by term.
 #pragma once
 import std;
 
+#include "core/arena.hpp"
 #include "core/mersenne_twister.hpp"
+#include "map/map.hpp"
 #include "sim/actor.hpp"
 #include "sim/actor_init.hpp"
 #include "sim/effects.hpp"
+#include "sim/order_generator.hpp"
 #include "sim/player.hpp"
+#include "sim/selection.hpp"
+#include "sim/screen_map.hpp"
 #include "sim/target.hpp"
 #include "sim/sync_hash.hpp"
 #include "sim/trait_interfaces.hpp"
@@ -49,16 +50,19 @@ class OrderManager;
 struct Order;
 }  // namespace ora::net
 
+namespace ora::game {
+class GameSpeed;
+class ModData;
+}  // namespace ora::game
+
 namespace ora::sim {
 
 /// WorldType(World.cs L28)
 enum class WorldType { Regular, Shellmap, Editor };
 
-/// World 仿真核心构造参数(上游构造依赖 ModData/LobbyInfo/Map;Phase 5 全量
-/// 接线前的注入面)
-/// The sim-core construction parameters (upstream construction needs
-/// ModData/LobbyInfo/Map; the injection surface before the full Phase 5
-/// wiring).
+/// 测试/无地图构造参数(Phase 3 注入面;全量构造走 Map/ModData/OM ctor)
+/// The test/no-map construction parameters (the Phase 3 injection face; the
+/// full construction goes through the Map/ModData/OM ctor).
 struct WorldSimParams {
   int int4_random_seed = 0;        // LobbyInfo.GlobalSettings.RandomSeed
   int int4_timestep = 40;          // GameSpeed.Timestep(默认 40ms)
@@ -71,43 +75,68 @@ struct WorldSimParams {
 using CPosToWPos = std::function<WPos(const CPos&, sim::SubCell)>;
 
 /// IEffect 视图(World.cs L34-36 的三列表)
-/// The IEffect views (the three lists of World.cs L34-36).
 class World final {
  public:
-  /// 上游 internal 构造(L178-235)的仿真核心子集(见头注)
+  /// 全量构造(World.cs L178-235):Map/ModData/OM 装配 + WorldActor 系统面
+  /// 解析 + ICreatePlayers 链(Phase 5 第一批)
+  /// The full ctor (World.cs L178-235): Map/ModData/OM assembly + the
+  /// WorldActor system-face resolution + the ICreatePlayers chain.
+  World(map::Map& map_world, game::ModData& mod_data, net::OrderManager& om,
+        WorldType type);
+
+  /// 测试构造(无地图;规则/系统面经 SetTraitFactory 注入)
+  /// The test ctor (no map; rules/system faces injected via
+  /// SetTraitFactory).
   explicit World(WorldSimParams params = {});
   ~World();
 
   World(const World&) = delete;
   World& operator=(const World&) = delete;
 
-  // ———— 玩家面(L53-135;完整 ICreatePlayers 链 Phase 5)————
+  // ———— 玩家面(L53-135)————
   const std::vector<Player*>& Players() const { return vec_players_; }
   void SetPlayers(std::vector<Player*> players, Player* local_player);
   Player* LocalPlayer() const { return p_local_player_; }
   Player* RenderPlayer() const { return p_render_player_; }
+  void SetRenderPlayer(Player* p);  // L91-104
 
-  // ———— 世界 actor(L137/202-206:SystemActors.World 命名 actor)————
+  // ———— 世界 actor(L137/202-206)————
   Actor* WorldActor() const { return p_world_actor_; }
   void SetWorldActor(Actor* a) { p_world_actor_ = a; }
 
-  // ———— trait 工厂注入面(上游 traitInfo.Create;Phase 5 接 game 加载链)————
-  /// 工厂协议:name(原样)→ 返回构造序 trait 列表;未注册规则时抛
-  /// "No rules definition for unit X"(逐字);name 小写化在此闭合
-  /// Factory protocol: the (raw) name → the construct-order trait list;
-  /// throw "No rules definition for unit X" (verbatim) for unknown rules;
-  /// name lower-casing closes here.
-  using TraitFactory = std::function<std::vector<std::unique_ptr<TraitBase>>(
-      const std::string& str_name)>;
+  // ———— 系统面(L141-146/202-209)————
+  /// IActorMap(Mods.Common ActorMap trait)随下一批 —— 解析面空位
+  /// IActorMap lands next batch — the resolution face stays empty.
+  ScreenMap* ScreenMapFace() const { return ptr_screen_map_; }
+  ISelection* Selection() const { return ptr_selection_; }
+  IOrderGenerator* OrderGenerator() const { return ptr_order_generator_; }
+  void SetOrderGenerator(IOrderGenerator* ptr_generator);  // L156-167
+
+  /// 上游 trait 查询的"缺实例"异常文本(ActorMap/ControlGroups 等待补批)
+  /// The missing-instance exception text of the upstream trait queries.
+  [[noreturn]] static void ThrowMissingTrait(std::string_view str_type_full) {
+    throw std::runtime_error(
+        std::format("TypeDictionary does not contain instance of type `{}`",
+                    str_type_full));
+  }
+
+  // ———— trait 工厂(D26/D27;arena 内构造)————
+  /// 测试注入面:返回 arena 内构造的 trait 列表(对象所有权归 World arena)
+  /// The test injection face: returns arena-constructed traits (ownership
+  /// sits in the World arena).
+  using TraitFactory = std::function<std::vector<TraitBase*>(
+      const std::string& str_name, ActorInitializer& init)>;
   void SetTraitFactory(TraitFactory fn) { fn_trait_factory_ = std::move(fn); }
 
-  /// Actor 构造的规则面入口(name 非空时调用;内部走工厂 + AddTrait + 接口
-  /// 缓存收集,Actor.cs L169-195 循环的 World 侧半边)
-  /// The rules-face entry of Actor construction (called for non-empty
-  /// names; runs the factory + AddTrait + interface-cache collection —
-  /// the World-side half of the Actor.cs L169-195 loop).
+  /// Actor 构造的规则面入口(全量 ctor = 规则表 + TraitRegistry;测试 ctor =
+  /// 注入工厂)
+  /// The rules-face entry of Actor construction (the full ctor = the rules
+  /// table + TraitRegistry; the test ctor = the injected factory).
   void CreateTraitsForActor(Actor& actor, ActorInitializer& init,
                             const std::string& str_name);
+
+  // ———— 内存面(§4.5;D26/D27)————
+  ora::WorldArena& Arena() { return arena_; }
 
   // ———— actor 生命周期(L317-352)————
   Actor* CreateActor(const std::string& str_name, TypeDictionary& init_dict);
@@ -116,9 +145,14 @@ class World final {
   void Add(Actor* a);
   void Remove(Actor* a);
 
-  /// 返回所有权(handle 由 World 持有;Phase 3 = new,Phase 5 = arena)
-  /// Returns ownership (held by the World; Phase 3 = new, Phase 5 = arena).
+  /// actor 对象所有权(arena 直构;测试构造路径同)—— AdoptActor 保留给
+  /// 需要外部生命周期的注入面
   Actor* AdoptActor(std::unique_ptr<Actor> a);
+
+  // ———— 地图登记面(L237-258)————
+  void AddToMaps(Actor* self, IOccupySpace* ios);
+  void UpdateMaps(Actor* self, IOccupySpace* ios);
+  void RemoveFromMaps(Actor* self, IOccupySpace* ios);
 
   // ———— effects(L354-381)————
   void Add(std::unique_ptr<IEffect> e);
@@ -130,18 +164,20 @@ class World final {
     queue_frame_end_actions_.push(std::move(a));
   }
 
-  // ———— tick 核心(L388-455)————
+  // ———— 暂停/节拍(L388-462)————
   bool Paused() const { return b_paused_; }
   void SetPaused(bool b) { b_paused_ = b; }
   bool PredictedPaused() const { return b_predicted_paused_; }
   void SetPredictedPaused(bool b) { b_predicted_paused_ = b; }
-  void SetLocalPauseState(bool paused) {  // L409-411
+  void SetPauseState(bool paused);      // L399-406
+  void SetLocalPauseState(bool paused) {  // L408-411
     b_paused_ = b_predicted_paused_ = paused;
   }
 
   int WorldTick() const { return int4_world_tick_; }
   int Timestep() const { return int4_timestep_; }
   int ReplayTimestep() const { return int4_replay_timestep_; }
+  void SetReplayTimestep(int v) { int4_replay_timestep_ = v; }
 
   WorldType Type() const { return type_; }
 
@@ -149,7 +185,7 @@ class World final {
   MersenneTwister& LocalRandom() { return mt_local_; }
 
   void Tick();       // L413-455
-  void TickRender(); // L458-462(ITickRender 分发;渲染参数 Phase 4,本期空)
+  void TickRender(); // L458-462
 
   // ———— 查询面(L464-537)————
   std::vector<Actor*> Actors() const;
@@ -159,9 +195,9 @@ class World final {
   }
   const std::vector<ISync*>& SyncedEffects() const {
     return vec_synced_effects_;
-  }  Actor* GetActorById(std::uint32_t actor_id);  // L469-474
+  }
+  Actor* GetActorById(std::uint32_t actor_id);  // L469-474
 
-  /// TraitDictionary 直取(Actor 查询转发用)
   TraitDictionary& TraitDict() { return trait_dict_; }
 
   template <class T>
@@ -194,62 +230,125 @@ class World final {
   // ———— SyncHash(L482-512)————
   int SyncHash();
 
-  /// Target.FromCell 的子格中心换算(Order 反序列化 TargetIsCell 分支;
-  /// Map.CenterOfSubCell 依赖 Phase 5 —— 默认 square 网格公式
-  /// (cell*1024+512),可注入精确实现 —— COVERAGE 登记)
-  /// The sub-cell center conversion of Target.FromCell (the
-  /// TargetIsCell branch of order deserialization; Map.CenterOfSubCell is
-  /// a Phase 5 dependency — defaults to the square-grid formula
-  /// (cell*1024+512), injectable with the precise implementation — in
-  /// COVERAGE).
+  /// Target.FromCell 的子格中心换算(Map.CenterOfSubCell 已接线 —— 全量 ctor
+  /// 注入精确实现;测试 ctor 保持 square 公式缺省)
   sim::Target TargetFromCell(const CPos& cell, sim::SubCell sub_cell) const;
   void SetSubCellCenterResolver(CPosToWPos fn_resolve) {
     fn_subcell_center_ = std::move(fn_resolve);
   }
 
-  /// ISync effect 的哈希函数解析器注入(Sync.Hash(effect) 的反射工厂面;
-  /// Phase 5 手写 effect 类按 gen/sync_gen 表注册;未注入时该段贡献 0 ——
-  /// COVERAGE 登记)
-  /// The hash-function resolver injection for ISync effects (the
-  /// reflection-factory face of Sync.Hash(effect); Phase 5 hand-written
-  /// effect classes register against the gen/sync_gen table; without an
-  /// injection the segment contributes 0 — registered in COVERAGE).
-  void SetSyncEffectHashResolver(
-      std::function<int(const ISync*)> fn_resolve) {
+  /// ISync effect 的哈希函数解析器注入(Sync.Hash(effect) 的反射工厂面)
+  void SetSyncEffectHashResolver(std::function<int(const ISync*)> fn_resolve) {
     fn_sync_effect_hash_ = std::move(fn_resolve);
   }
 
-  // ———— OrderManager 面(L151;net 侧接线)————
+  // ———— Map/ModData/OM 面(L139-151)————
+  map::Map& Map() const {
+    if (ptr_map_ == nullptr)
+      throw std::runtime_error("NullReferenceException");
+    return *ptr_map_;
+  }
+  map::Map* MapPtr() const { return ptr_map_; }
+  game::ModData* ModDataFace() const { return ptr_mod_data_; }
   net::OrderManager* OM() const { return p_order_manager_; }
   void SetOrderManager(net::OrderManager* om) { p_order_manager_ = om; }
-  void IssueOrder(net::Order* o);
+  /// IssueOrder(L151):经 sink 分发(上游单程序集内直调 OM;C++ 分层下
+  /// ora_sim 不链接 ora_net —— 由嵌入侧/Game 注入 sink,COVERAGE 登记)
+  /// IssueOrder (L151): dispatched through a sink (upstream calls OM
+  /// directly inside one assembly; the layered C++ build keeps ora_sim off
+  /// ora_net — the embedder/Game injects the sink; in COVERAGE).
+  void SetOrderIssueSink(std::function<void(net::Order*)> fn) {
+    fn_issue_order_ = std::move(fn);
+  }
+  void IssueOrder(net::Order* o);  // L151
 
-  /// OnClientDisconnected(L549-563)的仿真核心代理:玩家断连通知链
-  /// (notifyDisconnected trait 族,Phase 5 WorldActor 接线;默认 no-op)
-  /// The sim-core proxy of OnClientDisconnected (L549-563): the
-  /// player-disconnect notification chain (the notifyDisconnected trait
-  /// family, wired with the Phase 5 WorldActor; no-op by default).
-  void OnClientDisconnectedProxy(int client_id);
+  // ———— 战局/存档面(L74-88/114-118/260-310/393-397/539-563)————
+  bool IsGameOver() const { return b_is_game_over_; }
+  void EndGame();  // L75-88
+  void SetWorldOwner(Player* p);  // L312-315
 
-  /// IsGameOver(L74)的 Phase 3 桩(EndGame/IGameOver 链 Phase 5;恒 false)
-  /// The Phase 3 stub of IsGameOver (L74; the EndGame/IGameOver chain is
-  /// Phase 5; always false).
-  bool IsGameOverProxy() const { return false; }
+  /// IsReplay(World.cs L114)的注入面(ReplayConnection 随 Phase 7)
+  void SetIsReplayResolver(std::function<bool()> fn) {
+    fn_is_replay_ = std::move(fn);
+  }
+  bool IsReplay() const { return fn_is_replay_ ? fn_is_replay_() : false; }
 
-  /// 生命周期标记(L587)
+  bool IsLoadingGameSave() const;  // L116(以 OM 面直算)
+  int GameSaveLoadingPercentage() const;  // L118
+
+  void LoadComplete(gfx::WorldRenderer* wr);       // L260-298
+  void PostLoadComplete(gfx::WorldRenderer* wr);   // L300-310
+
+  /// gameSaveTraitData(L393-397) | gameSaveTraitData (L393-397).
+  void AddGameSaveTraitData(int trait_index, yaml::MiniYaml yaml_value) {
+    map_game_save_trait_data_[trait_index] = std::move(yaml_value);
+  }
+
+  /// OnClientDisconnected(L549-563)
+  void OnClientDisconnected(int client_id);
+  /// Phase 3 的代理名(兼容保留)| the Phase 3 proxy name (kept).
+  void OnClientDisconnectedProxy(int client_id) {
+    OnClientDisconnected(client_id);
+  }
+
+  /// PauseShellmap 的 Settings 值面(Phase 5 Settings 批换实体)
+  /// The Settings value face of PauseShellmap (replaced by the real Settings
+  /// in the Phase 5 Settings batch).
+  void SetPauseShellmap(bool b) { b_pause_shellmap_ = b; }
+
+  /// Game.Sound 面(StopAudio/StopVideo/DisableAllSounds/SoundVolumeModifier;
+  /// 引擎嵌入侧注入,缺省 no-op)
+  /// The Game.Sound faces (engine-embedder injection; no-ops by default).
+  void SetSoundHooks(std::function<void()> fn_stop_audio,
+                     std::function<void()> fn_stop_video,
+                     std::function<void(bool)> fn_disable_all_sounds) {
+    fn_sound_stop_audio_ = std::move(fn_stop_audio);
+    fn_sound_stop_video_ = std::move(fn_stop_video);
+    fn_sound_disable_all_sounds_ = std::move(fn_disable_all_sounds);
+  }
+
+  /// OnPlayerWinStateChanged(L539-547;gameInfo 面随 Phase 7)
+  void OnPlayerWinStateChanged(Player& player);
+
+  /// 生命周期标记(L587) | the lifetime flag (L587).
   bool Disposing() const { return b_disposing_; }
+
+  /// Phase 3 的代理名(unit_orders 消费;EndGame 全量后语义一致)
+  /// The Phase 3 proxy name (consumed by unit_orders; identical semantics
+  /// after the full EndGame).
+  bool IsGameOverProxy() const { return IsGameOver(); }
+
+  /// Dispose(L589-619) | Dispose (L589-619).
+  void Dispose();
+
+  /// RunUnsynced 的 World 级便捷面(Selection 等消费) | the World-level
+  /// RunUnsynced convenience (consumed by Selection etc.).
+  template <class Fn>
+  void RunUnsyncedGuard(Fn&& fn) {
+    RunUnsynced(true, this, std::forward<Fn>(fn));
+  }
+
+  /// CancelInputMode(L172)的注入面(defaultOrderGeneratorType 反射构造;
+  /// 注册表工厂随 DefaultOrderGenerator trait 批) | the CancelInputMode
+  /// injection face.
+  void SetCancelInputMode(std::function<void()> fn) {
+    fn_cancel_input_mode_ = std::move(fn);
+  }
+  void CancelInputMode() {
+    if (fn_cancel_input_mode_)
+      fn_cancel_input_mode_();
+  }
 
  private:
   // C# internal(同程序集可见)的友元等价:Actor 构造调 NextAID
-  // The friend equivalent of C# internal visibility: Actor's
-  //  constructor calls NextAID.
   friend class Actor;
   std::uint32_t NextAID() { return uint4_next_aid_++; }  // L476-480
 
   TraitDictionary trait_dict_;
   std::map<std::uint32_t, Actor*> map_actors_;  // SortedDictionary 等价
-  std::vector<std::unique_ptr<Actor>> vec_owned_actors_;  // 创建序所有权
-  std::vector<std::unique_ptr<TraitBase>> vec_owned_traits_;  // 见头注
+
+  ora::WorldArena arena_{64 * 1024};  // §4.5 每局世界区(D26/D27)
+  std::vector<std::unique_ptr<Actor>> vec_owned_actors_;  // 测试路径所有权
 
   std::vector<std::unique_ptr<IEffect>> vec_owned_effects_;
   std::vector<IEffect*> vec_effects_;
@@ -258,8 +357,11 @@ class World final {
 
   std::queue<std::function<void(World&)>> queue_frame_end_actions_;
 
-  int int4_timestep_;
-  int int4_replay_timestep_;
+  map::Map* ptr_map_ = nullptr;
+  game::ModData* ptr_mod_data_ = nullptr;
+
+  int int4_timestep_ = 40;
+  int int4_replay_timestep_ = 40;
   MersenneTwister mt_shared_;
   MersenneTwister mt_local_;
 
@@ -268,11 +370,30 @@ class World final {
   Player* p_render_player_ = nullptr;
   Actor* p_world_actor_ = nullptr;
   net::OrderManager* p_order_manager_ = nullptr;
+  std::function<void(net::Order*)> fn_issue_order_;
   TraitFactory fn_trait_factory_;
   CPosToWPos fn_subcell_center_;
   std::function<int(const ISync*)> fn_sync_effect_hash_;
 
-  WorldType type_;
+  ScreenMap* ptr_screen_map_ = nullptr;      // L142
+  ISelection* ptr_selection_ = nullptr;      // L169
+  IOrderGenerator* ptr_order_generator_ = nullptr;  // L155
+  std::vector<IValidateOrder*> vec_order_validators_;   // L145
+  std::vector<INotifyPlayerDisconnected*> vec_notify_disconnected_;  // L146
+  bool b_rules_contain_temporary_blocker_ = false;       // L174
+
+  bool b_is_game_over_ = false;                          // L74
+  bool b_was_loading_game_save_ = false;                 // L176
+  std::map<int, yaml::MiniYaml> map_game_save_trait_data_;  // L393
+  bool b_pause_shellmap_ = false;                        // PauseShellmap 值面
+
+  std::function<bool()> fn_is_replay_;
+  std::function<void()> fn_cancel_input_mode_;
+  std::function<void()> fn_sound_stop_audio_;
+  std::function<void()> fn_sound_stop_video_;
+  std::function<void(bool)> fn_sound_disable_all_sounds_;
+
+  WorldType type_ = WorldType::Regular;
   bool b_paused_ = false;
   bool b_predicted_paused_ = false;
   int int4_world_tick_ = 0;
@@ -281,14 +402,6 @@ class World final {
 };
 
 // ———— RunUnsynced(Sync.cs L183-204;模板体需 World 完整类型)————
-// ———— RunUnsynced (Sync.cs L183-204; the template body needs the
-//      complete World type) ————
-
-/// 非同步代码门禁:fn 内世界哈希不得变化(顶层入口校验;嵌套调用不重算;
-/// disposing 世界跳过 —— 上游 null/Disposing 语义)
-/// The unsynced-code gate: the world hash may not change inside fn
-/// (checked at the top-level entry; nested calls do not recheck;
-/// disposing worlds skip — the upstream null/Disposing semantics).
 template <class Fn>
 auto RunUnsynced(bool check_sync_hash, World* world, Fn&& fn)
     -> decltype(fn()) {
@@ -307,36 +420,21 @@ auto RunUnsynced(bool check_sync_hash, World* world, Fn&& fn)
     ~Dec() { --sim::UnsyncCountRef(); }
   } dec{};
 
-  // 上游 Action(void) 面:void 可调用体不携带返回值
-  // upstream's Action (void) face: void callables carry no return value
   if constexpr (std::is_void_v<std::invoke_result_t<Fn&>>) {
     fn();
-  } else {
-    auto result = fn();
-
-    // When the world is disposing all actors and effects have been removed
-    // So do not check the hash for a disposing world since it definitively
-    // has changed
     if (count == 1 && check_sync_hash && world != nullptr &&
         !world->Disposing() && sync != world->SyncHash())
       throw std::runtime_error("RunUnsynced: sync-changing code may not run here");
-
+  } else {
+    auto result = fn();
+    if (count == 1 && check_sync_hash && world != nullptr &&
+        !world->Disposing() && sync != world->SyncHash())
+      throw std::runtime_error("RunUnsynced: sync-changing code may not run here");
     return result;
   }
-
-  // When the world is disposing all actors and effects have been removed
-  // So do not check the hash for a disposing world since it definitively
-  // has changed
-  if (count == 1 && check_sync_hash && world != nullptr &&
-      !world->Disposing() && sync != world->SyncHash())
-    throw std::runtime_error("RunUnsynced: sync-changing code may not run here");
 }
 
-
-// ———— Actor::Trait 查询转发定义(Actor.cs L399-417;函数体在此处才有
-//      World 完整类型)————
-// ———— The Actor::Trait forwarding definitions (Actor.cs L399-417; the
-//      bodies only see the complete World type here) ————
+// ———— Actor::Trait 查询转发定义(Actor.cs L399-417)————
 template <class T>
 inline T* Actor::Trait() {
   return world_.TraitDict().Get<T>(this);

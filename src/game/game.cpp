@@ -9,8 +9,11 @@ import std;
 #include "gfx/renderer.hpp"
 #include "gfx/viewport.hpp"
 #include "gfx/world_renderer.hpp"
+#include "game/mod_data.hpp"
+#include "map/map_cache.hpp"
 #include "net/session.hpp"
 #include "net/unit_orders.hpp"
+#include "sim/trait_registry.hpp"
 #include "sim/world.hpp"
 #include "sound/sound.hpp"
 
@@ -64,6 +67,72 @@ void Game::JoinInner(std::unique_ptr<net::OrderManager> up_om) {
   }
 
   up_order_manager_ = std::move(up_om);
+}
+
+map::MapCache& Game::MapCacheFace() {
+  if (up_map_cache_ == nullptr) {
+    if (deps_.ptr_mod_data == nullptr)
+      throw std::runtime_error("NullReferenceException");
+    up_map_cache_ = std::make_unique<map::MapCache>(
+        deps_.ptr_mod_data->ManifestRef(), deps_.ptr_mod_data->ModFiles());
+  }
+  return *up_map_cache_;
+}
+
+void Game::StartGame(const std::string& str_uid, sim::WorldType type) {
+  // Game.cs L187-194
+  map::MapPreview& preview = MapCacheFace().At(str_uid);
+  if (preview.Status() != map::MapStatus::Available)
+    throw std::runtime_error("Invalid map uid: " + str_uid);
+
+  std::unique_ptr<map::Map> map_world = preview.ToMap();
+  StartGame(*map_world, type);
+  // Map 所有权归 Game(上游 map 生命周期由 MapCache/World 共管的 GC 形态;
+  // C++ 以 Game 承载 —— COVERAGE 登记)
+  up_map_ = std::move(map_world);
+}
+
+void Game::StartGame(map::Map& map_world, sim::WorldType type) {
+  // Game.cs L196-261
+  if (deps_.ptr_mod_data == nullptr || up_order_manager_ == nullptr)
+    throw std::runtime_error("NullReferenceException");
+
+  // Dispose of the old world before creating a new one.(上游注释)
+  up_world_renderer_.reset();
+  up_world_.reset();
+
+  // Cursor.SetCursor(null)(L201;光标面为注入 no-op)
+  // BeforeGameStart()(L202;事件面空)
+
+  // ModData.PrepareMap(map)(L206):InitializeLoaders + Sequences.LoadSprites
+  // + 音乐装载 —— 随 Phase 6 加载屏批(Sequences 构造在 Map 的工厂面)
+  sim::RegisterWorldTraits();
+
+  // Renderer.SetDepthMargin(L219;深度边距面随渲染装配批)
+  auto world = std::make_unique<sim::World>(map_world, *deps_.ptr_mod_data,
+                                            *up_order_manager_, type);
+  net::OrderManager* om = up_order_manager_.get();
+  world->SetOrderIssueSink([om](net::Order* o) { om->IssueOrder(*o); });
+  up_world_ = std::move(world);
+  om->SetWorld(up_world_.get());
+
+  // worldRenderer = new WorldRenderer(...)(L225;渲染面注入钩子)
+  if (deps_.fn_create_world_renderer != nullptr)
+    up_world_renderer_ = deps_.fn_create_world_renderer(*up_world_);
+
+  // OrderManager.World.GameOver += FinishBenchmark(L223;嵌入侧)
+
+  up_world_->LoadComplete(up_world_renderer_.get());
+
+  if (om->GameStarted())
+    return;
+
+  // Ui.MouseFocusWidget/KeyboardFocusWidget = null(L239-240)
+  om->StartGame();
+  // worldRenderer.RefreshPalette()(L243)
+  // Cursor.SetCursor(ChromeMetrics.Get<string>("DefaultCursor"))(L244)
+  up_world_->PostLoadComplete(up_world_renderer_.get());
+  // AfterGameStart()(L260;事件面空)
 }
 
 void Game::JoinLocal() {
@@ -344,13 +413,16 @@ RunStatus Game::Run() {
   } catch (...) {
     // finally 语义:异常路径同样清理 | the finally semantics: the same
     // cleanup on the exception path
+    up_world_.reset();
     up_order_manager_.reset();
     throw;
   }
 
   // Ensure that the active replay is properly saved(上游注释)
+  up_world_.reset();
   up_order_manager_.reset();
 
+  up_map_.reset();
   up_world_renderer_.reset();
   // ModData.Dispose / Sound.Dispose / Renderer.Dispose:嵌入侧所有权(C++
   // RAII;Game 不持有)

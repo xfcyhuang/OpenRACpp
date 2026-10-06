@@ -94,6 +94,15 @@ class Manifest final {
   /// The FileSystem loader name (the node Value).
   const std::string& FileSystemLoaderName() const { return str_fileSystemLoader_; }
 
+  /// 合并树按键取节点(缺 = null;GetOrCreate<MapGrid> 等全局模块面)
+  /// Fetches a merged-tree node by key (null when missing; the global-module
+  /// face of GetOrCreate<MapGrid> etc.).
+  const yaml::MiniYaml* MergedNode(std::string_view key) const {
+    if (const yaml::MiniYamlNode* n = yaml_merged_.NodeWithKeyOrDefault(key))
+      return &n->Value;
+    return nullptr;
+  }
+
   /// PackageFormats(L159-161):包格式加载器名列表(标量 = 单元素;
   /// mod.yaml 事实形态)。消费方:ModData → IPackageLoader 集(Mix 等)。
   /// PackageFormats (L159-161): the package-format loader names (a scalar
@@ -122,6 +131,17 @@ class Manifest final {
   /// TilesetSpecific/D2k...).
   const std::string& SpriteSequenceFormat() const { return str_spriteSequenceFormat_; }
 
+  /// TerrainFormat(L74;单标量)。消费方:ModData 的地形加载器名分派。
+  /// TerrainFormat (L74; a single scalar). Consumer: the ModData terrain
+  /// loader name dispatch.
+  const std::string& TerrainFormat() const { return str_terrainFormat_; }
+
+  /// MapCompatibility(L147-151):[Id] + SupportsMapsFrom 展开列表。
+  /// MapCompatibility (L147-151): [Id] + the SupportsMapsFrom expansions.
+  const std::vector<std::string>& MapCompatibility() const {
+    return vec_mapCompatibility_;
+  }
+
   /// MapFolders(my.Value 字典;L119 + L198-204)
   /// MapFolders (the my.Value dictionary; L119 + L198-204).
   const std::vector<std::pair<std::string, std::string>>& MapFolders() const {
@@ -147,6 +167,8 @@ class Manifest final {
   std::vector<std::string> vec_soundFormats_;
   std::vector<std::string> vec_spriteFormats_;
   std::string str_spriteSequenceFormat_;
+  std::string str_terrainFormat_;
+  std::vector<std::string> vec_mapCompatibility_;
 };
 
 }  // namespace ora::game

@@ -8,6 +8,7 @@ import std;
 #include "fs/d2k_sound_resources.hpp"
 #include "fs/mix_file.hpp"
 #include "meta/field_loader.hpp"
+#include "terrain/terrain_info.hpp"
 
 namespace ora::game {
 
@@ -183,6 +184,58 @@ Ruleset& ModData::DefaultRules() {
   if (ruleset_default_ == nullptr)
     ruleset_default_ = Ruleset::LoadDefaults(*this);
   return *ruleset_default_;
+}
+
+GameSpeeds& ModData::GetOrCreateGameSpeeds() {
+  if (game_speeds_ == nullptr) {
+    if (const yaml::MiniYaml* node = manifest_->MergedNode("GameSpeeds"))
+      game_speeds_ = std::make_unique<GameSpeeds>(*node);
+    else
+      game_speeds_ = std::make_unique<GameSpeeds>();
+  }
+  return *game_speeds_;
+}
+
+map::MapGrid& ModData::GetOrCreateMapGrid() {
+  // GetOrCreate<T>(ModData.cs L221-231):L71-91 的 GlobalModData 装载把
+  // mod.yaml 顶层节点(ObjectCreator.FindType(键) 命中 IGlobalModData 者,
+  // 含 "MapGrid" — Manifest.cs L186 的非保留名收集)按 yaml 构造入表;
+  // GetOrCreate 缺省懒建 CreateBasic 默认值。C++ 形态:合并树键命中即 yaml
+  // 构造,否则默认构造
+  if (grid_ == nullptr) {
+    if (const yaml::MiniYaml* node = manifest_->MergedNode("MapGrid"))
+      grid_ = std::make_unique<map::MapGrid>(*node);
+    else
+      grid_ = std::make_unique<map::MapGrid>();
+  }
+  return *grid_;
+}
+
+const map::ITerrainInfo& ModData::GetTerrainInfo(std::string_view str_id) {
+  // DefaultTerrainInfo(ModData.cs L114-131):Manifest.TerrainFormat +
+  // "Loader" 名分派(C++ 侧 = DefaultTerrain;D2k/Ts 加载器随各 mod 内容批),
+  // 逐 TileSets 文件解析后以 t.Id 缓存;重复键 = 上游 Dictionary.Add 等价抛
+  if (vec_terrain_info_.empty()) {
+    const std::string& loader = manifest_->TerrainFormat();
+    // 名分派面(ObjectCreator.FindType(Manifest.TerrainFormat + "Loader")
+    // 的 C++ 等价;未知名异常文本逐字)
+    if (loader != "DefaultTerrain" && loader != "DefaultTerrainLoader")
+      throw std::runtime_error(std::format(
+          "Unable to find a terrain loader for type '{}'.", loader));
+
+    for (const std::string& file : manifest_->TileSets()) {
+      auto terrain = std::make_unique<map::DefaultTerrain>(
+          fs_modFiles_, file);
+      vec_terrain_info_.emplace_back(terrain->Id(), std::move(terrain));
+    }
+  }
+
+  for (const auto& [key, info] : vec_terrain_info_)
+    if (key == str_id)
+      return *info;
+
+  // 上游 IReadOnlyDictionary 索引器缺键抛 KeyNotFoundException
+  throw std::runtime_error("The given key was not present in the dictionary.");
 }
 
 }  // namespace ora::game

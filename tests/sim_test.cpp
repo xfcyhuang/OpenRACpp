@@ -418,14 +418,16 @@ void TestWorldSim() {
 
   World world(WorldSimParams{.int4_random_seed = 1, .int4_timestep = 40});
 
-  // trait 工厂:为 "stub" actor 生成两个桩 trait
-  world.SetTraitFactory([](const std::string& str_name)
-                            -> std::vector<std::unique_ptr<TraitBase>> {
+  // trait 工厂:为 "stub" actor 生成两个桩 trait(D26/D27:arena 内构造,
+  // 所有权归 World arena —— make_unique 形态随 arena 接线退役)
+  world.SetTraitFactory([&world](const std::string& str_name,
+                                 ActorInitializer&)
+                            -> std::vector<TraitBase*> {
     if (str_name != "stub")
       return {};  // → "No rules definition for unit X"
-    std::vector<std::unique_ptr<TraitBase>> out;
-    out.push_back(std::make_unique<StubTickTrait>());
-    out.push_back(std::make_unique<StubNotifyTrait>());
+    std::vector<TraitBase*> out;
+    out.push_back(world.Arena().Create<StubTickTrait>());
+    out.push_back(world.Arena().Create<StubNotifyTrait>());
     return out;
   });
 

@@ -35,6 +35,11 @@ struct CVec {
   constexpr std::int32_t LengthSquared() const { return X * X + Y * Y; }
   constexpr std::int32_t Length() const { return ISqrt(LengthSquared()); }
 
+  /// 上游 GetHashCode(CVec.cs L57):X ^ Y(TilesByDistance 排序键)
+  /// The upstream GetHashCode (CVec.cs L57): X ^ Y (a TilesByDistance sort
+  /// key).
+  constexpr std::int32_t Hash() const { return X ^ Y; }
+
   /// 夹取到矩形内(CVec.cs L50-55):Min(Right, Max(v, Left)),开区间右下
   /// Clamp into the rectangle (CVec.cs L50-55): Min(Right, Max(v, Left)); Right/Bottom are exclusive
   constexpr CVec Clamp(Rectangle const& rect_r) const {

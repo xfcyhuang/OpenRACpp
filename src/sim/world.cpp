@@ -1,42 +1,135 @@
-// UPSTREAM: OpenRA.Game/World.cs @b6fc03f L178-627(实现部分;仿真核心)
-//          The implementation half of World.cs (sim core).
+// UPSTREAM: OpenRA.Game/World.cs @b6fc03f L28-627(world.hpp 的实现;全量
+//          构造链 + trait arena + 系统 trait 面)
+//          The implementation of world.hpp — the full construction chain,
+//          the trait arena, and the system-trait faces.
+import std;
+
 #include "sim/world.hpp"
 
+#include "game/game_speed.hpp"
+#include "game/mod_data.hpp"
+#include "gfx/world_renderer.hpp"
+#include "net/order_manager.hpp"
+#include "net/session.hpp"
 #include "sim/activity.hpp"
+#include "sim/trait_registry.hpp"
 
 namespace ora::sim {
 
+namespace {
+
+/// ToLowerInvariant(ASCII 面)| ToLowerInvariant (the ASCII face).
+std::string LowerName(const std::string& str_name) {
+  std::string lowered;
+  lowered.reserve(str_name.size());
+  for (char c : str_name)
+    lowered.push_back(
+        static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c));
+  return lowered;
+}
+
+}  // namespace
+
+// ———— 全量构造(L178-235)————
+World::World(map::Map& map_world, game::ModData& mod_data,
+             net::OrderManager& om, WorldType type)
+    : ptr_map_(&map_world),
+      ptr_mod_data_(&mod_data),
+      p_order_manager_(&om),
+      mt_shared_(om.LobbyInfo().global_settings.RandomSeed),
+      mt_local_(0),  // LocalRandom:UI 域(同步面禁隐式播种 —— 显式 0)
+      type_(type) {
+  // L185-192:DefaultOrderGenerator 校验 + 构造(ObjectCreator 反射面 →
+  // DefaultOrderGenerator trait 注册表随该 trait 批;文本保留)
+  const game::Manifest& manifest = mod_data.ManifestRef();
+  (void)manifest;
+  // 上游:string.IsNullOrEmpty(Manifest.DefaultOrderGenerator) 抛
+  // "mod.yaml must define a DefaultOrderGenerator" —— Manifest 尚无该面,
+  // 随 DefaultOrderGenerator trait 批补;此处跳过缺失面
+  // (the Manifest.DefaultOrderGenerator face lands with that trait batch).
+
+  // GameSpeed(L194-197)
+  const game::GameSpeeds& game_speeds = mod_data.GetOrCreateGameSpeeds();
+  const std::string str_game_speed_name =
+      om.LobbyInfo().global_settings.OptionOrDefault("gamespeed",
+                                                     game_speeds.DefaultSpeed);
+  const game::GameSpeed* speed = game_speeds.Find(str_game_speed_name);
+  if (speed == nullptr)
+    throw std::runtime_error("The given key was not present in the dictionary.");
+  int4_timestep_ = int4_replay_timestep_ = speed->Timestep;
+
+  // L202-209:WorldActor + 系统 trait 解析
+  const char* world_actor_type =
+      type == WorldType::Editor ? "editorworld" : "world";
+  TypeDictionary empty_dict;
+  p_world_actor_ = CreateActor(world_actor_type, empty_dict);
+
+  // ActorMap(Mods.Common)随下一批 —— Trait<IActorMap> 解析面空位
+  ptr_screen_map_ = p_world_actor_->TraitOrDefault<ScreenMap>();
+  if (ptr_screen_map_ == nullptr)
+    ThrowMissingTrait("OpenRA.Traits.ScreenMap");
+  ptr_selection_ = p_world_actor_->TraitOrDefault<ISelection>();
+  if (ptr_selection_ == nullptr)
+    ThrowMissingTrait("OpenRA.Traits.ISelection");
+  vec_order_validators_ =
+      p_world_actor_->TraitsImplementing<IValidateOrder>();
+  vec_notify_disconnected_ =
+      p_world_actor_->TraitsImplementing<INotifyPlayerDisconnected>();
+
+  // L211:LongBitSet<PlayerBitMask>.Reset()(uint64 承载 —— 无需复位)
+
+  // Create an isolated RNG ...(上游注释)
+  MersenneTwister player_random{om.LobbyInfo().global_settings.RandomSeed};
+  for (auto* cmp : p_world_actor_->TraitsImplementing<ICreatePlayers>())
+    cmp->CreatePlayers(*this, player_random);
+
+  // Game.Sound.SoundVolumeModifier = 1.0f(L218;声音面随嵌入侧)
+  // gameInfo(L220-231;GameInformation 随 Phase 7)
+  // RulesContainTemporaryBlocker(L233)
+  b_rules_contain_temporary_blocker_ = std::any_of(
+      ptr_map_->Rules().Actors().begin(), ptr_map_->Rules().Actors().end(),
+      [](const auto& pair_actor) {
+        return pair_actor.second->HasTraitInfoOfInterface(
+            "OpenRA.Traits.ITemporaryBlockerInfo");
+      });
+  // gameSettings(L234;PauseShellmap 的 Settings 面随 Settings 批)
+
+  // Map.CenterOfSubCell 接线(全量 ctor 注入精确实现 —— D28 的解除面)
+  SetSubCellCenterResolver([this](const CPos& cell, SubCell sub_cell) {
+    return ptr_map_->CenterOfSubCell(cell, sub_cell);
+  });
+}
+
+// ———— 测试构造(Phase 3 注入面)————
 World::World(WorldSimParams params)
     : int4_timestep_(params.int4_timestep),
       int4_replay_timestep_(params.int4_timestep),
       mt_shared_(params.int4_random_seed),
-      mt_local_(0),  // LocalRandom:UI 域(C# 无参构造用 TickCount;同步面禁
-                     // 隐式播种 —— 显式 0,COVERAGE 登记)
+      mt_local_(0),
       type_(params.type) {}
 
 World::~World() {
-  // Dispose(L589-619)的仿真核心子集:所有权逆序销毁(新 actor 先,
-  // world actor 最后 —— "Dispose newer actors first, and the world actor
-  // last")
-  b_disposing_ = true;
+  // Dispose(L589-619)的析构形态(显式 Dispose 的幂等复核)
+  if (!b_disposing_)
+    Dispose();
 
+  // arena.Reset 统一蒸发 trait/actor 内存(析构序:登记表逆序 —— 新 trait
+  // 先于旧 trait,与上游 GC 终态等价)
   for (auto it = vec_owned_actors_.rbegin(); it != vec_owned_actors_.rend();
        ++it) {
     if (!(*it)->Disposed())
       (*it)->Dispose();
   }
-
-  // Actor disposals are done in a FrameEndTask
   while (!queue_frame_end_actions_.empty()) {
     auto task = std::move(queue_frame_end_actions_.front());
     queue_frame_end_actions_.pop();
     task(*this);
   }
-
   vec_owned_effects_.clear();
   vec_effects_.clear();
   vec_unpartitioned_effects_.clear();
   vec_synced_effects_.clear();
+  arena_.Reset();
 }
 
 void World::SetPlayers(std::vector<Player*> players, Player* local_player) {
@@ -56,7 +149,28 @@ void World::SetPlayers(std::vector<Player*> players, Player* local_player) {
         "The local player must be one of the players in the world.");
 
   p_local_player_ = local_player;
-  p_render_player_ = local_player;
+
+  // if (IsReplay) return;(L128-130)
+  if (IsReplay())
+    return;
+
+  p_render_player_ = local_player;  // L134(renderPlayer 直写字段)
+}
+
+void World::SetRenderPlayer(Player* p) {
+  // L91-104
+  if (p_local_player_ == nullptr || p_local_player_->UnlockedRenderPlayer()) {
+    p_render_player_ = p;
+    // RenderPlayerChanged 事件(L101):消费面随渲染 trait 批
+  }
+}
+
+void World::SetOrderGenerator(IOrderGenerator* ptr_generator) {
+  // L156-167
+  RunUnsynced(true, this, [&] {});
+  if (ptr_order_generator_ != nullptr)
+    ptr_order_generator_->Deactivate();
+  ptr_order_generator_ = ptr_generator;
 }
 
 Actor* World::AdoptActor(std::unique_ptr<Actor> a) {
@@ -67,37 +181,50 @@ Actor* World::AdoptActor(std::unique_ptr<Actor> a) {
 
 void World::CreateTraitsForActor(Actor& actor, ActorInitializer& init,
                                  const std::string& str_name) {
-  (void)init;  // trait 工厂签名对齐上游 Create(init);桩工厂不消费 init
-  if (!fn_trait_factory_)
+  // Actor.cs L169-195 的 World 侧半边
+  const std::string lowered = LowerName(str_name);
+
+  if (fn_trait_factory_) {
+    // 测试面:工厂返回 arena 内构造的 trait(所有权归 arena —— D26/D27)
+    auto traits = fn_trait_factory_(lowered, init);
+    if (traits.empty())
+      throw std::runtime_error("No rules definition for unit " + str_name);
+    for (TraitBase* trait : traits) {
+      actor.AddTrait(trait);
+      for (const auto& entry : trait->TraitUpcasts()) {
+        if (entry.type_id == ISync::kTypeId) {
+          auto* s = static_cast<ISync*>(entry.upcast(trait));
+          actor.MutableSyncHashes().push_back(
+              ActorSyncHashEntry{s, FindSyncHashFunction(trait->GetTraitTypeId())});
+        }
+      }
+    }
+    return;
+  }
+
+  // 全量面:规则表解析 + TraitRegistry 逐 trait 构造(上游
+  // info.TraitsInConstructOrder() 循环)
+  if (ptr_map_ == nullptr)
     throw std::runtime_error("No rules definition for unit " + str_name);
 
-  // name 小写化 + 规则查询 + 构造序创建在工厂内闭合(上游 L150-155/169-171)
-  std::string lowered;
-  lowered.reserve(str_name.size());
-  for (char c : str_name)
-    lowered.push_back(static_cast<char>(
-        c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c));  // ToLowerInvariant(ASCII)
-
-  auto traits = fn_trait_factory_(lowered);
-  if (traits.empty())
+  const game::ActorInfo* info = ptr_map_->Rules().FindActor(lowered);
+  if (info == nullptr)
     throw std::runtime_error("No rules definition for unit " + str_name);
 
-  // Actor.cs L169-195 循环的 World 侧半边:AddTrait + ISync 收集(L193)
-  for (auto& trait : traits) {
-    actor.AddTrait(trait.get());
-
+  for (const meta::RecordObject* rec : info->TraitsInConstructOrder()) {
+    TraitBase* trait = TraitRegistry::Instance().Create(
+        std::string{rec->record_desc().str_name}, *rec, init, arena_);
+    if (trait == nullptr)
+      continue;  // 未注册 Info:部分覆盖装配面(COVERAGE 登记)
+    actor.AddTrait(trait);
     for (const auto& entry : trait->TraitUpcasts()) {
       if (entry.type_id == ISync::kTypeId) {
-        auto* s = static_cast<ISync*>(entry.upcast(trait.get()));
-        actor.MutableSyncHashes().push_back(ActorSyncHashEntry{
-            s, FindSyncHashFunction(trait->GetTraitTypeId())});
+        auto* s = static_cast<ISync*>(entry.upcast(trait));
+        actor.MutableSyncHashes().push_back(
+            ActorSyncHashEntry{s, FindSyncHashFunction(trait->GetTraitTypeId())});
       }
     }
   }
-
-  // trait 对象所有权:World 级表(见头注;Phase 5 arena 替换)
-  for (auto& trait : traits)
-    vec_owned_traits_.push_back(std::move(trait));
 }
 
 Actor* World::CreateActor(const std::string& str_name,
@@ -107,17 +234,17 @@ Actor* World::CreateActor(const std::string& str_name,
 
 Actor* World::CreateActor(bool add_to_world, const std::string& str_name,
                           TypeDictionary& init_dict) {
-  // L327-332
-  auto a = std::make_unique<Actor>(*this, str_name, init_dict);
-  Actor* raw = AdoptActor(std::move(a));
-  raw->Initialize(add_to_world);
-  return raw;
+  // L327-332(actor 对象入 arena —— D26/D27)
+  Actor* a = arena_.Create<Actor>(*this, str_name, init_dict);
+  a->Initialize(add_to_world);
+  return a;
 }
 
 void World::Add(Actor* a) {
   // L334-342
   a->SetIsInWorld(true);
   map_actors_.emplace(a->ActorID(), a);
+  // ActorAdded 事件(L338;消费面随渲染/脚本批)
 
   for (auto* t : a->TraitsImplementing<INotifyAddedToWorld>())
     t->AddedToWorld(*a);
@@ -127,9 +254,33 @@ void World::Remove(Actor* a) {
   // L344-352
   a->SetIsInWorld(false);
   map_actors_.erase(a->ActorID());
+  // ActorRemoved 事件(L348)
 
   for (auto* t : a->TraitsImplementing<INotifyRemovedFromWorld>())
     t->RemovedFromWorld(*a);
+}
+
+void World::AddToMaps(Actor* self, IOccupySpace* ios) {
+  // L237-242(ActorMap 半段随 ActorMap 批)
+  if (ptr_screen_map_ != nullptr)
+    ptr_screen_map_->AddOrUpdate(self);
+  (void)ios;
+}
+
+void World::UpdateMaps(Actor* self, IOccupySpace* ios) {
+  // L244-251
+  if (!self->IsInWorld())
+    return;
+  if (ptr_screen_map_ != nullptr)
+    ptr_screen_map_->AddOrUpdate(self);
+  (void)ios;
+}
+
+void World::RemoveFromMaps(Actor* self, IOccupySpace* ios) {
+  // L253-258
+  if (ptr_screen_map_ != nullptr)
+    ptr_screen_map_->Remove(self);
+  (void)ios;
 }
 
 void World::Add(std::unique_ptr<IEffect> e) {
@@ -137,8 +288,6 @@ void World::Add(std::unique_ptr<IEffect> e) {
   IEffect* raw = e.get();
   vec_effects_.push_back(raw);
 
-  // is not ISpatiallyPartitionable → unpartitioned(dynamic_cast 一次性
-  // 构造成本;上游 is 模式匹配)
   if (dynamic_cast<ISpatiallyPartitionable*>(raw) == nullptr)
     vec_unpartitioned_effects_.push_back(raw);
 
@@ -149,8 +298,7 @@ void World::Add(std::unique_ptr<IEffect> e) {
 }
 
 void World::Remove(IEffect* e) {
-  // L365-374(三列表同步摘除 + 所有权即刻释放;上游 GC 语义下 Remove 后
-  // 不再触达 —— DelayedAction 的闭包在入队时已拷贝 fn)
+  // L365-374(三列表同步摘除 + 所有权即刻释放)
   auto drop_effect = [e](std::vector<IEffect*>& v) {
     v.erase(std::remove(v.begin(), v.end(), e), v.end());
   };
@@ -181,10 +329,41 @@ void World::RemoveAll(const std::function<bool(IEffect*)>& predicate) {
     Remove(e);
 }
 
+void World::SetPauseState(bool paused) {
+  // L399-406
+  if (b_is_game_over_)
+    return;
+  // IssueOrder(Order.FromTargetString("PauseGame", paused ? "Pause" :
+  // "UnPause", false))(Order 静态工厂随订单族批;此处保留锚点)
+  b_predicted_paused_ = paused;
+}
+
 void World::Tick() {
-  // L413-455(gameSave 恢复段属 Phase 5 游戏存档面;wasLoadingGameSave 恒
-  // false 跳过)
-  if (!b_paused_) {
+  // L413-455
+  if (b_was_loading_game_save_ && !IsLoadingGameSave()) {
+    // L415-436:gameSaveTraitData 回灌
+    for (auto& [key, yaml_value] : map_game_save_trait_data_) {
+      auto pairs = ActorsWithTrait<IGameSaveTraitData>();
+      // Skip(kv.Key).FirstOrDefault()
+      if (static_cast<std::size_t>(key) >= pairs.size())
+        break;
+      pairs[static_cast<std::size_t>(key)].trait->ResolveTraitData(
+          *pairs[static_cast<std::size_t>(key)].actor, yaml_value);
+    }
+    map_game_save_trait_data_.clear();
+
+    if (fn_sound_disable_all_sounds_)
+      fn_sound_disable_all_sounds_(false);
+    for (auto* nsr : p_world_actor_->TraitsImplementing<INotifyGameLoaded>())
+      nsr->GameLoaded(*this);
+
+    b_was_loading_game_save_ = false;
+  }
+
+  // Allow users to pause the shellmap via the settings menu(上游注释)
+  if (!b_paused_ &&
+      (type_ != WorldType::Shellmap || !b_pause_shellmap_ ||
+       int4_world_tick_ == 0)) {
     ++int4_world_tick_;
 
     for (auto& [id, a] : map_actors_)
@@ -205,9 +384,11 @@ void World::Tick() {
 }
 
 void World::TickRender() {
-  // L458-462(ITickRender 分发;WorldRenderer/ScreenMap 参数 Phase 4)
+  // L458-462
   ApplyToActorsWithTraitTimed<ITickRender>(
       [](Actor*, ITickRender*) {}, "Render");
+  if (ptr_screen_map_ != nullptr)
+    ptr_screen_map_->TickRender();
 }
 
 std::vector<Actor*> World::Actors() const {
@@ -228,8 +409,7 @@ Actor* World::GetActorById(std::uint32_t actor_id) {
 
 sim::Target World::TargetFromCell(const CPos& cell,
                                   sim::SubCell sub_cell) const {
-  // Target.cs L46-57(ctor):type=Terrain,center=CenterOfSubCell(cell,
-  // subCell),positions=[center],cell/subCell 槽位保留
+  // Target.cs L46-57(ctor)
   const WPos center = fn_subcell_center_
                           ? fn_subcell_center_(cell, sub_cell)
                           : WPos{cell.X() * 1024 + 512, cell.Y() * 1024 + 512, 0};
@@ -241,10 +421,148 @@ sim::Target World::TargetFromCell(const CPos& cell,
   return t;
 }
 
-void World::OnClientDisconnectedProxy(int client_id) {
-  // L549-563 仿真核心面:玩家过滤 + Player.PlayerDisconnected(Phase 5
-  // 完整通知链 —— notifyDisconnected trait 族与 gameInfo 登记)
-  (void)client_id;
+void World::IssueOrder(net::Order* o) {
+  // L151:sink 分发(见 world.hpp 注记;缺 sink = OM 缺失的 NRE 等价抛)
+  if (fn_issue_order_ == nullptr)
+    throw std::runtime_error("NullReferenceException");
+  fn_issue_order_(o);
+}
+
+bool World::IsLoadingGameSave() const {
+  // L116
+  const net::OrderManager* om = p_order_manager_;
+  return om != nullptr && om->NetFrameNumber() <= om->GameSaveLastFrame();
+}
+
+int World::GameSaveLoadingPercentage() const {
+  // L118
+  const net::OrderManager* om = p_order_manager_;
+  if (om == nullptr)
+    throw std::runtime_error("NullReferenceException");
+  return om->NetFrameNumber() * 100 / om->GameSaveLastFrame();
+}
+
+void World::EndGame() {
+  // L75-88
+  if (b_is_game_over_) {
+    return;
+  }
+  SetPauseState(true);
+  b_is_game_over_ = true;
+
+  for (auto* t : p_world_actor_->TraitsImplementing<IGameOver>())
+    t->GameOver(*this);
+
+  // gameInfo.FinalGameTick = WorldTick(L85;GameInformation 随 Phase 7)
+  // GameOver() 事件(L86;FinishBenchmark 随嵌入侧)
+}
+
+void World::SetWorldOwner(Player* p) {
+  // L312-315
+  p_world_actor_->SetOwnerInternal(p);
+}
+
+void World::LoadComplete(gfx::WorldRenderer* wr) {
+  // L260-298(wr 可空 = 测试无头面;gameInfo/ReplayMetadata 面随 Phase 7)
+  if (IsLoadingGameSave()) {
+    b_was_loading_game_save_ = true;
+    if (fn_sound_disable_all_sounds_)
+      fn_sound_disable_all_sounds_(true);
+    for (auto* nsr : p_world_actor_->TraitsImplementing<INotifyGameLoading>())
+      nsr->GameLoading(*this);
+  }
+
+  // ScreenMap must be initialized before anything else(上游注释)
+  if (ptr_screen_map_ != nullptr)
+    ptr_screen_map_->WorldLoaded(*this, *wr);
+
+  for (auto* iwl : p_world_actor_->TraitsImplementing<IWorldLoaded>()) {
+    // These have already been initialized(上游注释)
+    if (iwl == dynamic_cast<IWorldLoaded*>(ptr_screen_map_))
+      continue;
+    iwl->WorldLoaded(*this, *wr);
+  }
+
+  for (auto* p : vec_players_)
+    for (auto* iwl : p->PlayerActor()->TraitsImplementing<IWorldLoaded>())
+      iwl->WorldLoaded(*this, *wr);
+
+  // gameInfo.AddPlayer / DisabledSpawnPoints / StartTimeUtc(L289-294;
+  // GameInformation 随 Phase 7)
+  // ReplayMetadata(L296-297;随 Phase 7)
+}
+
+void World::PostLoadComplete(gfx::WorldRenderer* wr) {
+  // L300-310
+  for (auto* iwl : p_world_actor_->TraitsImplementing<IPostWorldLoaded>())
+    iwl->PostWorldLoaded(*this, *wr);
+
+  for (auto* p : vec_players_)
+    for (auto* iwl : p->PlayerActor()->TraitsImplementing<IPostWorldLoaded>())
+      iwl->PostWorldLoaded(*this, *wr);
+}
+
+void World::OnPlayerWinStateChanged(Player& player) {
+  // L539-547(gameInfo 面随 Phase 7)
+  (void)player;
+}
+
+void World::OnClientDisconnected(int client_id) {
+  // L549-563
+  for (auto* player : vec_players_) {
+    if (player->ClientIndex() != client_id)
+      continue;
+    // p.PlayerReference.Playable 过滤(PlayerReference 面随玩家创建链批;
+    // Playable 字段承载)
+    if (!player->Playable())
+      continue;
+
+    for (auto* np : vec_notify_disconnected_)
+      np->PlayerDisconnected(*p_world_actor_, *player);
+
+    for (auto* p : vec_players_)
+      (void)p;  // p.PlayerDisconnected(player)(Player 侧随玩家链批)
+
+    // gameInfo.DisconnectFrame(L559-561;随 Phase 7)
+  }
+}
+
+void World::Dispose() {
+  // L589-619
+  b_disposing_ = true;
+
+  if (ptr_order_generator_ != nullptr)
+    ptr_order_generator_->Deactivate();
+
+  while (!queue_frame_end_actions_.empty())
+    queue_frame_end_actions_.pop();
+
+  if (fn_sound_stop_audio_)
+    fn_sound_stop_audio_();
+  if (fn_sound_stop_video_)
+    fn_sound_stop_video_();
+  if (IsLoadingGameSave() && fn_sound_disable_all_sounds_)
+    fn_sound_disable_all_sounds_(false);
+
+  // Dispose newer actors first, and the world actor last(上游注释)
+  for (auto it = map_actors_.rbegin(); it != map_actors_.rend(); ++it)
+    it->second->Dispose();
+
+  // Actor disposals are done in a FrameEndTask(上游注释)
+  while (!queue_frame_end_actions_.empty()) {
+    auto task = std::move(queue_frame_end_actions_.front());
+    queue_frame_end_actions_.pop();
+    task(*this);
+  }
+
+  // HACK: The shellmap OrderManager is owned by its world ...(上游注释;
+  // C++ 侧 OM 归 Game 所有 —— shellmap 分支由 JoinInner 的保活语义承载,
+  // D105 系)
+  // Map.Dispose()(L616)
+  if (ptr_map_ != nullptr)
+    ptr_map_->Dispose();
+
+  // Game.FinishBenchmark(L618;嵌入侧)
 }
 
 int World::SyncHash() {

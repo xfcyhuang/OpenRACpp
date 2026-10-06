@@ -20,9 +20,12 @@ import std;
 
 #include "core/action_queue.hpp"
 #include "core/mersenne_twister.hpp"
+#include "map/map.hpp"
+#include "map/map_cache.hpp"
 #include "net/connection.hpp"
 #include "net/order_manager.hpp"
 #include "platform/sdl2_input.hpp"
+#include "sim/world.hpp"
 #include "ui/ui.hpp"
 
 namespace ora::gfx {
@@ -33,11 +36,18 @@ class WorldRenderer;
 class Viewport;
 struct IPaletteModifier;
 }  // namespace ora::gfx
+namespace ora::map {
+class MapCache;
+class MapPreview;
+}  // namespace ora::map
 namespace ora::sound {
 class Sound;
 }
 namespace ora::sim {
 class World;
+}
+namespace ora::game {
+class ModData;
 }
 
 namespace ora::game {
@@ -93,6 +103,18 @@ class Game {
     /// JoinLocal 观战客户端名(Settings.Player.Name;Phase 5)
     /// the JoinLocal spectator name (Settings.Player.Name; Phase 5).
     std::string str_player_name = "New Player";
+
+    /// ModData(嵌入侧所有权 —— D105 系;MapCache/StartGame 装配所需)
+    /// ModData (embedder-owned — the D105 family; needed by the MapCache/
+    /// StartGame assembly).
+    game::ModData* ptr_mod_data = nullptr;
+
+    /// WorldRenderer 装配钩子(上游 Game.StartGame 直接 new;渲染面为
+    /// 测试注入面 —— 无钩子 = 无头)
+    /// The WorldRenderer assembly hook (upstream news it in StartGame; the
+    /// render face is the test injection — no hook = headless).
+    std::function<std::unique_ptr<gfx::WorldRenderer>(sim::World&)>
+        fn_create_world_renderer;
   };
 
   explicit Game(Deps deps_args);
@@ -158,6 +180,16 @@ class Game {
   void SetWorldRenderer(std::unique_ptr<gfx::WorldRenderer> up_wr, gfx::Viewport* ptr_viewport);
   gfx::WorldRenderer* WorldRendererFace() const { return up_world_renderer_.get(); }
 
+  // ———— StartGame 装配(Game.cs L187-261;Phase 5 第一批)————
+  /// ModData 的 MapCache 面(上游 ModData.MapCache;C++ 分层下由 Game 持有
+  /// —— 所有权偏离随 D105 族登记)
+  map::MapCache& MapCacheFace();
+
+  /// StartGame(uid, WorldType)(L187-194)
+  void StartGame(const std::string& str_uid, sim::WorldType type);
+  /// StartGame(Map, WorldType)(L196-261)
+  void StartGame(map::Map& map_world, sim::WorldType type);
+
  private:
   /// World.IsLoadingGameSave(World.cs L116:NetFrameNumber <= GameSaveLastFrame;
   /// 以世界自属 OM 求值)
@@ -172,6 +204,9 @@ class Game {
   std::unique_ptr<net::OrderManager> up_order_manager_;
   std::unique_ptr<gfx::WorldRenderer> up_world_renderer_;
   gfx::Viewport* ptr_viewport_ = nullptr;  // 非拥有(WorldRenderer 配套) | non-owning
+  std::unique_ptr<map::MapCache> up_map_cache_;
+  std::unique_ptr<map::Map> up_map_;
+  std::unique_ptr<sim::World> up_world_;
 
   std::int32_t int4_render_frame_ = 0;
   Modifiers kind_modifiers_ = Modifiers::None;
