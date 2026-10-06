@@ -155,11 +155,9 @@ int2 SpriteRenderer::SetRenderStateForSprite(const Sprite& sprite_r) {
       break;
 
   std::int32_t int4_secondary_sheet_index = 0;
-  const SpriteWithSecondaryData* ptr_secondary = nullptr;
-  if (sprite_r.b_secondary)
-    ptr_secondary = static_cast<const SpriteWithSecondaryData*>(&sprite_r);
-  if (ptr_secondary != nullptr) {
-    Sheet* ptr_secondary_sheet = ptr_secondary->ptr_secondary_sheet;
+  const bool b_secondary = sprite_r.b_secondary;  // 载荷已在基类 | the payload sits in the base
+  if (b_secondary) {
+    Sheet* ptr_secondary_sheet = sprite_r.ptr_secondary_sheet;
     for (; int4_secondary_sheet_index < int4_sheet_count_; int4_secondary_sheet_index++)
       if (arr_sheets_[static_cast<std::size_t>(int4_secondary_sheet_index)] == ptr_secondary_sheet)
         break;
@@ -177,7 +175,10 @@ int2 SpriteRenderer::SetRenderStateForSprite(const Sprite& sprite_r) {
   if (std::max(int4_sheet_index, int4_secondary_sheet_index) >= kSheetCount) {
     Flush();
     int4_sheet_index = 0;
-    int4_secondary_sheet_index = ptr_secondary != nullptr && ptr_secondary->ptr_secondary_sheet != ptr_sheet ? 1 : 0;
+    // 载荷在基类(sprite.hpp 第十四批头注)| the payload sits in the base
+    // (the fourteenth-batch note in sprite.hpp).
+    int4_secondary_sheet_index =
+        sprite_r.b_secondary && sprite_r.ptr_secondary_sheet != ptr_sheet ? 1 : 0;
   }
 
   if (int4_sheet_index >= int4_sheet_count_) {
@@ -185,8 +186,8 @@ int2 SpriteRenderer::SetRenderStateForSprite(const Sprite& sprite_r) {
     int4_sheet_count_++;
   }
 
-  if (int4_secondary_sheet_index >= int4_sheet_count_ && ptr_secondary != nullptr) {
-    arr_sheets_[static_cast<std::size_t>(int4_secondary_sheet_index)] = ptr_secondary->ptr_secondary_sheet;
+  if (int4_secondary_sheet_index >= int4_sheet_count_ && b_secondary) {
+    arr_sheets_[static_cast<std::size_t>(int4_secondary_sheet_index)] = sprite_r.ptr_secondary_sheet;
     int4_sheet_count_++;
   }
 

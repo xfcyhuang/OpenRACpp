@@ -267,10 +267,13 @@ inline Sprite::Sprite(Sheet& sheet, Rectangle bounds, float z_ramp, core::Vector
 /// discriminator).
 inline SpriteWithSecondaryData::SpriteWithSecondaryData(const Sprite& sprite, Sheet& secondary_sheet,
                                                         Rectangle secondary_bounds, TextureChannel secondary_channel)
-    : Sprite{sprite},
-      ptr_secondary_sheet{&secondary_sheet},
-      SecondaryBounds{secondary_bounds},
-      kind_secondary_channel{secondary_channel} {
+    : Sprite{sprite} {
+  // 载荷字段在基类(防按值切片)—— 构造体内直写
+  // The payload fields sit in the base (against by-value slicing) —
+  // written directly in the body.
+  ptr_secondary_sheet = &secondary_sheet;
+  SecondaryBounds = secondary_bounds;
+  kind_secondary_channel = secondary_channel;
   b_secondary = true;
   const int2 int2_size_sheet = ptr_sheet->Size();
   float_secondary_left =

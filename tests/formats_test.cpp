@@ -37,6 +37,8 @@ import std;
 #include "formats/wsa_video.hpp"
 #include "formats/xor_delta.hpp"
 #include "gfx/palette.hpp"
+#include "gfx/sprite_cache.hpp"
+#include "mods/sequence_loader_factory.hpp"
 #include "gfx/sheet.hpp"
 #include "meta/dump_format.hpp"
 
@@ -4168,7 +4170,99 @@ std::string BuildActualText(const std::string& str_upstream_root) {
       const ora::fmt::Png png_manual{vec_rgba2, ora::gfx::SpriteFrameType::Rgba32, 4, 2, std::nullopt,
                                      {{"Frame[0]", "0,0,2,2;0,0"}, {"Frame[1]", "2,0,2,2;1,-2.5"}}};
       AppendTaggedTry('R', "pngsheet_manual", png_manual.Save(), ora::fmt::TryParsePngSheet, "PngSheetLoader",
-                     str_out);
+                      str_out);
+    }
+  }
+
+  // 21) mods 序列族构造矩阵(与 oracle 第 21 段同构造:字段面 + 校验文本;
+  // 空 FileSystem + 空加载器链 = 纯记账面)。
+  // 21) The mods sequence-family construction matrix (the same construction
+  // as the oracle's section 21: the field faces + the validation texts; an
+  // empty FileSystem + an empty loader chain = the pure booking face).
+  {
+    struct SeqCase {
+      const char* sz_name;
+      std::string str_yaml;
+      bool b_classic;
+    };
+    const std::vector<SeqCase> vec_seq_cases = {
+        {"defaults_inherit",
+         "img:\n    Defaults:\n        Tick: 25\n        ZOffset: 512\n    seq:\n        Filename: a.shp\n"
+         "        Length: 2\n",
+         false},
+        {"overrides",
+         "img:\n    seq:\n        Filename: a.shp\n        Length: 2\n        Tick: 33\n        ZOffset: 1024\n"
+         "        ShadowZOffset: -64\n        IgnoreWorldTint: True\n        Scale: 2.5\n        Facings: 8\n"
+         "        InterpolatedFacings: 32\n",
+         false},
+        {"star_length", "img:\n    seq:\n        Filename: a.shp\n        Length: *\n", false},
+        {"e_facings3", "img:\n    seq:\n        Filename: a.shp\n        Length: 2\n        Facings: 3\n", false},
+        {"e_facings1025",
+         "img:\n    seq:\n        Filename: a.shp\n        Length: 2\n        Facings: 1025\n",
+         false},
+        {"e_facings0", "img:\n    seq:\n        Filename: a.shp\n        Length: 2\n        Facings: 0\n", false},
+        {"e_facings_neg", "img:\n    seq:\n        Filename: a.shp\n        Length: 2\n        Facings: -8\n", false},
+        {"e_interp_small",
+         "img:\n    seq:\n        Filename: a.shp\n        Length: 1\n        Facings: 2\n"
+         "        InterpolatedFacings: 2\n",
+         false},
+        {"e_interp_notpow2",
+         "img:\n    seq:\n        Filename: a.shp\n        Length: 1\n        Facings: 2\n"
+         "        InterpolatedFacings: 3\n",
+         false},
+        {"e_length0", "img:\n    seq:\n        Filename: a.shp\n        Length: 0\n", false},
+        {"e_star_facings", "img:\n    seq:\n        Filename: a.shp\n        Length: *\n        Facings: 2\n", false},
+        {"e_alphafade",
+         "img:\n    seq:\n        Filename: a.shp\n        Length: 2\n        AlphaFade: True\n        Alpha: 0.5\n",
+         false},
+        {"classic_ok",
+         "img:\n    seq:\n        Filename: a.shp\n        Length: 1\n        Facings: 32\n"
+         "        UseClassicFacings: True\n",
+         true},
+        {"e_classic",
+         "img:\n    seq:\n        Filename: a.shp\n        Length: 2\n        Facings: 16\n"
+         "        UseClassicFacings: True\n",
+         true},
+    };
+
+    for (const SeqCase& case_seq : vec_seq_cases) {
+      const std::vector<ora::yaml::MiniYamlNode> vec_nodes =
+          ora::yaml::MiniYaml::FromString(case_seq.str_yaml, "seq21", true,
+                                          ora::yaml::MiniYaml::GlobalPool());
+      auto up_loader = ora::mods::MakeSequenceLoader(
+          case_seq.b_classic ? "ClassicSpriteSequence" : "DefaultSpriteSequence");
+
+      try {
+        // 空 FileSystem + 空链 = 上游 null fs + 空加载器的等价记账面
+        // An empty FileSystem + an empty chain = the booking-only equivalent
+        // of upstream's null fs + empty loader array.
+        ora::fs::FileSystem file_system_empty{};
+        const std::vector<ora::gfx::SpriteLoaderFn> vec_loaders_empty{};
+        ora::gfx::SpriteCache cache_seq{file_system_empty, vec_loaders_empty, 128, 128};
+        auto vec_parsed = up_loader->ParseSequences(cache_seq, "temperat", vec_nodes.front());
+        for (auto& [str_seq_name, seq_seq] : vec_parsed) {
+          str_out += std::format("SQ {} Name {}\n", case_seq.sz_name, str_seq_name);
+          str_out += std::format("SQ {} Facings {}\n", case_seq.sz_name, seq_seq->Facings());
+          str_out += std::format("SQ {} Tick {}\n", case_seq.sz_name, seq_seq->Tick());
+          str_out += std::format("SQ {} ZOffset {}\n", case_seq.sz_name, seq_seq->ZOffset());
+          str_out += std::format("SQ {} ShadowZOffset {}\n", case_seq.sz_name, seq_seq->ShadowZOffset());
+          // C# bool.ToString() = True/False(大写首字母)
+          // C# bool.ToString() = True/False (the capitalized form).
+          str_out += std::format("SQ {} IgnoreWorldTint {}\n", case_seq.sz_name,
+                                 seq_seq->IgnoreWorldTint() ? "True" : "False");
+          str_out += std::format("SQ {} Scale {}\n", case_seq.sz_name,
+                                 ora::meta::FormatFloatNet(seq_seq->Scale()));
+        }
+      } catch (const std::exception& e) {
+        // 头|内层(与 oracle 的归一化同形:剥包装取内层消息)
+        // head|inner (the same normalization as the oracle's: unwrap to the
+        // inner message).
+        const std::string str_what = e.what();
+        const auto st_nl = str_what.find('\n');
+        const std::string str_head = st_nl == std::string::npos ? str_what : str_what.substr(0, st_nl);
+        const std::string str_inner = st_nl == std::string::npos ? "" : str_what.substr(st_nl + 1);
+        str_out += std::format("SQE {} {}|{}\n", case_seq.sz_name, str_head, str_inner);
+      }
     }
   }
 

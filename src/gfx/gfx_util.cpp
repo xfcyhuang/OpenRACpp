@@ -41,13 +41,12 @@ void FastCreateQuad(std::span<Vertex> vec_vertices, core::Vector3 v_a, core::Vec
           : (static_cast<std::uint32_t>(sprite_r.kind_channel) << 1) | 0x01;
   uint4_attrib_c |= static_cast<std::uint32_t>(int2_samplers.X) << 6;
   if (sprite_r.b_secondary) {
-    const auto& sprite_ss = static_cast<const SpriteWithSecondaryData&>(sprite_r);
-    float_sl = sprite_ss.float_secondary_left;
-    float_st = sprite_ss.float_secondary_top;
-    float_sr = sprite_ss.float_secondary_right;
-    float_sb = sprite_ss.float_secondary_bottom;
+    float_sl = sprite_r.float_secondary_left;
+    float_st = sprite_r.float_secondary_top;
+    float_sr = sprite_r.float_secondary_right;
+    float_sb = sprite_r.float_secondary_bottom;
 
-    uint4_attrib_c |= (static_cast<std::uint32_t>(sprite_ss.kind_secondary_channel) << 4) | 0x08;
+    uint4_attrib_c |= (static_cast<std::uint32_t>(sprite_r.kind_secondary_channel) << 4) | 0x08;
     uint4_attrib_c |= static_cast<std::uint32_t>(int2_samplers.Y) << 9;
   }
 

@@ -115,6 +115,13 @@ class Manifest final {
   /// of SpriteCache/FrameCache (ShpTD/PngSheet/...).
   const std::vector<std::string>& SpriteFormats() const { return vec_spriteFormats_; }
 
+  /// SpriteSequenceFormat(L171-172):序列加载器名(单标量)。消费方:
+  /// MakeSequenceLoader(Default/Classic/TilesetSpecific/D2k…)。
+  /// SpriteSequenceFormat (L171-172): the sequence-loader name (a single
+  /// scalar). Consumer: MakeSequenceLoader (Default/Classic/
+  /// TilesetSpecific/D2k...).
+  const std::string& SpriteSequenceFormat() const { return str_spriteSequenceFormat_; }
+
   /// MapFolders(my.Value 字典;L119 + L198-204)
   /// MapFolders (the my.Value dictionary; L119 + L198-204).
   const std::vector<std::pair<std::string, std::string>>& MapFolders() const {
@@ -139,6 +146,7 @@ class Manifest final {
   std::vector<std::string> vec_packageFormats_;
   std::vector<std::string> vec_soundFormats_;
   std::vector<std::string> vec_spriteFormats_;
+  std::string str_spriteSequenceFormat_;
 };
 
 }  // namespace ora::game

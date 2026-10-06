@@ -6691,3 +6691,47 @@ L PngSheetLoader
 N 2
 T 3 W 2 H 2 FW 2 FH 2 O 0 0 C 410245192 D 16 X 00030609101316194043464950535659
 T 3 W 2 H 2 FW 2 FH 2 O 1 -2.5 C 1822549910 D 16 X 20232629303336396063666970737679
+SQ defaults_inherit Name seq
+SQ defaults_inherit Facings 1
+SQ defaults_inherit Tick 25
+SQ defaults_inherit ZOffset 512
+SQ defaults_inherit ShadowZOffset -5
+SQ defaults_inherit IgnoreWorldTint False
+SQ defaults_inherit Scale 1
+SQ overrides Name seq
+SQ overrides Facings 32
+SQ overrides Tick 33
+SQ overrides ZOffset 1024
+SQ overrides ShadowZOffset -64
+SQ overrides IgnoreWorldTint True
+SQ overrides Scale 2.5
+SQ star_length Name seq
+SQ star_length Facings 1
+SQ star_length Tick 40
+SQ star_length ZOffset 0
+SQ star_length ShadowZOffset -5
+SQ star_length IgnoreWorldTint False
+SQ star_length Scale 1
+SQE e_facings3 Failed to parse sequences for img.seq at seq21:2:|seq21:5: Facings must be within the (positive or negative) range of 1 to 1024, and a power of 2.
+SQE e_facings1025 Failed to parse sequences for img.seq at seq21:2:|seq21:5: Facings must be within the (positive or negative) range of 1 to 1024, and a power of 2.
+SQE e_facings0 Failed to parse sequences for img.seq at seq21:2:|seq21:5: Facings must be within the (positive or negative) range of 1 to 1024, and a power of 2.
+SQ e_facings_neg Name seq
+SQ e_facings_neg Facings 8
+SQ e_facings_neg Tick 40
+SQ e_facings_neg ZOffset 0
+SQ e_facings_neg ShadowZOffset -5
+SQ e_facings_neg IgnoreWorldTint False
+SQ e_facings_neg Scale 1
+SQE e_interp_small Failed to parse sequences for img.seq at seq21:2:|seq21:6: InterpolatedFacings must be greater than Facings, within the range of 2 to 1024, and a power of 2.
+SQE e_interp_notpow2 Failed to parse sequences for img.seq at seq21:2:|seq21:6: InterpolatedFacings must be greater than Facings, within the range of 2 to 1024, and a power of 2.
+SQE e_length0 Failed to parse sequences for img.seq at seq21:2:|seq21:4: Length must be positive.
+SQE e_star_facings Failed to parse sequences for img.seq at seq21:2:|seq21:5: Facings cannot be used with Length: *.
+SQE e_alphafade Failed to parse sequences for img.seq at seq21:2:|seq21:5: AlphaFade cannot be used with Alpha.
+SQ classic_ok Name seq
+SQ classic_ok Facings 32
+SQ classic_ok Tick 40
+SQ classic_ok ZOffset 0
+SQ classic_ok ShadowZOffset -5
+SQ classic_ok IgnoreWorldTint False
+SQ classic_ok Scale 1
+SQE e_classic Failed to parse sequences for img.seq at seq21:2:|Sequence img.seq: UseClassicFacings is only valid for 32 facings

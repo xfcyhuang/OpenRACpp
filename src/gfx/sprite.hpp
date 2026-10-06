@@ -94,12 +94,20 @@ struct Sprite {
   // counterparts of the upstream readonly fields).
   float float_top = 0.0f, float_left = 0.0f, float_bottom = 0.0f, float_right = 0.0f;
 
-  /// 上游 `sprite is SpriteWithSecondaryData` 的判别位(仅派生类构造置位;
-  /// FastCreateQuad/SetRenderStateForSprite 据此 static_cast 下行)。
-  /// The discriminator for upstream's `sprite is SpriteWithSecondaryData`
-  /// (set only by the derived constructor; FastCreateQuad and
-  /// SetRenderStateForSprite static_cast down on it).
+  /// 次纹理引用判别 + 载荷(上游 SpriteWithSecondaryData 以派生类存入
+  /// Sprite[] 的数组协变;C++ 按值返回/存 vector 会切片,故字段上提 ——
+  /// 第十四批,DefaultSpriteSequence 的深度精灵路径所需)。
+  /// The secondary-reference discriminator + payload (upstream stores
+  /// SpriteWithSecondaryData into Sprite[] via array covariance; C++
+  /// returns/stores Sprites by value and would slice, so the fields move
+  /// up — the fourteenth batch, needed by DefaultSpriteSequence's
+  /// depth-sprite path).
   bool b_secondary = false;
+  Sheet* ptr_secondary_sheet = nullptr;  // 非拥有 | non-owning
+  Rectangle SecondaryBounds;
+  TextureChannel kind_secondary_channel = TextureChannel::Red;
+  float float_secondary_top = 0.0f, float_secondary_left = 0.0f;
+  float float_secondary_bottom = 0.0f, float_secondary_right = 0.0f;
 
   constexpr Sprite() = default;
 
@@ -119,13 +127,10 @@ struct Sprite {
 /// depth channel among others; the secondary normalized coordinates carry
 /// **no inset**).
 struct SpriteWithSecondaryData : Sprite {
-  Sheet* ptr_secondary_sheet = nullptr;  // 非拥有 | non-owning
-  Rectangle SecondaryBounds;
-  TextureChannel kind_secondary_channel = TextureChannel::Red;
-  float float_secondary_top = 0.0f, float_secondary_left = 0.0f;
-  float float_secondary_bottom = 0.0f, float_secondary_right = 0.0f;
-
-  // 同上,定义在 sheet.hpp 末尾。| As above, defined at the bottom of sheet.hpp.
+  // 载荷已在基类(防切片);本类型保留构造形态与上游类名对照。
+  // The payload already sits in the base (against slicing); this type
+  // keeps the construction shape and the upstream class-name
+  // correspondence.
   SpriteWithSecondaryData(const Sprite& sprite, Sheet& secondary_sheet, Rectangle secondary_bounds,
                           TextureChannel secondary_channel);
 };

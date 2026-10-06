@@ -1,14 +1,17 @@
-// UPSTREAM: OpenRA.Game/Primitives/Rectangle.cs @b6fc03f L17-129(除浮点/Size 依赖部分)
+// UPSTREAM: OpenRA.Game/Primitives/Rectangle.cs @b6fc03f L17-129(除 Size 依赖部分)
 // 轴对齐整数矩形。字段/方法名保留 C# 原名以保持审计对照。
 // Axis-aligned integer rectangle. Field/method names keep the C# originals for audit cross-reference.
 // 未移植:Location/Size 属性与 int2,Size 构造(依赖 Size 类型,后续图形阶段补);
 // Not ported: Location/Size properties and the int2,Size constructor (depend on the Size type, to be added in the later graphics stage);
-//        Clamp(Vector2)(浮点,仅渲染域)。int2::Clamp(Rectangle) 的定义在本文件尾部。
-//        Clamp(Vector2) (float, rendering domain only). int2::Clamp(Rectangle) is defined at the end of this file.
+//        Clamp(Vector2) 随第十四批 Viewport 落地(浮点,渲染域)。
+//        Clamp(Vector2) lands with the fourteenth batch's Viewport (float, rendering domain).
+//        int2::Clamp(Rectangle) 的定义在本文件尾部。
+//        int2::Clamp(Rectangle) is defined at the end of this file.
 #pragma once
 import std;
 
 #include "int2.hpp"
+#include "vector_n.hpp"
 
 namespace ora {
 
@@ -84,6 +87,16 @@ struct Rectangle {
   constexpr bool IntersectsWithInclusive(Rectangle const& rect_r) const {
     return Left() <= rect_r.Right() && Right() >= rect_r.Left() &&
            Top() <= rect_r.Bottom() && Bottom() >= rect_r.Top();
+  }
+
+  /// Clamp(Vector2)(Rectangle.cs L92-95):Min(Right, Max(v, Left)) 的浮点形态
+  /// (Vector2.Clamp 的分量序;边界为整数值转 float)。
+  /// Clamp(Vector2) (Rectangle.cs L92-95): the float form of
+  /// Min(Right, Max(v, Left)) (component-wise Vector2.Clamp; the edges are
+  /// integer values widened to float).
+  constexpr core::Vector2 Clamp(core::Vector2 vec_value) const {
+    return core::Vector2{std::min(static_cast<float>(Right()), std::max(vec_value.X, static_cast<float>(Left()))),
+                         std::min(static_cast<float>(Bottom()), std::max(vec_value.Y, static_cast<float>(Top())))};
   }
 
   /// 上游 GetHashCode(L102-104):Height + Width ^ X + Y(C# 运算优先级:先 + 后 ^)

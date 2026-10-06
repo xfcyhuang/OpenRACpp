@@ -134,13 +134,115 @@ constexpr meta::RecordDesc kDesc_SoundInfo{
 
 SoundInfo::SoundInfo(const yaml::MiniYaml& y) {
   meta::Load(this, y);
-  // VoicePools/NotificationsPools(Lazy 音频池)Phase 4 随音频层 —— 上游亦无
-  // yaml 解析器,加载行为等价
-  // The Lazy audio pools land with the Phase 4 audio layer — upstream has no
-  // yaml parser for them either, so loading behaves identically.
+  // 保留原节点:NotificationsPools 的 Lazy 重读面(上游闭包捕获 y)
+  // Keep the raw node: the Lazy re-read face of NotificationsPools
+  // (upstream's closure captures y).
+  yaml_source_ = y;
 }
 
 const meta::RecordDesc& SoundInfo::record_desc() const { return kDesc_SoundInfo; }
+
+const std::vector<std::string>* SoundInfo::FindVariants(std::string_view str_key) const {
+  for (const auto& [str_k, vec_v] : map_variants)
+    if (str_k == str_key)
+      return &vec_v;
+  return nullptr;
+}
+
+const std::vector<std::string>* SoundInfo::FindPrefixes(std::string_view str_key) const {
+  for (const auto& [str_k, vec_v] : map_prefixes)
+    if (str_k == str_key)
+      return &vec_v;
+  return nullptr;
+}
+
+bool SoundInfo::DisableVariantsContains(std::string_view str_key) const {
+  return std::ranges::find(vec_disableVariants, str_key) != vec_disableVariants.end();
+}
+
+bool SoundInfo::DisablePrefixesContains(std::string_view str_key) const {
+  return std::ranges::find(vec_disablePrefixes, str_key) != vec_disablePrefixes.end();
+}
+
+std::string SoundPool::GetNext(MersenneTwister& mt_random) const {
+  if (vec_live_clips_.empty())
+    vec_live_clips_ = vec_clips_;
+
+  // 零 clips 防崩 —— 上游注释逐句
+  // Avoid crashing if there's no clips at all — the upstream comment
+  // verbatim.
+  if (vec_live_clips_.empty())
+    return {};
+
+  const std::int32_t int4_i = mt_random.Next(static_cast<std::int32_t>(vec_live_clips_.size()));
+  std::string str_s = vec_live_clips_[static_cast<std::size_t>(int4_i)];
+  vec_live_clips_.erase(vec_live_clips_.begin() + int4_i);
+  return str_s;
+}
+
+const std::vector<std::pair<std::string, SoundPool>>& SoundInfo::VoicePools() const {
+  // Exts.Lazy 的首查物化:Voices → (1f, DefaultInterruptType, clips)
+  // Exts.Lazy materialized on first query: Voices → (1f,
+  // DefaultInterruptType, clips).
+  if (!opt_vec_voice_pools_.has_value()) {
+    std::vector<std::pair<std::string, SoundPool>> vec_pools;
+    for (const auto& [str_k, vec_clips] : map_voices)
+      vec_pools.emplace_back(
+          str_k, SoundPool{1.0f, SoundPool::kDefaultInterruptType, vec_clips});
+    opt_vec_voice_pools_ = std::move(vec_pools);
+  }
+
+  return *opt_vec_voice_pools_;
+}
+
+const std::vector<std::pair<std::string, SoundPool>>& SoundInfo::NotificationsPools() const {
+  if (!opt_vec_notification_pools_.has_value()) {
+    // ParseSoundPool(L56-74):重读原 yaml 的 Notifications 节点
+    // ParseSoundPool (L56-74): re-reads the raw yaml's Notifications node.
+    static constexpr meta::EnumMemberDesc kInterruptType[] = {
+        {.str_name = "DoNotPlay", .int4_value = 0},
+        {.str_name = "Interrupt", .int4_value = 1},
+        {.str_name = "Overlap", .int4_value = 2}};
+    meta::RegisterEnum("OpenRA.GameRules.SoundPool+InterruptType", kInterruptType);
+
+    const yaml::MiniYamlNode& node_classification = yaml_source_->NodeWithKey("Notifications");
+
+    std::vector<std::pair<std::string, SoundPool>> vec_pools;
+    for (const yaml::MiniYamlNode& node_t : node_classification.Value.Nodes) {
+      float fp4_volume_modifier = 1.0f;
+      if (const yaml::MiniYamlNode* node_vm =
+              node_t.Value.NodeWithKeyOrDefault("VolumeModifier"))
+        fp4_volume_modifier = meta::GetFloatValue(
+            node_vm->Key != nullptr ? std::string_view{*node_vm->Key} : std::string_view{},
+            node_vm->Value.Value != nullptr ? std::string_view{*node_vm->Value.Value}
+                                            : std::string_view{});
+
+      auto kind_interrupt_type = SoundPool::kDefaultInterruptType;
+      if (const yaml::MiniYamlNode* node_it =
+              node_t.Value.NodeWithKeyOrDefault("InterruptType"))
+        kind_interrupt_type = static_cast<SoundPool::InterruptType>(meta::GetEnumValue(
+            node_it->Key != nullptr ? std::string_view{*node_it->Key} : std::string_view{},
+            node_it->Value.Value != nullptr ? std::string_view{*node_it->Value.Value}
+                                            : std::string_view{},
+            "OpenRA.GameRules.SoundPool+InterruptType"));
+
+      std::vector<std::string> vec_names = meta::GetStringArrayValue(
+          node_t.Key != nullptr ? std::string_view{*node_t.Key} : std::string_view{},
+          node_t.Value.Value != nullptr ? std::string_view{*node_t.Value.Value}
+                                        : std::string_view{});
+      vec_pools.emplace_back(
+          node_t.Key != nullptr ? *node_t.Key : std::string{},
+          SoundPool{fp4_volume_modifier, kind_interrupt_type, std::move(vec_names)});
+    }
+
+    std::string str_keys;
+    for (const auto& [str_k, pool_ignored] : vec_pools)
+      str_keys += str_k + ",";
+    opt_vec_notification_pools_ = std::move(vec_pools);
+  }
+
+  return *opt_vec_notification_pools_;
+}
 
 // ———— MusicInfo ————
 

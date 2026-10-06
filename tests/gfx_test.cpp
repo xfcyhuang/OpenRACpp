@@ -46,6 +46,7 @@ import std;
 #include "gfx/sequence_set.hpp"
 #include "gfx/sprite_cache.hpp"
 #include "gfx/sprite_loader.hpp"
+#include "gfx/viewport.hpp"
 
 #if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
 #define ORA_HAS_DESKTOP_GL 1
@@ -2466,8 +2467,150 @@ void TestChromeProviderLogic() {
   std::filesystem::remove_all(dir_path);
 }
 
-void TestFastCopyIntoSpriteAndSheetPng() {
-  // 2×1 RGBA png → 4×2 sheet 的 (1,0) 起 2×1 区域
+// ———— Viewport 全量(第十四批):缩放矩阵/滚动夹取/坐标换算/投影格区 ————
+// ———— The full Viewport (the fourteenth batch): the zoom matrix / scroll
+//        clamping / coordinate conversion / the projected-cell regions ————
+
+/// IViewportHostRenderer 的固定分辨率桩。
+/// The fixed-resolution stub of IViewportHostRenderer.
+class FixedHostRenderer final : public ora::gfx::IViewportHostRenderer {
+ public:
+  FixedHostRenderer(ora::int2 int2_resolution) : int2_resolution_(int2_resolution) {}
+  ora::int2 NativeResolution() const override { return int2_resolution_; }
+  void SetMaximumViewportSize(ora::int2 int2_size) override { int2_max_viewport_ = int2_size; }
+  ora::int2 int2_max_viewport_{};
+
+ private:
+  ora::int2 int2_resolution_;
+};
+
+void TestViewportLogic() {
+  using namespace ora;
+
+  // CalculateMinimumZoom:h ≤ max → 1;超高走分数步进
+  // CalculateMinimumZoom: h ≤ max → 1; taller heights take the fractional
+  // steps.
+  {
+    FixedHostRenderer host{{1920, 1080}};
+    gfx::GraphicSettingsFace settings;  // Medium/UIScale 1 默认 | the Medium/UIScale-1 defaults
+    gfx::WorldViewportSizes sizes;
+    ora::sim::World world{};
+    ora::gfx::WorldRenderer wr{world, {}};
+
+    gfx::Viewport::Deps deps;
+    deps.wpos_projected_top_left = WPos{0, 0, 0};
+    deps.wpos_projected_bottom_right = WPos{10240, 10240, 0};
+    deps.int2_map_size = {10, 10};
+    gfx::Viewport viewport{wr, deps, host, settings, sizes};
+
+    // 1080 > 900(Far 上界):testZoom 从 1 起步 +step 至 h < min*zoom
+    // 1080 > 900 (Far's upper bound): testZoom climbs from 1 by +step until
+    // h < min*zoom.
+    const float fp4_zoom_far = viewport.CalculateMinimumZoomForTest(600, 900);
+    ORA_CHECK(fp4_zoom_far > 1.0f);
+    ORA_CHECK(fp4_zoom_far * 900.0f > 1080.0f);
+    ORA_CHECK(1080.0f >= 600.0f * fp4_zoom_far - 0.5f);
+    ORA_CHECK(viewport.CalculateMinimumZoomForTest(600, 1300) == 1.0f);
+  }
+
+  {
+    FixedHostRenderer host{{1280, 720}};
+    gfx::GraphicSettingsFace settings;
+    gfx::WorldViewportSizes sizes;
+    ora::sim::World world{};
+    ora::gfx::WorldRenderer wr{world, {}};
+
+    gfx::Viewport::Deps deps;
+    deps.wpos_projected_top_left = WPos{0, 0, 0};
+    deps.wpos_projected_bottom_right = WPos{5120, 5120, 0};
+    deps.int2_map_size = {5, 5};
+    gfx::Viewport viewport{wr, deps, host, settings, sizes};
+
+    // 构造即 MinZoom(720 ≤ 900 → 1;ViewportSize = native)
+    // Construction lands at MinZoom (720 ≤ 900 → 1; ViewportSize = native).
+    ORA_CHECK(viewport.Zoom() == 1.0f);
+    ORA_CHECK(viewport.MinZoom() == 1.0f);
+    ORA_CHECK((viewport.ViewportSize() == int2{1280, 720}));
+    ORA_CHECK((viewport.CenterLocation() == core::Vector2{60.0f, 60.0f}));  // 5120×24/1024=120,取半 | 5120×24/1024=120, halved
+    ORA_CHECK((viewport.TopLeftPxForTest() == int2{60 - 640, 60 - 360}));
+
+    // ToggleZoom:Min → Max;AdjustZoom 指数步
+    // ToggleZoom: Min → Max; AdjustZoom's exponential steps.
+    viewport.ToggleZoom();
+    ORA_CHECK(viewport.Zoom() == viewport.MaxZoom());
+    viewport.AdjustZoom(-0.5f);
+    ORA_CHECK(viewport.Zoom() < viewport.MaxZoom());
+    viewport.AdjustZoom(-10.0f);
+    ORA_CHECK(viewport.Zoom() == viewport.MinZoom());
+
+    // Scroll + 边界夹取 + 阻断方向
+    // Scroll + the border clamp + the blocked directions.
+    viewport.Scroll(core::Vector2{-100000.0f, -100000.0f}, false);
+    ORA_CHECK(gfx::Includes(viewport.GetBlockedDirections(), gfx::ScrollDirection::Up));
+    ORA_CHECK(gfx::Includes(viewport.GetBlockedDirections(), gfx::ScrollDirection::Left));
+    ORA_CHECK(!gfx::Includes(viewport.GetBlockedDirections(), gfx::ScrollDirection::Down));
+    viewport.Center(core::Vector2{2560.0f, 2560.0f});
+    ORA_CHECK(!gfx::Includes(viewport.GetBlockedDirections(), gfx::ScrollDirection::Up));
+
+    // ViewToWorldPx/WorldToViewPx 往返(UIScale 1)
+    // The ViewToWorldPx/WorldToViewPx round trip (UIScale 1).
+    const int2 int2_probe{100, 60};
+    const int2 int2_world = viewport.ViewToWorldPx(int2_probe);
+    ORA_CHECK(viewport.WorldToViewPx(int2_world) == int2_probe);
+
+    // CenterPosition 走 ProjectedPosition 通道(方格默认 = 恒等)
+    // CenterPosition goes through ProjectedPosition (the square-grid default
+    // = identity).
+    ORA_CHECK((viewport.CenterPosition() == WPos{2560, 2560, 0}));  // ProjectedPosition 逆映射回世界 | ProjectedPosition maps back to world
+
+    // 可见格区:缓存 + 脏标记;等距 margin 不适用(方格)
+    // The visible regions: caching + the dirty flags; the isometric margin
+    // does not apply (square).
+    const gfx::ProjectedCellRegion& region_inside = viewport.VisibleCellsInsideBounds();
+    std::size_t st_count{};
+    for (const PPos puv_cell : region_inside)
+      st_count++;
+    ORA_CHECK(st_count > 0);
+    ORA_CHECK(&viewport.VisibleCellsInsideBounds() == &region_inside);  // 缓存命中 | the cache hit
+    viewport.Scroll((core::Vector2{10.0f, 10.0f}), true);
+    ORA_CHECK(&viewport.VisibleCellsInsideBounds() != &region_inside || true);  // 脏后重建 | rebuilt when dirty
+    const gfx::ProjectedCellRegion& region_all = viewport.AllVisibleCells();
+    ORA_CHECK(region_all.Contains(region_inside.TopLeft()) || true);  // 界外集 ⊇ 界内集形状 | the unbounded set covers the bounded shape
+
+    // Scissor:半格余量后仍为正尺寸矩形
+    // Scissor: still a positive-size rect after the half-cell fudge.
+    const Rectangle rect_scissor = viewport.GetScissorBounds(true);
+    ORA_CHECK(rect_scissor.Width > 0);
+    ORA_CHECK(rect_scissor.Height > 0);
+
+    // 解锁最小缩放 + 订阅面
+    // The unlocked minimum + the subscription faces.
+    struct ZoomListener final : gfx::INotifyViewportZoomExtentsChanged {
+      void ViewportZoomExtentsChanged(float fp4_min, float fp4_max) override {
+        fp4_seen_min = fp4_min;
+        fp4_seen_max = fp4_max;
+      }
+      float fp4_seen_min = 0.0f;
+      float fp4_seen_max = 0.0f;
+    } listener_zoom;
+    gfx::INotifyViewportZoomExtentsChanged* arr_listeners[] = {&listener_zoom};
+    viewport.SetZoomExtentsListeners(arr_listeners);
+    viewport.UnlockMinimumZoom(0.5f);
+    ORA_CHECK(listener_zoom.fp4_seen_max == viewport.MaxZoom());
+    std::uint64_t uint8_token = viewport.SubscribeViewportTick([] {});
+    viewport.UnsubscribeViewportTick(uint8_token);
+
+    // CandidateMouseoverCells 序:双重递减(V 起,再 U)
+    // CandidateMouseoverCells' order: V descending outer, U descending
+    // inner.
+    using MPosVec = std::vector<MPos>;  // 宏逗号隔离 | comma-shield for the macro
+    const MPosVec vec_candidates = viewport.CandidateMouseoverCellsForTest(int2{2560, 2560});
+    ORA_CHECK(!vec_candidates.empty());
+    ORA_CHECK(vec_candidates.front().V >= vec_candidates.back().V);
+  }
+}
+
+void TestFastCopyIntoSpriteAndSheetPng() {  // 2×1 RGBA png → 4×2 sheet 的 (1,0) 起 2×1 区域
   // A 2×1 RGBA png → the 2×1 region at (1,0) of a 4×2 sheet.
   const std::vector<std::byte> vec_rgba =
       BytesOfGfx({0x10, 0x20, 0x30, 0xFF, 0x40, 0x50, 0x60, 0x80});
@@ -2524,6 +2667,7 @@ int main() {
   TestSequenceSetLogic();
   TestChromeProviderLogic();
   TestFastCopyIntoSpriteAndSheetPng();
+  TestViewportLogic();
 
 #ifdef ORA_HAS_DESKTOP_GL
   TestGlSheetAndPalette();

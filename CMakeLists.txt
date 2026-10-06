@@ -251,9 +251,35 @@ add_library(ora_gfx STATIC
   src/gfx/sequence_set.cpp
   src/gfx/animation.cpp
   src/gfx/cursor_manager.cpp
-  src/gfx/chrome_provider.cpp)
+  src/gfx/chrome_provider.cpp
+  src/gfx/viewport.cpp)
 target_link_libraries(ora_gfx PUBLIC ora_platform ora_sim PRIVATE ora_formats)
 ora_link_std(ora_gfx)
+
+# mods 序列系统(第十四批):Default/TilesetSpecific/Classic/ClassicTileset/
+# D2k 五变体 + SpriteSequenceFormat 名分派工厂(d2k 头含 formats/r8_loader)
+# The mods sequence system (the fourteenth batch): the five Default/
+# TilesetSpecific/Classic/ClassicTileset/D2k variants + the
+# SpriteSequenceFormat name-dispatch factory (the d2k header includes
+# formats/r8_loader).
+add_library(ora_mods STATIC
+  src/mods/default_sprite_sequence.cpp
+  src/mods/tileset_specific_sprite_sequence.cpp
+  src/mods/classic_sprite_sequence.cpp
+  src/mods/classic_tileset_specific_sprite_sequence.cpp
+  src/mods/d2k_sprite_sequence.cpp
+  src/mods/sequence_loader_factory.cpp)
+target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats)
+ora_link_std(ora_mods)
+
+# 声音门面(第十四批):格式链分派 + Sound 调度/音乐/视频 + MusicInfo.Load
+# The sound facade (the fourteenth batch): the format-chain dispatch +
+# Sound's scheduling/music/video + MusicInfo::Load.
+add_library(ora_sound STATIC
+  src/sound/sound_loader.cpp
+  src/sound/sound.cpp)
+target_link_libraries(ora_sound PUBLIC ora_sim ora_game ora_platform PRIVATE ora_fs ora_formats)
+ora_link_std(ora_sound)
 
 # Westwood 文件格式族(PORTING_PLAN §Phase 4 formats 第一编 + 第二编 +
 # 第三编 Mix/Blowfish):字节读取器 + 压缩编解码器(LCW/XOR/LZO/RLE0)+
@@ -460,10 +486,30 @@ add_test(NAME gfx_test COMMAND gfx_test)
 # regenerates via tools/golden_gen -- fmt) + the synthetic tmp fixtures +
 # the SheetBuilder::Add(ISpriteFrame) wiring assertions.
 add_executable(formats_test tests/formats_test.cpp)
-target_link_libraries(formats_test PRIVATE ora_formats ora_gfx ora_meta ora_miniz)  # 测试直接 mz_uncompress 展开 Save 的 IDAT | the test drives mz_uncompress directly for Save's IDAT
+target_link_libraries(formats_test PRIVATE ora_formats ora_gfx ora_mods ora_meta ora_miniz)  # ora_mods = 第 21 段序列矩阵 | section 21's sequence matrix  # 测试直接 mz_uncompress 展开 Save 的 IDAT | the test drives mz_uncompress directly for Save's IDAT
 ora_link_std(formats_test)
 add_custom_command(TARGET formats_test POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:formats_test>)
 add_test(NAME formats_test COMMAND formats_test
          ${ORA_UPSTREAM_ROOT} ${CMAKE_SOURCE_DIR}/tests/golden_formats.txt)
+
+# 第十四批验收:mods 序列族端到端(合成 shpTD + 临时 FileSystem + 真实
+# SpriteCache 流水;Classic/Tileset/D2k 变体与异常文本矩阵)。
+# The fourteenth-batch acceptance: the mods sequence family end to end
+# (synthetic shpTD + a temp FileSystem + the real SpriteCache pipeline; the
+# Classic/Tileset/D2k variants and the exception-text matrix).
+add_executable(seq_test tests/seq_test.cpp)
+target_link_libraries(seq_test PRIVATE ora_mods ora_formats)
+ora_link_std(seq_test)
+add_test(NAME seq_test COMMAND seq_test)
+
+# 第十四批验收:声音门面(格式链分派/调度/通知池/音乐面;Dummy 引擎 +
+# 上游 mods 散装 .aud 实资产)。
+# The fourteenth-batch acceptance: the sound facade (the format-chain
+# dispatch / scheduling / notification pools / the music faces; the Dummy
+# engine + real loose .aud assets from upstream mods).
+add_executable(sound_test tests/sound_test.cpp)
+target_link_libraries(sound_test PRIVATE ora_sound ora_fs)
+ora_link_std(sound_test)
+add_test(NAME sound_test COMMAND sound_test ${ORA_UPSTREAM_ROOT})

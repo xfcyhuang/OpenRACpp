@@ -193,6 +193,13 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
   parse_format_list("SoundFormats", vec_soundFormats_);
   parse_format_list("SpriteFormats", vec_spriteFormats_);
 
+  // SpriteSequenceFormat(L171-172):单标量
+  // SpriteSequenceFormat (L171-172): a single scalar.
+  if (const yaml::MiniYaml* yaml_entry = find_node("SpriteSequenceFormat")) {
+    if (yaml_entry->Value != nullptr)
+      str_spriteSequenceFormat_ = *yaml_entry->Value;
+  }
+
   vec_rules_ = YamlListOf(vec_yaml, "Rules");
   vec_sequences_ = YamlListOf(vec_yaml, "Sequences");
   vec_modelSequences_ = YamlListOf(vec_yaml, "ModelSequences");

@@ -1,11 +1,17 @@
 // UPSTREAM: OpenRA.Game/Graphics/Util.cs @b6fc03f L23-320(渲染域子集)+
-//           OpenRA.Game/Exts.cs @b6fc03f L270-273(NextPowerOf2)
+//           OpenRA.Game/Exts.cs @b6fc03f L270-273(NextPowerOf2)+
+//           OpenRA.Mods.Common/Util.cs @b6fc03f L79-104(面向索引族,
+//           第十四批随 mods 序列移植)+
+//           OpenRA.Game/Exts.cs @b6fc03f L77-99(WindingDirectionTest/
+//           PolygonContains,第十四批随 Viewport 移植)
 // 渲染域工具:四边形索引表、FastCreateQuad(顶点生成 + combined.vert 的
 // aVertexAttributes 位域打包)、FastCopyIntoChannel(Indexed8→单通道 /
 // Bgr[a]/Rgb[a]→RGBA 预乘拷贝)、FastCopyIntoSprite(Png→sheet 的预乘
 // 展开,ChromeProvider 的 Sheet(Stream) 路径,随第十三批)、
 // PremultiplyAlpha(uint 快速整数预乘)、RotateQuadInto(绕中心 x-y 旋转)、
-// BoundingRectangle、NextPowerOf2。
+// BoundingRectangle、NextPowerOf2、IndexFacing/AngleDiffToStep/
+// GetInterpolatedFacingRotation(Mods.Common 的面向量化索引)、Lerp、
+// PolygonContains(回绕数点在多边形内测试)。
 // 同时给出 core::Vector2/Vector3 的渲染运算(vector_n.hpp 注记的
 // "渲染运算 Phase 4 随 gfx 扩展" 落地点)。
 // Not ported here: RotateQuad(数组分配版)、PremultipliedColorLerp/FromAngle
@@ -16,11 +22,14 @@
 // Bgr[a]/Rgb[a] → premultiplied RGBA copies), FastCopyIntoSprite (the
 // Png→sheet premultiplied expansion of ChromeProvider's Sheet(Stream) path,
 // landed with the thirteenth batch), PremultiplyAlpha (the fast integer
-// uint premultiply), RotateQuadInto (rotation about the center in the x-y
-// plane), BoundingRectangle, and NextPowerOf2. Also extends
-// core::Vector2/Vector3 with the rendering arithmetic (the "rendering math
-// extends with gfx in Phase 4" note in vector_n.hpp lands here).
-// Not ported here: RotateQuad (array-allocating overload) and
+// uint premultiply), RotateQuadInto (a rotation about the center in the x-y
+// plane), BoundingRectangle, NextPowerOf2, the IndexFacing/
+// AngleDiffToStep/GetInterpolatedFacingRotation family (the facing-quantized
+// indices of Mods.Common), Lerp, and PolygonContains (the winding-number
+// point-in-polygon test). Also extends core::Vector2/Vector3 with the
+// rendering arithmetic (the "rendering math extends with gfx in Phase 4"
+// note in vector_n.hpp lands here).
+// Not ported here: RotateQuad (the array-allocating overload) and
 // PremultipliedColorLerp/FromAngle (the WorldRenderer batch).
 #pragma once
 import std;
@@ -29,6 +38,7 @@ import std;
 #include "core/int2.hpp"
 #include "core/rectangle.hpp"
 #include "core/vector_n.hpp"
+#include "core/wangle.hpp"
 #include "formats/png.hpp"
 #include "gfx/sprite.hpp"
 #include "gfx/vertex.hpp"
@@ -130,6 +140,69 @@ constexpr std::int32_t NextPowerOf2(std::int32_t int4_v) {
   u |= u >> 8;
   u |= u >> 16;
   return static_cast<std::int32_t>(u + 1);
+}
+
+/// Exts.IsPowerOf2(Exts.cs L277-280;BitOperations.IsPow2;v>0 且单一位)。
+/// Exts.IsPowerOf2 (Exts.cs L277-280; BitOperations.IsPow2; v>0 with a
+/// single bit set).
+constexpr bool IsPowerOf2(std::int32_t int4_v) { return int4_v > 0 && (int4_v & (int4_v - 1)) == 0; }
+
+/// Util.Lerp(Util.cs L368):a + t*(b-a)。
+/// Util.Lerp (Util.cs L368): a + t*(b-a).
+constexpr float Lerp(float fp4_a, float fp4_b, float fp4_t) { return fp4_a + fp4_t * (fp4_b - fp4_a); }
+
+/// 面向 → 帧索引(Mods.Common/Util.cs L79-87):step = 1024/numFrames,
+/// (angle + step/2) & 1023 后整除。
+/// Facing → the frame index (Mods.Common/Util.cs L79-87): step =
+/// 1024/numFrames, then (angle + step/2) & 1023 divided by step.
+constexpr std::int32_t IndexFacing(WAngle wangle_facing, std::int32_t int4_num_frames) {
+  const std::int32_t int4_step = 1024 / int4_num_frames;
+  const std::int32_t int4_a = (wangle_facing.Angle + int4_step / 2) & 1023;
+  return int4_a / int4_step;
+}
+
+/// 最近整步面向的余角(Mods.Common/Util.cs L90-96)。
+/// The remainder angle after rounding to the nearest whole step (Mods.Common/
+/// Util.cs L90-96).
+constexpr WAngle AngleDiffToStep(WAngle wangle_facing, std::int32_t int4_num_frames) {
+  const std::int32_t int4_step = 1024 / int4_num_frames;
+  const std::int32_t int4_a = (wangle_facing.Angle + int4_step / 2) & 1023;
+  return WAngle{int4_a % int4_step - int4_step / 2};
+}
+
+/// 最近插值面向相对最近帧面向的旋转角(Mods.Common/Util.cs L98-102)。
+/// The angle the closest facing sprite should rotate by to reach the closest
+/// interpolated facing (Mods.Common/Util.cs L98-102).
+constexpr WAngle GetInterpolatedFacingRotation(WAngle wangle_facing, std::int32_t int4_facings,
+                                               std::int32_t int4_interpolated_facings) {
+  const std::int32_t int4_step = 1024 / int4_interpolated_facings;
+  return WAngle{AngleDiffToStep(wangle_facing, int4_facings).Angle / int4_step * int4_step};
+}
+
+/// 回绕数点在多边形内测试(Exts.cs L77-99;WindingDirectionTest 的符号判
+/// 定逐行)。span 至少 1 元素(上游 ImmutableArray 空时恒假 —— 循环零次,
+/// windingNumber 0)。
+/// The winding-number point-in-polygon test (Exts.cs L77-99;
+/// WindingDirectionTest's sign checks line by line). The span needs at least
+/// one element (an empty upstream ImmutableArray stays false — zero loop
+/// iterations, windingNumber 0).
+constexpr bool PolygonContains(std::span<const int2> vec_polygon, int2 int2_p) {
+  const auto winding_test = [](int2 v0, int2 v1, int2 p) {
+    return int2::SignOf((v1.X - v0.X) * (p.Y - v0.Y) - (p.X - v0.X) * (v1.Y - v0.Y));
+  };
+
+  auto int4_winding_number = 0;
+  for (std::size_t int4_i{}; int4_i < vec_polygon.size(); int4_i++) {
+    const int2 tv = vec_polygon[int4_i];
+    const int2 nv = vec_polygon[(int4_i + 1) % vec_polygon.size()];
+
+    if (tv.Y <= int2_p.Y && nv.Y > int2_p.Y && winding_test(tv, nv, int2_p) > 0)
+      int4_winding_number++;
+    else if (tv.Y > int2_p.Y && nv.Y <= int2_p.Y && winding_test(tv, nv, int2_p) < 0)
+      int4_winding_number--;
+  }
+
+  return int4_winding_number != 0;
 }
 
 /// 预乘 alpha(Util.cs L322-354;**uint32 语义** —— 上游自研 Color.ToArgb()

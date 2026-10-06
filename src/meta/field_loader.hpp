@@ -32,6 +32,7 @@
 import std;
 #include "field_desc.hpp"
 #include "type_registry.hpp"
+#include "core/color.hpp"
 #include "core/int2.hpp"
 #include "core/rectangle.hpp"
 #include "core/vector_n.hpp"
@@ -116,6 +117,26 @@ std::vector<std::string> GetStringArrayValue(std::string_view str_field, std::st
 Rectangle GetRectangleValue(std::string_view str_field, std::string_view sv_value);
 int2 GetSizeValue(std::string_view str_field, std::string_view sv_value);
 core::Vector2 GetVector2Value(std::string_view str_field, std::string_view sv_value);
+
+/// 第十四批序列族消费的值入口(DefaultSpriteSequence 的 LoadField 走
+/// GetValue&lt;T&gt;;类型名进错误消息,与上游一致)。
+/// The value entries consumed by the fourteenth batch's sequence family
+/// (DefaultSpriteSequence's LoadField goes through GetValue<T>; the type
+/// names enter the error messages, same as upstream).
+std::int32_t GetWDistValue(std::string_view str_field, std::string_view sv_value);  // .Length
+core::Vector3 GetVector3Value(std::string_view str_field, std::string_view sv_value);
+core::Color GetColorValue(std::string_view str_field, std::string_view sv_value);
+std::vector<std::int32_t> GetInt32ArrayValue(std::string_view str_field, std::string_view sv_value);
+std::vector<float> GetFloatArrayValue(std::string_view str_field, std::string_view sv_value);
+/// FrozenDictionary&lt;string,string&gt;(节点表;插入序)。
+/// FrozenDictionary<string,string> (the node table; insertion order).
+std::vector<std::pair<std::string, std::string>> GetStringDictionaryValue(
+    const yaml::MiniYaml& yaml_node, std::string_view str_field);
+/// 枚举经注册表(名字不分大小写 / 逗号名按位或;BlendMode 等)。
+/// Enums resolve through the registry (case-insensitive names / comma-joined
+/// names ORed; BlendMode among others).
+std::int32_t GetEnumValue(std::string_view str_field, std::string_view sv_value,
+                          std::string_view str_enum_full_name);
 
 /// LoadUsing 加载器未实现时的占位(登记偏离用;消息与未知 loader 一致)
 /// Placeholder for unimplemented LoadUsing loaders (for the deviation log;

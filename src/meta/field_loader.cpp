@@ -336,4 +336,114 @@ core::Vector2 GetVector2Value(std::string_view str_field, std::string_view sv_va
   return core::Vector2{t_v.arr_floats[0], t_v.arr_floats[1]};
 }
 
+namespace {
+
+/// 标量直读:临时 scratch 节点走主分派(错误消息逐字)。
+/// Scalar direct-read: a temporary scratch node through the main dispatch
+/// (verbatim error messages).
+GenericValue GetScalarValue(std::string_view str_field, std::string_view sv_value, FieldType type_field,
+                            std::string_view str_type_name) {
+  const FieldDesc desc_field{
+      .str_name = str_field, .type = type_field, .b_required = false,
+      .str_loader = {}, .off_offset = 0, .elem = nullptr, .key = nullptr,
+      .value = nullptr, .str_type_name = str_type_name};
+  GenericValue val_out = GenericValue::Null();
+  const std::string str_trimmed{TrimNetWhiteSpace(sv_value)};
+  yaml::MiniYaml node_scratch{&str_trimmed, {}};
+  LoadValueIntoValue(desc_field, val_out, node_scratch);
+  return val_out;
+}
+
+/// 数组直读(elem 挂子描述;ImmutableArray 形态,非分组元素)。
+/// Array direct-read (elem carrying the sub-descriptor; the ImmutableArray
+/// shape, non-grouped elements).
+GenericValue GetArrayValue(std::string_view str_field, std::string_view sv_value,
+                           const FieldDesc& desc_elem, std::string_view str_type_name) {
+  const FieldDesc desc_arr{
+      .str_name = str_field, .type = FieldType::ImmutableArray, .b_required = false,
+      .str_loader = {}, .off_offset = 0, .elem = &desc_elem, .key = nullptr,
+      .value = nullptr, .str_type_name = str_type_name};
+  GenericValue val_out = GenericValue::Null();
+  const std::string str_trimmed{TrimNetWhiteSpace(sv_value)};
+  yaml::MiniYaml node_scratch{&str_trimmed, {}};
+  LoadValueIntoValue(desc_arr, val_out, node_scratch);
+  return val_out;
+}
+
+}  // namespace
+
+std::int32_t GetWDistValue(std::string_view str_field, std::string_view sv_value) {
+  // GenericValue 槽 = .Length(int64)| the GenericValue slot = .Length (int64).
+  return static_cast<std::int32_t>(
+      std::get<std::int64_t>(GetScalarValue(str_field, sv_value, FieldType::WDist, "OpenRA.WDist").val));
+}
+
+core::Vector3 GetVector3Value(std::string_view str_field, std::string_view sv_value) {
+  const GenericTuple t_v = GetTupleValue(str_field, sv_value, FieldType::Vector3,
+                                         "System.Numerics.Vector3");
+  return core::Vector3{t_v.arr_floats[0], t_v.arr_floats[1], t_v.arr_floats[2]};
+}
+
+core::Color GetColorValue(std::string_view str_field, std::string_view sv_value) {
+  // 槽 = ToArgb 的 int64(argb 位形)| the slot = ToArgb as int64 (the argb bits).
+  return core::Color::FromArgbRaw(
+      static_cast<std::uint32_t>(std::get<std::int64_t>(
+          GetScalarValue(str_field, sv_value, FieldType::Color, "OpenRA.Primitives.Color").val)));
+}
+
+std::vector<std::int32_t> GetInt32ArrayValue(std::string_view str_field, std::string_view sv_value) {
+  static constexpr FieldDesc kElemInt32 = ElemOf(FieldType::Int32);
+  std::vector<std::int32_t> vec_ret;
+  for (const GenericValue& val_e :
+       std::get<std::vector<GenericValue>>(
+           GetArrayValue(str_field, sv_value, kElemInt32,
+                         "System.Collections.Immutable.ImmutableArray`1[System.Int32]")
+               .val))
+    vec_ret.push_back(static_cast<std::int32_t>(std::get<std::int64_t>(val_e.val)));
+  return vec_ret;
+}
+
+std::vector<float> GetFloatArrayValue(std::string_view str_field, std::string_view sv_value) {
+  static constexpr FieldDesc kElemFloat = ElemOf(FieldType::Float);
+  std::vector<float> vec_ret;
+  for (const GenericValue& val_e :
+       std::get<std::vector<GenericValue>>(
+           GetArrayValue(str_field, sv_value, kElemFloat,
+                         "System.Collections.Immutable.ImmutableArray`1[System.Single]")
+               .val))
+    vec_ret.push_back(std::get<float>(val_e.val));
+  return vec_ret;
+}
+
+std::vector<std::pair<std::string, std::string>> GetStringDictionaryValue(
+    const yaml::MiniYaml& yaml_node, std::string_view str_field) {
+  // 节点表 → GenericDict(键/值均 String;插入序保持)
+  // The node table → GenericDict (both key and value String; the insertion
+  // order kept).
+  static constexpr FieldDesc kElemString = ElemOf(FieldType::String);
+  const FieldDesc desc_dict{
+      .str_name = str_field, .type = FieldType::FrozenDictionary, .b_required = false,
+      .str_loader = {}, .off_offset = 0, .elem = nullptr, .key = &kElemString,
+      .value = &kElemString,
+      .str_type_name =
+          "System.Collections.Frozen.FrozenDictionary`2[System.String,System.String]"};
+  GenericValue val_out = GenericValue::Null();
+  LoadValueIntoValue(desc_dict, val_out, yaml_node);
+
+  std::vector<std::pair<std::string, std::string>> vec_ret;
+  for (const auto& [val_k, val_v] : std::get<GenericDict>(val_out.val))
+    vec_ret.emplace_back(std::get<std::string>(val_k.val), std::get<std::string>(val_v.val));
+  return vec_ret;
+}
+
+std::int32_t GetEnumValue(std::string_view str_field, std::string_view sv_value,
+                          std::string_view str_enum_full_name) {
+  // 枚举名进 desc.str_type_name(注册表键)| the enum name enters
+  // desc.str_type_name (the registry key).
+  return static_cast<std::int32_t>(
+      std::get<std::int64_t>(GetScalarValue(str_field, sv_value, FieldType::Enum,
+                                            str_enum_full_name)
+                                 .val));
+}
+
 }  // namespace ora::meta
