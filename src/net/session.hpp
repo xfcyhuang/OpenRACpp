@@ -18,11 +18,16 @@ namespace ora::net {
 /// Session.ClientState(上游同名枚举子集)
 enum class ClientState { Invalid, Joining, Connected, Waiting, Ready, Disconnected };
 
-/// Session.Client(最小面)
+/// Session.Client(最小面;Color/PreferredColor 等 HSLColor 面随 Phase 7
+/// 大厅批补齐)
+/// Session.Client (the minimal face; the Color/PreferredColor HSLColor
+/// faces land with the Phase 7 lobby batch).
 struct SessionClient {
   int Index = 0;
   std::string Name;
   std::string IpAddress;
+  std::string Faction;  // Game.JoinLocal 装配面 | the Game.JoinLocal face
+  int SpawnPoint = 0;   // 同上 | ditto
   int Team = 0;
   bool IsBot = false;
   bool IsObserver = false;

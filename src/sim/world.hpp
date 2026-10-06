@@ -307,7 +307,22 @@ auto RunUnsynced(bool check_sync_hash, World* world, Fn&& fn)
     ~Dec() { --sim::UnsyncCountRef(); }
   } dec{};
 
-  auto result = fn();
+  // 上游 Action(void) 面:void 可调用体不携带返回值
+  // upstream's Action (void) face: void callables carry no return value
+  if constexpr (std::is_void_v<std::invoke_result_t<Fn&>>) {
+    fn();
+  } else {
+    auto result = fn();
+
+    // When the world is disposing all actors and effects have been removed
+    // So do not check the hash for a disposing world since it definitively
+    // has changed
+    if (count == 1 && check_sync_hash && world != nullptr &&
+        !world->Disposing() && sync != world->SyncHash())
+      throw std::runtime_error("RunUnsynced: sync-changing code may not run here");
+
+    return result;
+  }
 
   // When the world is disposing all actors and effects have been removed
   // So do not check the hash for a disposing world since it definitively
@@ -315,8 +330,6 @@ auto RunUnsynced(bool check_sync_hash, World* world, Fn&& fn)
   if (count == 1 && check_sync_hash && world != nullptr &&
       !world->Disposing() && sync != world->SyncHash())
     throw std::runtime_error("RunUnsynced: sync-changing code may not run here");
-
-  return result;
 }
 
 

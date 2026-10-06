@@ -281,6 +281,29 @@ add_library(ora_sound STATIC
 target_link_libraries(ora_sound PUBLIC ora_sim ora_game ora_platform PRIVATE ora_fs ora_formats)
 ora_link_std(ora_sound)
 
+# UI 框架(第十五批):Widget 树/Ui 门面/ChromeMetrics/WidgetLoader(名字分派
+# 注册表;gfx 的 Viewport 静态 + meta 表达式)
+# The UI framework (the fifteenth batch): the Widget tree / the Ui facade /
+# ChromeMetrics / WidgetLoader (name-dispatch registries; gfx's Viewport
+# statics + meta's expressions).
+add_library(ora_ui STATIC
+  src/ui/widget.cpp
+  src/ui/ui.cpp
+  src/ui/chrome_metrics.cpp
+  src/ui/widget_loader.cpp)
+target_link_libraries(ora_ui PUBLIC ora_gfx ora_net ora_meta PRIVATE ora_fs)
+ora_link_std(ora_ui)
+
+# 游戏主循环骨架(第十五批):Game 的 Run/Loop/LogicTick/RenderTick/延迟动作
+# (依赖 ora_sound 而 ora_sound 依赖 ora_game —— 引擎装配层拆环)
+# The game main-loop skeleton (the fifteenth batch): Game's Run/Loop/
+# LogicTick/RenderTick/delayed actions (depends on ora_sound, which depends
+# on ora_game — the engine-assembly layer breaks the cycle).
+add_library(ora_engine STATIC
+  src/game/game.cpp)
+target_link_libraries(ora_engine PUBLIC ora_sound ora_ui ora_gfx ora_net ora_game)
+ora_link_std(ora_engine)
+
 # Westwood 文件格式族(PORTING_PLAN §Phase 4 formats 第一编 + 第二编 +
 # 第三编 Mix/Blowfish):字节读取器 + 压缩编解码器(LCW/XOR/LZO/RLE0)+
 # CRC32 + SHP TD/D2/TS + TMP TD/RA/TS 加载器 + PNG(自研,zlib 走 miniz)
@@ -513,3 +536,15 @@ add_executable(sound_test tests/sound_test.cpp)
 target_link_libraries(sound_test PRIVATE ora_sound ora_fs)
 ora_link_std(sound_test)
 add_test(NAME sound_test COMMAND sound_test ${ORA_UPSTREAM_ROOT})
+
+# 第十五批验收:UI 框架(ActionQueue/Widget 树/Ui 窗口栈/Mediator/
+# ChromeMetrics/WidgetLoader 异常矩阵)+ Game 主循环骨架(时钟注入下的
+# Loop 节拍/JoinLocal/延迟动作/Run 清理)。
+# The fifteenth-batch acceptance: the UI framework (ActionQueue/the Widget
+# tree/the Ui window stack/Mediator/ChromeMetrics/the WidgetLoader exception
+# matrix) + the Game main-loop skeleton (the Loop pacing under an injected
+# clock/JoinLocal/delayed actions/Run cleanup).
+add_executable(ui_test tests/ui_test.cpp)
+target_link_libraries(ui_test PRIVATE ora_engine)
+ora_link_std(ui_test)
+add_test(NAME ui_test COMMAND ui_test)
