@@ -47,6 +47,7 @@ namespace ora::sim {
 
 class Actor;
 class Shroud;
+class FrozenActorLayer;  // L57 的懒解析面(the L57 lazy-resolve face)
 class World;
 
 /// Player.cs L35:WinState 与 L37 的 PlayerBitMask 标签权威定义在
@@ -115,11 +116,15 @@ class Player final {
   bool IsBot() const { return b_is_bot_; }                                // L54
   const std::string& BotType() const { return str_bot_type_; }            // L55
 
-  /// L56/L57:Shroud/FrozenActorLayer 解析面 —— 随该批接入(见头注)
-  /// L56/L57: the Shroud/FrozenActorLayer resolution faces — land with
-  /// those batches (see the header).
-  Shroud* GetShroud() const { return p_shroud_; }
-  void SetShroudSlot(Shroud* p) { p_shroud_ = p; }
+  /// L56/L57:Shroud/FrozenActorLayer 解析面(懒解析 = 上游 L213-214 的
+  /// Owner.TraitOrDefault<T>;player actor 缺 trait 时 null,实现于
+  /// player.cpp —— 模板查询需 World 完整类型)
+  /// L56/L57: the Shroud/FrozenActorLayer resolution faces (the lazy
+  /// resolve = upstream L213-214's Owner.TraitOrDefault<T>; null when the
+  /// player actor lacks the trait, implemented in player.cpp — the
+  /// template query needs the complete World type).
+  Shroud* GetShroud() const;
+  FrozenActorLayer* GetFrozenActorLayer() const;
 
   /// L59 的 color 私有字段 + L62 的 Color 关系色属性 | the private color
   /// (L59) + the relationship-color property (L62).
@@ -208,7 +213,12 @@ class Player final {
   map::PlayerReference pr_;           // L53
   bool b_is_bot_ = false;             // L54
   std::string str_bot_type_;          // L55(null 承载为空串 | null as "")
-  Shroud* p_shroud_ = nullptr;        // L56(随 Shroud 批 | with that batch)
+  mutable Shroud* p_shroud_ = nullptr;  // L56(懒解析缓存;const 查询
+                                         // 首解析 —— mutable | the
+                                         // lazy-resolve cache, first
+                                         // resolved under a const query)
+  mutable class FrozenActorLayer* p_frozen_actor_layer_ =
+      nullptr;  // L57(同上 | ditto)
   core::Color color_{core::Color::FromArgbRaw(0xFF4B4B4B)};  // L59
   FactionInfoData display_faction_;   // L65
   int int4_spawn_point_ = 0;          // L68

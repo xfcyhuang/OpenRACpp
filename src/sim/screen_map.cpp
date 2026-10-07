@@ -8,6 +8,7 @@ import std;
 #include "gfx/world_renderer.hpp"
 #include "map/map.hpp"
 #include "sim/actor.hpp"
+#include "sim/frozen_actor_layer.hpp"
 #include "sim/world.hpp"
 
 namespace ora::sim {
@@ -19,6 +20,8 @@ int ScreenMapBinHeight(World& world);
 
 ScreenMap::ScreenMap(World& world, int bin_size)
     : bin_size_{bin_size},
+      width_{ScreenMapBinWidth(world)},
+      height_{ScreenMapBinHeight(world)},
       partitioned_mouse_actors_{ScreenMapBinWidth(world), ScreenMapBinHeight(world), bin_size},
       partitioned_renderable_actors_{ScreenMapBinWidth(world), ScreenMapBinHeight(world), bin_size},
       partitioned_renderable_effects_{ScreenMapBinWidth(world), ScreenMapBinHeight(world), bin_size} {}
@@ -132,8 +135,76 @@ std::vector<IEffect*> ScreenMap::RenderableEffectsInBox(int2 a, int2 b) {
   return partitioned_renderable_effects_.InBox(RectWithCorners(a, b));
 }
 
+// ———— FrozenActor 面(L84-94/146-160/203-209)————
+// ———— The FrozenActor faces (L84-94/146-160/203-209) ————
+
+ScreenMap::FrozenPlayerCaches& ScreenMap::FrozenCachesOf(Player* viewer) {
+  // Cache<Player,…> 惰性构造(_ => new SpatiallyPartitioned(…))
+  // The Cache<Player,…> lazy construction (_ => new
+  // SpatiallyPartitioned(…)).
+  const auto it = map_frozen_caches_.find(viewer);
+  if (it != map_frozen_caches_.end())
+    return it->second;
+
+  auto [inserted, _] = map_frozen_caches_.emplace(
+      viewer,
+      FrozenPlayerCaches{
+          SpatiallyPartitioned<FrozenActor*>{width_, height_, bin_size_},
+          SpatiallyPartitioned<FrozenActor*>{width_, height_, bin_size_},
+          {}, {}});
+  return inserted->second;
+}
+
+void ScreenMap::AddOrUpdateFrozen(Player* viewer, FrozenActor* fa) {
+  // L84-89
+  auto& caches = FrozenCachesOf(viewer);
+  std::erase(caches.vec_remove, fa);
+  if (std::find(caches.vec_add_or_update.begin(),
+                caches.vec_add_or_update.end(),
+                fa) == caches.vec_add_or_update.end())
+    caches.vec_add_or_update.push_back(fa);
+}
+
+void ScreenMap::RemoveFrozen(Player* viewer, FrozenActor* fa) {
+  // L91-94
+  auto& caches = FrozenCachesOf(viewer);
+  if (std::find(caches.vec_remove.begin(), caches.vec_remove.end(), fa) ==
+      caches.vec_remove.end())
+    caches.vec_remove.push_back(fa);
+}
+
+std::vector<FrozenActor*> ScreenMap::FrozenActorsAtMouse(Player* viewer,
+                                                         int2 world_px) {
+  // L146-155(MouseInput 重载随 UI 输入装配批)
+  // L146-155 (the MouseInput overload lands with the UI-input assembly
+  // batch).
+  if (viewer == nullptr)
+    return {};
+
+  std::vector<FrozenActor*> out;
+  for (FrozenActor* fa : FrozenCachesOf(viewer).partitioned_mouse.At(world_px))
+    if (fa->IsValid() && fa->MouseBounds.Contains(world_px))
+      out.push_back(fa);
+  return out;
+}
+
+std::vector<FrozenActor*> ScreenMap::RenderableFrozenActorsInBox(Player* p,
+                                                                 int2 a,
+                                                                 int2 b) {
+  // L203-209
+  if (p == nullptr)
+    return {};
+
+  std::vector<FrozenActor*> out;
+  for (FrozenActor* fa :
+       FrozenCachesOf(p).partitioned_renderable.InBox(RectWithCorners(a, b)))
+    if (fa->IsValid())
+      out.push_back(fa);
+  return out;
+}
+
 void ScreenMap::TickRender() {
-  // L211-271(Actor 半;FrozenActor 半随该批)
+  // L211-271(Actor 面 + FrozenActor 面)
   for (Actor* a : vec_add_or_update_actors_) {
     const Polygon mouse_bounds =
         fn_actor_mouse_bounds_ ? fn_actor_mouse_bounds_(*a) : Polygon::Empty();
@@ -169,10 +240,45 @@ void ScreenMap::TickRender() {
 
   vec_add_or_update_actors_.clear();
   vec_remove_actors_.clear();
+
+  // ———— FrozenActor 半(L231-258)————
+  // ———— The FrozenActor half (L231-258) ————
+  for (auto& [viewer, caches] : map_frozen_caches_) {
+    for (FrozenActor* fa : caches.vec_add_or_update) {
+      if (!fa->MouseBounds.IsEmpty())
+        caches.partitioned_mouse.Set(fa, fa->MouseBounds.BoundingRect);
+      else
+        caches.partitioned_mouse.Remove(fa);
+
+      const std::vector<Rectangle>* screen_rects = fa->ScreenBoundsList;
+      Rectangle screen_union = Rectangle::FromLTRB(0, 0, 0, 0);
+      if (screen_rects != nullptr && !screen_rects->empty()) {
+        screen_union = screen_rects->front();
+        for (const Rectangle& r : *screen_rects)
+          screen_union = Rectangle::Union(screen_union, r);
+      }
+      if (screen_union.Width != 0 || screen_union.Height != 0)
+        caches.partitioned_renderable.Set(fa, screen_union);
+      else
+        caches.partitioned_renderable.Remove(fa);
+    }
+
+    caches.vec_add_or_update.clear();
+  }
+
+  for (auto& [viewer, caches] : map_frozen_caches_) {
+    for (FrozenActor* fa : caches.vec_remove) {
+      caches.partitioned_mouse.Remove(fa);
+      caches.partitioned_renderable.Remove(fa);
+    }
+
+    caches.vec_remove.clear();
+  }
 }
 
 std::vector<Rectangle> ScreenMap::RenderBounds() const {
-  // L273-279(FrozenActor 项随该批)
+  // L273-279(viewer == nullptr 面)
+  // L273-279 (the viewer == nullptr face).
   std::vector<Rectangle> out = partitioned_renderable_actors_.Values();
   const std::vector<Rectangle> effects = partitioned_renderable_effects_.Values();
   out.insert(out.end(), effects.begin(), effects.end());
@@ -180,10 +286,39 @@ std::vector<Rectangle> ScreenMap::RenderBounds() const {
 }
 
 std::vector<Polygon> ScreenMap::MouseBounds() const {
-  // L281-285(FrozenActor 项随该批)
+  // L281-285(viewer == nullptr 面)
+  // L281-285 (the viewer == nullptr face).
   std::vector<Polygon> out;
   for (const auto& [_, pair] : map_partitioned_mouse_actor_bounds_)
     out.push_back(pair.bounds);
+  return out;
+}
+
+std::vector<Rectangle> ScreenMap::RenderBounds(Player* viewer) const {
+  // L273-279(viewer 面:FrozenActor 项并入)
+  // L273-279 (the viewer face: the FrozenActor items merge in).
+  std::vector<Rectangle> out = RenderBounds();
+  if (viewer != nullptr) {
+    const auto it = map_frozen_caches_.find(viewer);
+    if (it != map_frozen_caches_.end()) {
+      const std::vector<Rectangle> frozen =
+          it->second.partitioned_renderable.Values();
+      out.insert(out.end(), frozen.begin(), frozen.end());
+    }
+  }
+  return out;
+}
+
+std::vector<Polygon> ScreenMap::MouseBounds(Player* viewer) const {
+  // L281-285(viewer 面)
+  // L281-285 (the viewer face).
+  std::vector<Polygon> out = MouseBounds();
+  if (viewer != nullptr) {
+    const auto it = map_frozen_caches_.find(viewer);
+    if (it != map_frozen_caches_.end())
+      for (const FrozenActor* fa : it->second.partitioned_mouse.Keys())
+        out.push_back(fa->MouseBounds);
+  }
   return out;
 }
 

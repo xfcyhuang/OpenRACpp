@@ -156,6 +156,13 @@ class MoveCooldownHelper {
 
   void NotifyMoveQueued() { b_was_moving_ = true; }
 
+  /// mobile 指针的构造后换装(Attack 活动的构造序:ctor 初始化列表先于
+  /// mobile 解析 —— 实现细节,无上游对应)
+  /// The post-construction mobile swap (Attack's construction order: the
+  /// ctor init list runs before the mobile resolve — an implementation
+  /// detail with no upstream counterpart).
+  void SetMobile(Mobile* p_mobile) { p_mobile_ = p_mobile; }
+
   /// Tick:L110-141(true/false = 立即完成/等待;nullopt = 继续常规逻辑)
   /// Tick: L110-141 (true/false = complete at once / keep waiting;
   /// nullopt = continue with the usual logic).

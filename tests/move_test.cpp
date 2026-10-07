@@ -260,12 +260,14 @@ void TestRealRaChain(const char* str_upstream_root) {
   Check(armament->CheckFire(e1, mobile, near_target),
         "CheckFire accepts after reload");
 
-  // 弹丸注册表空(Bullet/InstantHit 随武器批)→ 零发弹 + 无后座(
-  // 上游 Projectile!=null 门内的等价空面)
-  // The projectile registry is empty (Bullet/InstantHit arrive with the
-  // weapons batch) → zero projectiles + no recoil (the equivalent empty
-  // face inside upstream's Projectile!=null gate).
-  CheckEq(armament->Recoil.Length, 0, "no recoil without projectile impl");
+  // 第四批起弹丸注册表含 InstantHit/Bullet:CheckFire 面内目标即真实发弹
+  // (InstantHit 同 tick 落地;战头链随 attack_test 验收)。e1 无 Recoil
+  // 覆写 → 后座 0(上游同值)
+  // From batch 4 the projectile registry carries InstantHit/Bullet: the
+  // in-range CheckFire really fires (InstantHit lands the same tick; the
+  // warhead chain is accepted by attack_test). e1 overrides no Recoil →
+  // zero recoil (upstream's same value).
+  CheckEq(armament->Recoil.Length, 0, "e1 has no recoil override");
 
   // ———— SyncHash 注册面(Mobile/BodyOrientation)————
   Check(!e1->SyncHashes().empty(), "e1 carries [VerifySync] trait hashes");

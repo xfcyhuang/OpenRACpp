@@ -14,11 +14,25 @@ import std;
 #include "core/cell_pos.hpp"
 #include "core/percent_modifiers.hpp"
 #include "core/wangle.hpp"
+#include "core/wdist.hpp"
 #include "core/wpos.hpp"
+#include "game/game_records.hpp"
 #include "sim/target.hpp"
+#include "sim/weapons.hpp"
 #include "sim/world.hpp"
 
 namespace ora::mods {
+
+/// Util.cs 的 InaccuracyType(GetProjectileInaccuracy 的参数域;gen 枚举
+/// OpenRA.Mods.Common.InaccuracyType 同步)
+/// Util.cs's InaccuracyType (GetProjectileInaccuracy's parameter domain;
+/// mirroring the gen enum OpenRA.Mods.Common.InaccuracyType).
+enum class InaccuracyType : std::int32_t {
+  Maximum = 0,
+  PerCellIncrement = 1,
+  Absolute = 2,
+};
+
 
 /// Util.cs L53-73:TickFacing
 inline WAngle TickFacing(WAngle facing, WAngle desired_facing, WAngle step) {
@@ -115,6 +129,55 @@ inline std::vector<CPos> AdjacentCells(sim::World& w, const sim::Target& target)
         vec_distinct.end())
       vec_distinct.push_back(cell);
   return vec_distinct;
+}
+
+
+/// Util.cs L92-104:FacingWithinTolerance
+/// Util.cs L92-104: FacingWithinTolerance.
+inline bool FacingWithinTolerance(WAngle facing, WAngle desired_facing,
+                                  WAngle facing_tolerance) {
+  if (facing_tolerance.Angle == 0 && facing == desired_facing)
+    return true;
+
+  const int delta = (desired_facing - facing).Angle;
+  return delta <= facing_tolerance.Angle ||
+         delta >= 1024 - facing_tolerance.Angle;
+}
+
+/// Util.cs L140-147:GetVerticalAngle
+/// Util.cs L140-147: GetVerticalAngle.
+inline WAngle GetVerticalAngle(const WPos& source, const WPos& target) {
+  const WVec delta = target - source;
+  const std::int32_t horizontal_delta = delta.HorizontalLength();
+  const WVec vertical_vector{-delta.Z, -horizontal_delta, 0};
+
+  return vertical_vector.Yaw();
+}
+
+/// Util.cs L369-386:GetProjectileInaccuracy(修正链经 ApplyPercentageModifiers)
+/// Util.cs L369-386: GetProjectileInaccuracy (the modifier chain via
+/// ApplyPercentageModifiers).
+inline std::int32_t GetProjectileInaccuracy(
+    std::int32_t int4_base_inaccuracy, InaccuracyType inaccuracy_type,
+    const sim::ProjectileArgs& args) {
+  const std::int32_t inaccuracy = ApplyPercentageModifiers(
+      int4_base_inaccuracy, args.vec_inaccuracy_modifiers);
+  switch (inaccuracy_type) {
+    case InaccuracyType::Maximum: {
+      const std::int32_t weapon_max_range = ApplyPercentageModifiers(
+          args.weapon->int4_range, args.vec_range_modifiers);
+      return inaccuracy *
+             (args.passive_target - args.source).Length() /
+             weapon_max_range;
+    }
+    case InaccuracyType::PerCellIncrement:
+      return inaccuracy * (args.passive_target - args.source).Length() /
+             1024;
+    case InaccuracyType::Absolute:
+      return inaccuracy;
+    default:
+      throw std::invalid_argument("inaccuracy_type");
+  }
 }
 
 }  // namespace ora::mods

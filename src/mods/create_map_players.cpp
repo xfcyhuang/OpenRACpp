@@ -12,7 +12,18 @@ import std;
 #include "mods/health.hpp"
 #include "mods/pathfinding/locomotor.hpp"
 #include "mods/pathfinding/path_finder.hpp"
+#include "mods/affects_shroud.hpp"
 #include "mods/armament.hpp"
+#include "mods/armor.hpp"
+#include "mods/attack_base.hpp"
+#include "mods/auto_target.hpp"
+#include "mods/blocks_projectiles.hpp"
+#include "mods/hit_shape.hpp"
+#include "sim/shroud.hpp"
+#include "sim/frozen_actor_layer.hpp"
+#include "mods/targetable.hpp"
+#include "mods/warheads.hpp"
+#include "mods/projectiles.hpp"
 #include "mods/body_orientation.hpp"
 #include "mods/mobile.hpp"
 #include "mods/unit_order_generator.hpp"
@@ -296,6 +307,131 @@ void RegisterCommonTraits() {
           const ArmamentInfoData data =
               ArmamentInfoData::Parse(rec_info, init.Self().world());
           return arena.Create<Armament>(init, std::move(data));
+        });
+
+    // ———— 第四批:Shroud/FrozenActorLayer/HitShape/Armor/RevealsShroud/
+    //      AttackFrontal/AutoTarget(±Priority)/BlocksProjectiles ————
+
+    // ShroudInfo.Create(init) → new Shroud(init.Self, this)
+    registry.Register(
+        "ShroudInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          sim::ShroudInfoData data;
+          if (sim::RecordFieldInt(rec_info, "FogCheckboxEnabled"))
+            data.b_fog_checkbox_enabled =
+                *sim::RecordFieldInt(rec_info, "FogCheckboxEnabled") != 0;
+          if (sim::RecordFieldInt(rec_info, "ExploredMapCheckboxEnabled"))
+            data.b_explored_map_checkbox_enabled =
+                *sim::RecordFieldInt(rec_info,
+                                     "ExploredMapCheckboxEnabled") != 0;
+          return arena.Create<sim::Shroud>(init.Self(), data);
+        });
+
+    // FrozenActorLayerInfo.Create(init) → new FrozenActorLayer(init.Self,
+    // this)(Requires<ShroudInfo> 的构造序由 ActorInfo 拓扑序保证)
+    registry.Register(
+        "FrozenActorLayerInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          sim::FrozenActorLayerInfoData data;
+          if (const auto v =
+                  sim::RecordFieldInt(rec_info, "BinSize"))
+            data.int4_bin_size = static_cast<int>(*v);
+          return arena.Create<sim::FrozenActorLayer>(init.Self(), data);
+        });
+
+    // HitShapeInfo.Create(init) → new HitShape(init, this)(Type 的
+    // LoadShape 嵌套记录在此物化;Initialize 随 ParseHitShape 调用)
+    registry.Register(
+        "HitShapeInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<HitShape>(
+              init, HitShapeInfoData::Parse(rec_info));
+        });
+
+    // ArmorInfo.Create(init) → new Armor(this)
+    registry.Register(
+        "ArmorInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<Armor>(ArmorInfoData::Parse(rec_info));
+        });
+
+    // RevealsShroudInfo.Create(init) → new RevealsShroud(this)
+    registry.Register(
+        "RevealsShroudInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<RevealsShroud>(
+              RevealsShroudInfoData::Parse(rec_info));
+        });
+
+    // AttackFrontalInfo.Create(init) → new AttackFrontal(init.Self, this)
+    // (Requires<IFacingInfo> 的构造序由 ActorInfo 拓扑序保证)
+    registry.Register(
+        "AttackFrontalInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<AttackFrontal>(
+              init, AttackBaseInfoData::Parse(rec_info));
+        });
+
+    // AutoTargetInfo.Create(init) → new AutoTarget(init, this)
+    registry.Register(
+        "AutoTargetInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<AutoTarget>(
+              init, AutoTargetInfoData::Parse(rec_info));
+        });
+
+    // AutoTargetPriorityInfo.Create(init) → new AutoTargetPriority(this)
+    registry.Register(
+        "AutoTargetPriorityInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<AutoTargetPriority>(
+              AutoTargetPriorityInfoData::Parse(rec_info));
+        });
+
+    // TargetableInfo.Create(init) → new Targetable(this)
+    registry.Register(
+        "TargetableInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<Targetable>(
+              TargetableInfoData::Parse(rec_info));
+        });
+
+    // BlocksProjectilesInfo.Create(init) → new BlocksProjectiles(this)
+    registry.Register(
+        "BlocksProjectilesInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<BlocksProjectiles>(
+              BlocksProjectilesInfoData::Parse(rec_info));
+        });
+
+    // ———— 第四批:弹丸/战头注册表(ProjectileRegistry/WarheadRegistry)————
+
+    sim::ProjectileRegistry::Instance().Register(
+        "BulletInfo",
+        [](const meta::RecordObject& rec_info) -> sim::IProjectileInfo* {
+          return new BulletInfo(BulletInfoData::Parse(rec_info));
+        });
+
+    sim::ProjectileRegistry::Instance().Register(
+        "InstantHitInfo",
+        [](const meta::RecordObject& rec_info) -> sim::IProjectileInfo* {
+          return new InstantHitInfo(InstantHitInfoData::Parse(rec_info));
+        });
+
+    WarheadRegistry::Instance().Register(
+        "SpreadDamageWarhead",
+        [](const meta::RecordObject& rec_info) -> IWarhead* {
+          return SpreadDamageWarhead::Parse(rec_info).release();
         });
 
     return true;

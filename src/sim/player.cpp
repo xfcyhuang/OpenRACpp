@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Player.cs @b6fc03f(实现部分)+ Faction.cs 的解析面
+// UPSTREAM: OpenRA.Game/Player.cs @b6fc03f 实现部分+ Faction.cs 的解析面
 //          The implementation half of Player.cs + the Faction.cs parse face.
 import std;
 
@@ -12,6 +12,8 @@ import std;
 #include "meta/generic_record.hpp"
 #include "sim/actor.hpp"
 #include "sim/actor_init.hpp"
+#include "sim/frozen_actor_layer.hpp"
+#include "sim/shroud.hpp"
 #include "sim/trait_registry.hpp"
 #include "sim/world.hpp"
 
@@ -167,6 +169,13 @@ FactionInfoData Player::ResolveFaction(const std::string& str_faction_name,
 Player::Player(World& world, const net::SessionClient* client,
                const map::PlayerReference& pr, MersenneTwister& player_random)
     : world_{&world}, pr_(pr) {
+  // Player.cs L155:InternalName = pr.Name(两分支共有;此前漏置 →
+  // PlayerMask 恒空、关系判定全 Neutral —— 第四批攻击链暴露的真问题)
+  // Player.cs L155: InternalName = pr.Name (common to both branches; the
+  // missing assignment left PlayerMask empty and every relationship
+  // Neutral — the real problem the batch-4 attack chain exposed).
+  str_internal_name_ = pr.Name;
+
   const game::Ruleset& rules = world.Map().Rules();
   const game::ActorInfo* player_info =
       rules.FindActor(world.Type() == WorldType::Editor ? "editorplayer"
@@ -252,11 +261,14 @@ Player::Player(World& world, const net::SessionClient* client,
   p_player_actor_ = world.CreateActor(false, player_actor_type, init_dict);
   p_player_actor_->Initialize(true);
 
-  // Shroud(L213):Trait<Shroud>() 的解析面随 Shroud 批(部分覆盖装配面;
-  // 消费面本批为空 —— 头注)
-  // Shroud (L213): the Trait<Shroud>() face lands with the Shroud batch
-  // (the partial-coverage assembly face; no consumers this batch — the
-  // header note).
+  // Shroud/FrozenActorLayer(L213-214):Initialize 后即解析(上游同点;
+  // GetShroud() 的懒解析缓存由此预填)
+  // Shroud/FrozenActorLayer (L213-214): resolved right after Initialize
+  // (upstream's own point; this pre-fills GetShroud()'s lazy-resolve
+  // cache).
+  p_shroud_ = p_player_actor_->TraitOrDefault<Shroud>();
+  p_frozen_actor_layer_ =
+      p_player_actor_->TraitOrDefault<FrozenActorLayer>();
 
   // Enable the bot logic on the host(L216-224) | Enable the bot logic on
   // the host (L216-224).
@@ -352,6 +364,24 @@ PlayerRelationship Player::RelationshipWith(const Player* other) const {
 void Player::PlayerDisconnected(Player& p) {
   for (auto* np : vec_notify_disconnected_)
     np->PlayerDisconnected(*p_player_actor_, p);
+}
+
+// ———— Shroud/FrozenActorLayer 懒解析(L56-57 的 => Owner.TraitOrDefault<T>
+//      形态;player actor 缺 trait 时 null —— 上游同值)————
+// ———— The Shroud/FrozenActorLayer lazy resolve (L56-57's =>
+//      Owner.TraitOrDefault<T> shape; null when the player actor lacks the
+//      trait — upstream's same value) ————
+Shroud* Player::GetShroud() const {
+  if (p_shroud_ == nullptr && p_player_actor_ != nullptr)
+    p_shroud_ = p_player_actor_->TraitOrDefault<Shroud>();
+  return p_shroud_;
+}
+
+FrozenActorLayer* Player::GetFrozenActorLayer() const {
+  if (p_frozen_actor_layer_ == nullptr && p_player_actor_ != nullptr)
+    p_frozen_actor_layer_ =
+        p_player_actor_->TraitOrDefault<FrozenActorLayer>();
+  return p_frozen_actor_layer_;
 }
 
 }  // namespace ora::sim

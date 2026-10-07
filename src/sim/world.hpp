@@ -428,6 +428,10 @@ class World final {
   /// WorldUtils.cs L77-95: ContainsTemporaryBlocker(cell, ignoreActor).
   bool ContainsTemporaryBlocker(CPos cell, Actor* ignore_actor = nullptr);
 
+  /// WorldUtils.cs L69-75:FindActorsInCircle(origin, r)(2D 距离)
+  /// WorldUtils.cs L69-75: FindActorsInCircle(origin, r) (2D distance).
+  std::vector<Actor*> FindActorsInCircle(const WPos& origin, const WDist& r);
+
  private:
   // C# internal(同程序集可见)的友元等价:Actor 构造调 NextAID
   friend class Actor;

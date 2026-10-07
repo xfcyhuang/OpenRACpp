@@ -153,6 +153,27 @@ class Actor final {
   /// Actor.cs L517-525: GetAllTargetTypes (the construct-order union).
   core::BitSet<TargetableType> GetAllTargetTypes() const;
 
+  /// Actor.cs L74:EnabledTargetablePositions(构造期物化;构造序)
+  /// Actor.cs L74: EnabledTargetablePositions (materialized at
+  /// construction; construct order).
+  std::span<ITargetablePositions* const> EnabledTargetablePositions() const {
+    return vec_enabled_targetable_positions_;
+  }
+
+  /// 构造期物化的世界坐标面(上游 enabledTargetablePositions
+  /// .SelectMany(TargetablePositions);DamageWarhead/Bullet 的直连消费)
+  /// The construction-time world-positions face (upstream's
+  /// enabledTargetablePositions.SelectMany(TargetablePositions); the
+  /// direct consumer of DamageWarhead/Bullet).
+  const std::vector<WPos>& EnabledTargetableWorldPositions() const {
+    return vec_enabled_targetable_world_positions_;
+  }
+
+  /// Actor.cs L550-556:GetTargetablePositions(空集回落中心位)
+  /// Actor.cs L550-556: GetTargetablePositions (the empty set falls back
+  /// to the center).
+  std::vector<WPos> GetTargetablePositions() const;
+
   /// Actor.cs L530-538:GetEnabledTargetTypes(启用者并集)
   /// Actor.cs L530-538: GetEnabledTargetTypes (the enabled union).
   core::BitSet<TargetableType> GetEnabledTargetTypes() const;
@@ -194,6 +215,22 @@ class Actor final {
   /// rejectsOrdersTraits.Length == 0 branch), the empty-set equivalent
   /// face (wired with the trait batch; registered in COVERAGE).
   bool AcceptsOrder(std::string_view /*order_string*/) const { return true; }
+
+  /// Actor.cs L509-510:EffectiveOwner —— EffectiveOwner trait 未移植,
+  /// 查询空集 null(上游无该 trait 时同值;trait 批接线;COVERAGE 登记)
+  /// Actor.cs L509-510: EffectiveOwner — the EffectiveOwner trait is
+  /// unported, the empty query yields null (upstream's same value without
+  /// the trait; wired with the trait batch; registered in COVERAGE).
+  IEffectiveOwner* EffectiveOwner() const {
+    return p_effective_owner_;
+  }
+
+  /// Actor.cs L511 侧:ShowTargetLines —— WorldRenderer 的 target-line
+  /// 渲染面随 Phase 6(Settings 面;上游 WorldRenderer 已建时才可见)
+  /// Actor.cs L511's neighborhood: ShowTargetLines — the WorldRenderer
+  /// target-line face lands with Phase 6 (the Settings surface; upstream
+  /// is observable only once the WorldRenderer exists).
+  void ShowTargetLines() const {}
 
   // ———— Tick(L272-290)————
   void Tick();
@@ -294,6 +331,12 @@ class Actor final {
   std::vector<ICrushable*> vec_crushables_;        // crushables(构造序)
   std::vector<IVisibilityModifier*> vec_visibility_modifiers_;  // 构造序
   IDefaultVisibility* p_default_visibility_ = nullptr;  // 单值,后者覆写
+  std::vector<ITargetablePositions*> vec_all_targetable_positions_;  // L200
+                                    // 面(全量;构造序)
+  std::vector<ITargetablePositions*>
+      vec_enabled_targetable_positions_;  // L74(构造期 IsTraitEnabled 过滤)
+  std::vector<WPos> vec_enabled_targetable_world_positions_;  // L207 物化
+  IEffectiveOwner* p_effective_owner_ = nullptr;  // L509(单值,后者覆写)
   bool b_created_ = false;
 };
 

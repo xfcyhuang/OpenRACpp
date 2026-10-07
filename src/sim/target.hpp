@@ -62,7 +62,7 @@ struct Target {
   SubCell sub_cell = SubCell::FullCell;
   int generation = 0;                     // Actor 代际
 
-  /// Target.cs L33-44:Terrain(pos)
+  /// Target.cs L87:FromPos(p) | Target.cs L87: FromPos(p).
   static Target FromPos(const WPos& p) {
     Target t;
     t.type = TargetType::Terrain;
@@ -70,6 +70,13 @@ struct Target {
     t.vec_terrain_positions = std::vector<WPos>{p};
     return t;
   }
+
+  /// Target.cs L87-88:FromCell(w, c, subCell)(CenterOfSubCell 依赖已随
+  /// Map 批解除 —— D28)
+  /// Target.cs L87-88: FromCell(w, c, subCell) (the CenterOfSubCell
+  /// dependency unlocked with the Map batch — D28).
+  static Target FromCell(const class World& w, CPos c,
+                         SubCell sub_cell = SubCell::FullCell);
 
   /// Target.cs L59-70:Actor(a, generation)
   static Target FromActor(const Actor* a);
@@ -103,6 +110,10 @@ struct Target {
   /// Target.cs L110-125:IsValidFor(targeter)
   /// Target.cs L110-125: IsValidFor(targeter).
   bool IsValidFor(const Actor* targeter) const;
+
+  /// Target.cs L131-152:RequiresForceFire(全有或全无)
+  /// Target.cs L131-152: RequiresForceFire (all or nothing).
+  bool RequiresForceFire() const;
 
   /// Target.cs L86:FromTargetPositions(t)(地形化快照)
   /// Target.cs L86: FromTargetPositions(t) (the terrain-ized snapshot).

@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/ActorExts.cs @b6fc03f L21-83(逐语义重写;
-//          AppearsHostileTo/ClosestCell 随消费批)+ WorldUtils.cs L26-45
+//          AppearsHostileTo 已随第四批落地;ClosestCell 随消费批)+ WorldUtils.cs L26-45
 //          的 ClosestToIgnoringPath 位置面
 //          Verbatim-semantics rewrite (AppearsHostileTo/ClosestCell land
 //          with their consumers) + the ClosestToIgnoringPath position face
@@ -41,6 +41,26 @@ inline bool AppearsFriendlyTo(sim::Actor& self, sim::Actor& to_actor) {
   const sim::PlayerRelationship stance =
       to_actor.Owner()->RelationshipWith(self.Owner());
   return stance == sim::PlayerRelationship::Ally;
+}
+
+/// ActorExts.cs L46-55:AppearsHostileTo(EffectiveOwner 伪装面同
+/// AppearsFriendlyTo 的空集等价;IgnoresDisguise trait 未移植 ——
+/// COVERAGE 登记)
+/// ActorExts.cs L46-55: AppearsHostileTo (the EffectiveOwner disguise
+/// face keeps the same empty-set equivalence as AppearsFriendlyTo; the
+/// IgnoresDisguise trait is unported — registered in COVERAGE).
+inline bool AppearsHostileTo(sim::Actor& self, sim::Actor& to_actor) {
+  const sim::PlayerRelationship stance =
+      to_actor.Owner()->RelationshipWith(self.Owner());
+  if (stance == sim::PlayerRelationship::Ally)
+    return false;
+
+  if (self.EffectiveOwner() != nullptr && self.EffectiveOwner()->Disguised())
+    return to_actor.Owner()->RelationshipWith(
+               self.EffectiveOwner()->Owner()) ==
+           sim::PlayerRelationship::Enemy;
+
+  return stance == sim::PlayerRelationship::Enemy;
 }
 
 /// ActorExts.cs L61-75:NotifyBlocker(position)—— GetActorsAt 全员

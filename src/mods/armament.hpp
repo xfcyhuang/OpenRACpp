@@ -109,6 +109,11 @@ class Armament final : public TraitBase,
   }
 
   const game::WeaponInfo* Weapon = nullptr;   // L115
+
+  /// Info 值面(上游 a.Info.Name / TargetRelationships / Cursor 族消费)
+  /// The Info value face (upstream's a.Info.Name / TargetRelationships /
+  /// Cursor-family consumers).
+  const ArmamentInfoData& InfoData() const { return info_; }
   std::vector<Barrel> vec_barrels;            // L116 Barrels
   WDist Recoil;                               // L137
   int FireDelay = 0;                          // L138

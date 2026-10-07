@@ -33,6 +33,10 @@ class WorldRenderer;
 
 namespace ora::sim {
 
+class Player;      // FrozenActor 域键(FrozenActorLayer 批)| the FrozenActor
+                   // domain key (the FrozenActorLayer batch).
+class FrozenActor;  // 同上 | same as above.
+
 /// ActorBoundsPair(ScreenMap.cs L21-29)
 /// ActorBoundsPair (ScreenMap.cs L21-29).
 struct ActorBoundsPair {
@@ -66,9 +70,15 @@ class ScreenMap final : public TraitBase, public IWorldLoaded {
   void Update(IEffect* effect, const WPos& position, const gfx::Sprite& sprite);
   void Remove(IEffect* effect);
 
-  /// FrozenActor 面(L84-94/146-160/203-209)随 FrozenActorLayer 批
-  /// The FrozenActor faces (L84-94/146-160/203-209) land with the
-  /// FrozenActorLayer batch.
+  // ———— FrozenActor 面(L84-94/146-160/203-209;FrozenActorLayer 批)————
+  // ———— The FrozenActor faces (L84-94/146-160/203-209; the
+  //      FrozenActorLayer batch) ————
+  void AddOrUpdateFrozen(Player* viewer, FrozenActor* fa);
+  void RemoveFrozen(Player* viewer, FrozenActor* fa);
+  std::vector<FrozenActor*> FrozenActorsAtMouse(Player* viewer,
+                                                int2 world_px);
+  std::vector<FrozenActor*> RenderableFrozenActorsInBox(Player* p, int2 a,
+                                                        int2 b);
 
   /// ActorsAtMouse(L162-173;MouseInput 重载随 UI 输入装配批) | the
   /// ActorsAtMouse face (the MouseInput overloads land with the UI-input
@@ -80,14 +90,18 @@ class ScreenMap final : public TraitBase, public IWorldLoaded {
   std::vector<Actor*> RenderableActorsInBox(int2 a, int2 b);
   std::vector<IEffect*> RenderableEffectsInBox(int2 a, int2 b);
 
-  /// TickRender(L211-271;Actor 面半) | TickRender (L211-271; the Actor
-  /// half).
+  /// TickRender(L211-271;Actor 面 + FrozenActor 面)
+  /// TickRender (L211-271; the Actor + FrozenActor faces).
   void TickRender();
 
-  /// RenderBounds/MouseBounds(L273-285;FrozenActor 项随该批) | the bounds
-  /// enumerations (the FrozenActor items land with that batch).
+  /// RenderBounds/MouseBounds(L273-285;viewer 重载 = FrozenActor 项并入;
+  /// viewer == nullptr = 仅 Actor/IEffect 项)
+  /// RenderBounds/MouseBounds (L273-285; the viewer overloads merge the
+  /// FrozenActor items; viewer == nullptr keeps the Actor/IEffect items).
   std::vector<Rectangle> RenderBounds() const;
   std::vector<Polygon> MouseBounds() const;
+  std::vector<Rectangle> RenderBounds(Player* viewer) const;
+  std::vector<Polygon> MouseBounds(Player* viewer) const;
 
   /// Actor 界源注入(上游 a.MouseBounds(worldRenderer)/a.ScreenBounds(
   /// worldRenderer) 的渲染缓存面;空缺省 = 不注册 —— 见头注)
@@ -111,11 +125,27 @@ class ScreenMap final : public TraitBase, public IWorldLoaded {
   }
 
   int bin_size_;
+  int width_;    // 分区宽高(FrozenActor 惰性缓存复用)| the partition
+                 // dimensions (reused by the FrozenActor lazy caches).
+  int height_;
   SpatiallyPartitioned<Actor*> partitioned_mouse_actors_;
   SpatiallyPartitioned<Actor*> partitioned_renderable_actors_;
   SpatiallyPartitioned<IEffect*> partitioned_renderable_effects_;
 
+  // FrozenActor 域(L46-58:Cache<Player,…> 惰性缓存;键序不影响语义 ——
+  // 仅单 viewer 访问)
+  // The FrozenActor domain (L46-58: the Cache<Player,…> lazy caches; the
+  // key order carries no semantics — single-viewer access alone).
+  struct FrozenPlayerCaches {
+    SpatiallyPartitioned<FrozenActor*> partitioned_mouse;
+    SpatiallyPartitioned<FrozenActor*> partitioned_renderable;
+    std::vector<FrozenActor*> vec_add_or_update;
+    std::vector<FrozenActor*> vec_remove;
+  };
+  FrozenPlayerCaches& FrozenCachesOf(Player* viewer);
+
   std::unordered_map<Actor*, ActorBoundsPair> map_partitioned_mouse_actor_bounds_;
+  std::unordered_map<Player*, FrozenPlayerCaches> map_frozen_caches_;
 
   // Updates are done in one pass to ensure all bound changes have been
   // applied(上游注释;HashSet → 插入序 vector)

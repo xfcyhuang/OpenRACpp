@@ -172,6 +172,8 @@ add_library(ora_sim STATIC
   src/sim/spatially_partitioned.cpp
   src/sim/screen_map.cpp
   src/sim/selection.cpp
+  src/sim/shroud.cpp
+  src/sim/frozen_actor_layer.cpp
   src/sim/actor_map.cpp
   src/sim/control_groups.cpp
   src/sim/player.cpp
@@ -298,6 +300,17 @@ add_library(ora_mods STATIC
   src/mods/body_orientation.cpp
   src/mods/mobile.cpp
   src/mods/move_activities.cpp
+  src/mods/attack_activity.cpp
+  src/mods/attack_base.cpp
+  src/mods/auto_target.cpp
+  src/mods/affects_shroud.cpp
+  src/mods/armor.cpp
+  src/mods/blocks_projectiles.cpp
+  src/mods/hit_shape.cpp
+  src/mods/hit_shapes.cpp
+  src/mods/projectiles.cpp
+  src/mods/targetable.cpp
+  src/mods/warheads.cpp
   src/mods/unit_order_generator.cpp
   src/mods/pathfinding/cell_info_layer_pool.cpp
   src/mods/pathfinding/dense_path_graph.cpp
@@ -507,13 +520,25 @@ target_link_libraries(move_test PRIVATE
   ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
   ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
   ora_miniz ora_sdl2 ora_openal ora_freetype)
+
+# Phase 5 第四批验收:Shroud/FrozenActorLayer/AttackBase 族/AutoTarget/
+# 弹丸/战头(真 ra 全链)
+# The Phase 5 batch-4 acceptance: Shroud/FrozenActorLayer/the AttackBase
+# family/AutoTarget/projectiles/warheads (the real ra full chain).
+add_executable(attack_test tests/attack_test.cpp)
 ora_link_std(move_test)
+target_link_libraries(attack_test PRIVATE
+  ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
+  ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
+  ora_miniz ora_sdl2 ora_openal ora_freetype)
+ora_link_std(attack_test)
 add_custom_command(TARGET move_test POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:move_test>
           ${CMAKE_SOURCE_DIR}/third_party/OpenAL/bin/OpenAL32.dll $<TARGET_FILE_DIR:move_test>
           ${CMAKE_SOURCE_DIR}/third_party/FreeType/bin/freetype6.dll $<TARGET_FILE_DIR:move_test>)
 add_test(NAME move_test COMMAND move_test ${ORA_UPSTREAM_ROOT})
+add_test(NAME attack_test COMMAND attack_test ${ORA_UPSTREAM_ROOT})
 
 add_test(NAME path_test COMMAND path_test ${ORA_UPSTREAM_ROOT})
 

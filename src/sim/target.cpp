@@ -3,11 +3,27 @@
 #include "sim/target.hpp"
 
 #include "sim/actor.hpp"
+#include "sim/frozen_actor_layer.hpp"
 #include "sim/player.hpp"
+#include "sim/world.hpp"
 
 namespace ora::sim {
 
 const std::vector<Target> Target::None = {};
+
+Target Target::FromCell(const World& w, CPos c, SubCell sub_cell) {
+  // L87-88 / L46-57
+  Target t;
+  t.type = TargetType::Terrain;
+  t.terrain_center_position =
+      const_cast<World&>(w).Map().CenterOfSubCell(c, sub_cell);
+  t.vec_terrain_positions = std::vector<WPos>{t.terrain_center_position};
+  t.b_has_cell = true;
+  t.cell = c;
+  t.b_has_sub_cell = true;
+  t.sub_cell = sub_cell;
+  return t;
+}
 
 Target Target::FromActor(const Actor* a) {
   // L88
@@ -47,13 +63,14 @@ TargetType Target::Type() const {
 }
 
 WPos Target::CenterPosition() const {
-  // L155-172(FrozenActor 中心位置 Phase 5 Shroud 链)
+  // L155-172
   switch (Type()) {
     case TargetType::Actor:
       return ActorPtr->CenterPosition();
     case TargetType::Terrain:
       return terrain_center_position;
     case TargetType::FrozenActor:
+      return FrozenActorPtr->CenterPosition;
     case TargetType::Invalid:
     default:
       throw std::runtime_error(
@@ -66,15 +83,17 @@ const std::vector<WPos>& Target::Positions() const {
   static const std::vector<WPos> no_positions;
   switch (Type()) {
     case TargetType::Actor:
-      // GetTargetablePositions(ITargetablePositions trait 面,Phase 5);
-      // 本期回落中心位 —— COVERAGE 登记
-      // GetTargetablePositions (the ITargetablePositions trait face,
-      // Phase 5); falls back to the center meanwhile — in COVERAGE.
-      // 不可变性:返回静态中心缓存会引入生命周期问题,此处按上游语义
-      // 经 thread_local 单槽承载(调用方立即消费的约定不变)
-      // thread_local single slot (callers consume immediately, matching
-      // the upstream convention).
-      // 注:中心位 = Actor.CenterPosition(IOccupySpace),Phase 3 直接计算
+      // GetTargetablePositions(ITargetablePositions trait 面;HitShape 批
+      // 接线)。空集(无 HitShape)回落中心位 —— 上游 [CenterPosition] 同
+      // 值;thread_local 单槽承载(调用方立即消费的约定不变)
+      // GetTargetablePositions (the ITargetablePositions trait face; wired
+      // with the HitShape batch). The empty set (no HitShape) falls back to
+      // the center — upstream's [CenterPosition] value; carried by a
+      // thread_local single slot (callers consume immediately, the
+      // unchanged convention).
+      if (!ActorPtr->EnabledTargetablePositions().empty())
+        return ActorPtr->EnabledTargetableWorldPositions();
+
       {
         thread_local std::vector<WPos> actor_positions;
         actor_positions.clear();
@@ -84,6 +103,10 @@ const std::vector<WPos>& Target::Positions() const {
     case TargetType::Terrain:
       return vec_terrain_positions;
     case TargetType::FrozenActor:
+      // TargetablePositions may be null if it is Invalid(上游注释)
+      if (FrozenActorPtr->IsValid())
+        return FrozenActorPtr->TargetablePositions();
+      return no_positions;
     case TargetType::Invalid:
     default:
       return no_positions;
@@ -112,7 +135,13 @@ int HashTarget(const Target& t) {
       return static_cast<int>(t.ActorPtr->ActorID() << 16) * 0x567;
 
     case TargetType::FrozenActor:
-      // FrozenActor.Actor(Phase 5 Shroud 链);未接线时按上游 null 分支 → 0
+      // FrozenActor.Actor != null 时回退 FromActor,否则 Invalid(Sync.cs
+      // L138-159 的 fa.Actor 分支)
+      // Fall back to FromActor when FrozenActor.Actor != null, otherwise
+      // Invalid (Sync.cs L138-159's fa.Actor branch).
+      if (t.FrozenActorPtr->ActorPtr() != nullptr)
+        return static_cast<int>(
+                   t.FrozenActorPtr->ActorPtr()->ActorID() << 16) * 0x567;
       return 0;
 
     case TargetType::Terrain:
@@ -133,11 +162,8 @@ bool Target::IsValidFor(const Actor* targeter) const {
     case TargetType::Actor:
       return ActorPtr->IsTargetableBy(const_cast<Actor&>(*targeter));
     case TargetType::FrozenActor:
-      // FrozenActor 的 IsValid/Visible/Hidden 面随 Shroud 批(COVERAGE 登记;
-      // 无实例 → 不可达分支)
-      // The FrozenActor IsValid/Visible/Hidden faces ride the Shroud batch
-      // (registered in COVERAGE; no instances → the unreachable branch).
-      return false;
+      return FrozenActorPtr->IsValid() && FrozenActorPtr->Visible() &&
+             !FrozenActorPtr->Hidden();
     case TargetType::Invalid:
       return false;
     case TargetType::Terrain:
@@ -146,28 +172,51 @@ bool Target::IsValidFor(const Actor* targeter) const {
   }
 }
 
+bool Target::RequiresForceFire() const {
+  // L131-152:全有或全无
+  // L131-152: all or nothing.
+  if (ActorPtr == nullptr)
+    return false;
+
+  // PERF: Avoid LINQ.(上游注释)
+  bool b_is_targetable = false;
+  for (ITargetable* targetable : ActorPtr->Targetables()) {
+    auto* targetable_base = dynamic_cast<TraitBase*>(targetable);
+    if (targetable_base != nullptr && !targetable_base->IsTraitEnabled())
+      continue;
+
+    b_is_targetable = true;
+    if (!targetable->RequiresForceFire())
+      return false;
+  }
+
+  return b_is_targetable;
+}
+
 Target Target::Recalculate(const Player* viewer,
                            bool& b_target_is_hidden_actor) const {
-  // TargetExtensions.cs L31-81(Shroud/FrozenActorLayer 未移植的等价分支)
-  // TargetExtensions.cs L31-81 (the equivalent branches under the
-  // not-yet-ported Shroud/FrozenActorLayer).
+  // TargetExtensions.cs L31-81(全分支;FrozenActorLayer 已就位)
+  // TargetExtensions.cs L31-81 (every branch; the FrozenActorLayer is in
+  // place).
   b_target_is_hidden_actor = false;
 
   // Check whether the target has transformed into something else
-  // HACK: This relies on knowing the internal implementation details of Target
+  // HACK: This relies on knowing the internal implementation details of
+  // Target(上游注释)
   if (Type() == TargetType::Invalid && ActorPtr != nullptr &&
       ActorPtr->ReplacedByActor() != nullptr)
     return FromActor(ActorPtr->ReplacedByActor());
 
-  // Bot-controlled units aren't yet capable of understanding visibility changes
+  // Bot-controlled units aren't yet capable of understanding visibility
+  // changes(上游注释)
   if (viewer->IsBot()) {
     // Prevent that bot-controlled units endlessly fire at frozen actors.
+    // (上游注释)
     if (Type() == TargetType::FrozenActor) {
-      // FrozenActor.Actor 面随 Shroud 批:上游 fa.Actor != null 时回退
-      // FromActor,否则 Invalid —— 本批无实例,取 Invalid 分支(COVERAGE)
-      // The FrozenActor.Actor face rides the Shroud batch: upstream falls
-      // back to FromActor when fa.Actor != null, otherwise Invalid — no
-      // instances this batch, so the Invalid branch (COVERAGE).
+      if (FrozenActorPtr->ActorPtr() != nullptr)
+        return FromActor(FrozenActorPtr->ActorPtr());
+
+      // Original actor was killed
       return Invalid();
     }
 
@@ -177,23 +226,30 @@ Target Target::Recalculate(const Player* viewer,
   if (Type() == TargetType::Actor) {
     // Actor has been hidden under the fog
     if (!ActorPtr->CanBeViewedByPlayer(const_cast<Player*>(viewer))) {
-      // FrozenActorLayer.FromID 面随 Shroud 批:上游 frozen != null 时换
-      // FromFrozenActor —— 本批无层,落 targetIsHiddenActor = true 分支
-      // (COVERAGE 登记)
-      // The FrozenActorLayer.FromID face rides the Shroud batch: upstream
-      // swaps in FromFrozenActor when frozen != null — no layer this
-      // batch, so the targetIsHiddenActor = true branch lands
-      // (registered in COVERAGE).
+      // Replace with FrozenActor if applicable, otherwise return target
+      // unmodified(上游注释)
+      FrozenActorLayer* layer = viewer->GetFrozenActorLayer();
+      if (layer != nullptr) {
+        FrozenActor* frozen = layer->FromID(ActorPtr->ActorID());
+        if (frozen != nullptr)
+          return FromFrozenActor(frozen);
+      }
+
       b_target_is_hidden_actor = true;
       return *this;
     }
   } else if (Type() == TargetType::FrozenActor) {
-    // FrozenActor 可见性/换回 Actor 面随 Shroud 批;本批无实例,保持原样
-    // (上游 Visible/IsValid 真分支)
-    // The FrozenActor visibility / swap-back-to-Actor faces ride the Shroud
-    // batch; no instances this batch, so the target passes through
-    // (upstream's Visible/IsValid true branch).
-    return *this;
+    // Frozen actor has been revealed
+    if (!FrozenActorPtr->Visible() || !FrozenActorPtr->IsValid()) {
+      // Original actor is still alive
+      if (FrozenActorPtr->ActorPtr() != nullptr &&
+          FrozenActorPtr->ActorPtr()->CanBeViewedByPlayer(
+              const_cast<Player*>(viewer)))
+        return FromActor(FrozenActorPtr->ActorPtr());
+
+      // Original actor was killed while hidden
+      return Invalid();
+    }
   }
 
   return *this;

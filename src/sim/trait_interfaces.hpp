@@ -70,6 +70,9 @@ class Player;
 class World;
 class Activity;
 class TypeDictionary;
+class TraitBase;  // INotifyAiming 的参数域(定义于本文件后段)
+                   // INotifyAiming's parameter domain (defined later in
+                   // this file).
 struct Target;
 
 /// Player.cs L37 的位标签 + LongBitSet 全量位集(core/long_bitset.hpp)
@@ -595,6 +598,14 @@ constexpr PlayerRelationship operator|(PlayerRelationship a,
 constexpr TargetModifiers operator|(TargetModifiers a, TargetModifiers b) {
   return static_cast<TargetModifiers>(static_cast<std::int32_t>(a) |
                                       static_cast<std::int32_t>(b));
+}
+
+/// TargetModifiers 的位测试(上游 modifiers.HasModifier(...) 的等价面)
+/// The bit test of TargetModifiers (the equivalent of upstream's
+/// modifiers.HasModifier(...)).
+constexpr bool HasModifier(TargetModifiers m, TargetModifiers flag) {
+  return (static_cast<std::int32_t>(m) &
+          static_cast<std::int32_t>(flag)) != 0;
 }
 
 /// TraitsInterfaces.cs L234-268:IActorMap(实现 = Mods.Common ActorMap)
@@ -1133,6 +1144,87 @@ class ITemporaryBlocker {
   virtual ~ITemporaryBlocker() = default;
   virtual bool CanRemoveBlockage(Actor& self, Actor& blocking) = 0;
   virtual bool IsBlocking(Actor& self, CPos cell) = 0;
+};
+
+// ———— 第四批接口增量(Mods.Common 的攻击/战争迷雾面)————
+// ———— The batch-4 interface additions (the Mods.Common attack/fog faces)
+//      ————
+
+/// Mods.Common INotifyAiming(AttackBase 的 aiming 通知;attack 参数 =
+/// AttackBase trait 的公共基引用)
+/// Mods.Common's INotifyAiming (AttackBase's aiming notifications; the
+/// attack parameter = a common-base reference of the AttackBase trait).
+class INotifyAiming {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyAiming;
+  virtual ~INotifyAiming() = default;
+  virtual void StartedAiming(Actor& self, TraitBase* attack) = 0;
+  virtual void StoppedAiming(Actor& self, TraitBase* attack) = 0;
+};
+
+/// Mods.Common IOverrideAutoTarget(tryGetAutoTargetOverride 的 Try 形态:
+/// out 参数 → 返回 optional)
+/// Mods.Common's IOverrideAutoTarget (TryGetAutoTargetOverride's Try
+/// shape: the out parameter → a returned optional).
+class IOverrideAutoTarget {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IOverrideAutoTarget;
+  virtual ~IOverrideAutoTarget() = default;
+  virtual std::optional<struct Target> TryGetAutoTargetOverride(
+      Actor& self) = 0;
+};
+
+/// Mods.Common IDisableEnemyAutoTarget
+/// Mods.Common's IDisableEnemyAutoTarget.
+class IDisableEnemyAutoTarget {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IDisableEnemyAutoTarget;
+  virtual ~IDisableEnemyAutoTarget() = default;
+  virtual bool DisableEnemyAutoTarget(Actor& self, Actor& attacker) = 0;
+};
+
+/// Mods.Common IRevealsShroudModifier(GetRevealsShroudModifier)
+/// Mods.Common's IRevealsShroudModifier (GetRevealsShroudModifier).
+class IRevealsShroudModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IRevealsShroudModifier;
+  virtual ~IRevealsShroudModifier() = default;
+  virtual int GetRevealsShroudModifier() const = 0;
+};
+
+/// Mods.Common ITargetableCells(HitShape 的 UseTargetableCellsOffsets 面)
+/// Mods.Common's ITargetableCells (HitShape's
+/// UseTargetableCellsOffsets face).
+class ITargetableCells {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ITargetableCells;
+  virtual ~ITargetableCells() = default;
+  virtual std::vector<std::pair<CPos, SubCell>> TargetableCells() = 0;
+};
+
+/// Mods.Common IBlocksProjectilesInfo | Mods.Common's
+/// IBlocksProjectilesInfo.
+class IBlocksProjectilesInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IBlocksProjectilesInfo;
+};
+
+/// Mods.Common IBlocksProjectiles(BlockingHeight/ValidRelationships)
+/// Mods.Common's IBlocksProjectiles (BlockingHeight/
+/// ValidRelationships).
+class IBlocksProjectiles {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IBlocksProjectiles;
+  virtual ~IBlocksProjectiles() = default;
+  virtual WDist BlockingHeight() const = 0;
+  virtual PlayerRelationship ValidRelationships() const = 0;
 };
 
 /// trait 运行时对象的公共基(C# object 等价;TypeDictionary/TraitDictionary

@@ -726,6 +726,20 @@ bool World::RulesContainTemporaryBlocker() {
   return b_rules_contain_temporary_blocker_;
 }
 
+std::vector<Actor*> World::FindActorsInCircle(const WPos& origin,
+                                                const WDist& r) {
+  // WorldUtils.cs L69-75
+  // Target ranges are calculated in 2D, so ignore height differences
+  // (上游注释)
+  const WVec vec{r, r, WDist{0}};
+  std::vector<Actor*> vec_out;
+  for (Actor* a : ptr_actor_map_->ActorsInBox(origin - vec, origin + vec))
+    if ((a->CenterPosition() - origin).HorizontalLengthSquared() <=
+        r.LengthSquared())
+      vec_out.push_back(a);
+  return vec_out;
+}
+
 bool World::ContainsTemporaryBlocker(CPos cell, Actor* ignore_actor) {
   // WorldUtils.cs L77-95
   if (!RulesContainTemporaryBlocker())

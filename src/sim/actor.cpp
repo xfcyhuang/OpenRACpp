@@ -162,7 +162,29 @@ void Actor::AddTrait(TraitBase* trait) {
     else if (entry.type_id == IDefaultVisibility::kTypeId)
       p_default_visibility_ =
           static_cast<IDefaultVisibility*>(entry.upcast(trait));
+    else if (entry.type_id == ITargetablePositions::kTypeId) {
+      // Actor.cs L200 面:全量收集(构造序);enabled 过滤 + 世界坐标
+      // 物化延至 Initialize 头 —— 上游在 ctor 末(全部 trait 就绪后)一次性
+      // 物化,C++ 的逐 trait AddTrait 需等价锚点
+      // Actor.cs L200's face: the full collection (construct order); the
+      // enabled filter + the world-positions materialization defer to the
+      // head of Initialize — upstream materializes once at the ctor tail
+      // (after every trait is in), and the per-trait AddTrait needs the
+      // equivalent anchor.
+      vec_all_targetable_positions_.push_back(
+          static_cast<ITargetablePositions*>(entry.upcast(trait)));
+    } else if (entry.type_id == IEffectiveOwner::kTypeId)
+      p_effective_owner_ =
+          static_cast<IEffectiveOwner*>(entry.upcast(trait));
   }
+}
+
+std::vector<WPos> Actor::GetTargetablePositions() const {
+  // L550-556
+  if (!vec_enabled_targetable_positions_.empty())
+    return vec_enabled_targetable_world_positions_;
+
+  return std::vector<WPos>{CenterPosition()};
 }
 
 core::BitSet<TargetableType> Actor::GetAllTargetTypes() const {
@@ -201,6 +223,22 @@ bool Actor::IsTargetableBy(Actor& by_actor) const {
 void Actor::Initialize(bool add_to_world) {
   // L213-270
   b_created_ = true;
+
+  // Actor.cs L200-207 的物化尾(enabled 过滤 + SelectMany 世界坐标;
+  // 全部 trait 已 AddTrait —— 上游 ctor 末的等价锚点)
+  // The L200-207 materialization tail (the enabled filter + the
+  // SelectMany world positions; every trait has been AddTrait'd — the
+  // equivalent anchor of upstream's ctor tail).
+  vec_enabled_targetable_positions_.clear();
+  vec_enabled_targetable_world_positions_.clear();
+  for (ITargetablePositions* positions : vec_all_targetable_positions_) {
+    auto* base = dynamic_cast<TraitBase*>(positions);
+    if (base == nullptr || base->IsTraitEnabled()) {
+      vec_enabled_targetable_positions_.push_back(positions);
+      for (const WPos& p : positions->TargetablePositions(*this))
+        vec_enabled_targetable_world_positions_.push_back(p);
+    }
+  }
 
   // Make sure traits are usable for condition notifiers
   for (auto* t : TraitsImplementing<INotifyCreated>())

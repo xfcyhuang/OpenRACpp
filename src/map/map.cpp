@@ -901,7 +901,13 @@ std::span<const PPos> Map::ProjectedCellsCovering(MPos uv) {
 
   if (!ptr_cell_projection_->Contains(uv))
     return {};
-  return ptr_cell_projection_->Get(uv);
+  // Get 为按值返回(CellLayer 语义)—— span 须锚定存储本体(GetRef),
+  // 否则悬垂于临时(Shroud.IsVisible 族的首个消费面暴露)
+  // Get returns by value (the CellLayer semantics) — the span must anchor
+  // the stored object itself (GetRef), otherwise it dangles over the
+  // temporary (exposed by the Shroud.IsVisible family, its first consumer).
+  const std::vector<PPos>& vec_cells = ptr_cell_projection_->GetRef(uv);
+  return std::span<const PPos>{vec_cells};
 }
 
 std::vector<MPos> Map::Unproject(PPos puv) {

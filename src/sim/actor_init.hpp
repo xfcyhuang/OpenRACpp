@@ -165,6 +165,10 @@ class LocationInit : public ValueActorInit<CPos>,
                 gen::TypeId::OpenRA_ISingleInstanceInit);
   explicit LocationInit(CPos value)
       : ValueActorInit<CPos>(value) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
 };
 
 /// OwnerInit(ActorInitializer.cs L223-262):Player 或 InternalName 延迟解析
