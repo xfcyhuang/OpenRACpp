@@ -27,4 +27,36 @@ Player* OwnerInit::Value(World& world) const {
                            str_internal_name_ + "'.");
 }
 
+
+
+InitRegistry& InitRegistry::Instance() {
+  static InitRegistry instance;
+  return instance;
+}
+
+void InitRegistry::Register(std::string str_init_name,
+                            InitFactory fn_factory) {
+  vec_entries_.emplace_back(std::move(str_init_name), std::move(fn_factory));
+}
+
+ActorInit* InitRegistry::CreateOrThrow(
+    const std::string& str_init_name, const yaml::MiniYaml& yaml_value,
+    const std::string& str_instance_name) const {
+  for (const auto& [name, factory] : vec_entries_)
+    if (name == str_init_name)
+      return factory(yaml_value, str_instance_name);
+
+  // InvalidDataException 文本逐字(ActorReference.cs L56)
+  // InvalidDataException's text verbatim (ActorReference.cs L56).
+  throw std::runtime_error("Unknown initializer type '" + str_init_name +
+                           "Init'");
+}
+
+bool InitRegistry::Contains(std::string_view str_init_name) const {
+  for (const auto& [name, factory] : vec_entries_)
+    if (name == str_init_name)
+      return true;
+  return false;
+}
+
 }  // namespace ora::sim

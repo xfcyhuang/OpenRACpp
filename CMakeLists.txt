@@ -336,7 +336,15 @@ add_library(ora_mods STATIC
   src/mods/stores_resources.cpp
   src/mods/harvester.cpp
   src/mods/harvest_activities.cpp
-  src/mods/refinery.cpp)
+  src/mods/refinery.cpp
+  src/mods/conditions.cpp
+  src/mods/external_condition.cpp
+  src/mods/cloak.cpp
+  src/mods/experience.cpp
+  src/mods/capture.cpp
+  src/mods/selectable.cpp
+  src/mods/spawn_map_actors.cpp
+  src/mods/trait_registry_batch7.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats)
 ora_link_std(ora_mods)
 
@@ -565,6 +573,18 @@ add_custom_command(TARGET move_test POST_BUILD
           ${CMAKE_SOURCE_DIR}/third_party/OpenAL/bin/OpenAL32.dll $<TARGET_FILE_DIR:move_test>
           ${CMAKE_SOURCE_DIR}/third_party/FreeType/bin/freetype6.dll $<TARGET_FILE_DIR:move_test>)
 add_test(NAME move_test COMMAND move_test ${ORA_UPSTREAM_ROOT})
+if(EXISTS ${CMAKE_SOURCE_DIR}/tests/condition_test.cpp)
+add_executable(condition_test tests/condition_test.cpp)
+ora_link_std(condition_test)
+target_link_libraries(condition_test PRIVATE
+  ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
+  ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
+  ora_miniz ora_sdl2 ora_openal ora_freetype)
+ora_link_std(condition_test)
+add_test(NAME condition_test COMMAND condition_test ${ORA_UPSTREAM_ROOT})
+set_tests_properties(condition_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
+endif()
+
 add_executable(resource_test tests/resource_test.cpp)
 ora_link_std(resource_test)
 target_link_libraries(resource_test PRIVATE

@@ -44,6 +44,13 @@ import std;
 #include "mods/stores_resources.hpp"
 #include "mods/harvester.hpp"
 #include "mods/refinery.hpp"
+#include "mods/conditions.hpp"
+#include "mods/external_condition.hpp"
+#include "mods/cloak.hpp"
+#include "mods/experience.hpp"
+#include "mods/capture.hpp"
+#include "mods/selectable.hpp"
+#include "mods/spawn_map_actors.hpp"
 #include "net/session.hpp"
 #include "sim/actor.hpp"
 #include "sim/actor_map.hpp"
@@ -821,6 +828,12 @@ void RegisterCommonTraits() {
             data.ValidateResources(*init.Self().Info());
           return arena.Create<Harvester>(init, data);
         });
+
+    // ———— 第七批注册(独立翻译单元;条件/Cloak/经验/捕获/选择/摆位)————
+    // ———— The batch-7 registration (a separate translation unit;
+    //      conditions/cloak/experience/capture/selectable/placement) ————
+
+    RegisterCommonTraitsBatch7();
 
     return true;
   }();

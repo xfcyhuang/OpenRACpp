@@ -1649,6 +1649,258 @@ class IDockClientBody {
 /// surface with ORA_TRAIT_INTERFACES.
 struct TraitUpcastEntry;
 
+// ———— 第七批接口面(Conditions/Cloak/Experience/Capture/Selectable/
+//      SpawnMapActors 批)————
+// ———— The batch-7 interface faces (the Conditions/Cloak/Experience/
+//      Capture/Selectable/SpawnMapActors batch) ————
+
+/// TraitsInterfaces.cs L293:ISelectionBar(float 域;sim 侧仅承载
+/// GetValue/GetColor/DisplayWhenEmpty 的行为面,UI 消费随 Phase 6)
+/// TraitsInterfaces.cs L293: ISelectionBar (a float domain; the sim side
+/// carries the GetValue/GetColor/DisplayWhenEmpty behaviour face, the UI
+/// consumption rides Phase 6).
+class ISelectionBar {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_ISelectionBar;
+  virtual ~ISelectionBar() = default;
+  virtual float GetValue() = 0;
+  virtual core::Color GetColor() = 0;
+  virtual bool DisplayWhenEmpty() const = 0;
+};
+
+/// Game/Traits/TraitsInterfaces.cs L475-480:SelectionPriorityModifiers
+/// (Ctrl/Alt 的选择优先级热键位)
+/// Game/Traits/TraitsInterfaces.cs L475-480: SelectionPriorityModifiers
+/// (the Ctrl/Alt selection-priority hotkey bits).
+enum class SelectionPriorityModifiers : std::int32_t {
+  None = 0,
+  Ctrl = 1,
+  Alt = 2,
+};
+
+/// Game/Traits/TraitsInterfaces.cs L487-493:ISelectableInfo
+class ISelectableInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_ISelectableInfo;
+  virtual int Priority() const = 0;
+  virtual SelectionPriorityModifiers PriorityModifiers() const = 0;
+  virtual std::string_view Voice() const = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L786-790:ISelectable(Class = 按类型
+/// 选择的分组键)
+/// Mods.Common/TraitsInterfaces.cs L786-790: ISelectable (Class = the
+/// select-by-type grouping key).
+class ISelectable {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ISelectable;
+  virtual ~ISelectable() = default;
+  virtual std::string_view Class() const = 0;
+};
+
+/// ExternalCondition.cs L17-20:IConditionTimerWatcher(计时型外部条件
+/// 的观察者;Duration/Remaining 每 tick 通知)
+/// ExternalCondition.cs L17-20: IConditionTimerWatcher (the observer of
+/// timed external conditions; Duration/Remaining notified per tick).
+class IConditionTimerWatcher {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IConditionTimerWatcher;
+  virtual ~IConditionTimerWatcher() = default;
+  virtual std::string_view Condition() const = 0;
+  virtual void Update(int duration, int remaining) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L146:INotifySupportPower
+class INotifySupportPower {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifySupportPower;
+  virtual ~INotifySupportPower() = default;
+  virtual void Charged(Actor& self) = 0;
+  virtual void Activated(Actor& self, const std::string& order_name) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L284-288:INotifyLoadCargo 族四件
+/// (Load/Unload/Demolition/Infiltration —— Cloak 的 UncloakOn 事件面)
+/// Mods.Common/TraitsInterfaces.cs L284-288: the INotifyLoadCargo family
+/// of four (Load/Unload/Demolition/Infiltration — Cloak's UncloakOn event
+/// faces).
+class INotifyLoadCargo {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyLoadCargo;
+  virtual ~INotifyLoadCargo() = default;
+  virtual void Loading(Actor& self) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L290-293
+class INotifyUnloadCargo {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyUnloadCargo;
+  virtual ~INotifyUnloadCargo() = default;
+  virtual void Unloading(Actor& self) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L296-299
+class INotifyDemolition {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyDemolition;
+  virtual ~INotifyDemolition() = default;
+  virtual void Demolishing(Actor& self) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L302-305
+class INotifyInfiltration {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyInfiltration;
+  virtual ~INotifyInfiltration() = default;
+  virtual void Infiltrating(Actor& self) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L181:INotifyProximityOwnerChanged
+/// (ProximityExternalCondition 的域内换主通知)
+/// Mods.Common/TraitsInterfaces.cs L181: INotifyProximityOwnerChanged
+/// (the in-range owner-change notification of ProximityExternalCondition).
+class INotifyProximityOwnerChanged {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyProximityOwnerChanged;
+  virtual ~INotifyProximityOwnerChanged() = default;
+  virtual void OnProximityOwnerChanged(Actor& actor, Player* old_owner,
+                                       Player* new_owner) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L346-351:INotifyDeployTriggered(部署
+/// 动画的播放面;实现者 = WithSpriteBody 等渲染 trait —— 渲染批接线,
+/// 本批为空集)
+/// Mods.Common/TraitsInterfaces.cs L346-351: INotifyDeployTriggered (the
+/// deploy-animation play face; the implementors are the render traits —
+/// WithSpriteBody & co. — riding the render batch; an empty set in this
+/// batch).
+class INotifyDeployTriggered {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyDeployTriggered;
+  virtual ~INotifyDeployTriggered() = default;
+  virtual void Deploy(Actor& self, bool skip_make_anim) = 0;
+  virtual void Undeploy(Actor& self, bool skip_make_anim) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L340-344:INotifyDeployComplete
+class INotifyDeployComplete {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyDeployComplete;
+  virtual ~INotifyDeployComplete() = default;
+  virtual void FinishedDeploy(Actor& self) = 0;
+  virtual void FinishedUndeploy(Actor& self) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L510-515:IIssueDeployOrder(Deploy UI
+/// 钮/热键的 order 面;net::Order 走文件头前向)
+/// Mods.Common/TraitsInterfaces.cs L510-515: IIssueDeployOrder (the order
+/// face of the Deploy UI button/hotkey; net::Order via the header's
+/// forward declaration).
+class IIssueDeployOrder {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IIssueDeployOrder;
+  virtual ~IIssueDeployOrder() = default;
+  virtual net::Order IssueDeployOrder(Actor& self, bool queued) = 0;
+  virtual bool CanIssueDeployOrder(Actor& self, bool queued) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L517-519:IDelayCarryallPickup(Carryall
+/// 批的延迟拾取面;先行锚定)
+/// Mods.Common/TraitsInterfaces.cs L517-519: IDelayCarryallPickup (the
+/// carryall batch's delayed-pickup face; anchored ahead of its consumer).
+class IDelayCarryallPickup {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IDelayCarryallPickup;
+  virtual ~IDelayCarryallPickup() = default;
+  virtual bool TryLockForPickup(Actor& self, Actor& carrier) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L400-403:ITransformActorInitModifier
+/// (Transform 时向新 actor 注入 init;GainsExperience 的 ExperienceInit)
+/// Mods.Common/TraitsInterfaces.cs L400-403: ITransformActorInitModifier
+/// (injecting inits into the new actor on Transform; GainsExperience's
+/// ExperienceInit).
+class ITransformActorInitModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ITransformActorInitModifier;
+  virtual ~ITransformActorInitModifier() = default;
+  virtual void ModifyTransformActorInit(Actor& self,
+                                        TypeDictionary& init) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L474:IGivesExperienceModifier(OPT-A1
+/// 修正链的 experience 域)
+/// Mods.Common/TraitsInterfaces.cs L474: IGivesExperienceModifier (the
+/// experience domain of the OPT-A1 modifier chain).
+class IGivesExperienceModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IGivesExperienceModifier;
+  virtual ~IGivesExperienceModifier() = default;
+  virtual int GetGivesExperienceModifier() const = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L477:IGainsExperienceModifier
+class IGainsExperienceModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IGainsExperienceModifier;
+  virtual ~IGainsExperienceModifier() = default;
+  virtual int GetGainsExperienceModifier() const = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L480:IDetectCloakedModifier(DetectCloaked
+/// 的范围修正链)
+/// Mods.Common/TraitsInterfaces.cs L480: IDetectCloakedModifier
+/// (DetectCloaked's range modifier chain).
+class IDetectCloakedModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IDetectCloakedModifier;
+  virtual ~IDetectCloakedModifier() = default;
+  virtual int GetDetectCloakedModifier() const = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L751-754:IPreventMapSpawn(地图摆位的
+/// 抑制面;上游 mods 无实现者 —— 空集承载)
+/// Mods.Common/TraitsInterfaces.cs L751-754: IPreventMapSpawn (the
+/// map-spawn suppression face; no upstream mod implementors — carried as
+/// an empty set).
+class IPreventMapSpawn {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IPreventMapSpawn;
+  virtual ~IPreventMapSpawn() = default;
+};
+
+/// CaptureManager.cs L30-33:ICaptureProgressWatcher(捕获进度条的观察
+/// 面;UI 消费随 Phase 6)
+/// CaptureManager.cs L30-33: ICaptureProgressWatcher (the capture-progress
+/// observation face; the UI consumption rides Phase 6).
+class ICaptureProgressWatcher {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ICaptureProgressWatcher;
+  virtual ~ICaptureProgressWatcher() = default;
+  virtual void Update(Actor& self, Actor& captor, Actor& target,
+                      int progress, int total) = 0;
+};
+
 class TraitBase {
  public:
   virtual ~TraitBase() = default;

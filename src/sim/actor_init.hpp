@@ -403,4 +403,98 @@ class DynamicTurretFacingInit
   }
 };
 
+// ———— 第七批 init 增补(Health/GainsExperience/GrantConditionOnDeploy/
+//      SpawnMapActors 批 + ActorReference.LoadInit 的 from-yaml 注册表)————
+// ———— The batch-7 init additions (the Health/GainsExperience/
+//      GrantConditionOnDeploy/SpawnMapActors batch + ActorReference.
+//      LoadInit's from-yaml registry) ————
+
+/// HealthInit(Health.cs L248-252;地图 yaml 的初始 HP 百分比)
+/// HealthInit (Health.cs L248-252; map yaml's initial-HP percentage).
+class HealthInit : public ValueActorInit<int>, public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(HealthInit, OpenRA_Mods_Common_Traits_HealthInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit HealthInit(int value)
+      : ValueActorInit<int>(value) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// ExperienceInit(GainsExperience.cs L167-171;info 实例名携带 —— 变身/
+/// 桥接时经验续传)
+/// ExperienceInit (GainsExperience.cs L167-171; carries the info instance
+/// name — the experience carry-over across transforms/bridges).
+class ExperienceInit : public ValueActorInit<int> {
+ public:
+  ORA_INIT_TYPE_SELF_ONLY(ExperienceInit, OpenRA_Mods_Common_Traits_ExperienceInit)
+  explicit ExperienceInit(int value, std::string str_instance_name = "")
+      : ValueActorInit<int>(value, std::move(str_instance_name)) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// DeployStateInit(GrantConditionOnDeploy.cs L347-351)
+class DeployStateInit : public ValueActorInit<int>, public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(DeployStateInit, OpenRA_Mods_Common_Traits_DeployStateInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit DeployStateInit(int value)
+      : ValueActorInit<int>(value) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// SkipMakeAnimsInit(SpawnMapActors.cs L64;RuntimeFlagInit —— 地图摆位
+/// 跳过 make 动画)
+/// SkipMakeAnimsInit (SpawnMapActors.cs L64; a RuntimeFlagInit — map
+/// placements skip the make animation).
+class SkipMakeAnimsInit : public ActorInit, public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(SkipMakeAnimsInit, OpenRA_Mods_Common_Traits_SkipMakeAnimsInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  SkipMakeAnimsInit() = default;
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// ActorReference.LoadInit(ActorReference.cs L48-62)的 C++ 承载:init 短名
+/// ("Location"/"Owner"/…)→ 工厂(MiniYaml 节点值, instance_name) →
+/// ActorInit*(FrameArena 分配 —— 地图装载的整帧域);未知名 = 上游
+/// "Unknown initializer type '{name}Init'" 文本逐字
+/// The C++ carrier of ActorReference.LoadInit (ActorReference.cs L48-62):
+/// an init short-name ("Location"/"Owner"/…) → factory (the MiniYaml node
+/// value, instance_name) → ActorInit* (allocated in the FrameArena — the
+/// map-load frame domain); an unknown name throws upstream's
+/// "Unknown initializer type '{name}Init'" verbatim.
+class InitRegistry {
+ public:
+  using InitFactory = std::function<ActorInit*(
+      const yaml::MiniYaml& yaml_value, std::string str_instance_name)>;
+
+  static InitRegistry& Instance();
+
+  void Register(std::string str_init_name, InitFactory fn_factory);
+
+  /// 未知名抛 InvalidDataException 等价文本(逐字)
+  /// An unknown name throws the InvalidDataException-equivalent text
+  /// (verbatim).
+  ActorInit* CreateOrThrow(const std::string& str_init_name,
+                           const yaml::MiniYaml& yaml_value,
+                           const std::string& str_instance_name) const;
+
+  bool Contains(std::string_view str_init_name) const;
+
+ private:
+  std::vector<std::pair<std::string, InitFactory>> vec_entries_;
+};
+
 }  // namespace ora::sim

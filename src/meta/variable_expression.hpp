@@ -52,7 +52,15 @@ struct Token {
   TokenType type{};
   std::size_t int4_index{};      // 起始下标(错误消息)/ start index (for messages)
   std::int32_t int4_number{};    // Number 字面值 / Number literal
-  std::string_view str_symbol;   // Number/Variable 原文 / Number/Variable source text
+  // Number/Variable 原文。深拷贝持有(上游 C# string 引用类型无悬垂;
+  // string_view 会指向表达式首次构造处的 str_expression_,对象经
+  // move/拷贝迁移后悬垂 —— 第七批 Cloak 的 PauseOnCondition 实证)
+  // The Number/Variable source text, held by deep copy (upstream's C#
+  // string is a reference type with no dangling; a string_view would
+  // point at the first construction site's str_expression_ and dangle
+  // once the object moves — proven live by batch-7's Cloak
+  // PauseOnCondition).
+  std::string str_symbol;
 
   int Precedence() const;
   bool LeftOperand() const;

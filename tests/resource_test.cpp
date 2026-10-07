@@ -397,7 +397,11 @@ void TestResourceChain(const char* str_upstream_root) {
   CheckEq(static_cast<int>(layer->GetMaxDensity("NoSuchType")), 0,
           "unknown type max density 0");
 
-  // 找一块 Clear 地
+  // 找一块 Clear 地(无矿且无地图摆位 actor 占格 —— 第七批起
+  // SpawnMapActors 出生地图 actor,AllowResourceAt 的占格门拒绝建筑格)
+  // Find a clear cell (no resource and no map-placed actor on it — from
+  // batch 7 SpawnMapActors spawns the map actors, and AllowResourceAt's
+  // occupancy gate rejects building cells).
   CPos clear_cell{bounds.Left() + bounds.Width / 2 + 8,
                   bounds.Top() + bounds.Height / 2 + 8};
   // 搜索域含 bounds 矩形外的等距格 —— Contains 过滤(Map.Contains 的上游
@@ -409,7 +413,8 @@ void TestResourceChain(const char* str_upstream_root) {
     if (map.Contains(cell) &&
         map.GetTerrainInfo(cell).Type == "Clear" &&
         map.Ramp().Get(cell) == 0 &&
-        layer->GetResource(cell).str_type.empty()) {
+        layer->GetResource(cell).str_type.empty() &&
+        world.ActorMapFace()->GetActorsAt(cell).empty()) {
       clear_cell = cell;
       break;
     }

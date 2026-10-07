@@ -63,4 +63,11 @@ class CreateMapPlayers final : public TraitBase, public ICreatePlayers {
 /// once).
 void RegisterCommonTraits();
 
+/// 第七批 trait 的注册装配(conditions/cloak/experience/capture/selectable/
+/// spawn_map_actors;独立翻译单元 —— RegisterCommonTraits 内调用)
+/// The batch-7 trait registry assembly (conditions/cloak/experience/
+/// capture/selectable/spawn_map_actors; a separate translation unit —
+/// called from within RegisterCommonTraits).
+void RegisterCommonTraitsBatch7();
+
 }  // namespace ora::mods

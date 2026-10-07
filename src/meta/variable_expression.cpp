@@ -339,6 +339,9 @@ bool Token::RightOperand() const { return (InfoOf(type).uint1_operand_sides & kS
 bool Token::Opens() const { return InfoOf(type).uint1_opens != kGroupNone; }
 bool Token::Closes() const { return InfoOf(type).uint1_closes != kGroupNone; }
 std::string_view Token::Symbol() const {
+  // Number/Variable 分支读深拷贝成员(无悬垂);操作符分支读静态表
+  // The Number/Variable branch reads the deep-copied member (no
+  // dangling); the operator branch reads the static table.
   if (type == TokenType::Number || type == TokenType::Variable)
     return str_symbol;
   return InfoOf(type).str_symbol;
