@@ -34,6 +34,35 @@ enum class InaccuracyType : std::int32_t {
 };
 
 
+/// Util.cs L26-45:TickFacing(int, int, int)(facing 域 0-255 的 &0xFF 回绕版)
+/// Util.cs L26-45: TickFacing(int, int, int) (the &0xFF-wrapping form over
+/// the 0-255 facing domain).
+inline int TickFacingInt(int facing, int desired_facing, int rot) {
+  const int left_turn = (facing - desired_facing) & 0xFF;
+  if (left_turn < rot)
+    return desired_facing & 0xFF;
+
+  const int right_turn = (desired_facing - facing) & 0xFF;
+  if (right_turn < rot)
+    return desired_facing & 0xFF;
+
+  if (right_turn < left_turn)
+    return (facing + rot) & 0xFF;
+
+  return (facing - rot) & 0xFF;
+}
+
+/// Util.cs L111-118:NormalizeFacing(任意整数 facing 回绕到 0-255)
+/// Util.cs L111-118: NormalizeFacing (wraps an arbitrary integer facing
+/// into 0-255).
+inline int NormalizeFacing(int f) {
+  if (f >= 0)
+    return f & 0xFF;
+
+  const int negative = -f & 0xFF;
+  return negative == 0 ? 0 : 256 - negative;
+}
+
 /// Util.cs L53-73:TickFacing
 inline WAngle TickFacing(WAngle facing, WAngle desired_facing, WAngle step) {
   const int left_turn = (facing - desired_facing).Angle;

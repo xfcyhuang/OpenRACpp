@@ -119,4 +119,87 @@ class SpreadDamageWarhead final : public DamageWarhead {
   int GetDamageFalloff(int distance) const;
 };
 
+/// TargetDamageWarhead(TargetDamageWarhead.cs L15-66;DamageWarhead 子类)
+/// TargetDamageWarhead (TargetDamageWarhead.cs L15-66; the DamageWarhead
+/// subclass).
+class TargetDamageWarhead final : public DamageWarhead {
+ public:
+  WDist Spread{0};  // L19
+
+  /// 工厂解析(基字段链先于自有序)
+  /// The factory parse (the base field chain precedes the own order).
+  static std::unique_ptr<TargetDamageWarhead> Parse(
+      const meta::RecordObject& rec_info);
+
+  void DoImpact(const WPos& pos, sim::Actor* fired_by,
+                sim::WarheadArgs& args) override;  // L21-64
+};
+
+/// CreateEffectWarhead(CreateEffectWarhead.cs L17-149)
+class CreateEffectWarhead final : public Warhead {
+ public:
+  std::vector<std::string> vec_explosions;  // L21 Explosions
+  std::string str_image{"explosion"};       // L24 Image
+  std::string str_explosion_palette{"effect"};  // L27
+  bool b_use_player_palette = false;            // L30
+  bool b_force_display_at_ground_level = false;  // L33
+  std::vector<std::string> vec_impact_sounds;   // L36
+  int int4_impact_sound_chance = 100;           // L39
+  bool b_impact_actors = true;                  // L42
+  WDist dist_inaccuracy{0};                     // L45
+
+  static std::unique_ptr<CreateEffectWarhead> Parse(
+      const meta::RecordObject& rec_info);
+
+  /// L96-101:关系 + 目标类型(覆写:不带 DamageWarhead 的 IHealth 前置)
+  /// L96-101: relationships + target types (the override: without
+  /// DamageWarhead's IHealth precondition).
+  bool IsValidAgainst(sim::Actor& victim, sim::Actor* fired_by) override;
+
+  void DoImpact(const sim::Target& target,
+                sim::WarheadArgs& args) override;  // L103-137
+
+ private:
+  /// 上游 L49 的 ImpactActorType(gen 枚举 OpenRA.Mods.Common.Traits.
+  /// ImpactActorType:{None=0, Invalid=1, Valid=2})
+  /// Upstream's L49 ImpactActorType (the gen enum
+  /// OpenRA.Mods.Common.Traits.ImpactActorType: {None=0, Invalid=1,
+  /// Valid=2}).
+  enum class ImpactActorType : std::int32_t {
+    None = 0,
+    Invalid = 1,
+    Valid = 2,
+  };
+
+  /// L51-70:ActorTypeAtImpact
+  /// L51-70: ActorTypeAtImpact.
+  ImpactActorType ActorTypeAtImpact(sim::World& world, const WPos& pos,
+                                    sim::Actor* fired_by);
+
+  /// L140-149:IsValidAgainstTerrain
+  /// L140-149: IsValidAgainstTerrain.
+  bool IsValidAgainstTerrain(sim::World& world, const WPos& pos);
+};
+
+/// LeaveSmudgeWarhead(LeaveSmudgeWarhead.cs L16-75)
+class LeaveSmudgeWarhead final : public Warhead {
+ public:
+  std::vector<int> vec_size{0, 0};     // L20 Size(双值 = 环形)
+  std::vector<std::string> vec_smudge_type;  // L23 SmudgeType
+  int int4_chance = 100;               // L26
+
+  static std::unique_ptr<LeaveSmudgeWarhead> Parse(
+      const meta::RecordObject& rec_info);
+
+  void DoImpact(const sim::Target& target,
+                sim::WarheadArgs& args) override;  // L28-75
+};
+
+/// 弹着音注入面(CreateEffect 的 Game.Sound.Play;SoundType.World 形)
+/// The impact-sound injection face (CreateEffect's Game.Sound.Play;
+/// the SoundType.World form).
+void SetWarheadSoundPlayer(
+    std::function<void(const std::string&, sim::World&, const WPos&)>
+        fn_play);
+
 }  // namespace ora::mods

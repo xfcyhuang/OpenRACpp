@@ -6,6 +6,7 @@
 #include "meta/field_loader.hpp"
 #include "meta/generic_record.hpp"
 #include "mods/blocks_projectiles.hpp"
+#include "mods/missile_projectiles.hpp"
 #include "mods/hit_shape.hpp"
 #include "sim/actor.hpp"
 #include "sim/player.hpp"
@@ -122,6 +123,15 @@ void SetProjectileSoundPlayer(
     std::function<void(const std::string&, sim::World&, const WPos&)>
         fn_play) {
   fn_projectile_sound_play_ = std::move(fn_play);
+}
+
+gfx::Animation* MakeBulletAnimation(
+    sim::World& world, const std::string& str_image,
+    const std::string& str_sequence, std::function<WAngle()> fn_facing) {
+  if (fn_bullet_animation_factory_ == nullptr)
+    return nullptr;
+  return fn_bullet_animation_factory_(world, str_image, str_sequence,
+                                      std::move(fn_facing));
 }
 
 // ———— BulletInfoData::Parse ————
@@ -610,6 +620,14 @@ void InstallCommonSyncEffectHasher(sim::World& world) {
   world.SetSyncEffectHashResolver([](const sim::ISync* s) -> int {
     if (auto* bullet = dynamic_cast<const Bullet*>(s); bullet != nullptr)
       return Bullet::SyncHashOf(bullet);
+    if (auto* missile =
+            dynamic_cast<const Missile*>(s); missile != nullptr)
+      return Missile::SyncHashOf(missile);
+    if (auto* bomb =
+            dynamic_cast<const GravityBomb*>(s); bomb != nullptr)
+      return GravityBomb::SyncHashOf(bomb);
+    if (auto* zap = dynamic_cast<const TeslaZap*>(s); zap != nullptr)
+      return TeslaZap::SyncHashOf(zap);
     return 0;
   });
 }

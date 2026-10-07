@@ -317,6 +317,41 @@ class RallyPointInit : public ValueActorInit<std::vector<CPos>>,
   }
 };
 
+/// SpawnedByMapInit(SpawnMapActors.cs L66-71;地图摆位标记 ——
+/// FrozenUnderFog 的 startsRevealed 判据;SpawnMapActors trait 随后批,
+/// 本批为标记承载面)
+/// SpawnedByMapInit (SpawnMapActors.cs L66-71; the map-placement marker —
+/// FrozenUnderFog's startsRevealed predicate; the SpawnMapActors trait
+/// arrives with a later batch, this one carries the marker face).
+class SpawnedByMapInit : public ActorInit,
+                         public ISuppressInitExport,
+                         public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(SpawnedByMapInit, OpenRA_Mods_Common_Traits_SpawnedByMapInit,
+                gen::TypeId::OpenRA_ISuppressInitExport,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit SpawnedByMapInit(std::string str_instance_name = "")
+      : ActorInit(std::move(str_instance_name)) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// HiddenUnderFogInit(FrozenUnderFog.cs L189;RuntimeFlagInit 标记)
+/// HiddenUnderFogInit (FrozenUnderFog.cs L189; the RuntimeFlagInit
+/// marker).
+class HiddenUnderFogInit : public ActorInit, public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(HiddenUnderFogInit, OpenRA_Mods_Common_Traits_HiddenUnderFogInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  HiddenUnderFogInit() = default;
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
 /// HuskSpeedInit(Husk.cs L193;残骸拖尾速度)
 /// HuskSpeedInit (Husk.cs L193; the husk's drag speed).
 class HuskSpeedInit : public ValueActorInit<int>, public ISingleInstanceInit {

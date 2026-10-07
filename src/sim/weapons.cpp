@@ -96,9 +96,18 @@ class DelayedImpact final : public IEffect {
 
   void Tick(World& world) override {
     if (--int4_delay_ <= 0)
-      world.AddFrameEndTask([this](World& w) {
+      // 上游帧末闭包经 GC 保活;C++ 的 World::Remove 在帧末任务内即析构
+      // 效果对象 —— 成员载荷按值快照(wh/target/args 的拷贝捕获),
+      // this 仅作 Remove 的对象引用(任务执行时仍在效果表,有效)
+      // Upstream's frame-end closure is kept alive by the GC; C++'s
+      // World::Remove destroys the effect right inside the frame-end
+      // task — the member payload is snapshotted by value (wh/target/
+      // args captured by copy), with `this` serving only as the Remove
+      // reference (still in the effect table at task time, valid).
+      world.AddFrameEndTask([this, wh = wh_, target = target_,
+                             args = args_](World& w) mutable {
         w.Remove(this);
-        wh_->DoImpact(target_, args_);
+        wh->DoImpact(target, args);
       });
   }
 

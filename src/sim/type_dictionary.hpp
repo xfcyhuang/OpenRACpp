@@ -27,6 +27,15 @@ class ISingleInstanceInit {
   virtual ~ISingleInstanceInit() = default;
 };
 
+/// ISuppressInitExport 标记(ActorInitializer.cs L112)
+/// The ISuppressInitExport marker (ActorInitializer.cs L112).
+class ISuppressInitExport {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_ISuppressInitExport;
+  virtual ~ISuppressInitExport() = default;
+};
+
 /// ActorInit 基类(ActorInitializer.cs L124-137):InstanceName + 注册面
 /// The ActorInit base (ActorInitializer.cs L124-137): InstanceName plus the
 /// registration surface.

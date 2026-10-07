@@ -309,6 +309,14 @@ add_library(ora_mods STATIC
   src/mods/hit_shape.cpp
   src/mods/hit_shapes.cpp
   src/mods/projectiles.cpp
+  src/mods/missile_projectiles.cpp
+  src/mods/smudge_layer.cpp
+  src/mods/building.cpp
+  src/mods/building_influence.cpp
+  src/mods/frozen_under_fog.cpp
+  src/mods/production_support.cpp
+  src/mods/production.cpp
+  src/mods/player_resources.cpp
   src/mods/targetable.cpp
   src/mods/warheads.cpp
   src/mods/unit_order_generator.cpp
@@ -525,6 +533,14 @@ target_link_libraries(move_test PRIVATE
 # 弹丸/战头(真 ra 全链)
 # The Phase 5 batch-4 acceptance: Shroud/FrozenActorLayer/the AttackBase
 # family/AutoTarget/projectiles/warheads (the real ra full chain).
+add_executable(production_test tests/production_test.cpp)
+ora_link_std(production_test)
+target_link_libraries(production_test PRIVATE
+  ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
+  ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
+  ora_miniz ora_sdl2 ora_openal ora_freetype)
+ora_link_std(production_test)
+
 add_executable(attack_test tests/attack_test.cpp)
 ora_link_std(move_test)
 target_link_libraries(attack_test PRIVATE
@@ -538,6 +554,8 @@ add_custom_command(TARGET move_test POST_BUILD
           ${CMAKE_SOURCE_DIR}/third_party/OpenAL/bin/OpenAL32.dll $<TARGET_FILE_DIR:move_test>
           ${CMAKE_SOURCE_DIR}/third_party/FreeType/bin/freetype6.dll $<TARGET_FILE_DIR:move_test>)
 add_test(NAME move_test COMMAND move_test ${ORA_UPSTREAM_ROOT})
+add_test(NAME production_test COMMAND production_test ${ORA_UPSTREAM_ROOT})
+set_tests_properties(production_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
 add_test(NAME attack_test COMMAND attack_test ${ORA_UPSTREAM_ROOT})
 
 add_test(NAME path_test COMMAND path_test ${ORA_UPSTREAM_ROOT})

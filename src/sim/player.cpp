@@ -258,7 +258,21 @@ Player::Player(World& world, const net::SessionClient* client,
   TypeDictionary init_dict;
   OwnerInit owner_init{this};
   init_dict.Add(&owner_init);
-  p_player_actor_ = world.CreateActor(false, player_actor_type, init_dict);
+  // 上游 CreateActor 产物"未初始化":PlayerActor 指针先赋,再手动
+  // Initialize —— Created 回调(ProductionQueue/TechTree 的解析面)因此
+  // 能查到 PlayerActor。C++ 的 World::CreateActor 内嵌 Initialize,
+  // 故此处拆用 arena 直构(ctor 建 traits + 手动 Initialize 与上游
+  // L204-211 逐语义对齐;并消除此前 CreateActor(false)+Initialize 的
+  // 双跑)
+  // Upstream's CreateActor product is "uninitialized": the PlayerActor
+  // pointer is assigned first, Initialize runs by hand — so the Created
+  // callbacks (ProductionQueue/TechTree's resolution faces) can resolve
+  // PlayerActor. C++'s World::CreateActor embeds Initialize, hence the
+  // split into a direct arena construction here (the ctor builds traits
+  // + the manual Initialize matches upstream L204-211 verbatim; this
+  // also removes the former CreateActor(false)+Initialize double run).
+  p_player_actor_ = world.Arena().Create<sim::Actor>(
+      world, player_actor_type, init_dict);
   p_player_actor_->Initialize(true);
 
   // Shroud/FrozenActorLayer(L213-214):Initialize 后即解析(上游同点;

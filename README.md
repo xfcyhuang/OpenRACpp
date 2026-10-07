@@ -12,7 +12,7 @@
 
 ## 进度总览
 
-**整体完成度约 50%**（按 PORTING_PLAN 各阶段工作量加权估算）。数据/引擎/渲染/平台层（前半程）已完成并经黄金对拍锁定；当前处于 **Phase 5 的 gameplay 大面**——攻击/迷雾链（AttackBase/AutoTarget/弹丸/战头/Shroud/FrozenActorLayer）已打通，下一步补齐其余弹丸战头与建筑/生产 trait 后，即可开启 skirmish 可玩里程碑与 replay SyncHash 对拍两个关键关卡。
+**整体完成度约 52%**（按 PORTING_PLAN 各阶段工作量加权估算）。数据/引擎/渲染/平台层（前半程）已完成并经黄金对拍锁定；当前处于 **Phase 5 的 gameplay 大面**——攻击/迷雾链与建筑/生产链（AttackBase/AutoTarget/全部主力弹丸战头/Shroud/FrozenActorLayer/FrozenUnderFog/Building/Production/ProductionQueue+Classic/PlayerResources/TechTree）已打通，**控制台发 order 造兵→出厂→战斗的 skirmish 链路已在测试中全程跑通**；下一步补齐 Harvester/ResourceLayer/Cloak/GainsExperience/Selectable 行为面/SpawnMapActors 等剩余核心 trait 后，即开启 replay SyncHash 对拍（确定性移植总关卡）。
 
 | 阶段 | 内容 | 状态 | 完成度 |
 |---|---|---|---|
@@ -21,7 +21,7 @@
 | Phase 2 | 元数据框架 + 数据加载链 | ✅ 完成（2026-10-03） | 100% |
 | Phase 3 | 仿真核心 + Order/锁步 | ✅ 完成（2026-10-03） | 100% |
 | Phase 4 | 平台层 + 渲染 + 文件格式 + 音频 + UI 框架起步 + Game 主循环骨架（15 批） | ✅ 完成（2026-10-06） | 100% |
-| Phase 5 | 主循环整合 + 核心 gameplay（已完成 Map/World/寻路/Mobile+Move/Armament/攻击链/迷雾链 4 批） | 🔨 进行中（2026-10-07 起） | ~55% |
+| Phase 5 | 主循环整合 + 核心 gameplay（已完成 Map/World/寻路/Mobile+Move/Armament/攻击链/迷雾链/弹丸战头全量/建筑生产链 5 批） | 🔨 进行中（2026-10-07 起） | ~70% |
 | Phase 6 | UI + 本地化 | 🌱 起步（框架内核已就位） | ~10% |
 | Phase 7 | 网络与服务器 | 🌱 起步（锁步内核已就位） | ~20% |
 | Phase 8 | Lua 脚本 + AI + 战役 + Utility | ⬜ 未开始 | ~0% |
@@ -34,11 +34,11 @@
 - **三 mod 规则深解析**：ra 80,274 / cnc 49,416 / d2k 35,833 行**逐字节快照回归**；上游 `--check-yaml` exit=0 佐证。
 - **资产解码黄金对拍**：mods 全部 .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 资产 + 合成夹具，`tests/golden_formats.txt` **6,737 行逐行一致**；字形 **216 个逐字节一致**（与 C# oracle 加载同一 freetype6.dll）。
 - **锁步确定性**：EchoConnection 单机 **10⁶ tick 双构建（ASan+UBSan/Release）通过，无泄漏无 desync**。
-- **持续门禁**：ctest **22/22** 双构建（ASan+UBSan 与 Release）全绿；`import std;` 严控（**367 文件**）；UPSTREAM 溯源标注（**353 条**）；偏离登记 **D1~D132**。
+- **持续门禁**：ctest **23/23** 双构建（ASan+UBSan 与 Release）全绿；`import std;` 严控（**384 文件**）；UPSTREAM 溯源标注（**369 条**）；偏离登记 **D1~D142**。
 
-### 当前焦点（Phase 5 第五批）
+### 当前焦点（Phase 5 第六批）
 
-其余弹丸/战头族（Missile/TeslaZap/GravityBomb、TargetDamage/LeaveSmudge/CreateEffect）+ FrozenUnderFog/HiddenUnderShroud + 建筑/生产链起步（Building/Buildable/Production/ProductionQueue/PlayerResources）。其后的关键里程碑：**skirmish 地图控制台发 order 造兵/移动/战斗** → **C# 录制 replay 逐帧 SyncHash 对拍（确定性移植总关卡）**。
+其余核心 trait（Harvester+ResourceLayer+ResourceClaimLayer/Cloak/GainsExperience/Capturable 族/Conditions 34 件/Selectable 行为面/Render·WithSpriteBody 族/SpawnMapActors）+ AttackFollow/Turreted 族 + PowerManager 真实现。关键里程碑：**C# 录制 replay 逐帧 SyncHash 对拍（确定性移植总关卡）**。
 
 ## 各阶段完成情况
 
@@ -97,7 +97,15 @@ clang `-std=c++26` + `import std;`（std.cppm 预编译 PCM）+ CMake/Ninja + ct
 - mods 十三件新：hit_shapes 四形状全文、hit_shape/armor/targetable、affects_shroud+reveals_shroud 全文、attack_base（AttackBase+Frontal 全文；AttackOrderTargeter）、attack_activity（Activities/Attack.cs 全文）、auto_target（+Priority 全文；**优先级禁用过滤 = 消费时求值，对齐上游惰性 Where**）、world_exts（圆/线查询 + 线投影）、blocks_projectiles、projectiles（Bullet+InstantHit 全文；**RNG 消耗序保真**，视觉面注入/不构造）、warheads（Damage+Spread 全文）。
 - 验收：新 attack_test（真实 ra 全链：迷雾可见性矩阵 → 空闲扫描排攻击 → **落弹致死 61 tick（4×1500）** → FrozenActorLayer 面 → **Bullet 4 tick 落地 1800 伤害**）；ctest 21→22。修出四个真问题（Player 漏 InternalName、Map 悬垂 span、LocationInit 抽象缺口、AutoTarget 惰性过滤时点）。
 
-**剩余（~45%）**：AttackFollow/Turreted 族；Missile/TeslaZap/GravityBomb 等其余弹丸；TargetDamage/LeaveSmudge/CreateEffect 等其余战头；FrozenUnderFog/HiddenUnderShroud；其余核心 trait 约 30+（Building/Production/PlayerResources/Harvester/Cloak/GainsExperience/Capturable 族/Conditions 34 个/Selectable 行为面/Render·WithSpriteBody 族/SpawnMapActors）；Settings/FieldSaver；MapPreview 异步面；SyncReport；录像录制。
+**第五批（2026-10-07）：Missile/TeslaZap/GravityBomb + TargetDamage/LeaveSmudge/CreateEffect + FrozenUnderFog/HiddenUnderShroud + 建筑/生产链**
+
+- 弹丸三件：**Missile 全文**（DetermineLaunchSpeedAndAngle 五函数族/InclineLookahead/IncreaseAltitude/HomingInnerTick 全分支/(sbyte) 符号截断语义逐处保真；ctor 的 LockOn→FromPDF→DetermineLaunch→Sequences.Random 的 RNG 序保真；[VerifySync] {pos,hFacing,vFacing}）、**TeslaZap 全文**（逐 tick Impact；{target}）、**GravityBomb 全文**（换轴旋转变换；OpenSequence→PlayThen 的 RNG 零消耗链；{pos,lastPos}）；InstallCommonSyncEffectHasher 扩四弹丸。
+- 战头三件：**TargetDamage**（Spread 圆域最近 HitShape）、**CreateEffect**（三段 RNG 消耗序逐字/IsValidAgainstTerrain 的 "Air" 运行时位）、**LeaveSmudge**（FindTilesInAnnulus 环 + AcceptsSmudgeType 首遇序 + 层字典未含即抛）；SmudgeLayer 同步记账面（tiles/dirty 双字典；CosmeticRandom 烟效纯视觉未接）。
+- 迷雾两件：**FrozenUnderFog 全文**（逐玩家 FrozenActor 入层/初始可见性帧末重算/OnVisibilityChanged/OwnerChanged 强制刷/Disposing Invalidate；{VisibilityHash}）+ **HiddenUnderShroud 全文** + ShroudExts 的 AnyExplored 双形态。
+- 建筑/生产链：**Building 全文**（Footprint 五类型序/CenterOffset/IOccupySpace/ITargetableCells/{TopLeft}）、BuildingInfluence 全文、**Production 全文**（DoProduction 帧末出厂 + 双通知/ExitExts 的 Shuffle(SharedRandom) Fisher-Yates RNG 序保真）、**ProductionQueue 全文**（StartProduction/Pause/Cancel 三 order/逐 tick 计费/OnComplete 帧末闭包→item 成员/{Enabled,IsValidFaction}）、**ClassicProductionQueue 全文**（player actor 挂载的世界级 producer 查找）、**PlayerResources 全文**（ore-first 序/checked 溢出→饱和/{Cash,Resources,ResourceCapacity}）、Valued/Buildable/Exit/Reservable/RallyPoint/ProvidesPrerequisite/**TechTree 全文**（Watcher 双状态机/'!''~' 标记语义）/DeveloperMode 最小承载。
+- 验收：新 production_test（**真实 ra 全链**：startingcash 5000 → TENT 建筑（occupied 4 格/CenterOffset/BuildingInfluence/FrozenUnderFog 入层）→ TechTree 汇 'barracks' → **e1 下单 → 60 tick 建造 → Exit@Soldier 出口 → 出厂入世界（逐 tick 扣费恰 100）** → Cancel 退款 → Dragon 导弹（Speed 213/Arm 2/80 tick 飞行））；ctest 22→23。修出六个真问题（Classic 子类 upcast 表漏基类接口集致 Created/Tick 分发断链、Player ctor 的 player-actor 构造序（Created 回调早于 PlayerActor 赋值 + 双 Initialize）、EndProduction 的 erase 后 UAF、Faction().Name 误代 InternalName、Exit/Production 族漏挂 IObservesVariables 致条件 trait 恒禁用、DelayedImpact 帧末闭包悬垂捕获）。
+
+**剩余（~30%）**：AttackFollow/Turreted 族；Harvester+ResourceLayer+ResourceClaimLayer；Cloak/GainsExperience/Capturable 族/Conditions 34 个/Selectable 行为面/Render·WithSpriteBody 族/SpawnMapActors；PowerManager 真实现；Settings/FieldSaver；MapPreview 异步面；SyncReport；录像录制。
 
 ### Phase 6 — UI + 本地化 🌱（~10%）
 
@@ -145,7 +153,7 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 
 ### 与上游不同步处（偏离登记摘要）
 
-当前登记 **D1~D132**（全文见 [docs/COVERAGE.md](docs/COVERAGE.md)），按模块：
+当前登记 **D1~D142**（全文见 [docs/COVERAGE.md](docs/COVERAGE.md)），按模块：
 
 - **yaml/fs（D1~D9）**：异常类型统一 YamlException（消息逐字）、惰性枚举物化 vector、null/"" 键合流——合法输入下行为等价或不可观测；
 - **meta/加载链（D10~D24）**：TypeConverter 兜底未实现（字段类型已全覆盖）、字典字段插入序 vector、三 mod 解析快照 C++ 侧固化（D24，工具恢复后可再对拍）；
@@ -158,8 +166,9 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 - **第二批（D114~D119）**：priority_queue 三态 Compare 静态协议 + LongBitSet 进程级分配域、ActorMap 的 GC/集合/形状求值形态、Player 的 Shroud/FrozenActorLayer 解析面随其批、OPT-A2 语义论证（世代标记/暂存缓冲/插入序保真）、Health 工厂时点 + Session/input 最小承载面；
 - **第三批（D120~D125）**：条件 trait CRTP 组合核（RulesetLoaded 时点工厂化）、WeaponInfo 仿真面自由函数分层 + Projectile/Warhead 注册表（零注册 = null 路径）、Armament 的 OPT-A9 零分配形态 + Turreted/Hovers/声音注入面、Mobile 的 Shroud 已探索等价面 + Parachutable/RejectsOrders 空集、BodyOrientation 的 qboi 解析钩子、Move 活动族 WorldArena 分配 + 空 trait 分支、TypeDictionary self 键 + RecordFieldInt bool 修复；
 - **第四批（D126~D132）**：Shroud 的 lobby/Session 承载面 + 事件回调表 + touched 线性推进（vector<bool> 特化）、FrozenActorLayer 的渲染缓存无写入者 + ITooltip 最小值面 + ScreenMap 惰性冻结分区、Target::FromCell 落地 + Actor 目标位物化点（Initialize 头 = 上游 ctor 末）、四 HitShape 的记录全名分派 + Turreted/Cloak 空集、AttackBase/AutoTarget 的 CRTP + 稳定序单遍择优 + **优先级禁用过滤消费时求值（上游惰性 Where）** + Passenger/IOverride 空集、弹丸的 Animation/SpriteEffect/Contrail 注入或不构造但 **RNG 消耗序保真** + 同步效果哈希装配器、Damage/SpreadWarhead 的工厂时点校验 + Versus 插入序对 + AffectsShroud 模板基。
+- **第五批（D133~D142）**：Missile/TeslaZap/GravityBomb 的视觉注入面 + **RNG 消耗序逐字保真**（GravityBomb 的 OpenSequence 延迟链 = 零消耗）+ JamsMissiles 空集、CreateEffect/LeaveSmudge 的三段 RNG 序 + SpriteEffect/声音注入、SmudgeLayer 记账面（CosmeticRandom 烟效纯视觉未接）、FrozenUnderFog 的渲染物化空 + PlayerDictionary→玩家序 vector、DeveloperMode/PowerManager/IProductionTime 修正链等空集承载、ProductionQueue 的 LINQ 惰性→消费时物化 + OnComplete 闭包→item 成员 + Classic 的 IsPrimaryBuilding 序退化、World 事件回调表 + CPos 全序（自有设施）、**Player 的 player-actor 构造序与 DelayedImpact 悬垂捕获两处语义修复**、ExitExts 的 Shuffle Fisher-Yates RNG 序保真、记录全名查询族（BuildingInfo/MobileInfo/FacingInfo 等）。
 
-**尚未移植（Phase 5-8 范围）**：AttackFollow/Turreted 族、其余弹丸/战头族、FrozenUnderFog/HiddenUnderShroud、其余约 30 个核心 trait、62 个 chrome widget + 131 Logic、Fluent、WorldInteractionController、NetworkConnection 实体、Session 完整协议、Replay、Server、Lua、AI、战役、Utility 子命令——详见上方各阶段"剩余"节。
+**尚未移植（Phase 5-8 范围）**：AttackFollow/Turreted 族、Harvester/ResourceLayer/Cloak/GainsExperience/Capturable 族/Conditions 34 件/Selectable 行为面/Render·WithSpriteBody 族/SpawnMapActors、62 个 chrome widget + 131 Logic、Fluent、WorldInteractionController、NetworkConnection 实体、Session 完整协议、Replay、Server、Lua、AI、战役、Utility 子命令——详见上方各阶段"剩余"节。
 
 ## 许可证与归属
 
@@ -186,7 +195,7 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 
 ## Progress at a Glance
 
-**Overall completion ≈ 50%** (weighted by the PORTING_PLAN phase budgets). The data/engine/rendering/platform layers (the first half) are complete and locked in by golden differentials; the project is currently in **Phase 5's gameplay surface** — the attack/fog chains (AttackBase/AutoTarget/projectiles/warheads/Shroud/FrozenActorLayer) are through end to end, and once the remaining projectiles/warheads and the building/production traits land, the two critical gates (a playable skirmish milestone and the replay SyncHash differential) open up.
+**Overall completion ≈ 52%** (weighted by the PORTING_PLAN phase budgets). The data/engine/rendering/platform layers (the first half) are complete and locked in by golden differentials; the project is currently in **Phase 5's gameplay surface** — the attack/fog chains and the building/production chain (AttackBase/AutoTarget/all the mainline projectiles & warheads/Shroud/FrozenActorLayer/FrozenUnderFog/Building/Production/ProductionQueue+Classic/PlayerResources/TechTree) are through end to end, and **the full skirmish chain — issuing build orders by console, the unit leaving the factory, and combat — runs through in tests**; once the remaining core traits (Harvester/ResourceLayer/Cloak/GainsExperience/the Selectable behavior face/SpawnMapActors) land, the replay SyncHash differential (the determinism capstone) opens.
 
 | Phase | Scope | Status | Done |
 |---|---|---|---|
@@ -195,7 +204,7 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 | Phase 2 | Metadata framework + data-loading chain | ✅ complete (2026-10-03) | 100% |
 | Phase 3 | Simulation core + orders/lockstep | ✅ complete (2026-10-03) | 100% |
 | Phase 4 | Platform + rendering + file formats + audio + the UI-framework start + the game main loop (15 batches) | ✅ complete (2026-10-06) | 100% |
-| Phase 5 | Main-loop integration + core gameplay (Map/World/pathfinding/Mobile+move/Armament/the attack+fog chains done, 4 batches) | 🔨 in progress (since 2026-10-07) | ~55% |
+| Phase 5 | Main-loop integration + core gameplay (Map/World/pathfinding/Mobile+move/Armament/the attack+fog chains/the full projectile+warhead set/the building+production chain, 5 batches) | 🔨 in progress (since 2026-10-07) | ~70% |
 | Phase 6 | UI + localization | 🌱 started (the framework core is in place) | ~10% |
 | Phase 7 | Network + server | 🌱 started (the lockstep core is in place) | ~20% |
 | Phase 8 | Lua scripting + AI + campaigns + Utility | ⬜ not started | ~0% |
@@ -208,11 +217,11 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 - **The three-mod deep rules parse**: ra 80,274 / cnc 49,416 / d2k 35,833 lines as **byte-for-byte frozen snapshots**; upstream `--check-yaml` exit=0 corroborates.
 - **The asset-decode golden differential**: all mods .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 assets + synthetic fixtures, `tests/golden_formats.txt` **6,737 lines matching line for line**; **216 glyphs byte-identical** (the same freetype6.dll the C# oracle loads).
 - **Lockstep determinism**: EchoConnection **10⁶ ticks on both builds (ASan+UBSan / Release), leak-free and desync-free**.
-- **Standing gates**: ctest **22/22** green on both builds (ASan+UBSan and Release); strict `import std;` (**367 files**); UPSTREAM provenance tags (**353 entries**); the deviation registry **D1–D132**.
+- **Standing gates**: ctest **23/23** green on both builds (ASan+UBSan and Release); strict `import std;` (**384 files**); UPSTREAM provenance tags (**369 entries**); the deviation registry **D1–D142**.
 
-### Current focus (Phase 5, fifth installment)
+### Current focus (Phase 5, sixth installment)
 
-The remaining projectile/warhead families (Missile/TeslaZap/GravityBomb, TargetDamage/LeaveSmudge/CreateEffect) + FrozenUnderFog/HiddenUnderShroud + the building/production chain start (Building/Buildable/Production/ProductionQueue/PlayerResources). The milestones after that: **issuing build/move/fight orders on a skirmish map** → **the frame-by-frame replay SyncHash differential against a C#-recorded replay (the determinism capstone)**.
+The remaining core traits (Harvester+ResourceLayer+ResourceClaimLayer/Cloak/GainsExperience/the Capturable family/the 34 Conditions traits/the Selectable behavior face/the Render·WithSpriteBody family/SpawnMapActors) + the AttackFollow/Turreted family + the real PowerManager. The milestone after that: **the frame-by-frame replay SyncHash differential against a C#-recorded replay (the determinism capstone)**.
 
 ## Phase Details
 
@@ -271,7 +280,15 @@ clang `-std=c++26` + `import std;` (the precompiled std.cppm PCM) + CMake/Ninja 
 - Thirteen new mods files: hit_shapes (the four shapes in full), hit_shape/armor/targetable, affects_shroud+reveals_shroud in full, attack_base (AttackBase+Frontal in full; AttackOrderTargeter), attack_activity (the whole of Activities/Attack.cs), auto_target (+Priority in full; **the priority disabled-filter evaluates per consumption, matching upstream's lazy Where**), world_exts (circle/line queries + line projection), blocks_projectiles, projectiles (Bullet+InstantHit in full; **the RNG consumption order preserved verbatim**, visual faces injected or not constructed), warheads (Damage+Spread in full).
 - Acceptance: the new attack_test (the real ra full chain: the fog-visibility matrix → the idle scan queues the attack → **death by impact in 61 ticks (4×1500)** → the FrozenActorLayer faces → **Bullet lands in 4 ticks for 1800 damage**); ctest 21→22. Four real problems fixed (Player's missing InternalName, the Map dangling span, LocationInit's abstract-class gap, AutoTarget's lazy-filter timing).
 
-**Remaining (~45%)**: the AttackFollow/Turreted family; the remaining projectiles (Missile/TeslaZap/GravityBomb etc.); the remaining warheads (TargetDamage/LeaveSmudge/CreateEffect etc.); FrozenUnderFog/HiddenUnderShroud; ~30 more core traits (Building/Production/PlayerResources/Harvester/Cloak/GainsExperience/the Capturable family/the 34 Conditions traits/the Selectable behavior face/the Render·WithSpriteBody family/SpawnMapActors); Settings/FieldSaver; the MapPreview async face; SyncReport; replay recording.
+**Fifth installment (2026-10-07): Missile/TeslaZap/GravityBomb + TargetDamage/LeaveSmudge/CreateEffect + FrozenUnderFog/HiddenUnderShroud + the building/production chain**
+
+- The three projectiles: **the whole of Missile** (the five-function DetermineLaunchSpeedAndAngle family/InclineLookahead/IncreaseAltitude/HomingInnerTick's every branch/the (sbyte) sign-truncation semantics kept verbatim at each site; the ctor's LockOn→FromPDF→DetermineLaunch→Sequences.Random RNG order preserved; [VerifySync] {pos,hFacing,vFacing}), **the whole of TeslaZap** (the per-tick Impact; {target}), **the whole of GravityBomb** (the axis-swap rotation transform; the OpenSequence→PlayThen zero-RNG delayed chain; {pos,lastPos}); InstallCommonSyncEffectHasher extended to the four projectiles.
+- The three warheads: **TargetDamage** (the Spread circle's nearest HitShape), **CreateEffect** (the three-stage RNG consumption order verbatim/IsValidAgainstTerrain's runtime "Air" bit), **LeaveSmudge** (the FindTilesInAnnulus ring + AcceptsSmudgeType's first-encounter order + the throw on an unknown layer); SmudgeLayer's synchronous bookkeeping face (the tiles/dirty double dictionary; the CosmeticRandom smoke effect — purely visual — unwired).
+- The two fog traits: **the whole of FrozenUnderFog** (the per-player FrozenActor ingestion/the frame-end initial-visibility recompute/OnVisibilityChanged/OwnerChanged's forced refresh/Disposing Invalidate; {VisibilityHash}) + **the whole of HiddenUnderShroud** + ShroudExts' two AnyExplored forms.
+- The building/production chain: **the whole of Building** (the Footprint five-type order/CenterOffset/IOccupySpace/ITargetableCells/{TopLeft}), the whole of BuildingInfluence, **the whole of Production** (DoProduction's frame-end spawn + the two notifications/ExitExts' Shuffle(SharedRandom) Fisher-Yates RNG order preserved), **the whole of ProductionQueue** (the StartProduction/Pause/Cancel orders/per-tick payments/the OnComplete frame-end closure→item member/{Enabled,IsValidFaction}), **the whole of ClassicProductionQueue** (the player-actor-mounted world-scope producer lookup), **the whole of PlayerResources** (the ore-first order/checked overflow→saturation/{Cash,Resources,ResourceCapacity}), Valued/Buildable/Exit/Reservable/RallyPoint/ProvidesPrerequisite/**the whole of TechTree** (the Watcher two-state machine/the '!''~' marker semantics)/DeveloperMode's minimal carrier.
+- Acceptance: the new production_test (the real ra full chain: startingcash 5000 → the TENT building (4 occupied cells/CenterOffset/BuildingInfluence/FrozenUnderFog ingested) → TechTree gathering 'barracks' → **an e1 ordered → built over 60 ticks → leaving via the Exit@Soldier exit → produced into the world (exactly 100 paid per-tick)** → the Cancel refund → the Dragon missile (Speed 213/Arm 2/an 80-tick flight)); ctest 22→23. Six real problems fixed (the Classic subclass's upcast table omitting the base's interface set, breaking the Created/Tick dispatch; the Player ctor's player-actor construction order (the Created callbacks running before PlayerActor's assignment + a double Initialize); EndProduction's post-erase UAF; Faction().Name misused for InternalName; the Exit/Production family missing IObservesVariables, leaving conditional traits permanently disabled; the DelayedImpact frame-end closure's dangling capture).
+
+**Remaining (~30%)**: the AttackFollow/Turreted family; Harvester+ResourceLayer+ResourceClaimLayer; Cloak/GainsExperience/the Capturable family/the 34 Conditions/the Selectable behavior face/the Render·WithSpriteBody family/SpawnMapActors; the real PowerManager; Settings/FieldSaver; the MapPreview async face; SyncReport; replay recording.
 
 ### Phase 6 — UI + localization 🌱 (~10%)
 
@@ -319,7 +336,7 @@ The full review evidence (upstream file:line anchors, 40+ items) lives in [docs/
 
 ### Not-yet-synced with upstream (the registered-deviation summary)
 
-Currently **D1–D132** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
+Currently **D1–D142** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
 
 - **yaml/fs (D1–D9)**: exceptions unified into YamlException (texts verbatim), lazy enumerations materialized, null/"" key coalescing — behavior-equivalent for valid inputs;
 - **meta/loading chain (D10–D24)**: the TypeConverter fallback not implemented (field types fully covered), insertion-ordered dictionary fields, the three-mod parse snapshots frozen on the C++ side (D24; re-differential once the tool is restored);
@@ -332,8 +349,9 @@ Currently **D1–D132** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by
 - **the second installment (D114–D119)**: priority_queue's three-way Compare static protocol + LongBitSet's process-level allocation domain, ActorMap's GC/collection/shape-evaluation forms, Player's Shroud/FrozenActorLayer resolution faces riding their batches, the OPT-A2 semantic argument (generation stamps / scratch buffers / order fidelity), Health's factory timing + the Session/input minimal carriers;
 - **the third installment (D120–D125)**: the conditional trait's CRTP composition core (the RulesetLoaded timing moved to the factory), WeaponInfo's sim face as free functions + the Projectile/Warhead registries (zero registrations = the null path), Armament's OPT-A9 zero-allocation shape + the Turreted/Hovers/sound injection faces, Mobile's Shroud explored-equivalent face + the Parachutable/RejectsOrders empty sets, BodyOrientation's qboi resolution hook, the move family's WorldArena allocation + empty-trait branches, TypeDictionary's self key + the RecordFieldInt bool fix;
 - **the fourth installment (D126–D132)**: Shroud's lobby/Session carrier face + the event callback list + the touched linear advance (the vector<bool> specialization), FrozenActorLayer's render caches without writers + ITooltip's minimal value face + ScreenMap's lazy frozen partitions, Target::FromCell landed + Actor's targetable-positions materialization point (Initialize's head = upstream's ctor tail), the four HitShapes' record-full-name dispatch + the Turreted/Cloak empty sets, AttackBase/AutoTarget's CRTP + the stable-order single-pass pick + **the priority disabled-filter evaluating per consumption (upstream's lazy Where)** + the Passenger/IOverride empty sets, the projectiles' Animation/SpriteEffect/Contrail injected or not constructed with **the RNG consumption order preserved** + the synced-effect hash assembler, Damage/SpreadWarhead's factory-time validations + Versus as insertion-ordered pairs + the AffectsShroud template base.
+- **the fifth installment (D133–D142)**: Missile/TeslaZap/GravityBomb's visual injection faces + **the RNG consumption order kept verbatim** (GravityBomb's OpenSequence delayed chain = zero consumption) + the JamsMissiles empty set, CreateEffect/LeaveSmudge's three-stage RNG order + the SpriteEffect/sound injection, SmudgeLayer's bookkeeping face (the CosmeticRandom smoke effect — purely visual — unwired), FrozenUnderFog's empty render materialization + PlayerDictionary→the player-indexed vector, the DeveloperMode/PowerManager/IProductionTime modifier chains and other empty-set carriers, ProductionQueue's LINQ laziness→per-consumption materialization + the OnComplete closure→item member + Classic's IsPrimaryBuilding order degradation, World's event callback tables + CPos's total order (self-owned facility), **the two semantic fixes of Player's player-actor construction order and DelayedImpact's dangling capture**, ExitExts' Shuffle Fisher-Yates RNG order preserved, the record-full-name query family (BuildingInfo/MobileInfo/FacingInfo etc.).
 
-**Not yet ported (the Phase 5-8 scope)**: the AttackFollow/Turreted family, the remaining projectile/warhead families, FrozenUnderFog/HiddenUnderShroud, ~30 more core traits, the 62 chrome widgets + 131 Logics, Fluent, WorldInteractionController, the real NetworkConnection, the full Session protocol, replay, the server, Lua, AI, campaigns, and the Utility subcommands — see each phase's "remaining" section above.
+**Not yet ported (the Phase 5-8 scope)**: the AttackFollow/Turreted family, Harvester/ResourceLayer/Cloak/GainsExperience/the Capturable family/the 34 Conditions/the Selectable behavior face/the Render·WithSpriteBody family/SpawnMapActors, the 62 chrome widgets + 131 Logics, Fluent, WorldInteractionController, the real NetworkConnection, the full Session protocol, replay, the server, Lua, AI, campaigns, and the Utility subcommands — see each phase's "remaining" section above.
 
 ## License & Attribution
 

@@ -18,7 +18,15 @@ import std;
 #include "mods/attack_base.hpp"
 #include "mods/auto_target.hpp"
 #include "mods/blocks_projectiles.hpp"
+#include "mods/building.hpp"
+#include "mods/building_influence.hpp"
+#include "mods/frozen_under_fog.hpp"
 #include "mods/hit_shape.hpp"
+#include "mods/missile_projectiles.hpp"
+#include "mods/player_resources.hpp"
+#include "mods/production.hpp"
+#include "mods/production_support.hpp"
+#include "mods/smudge_layer.hpp"
 #include "sim/shroud.hpp"
 #include "sim/frozen_actor_layer.hpp"
 #include "mods/targetable.hpp"
@@ -434,6 +442,211 @@ void RegisterCommonTraits() {
           return SpreadDamageWarhead::Parse(rec_info).release();
         });
 
+    // ———— 第五批:弹丸/战头三件(注册表)————
+
+    sim::ProjectileRegistry::Instance().Register(
+        "MissileInfo",
+        [](const meta::RecordObject& rec_info) -> sim::IProjectileInfo* {
+          return new MissileInfo(MissileInfoData::Parse(rec_info));
+        });
+
+    sim::ProjectileRegistry::Instance().Register(
+        "GravityBombInfo",
+        [](const meta::RecordObject& rec_info) -> sim::IProjectileInfo* {
+          return new GravityBombInfo(GravityBombInfoData::Parse(rec_info));
+        });
+
+    sim::ProjectileRegistry::Instance().Register(
+        "TeslaZapInfo",
+        [](const meta::RecordObject& rec_info) -> sim::IProjectileInfo* {
+          return new TeslaZapInfo(TeslaZapInfoData::Parse(rec_info));
+        });
+
+    WarheadRegistry::Instance().Register(
+        "TargetDamageWarhead",
+        [](const meta::RecordObject& rec_info) -> IWarhead* {
+          return TargetDamageWarhead::Parse(rec_info).release();
+        });
+
+    WarheadRegistry::Instance().Register(
+        "CreateEffectWarhead",
+        [](const meta::RecordObject& rec_info) -> IWarhead* {
+          return CreateEffectWarhead::Parse(rec_info).release();
+        });
+
+    WarheadRegistry::Instance().Register(
+        "LeaveSmudgeWarhead",
+        [](const meta::RecordObject& rec_info) -> IWarhead* {
+          return LeaveSmudgeWarhead::Parse(rec_info).release();
+        });
+
+    // ———— 第五批:迷雾修饰两件 + 建筑/生产链(注册表)————
+
+    // FrozenUnderFogInfo.Create(init) → new FrozenUnderFog(init, this)
+    registry.Register(
+        "FrozenUnderFogInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<FrozenUnderFog>(
+              init, FrozenUnderFogInfoData::Parse(rec_info));
+        });
+
+    // HiddenUnderShroudInfo.Create(init) → new HiddenUnderShroud(this)
+    registry.Register(
+        "HiddenUnderShroudInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<HiddenUnderShroud>(
+              HiddenUnderShroudInfoData::Parse(rec_info));
+        });
+
+    // SmudgeLayerInfo.Create(init) → new SmudgeLayer(init.Self, this)
+    registry.Register(
+        "SmudgeLayerInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<SmudgeLayer>(
+              init.Self(), SmudgeLayerInfoData::Parse(rec_info));
+        });
+
+    // BuildingInfo.Create(init) → new Building(init, this)
+    registry.Register(
+        "BuildingInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<Building>(
+              init, BuildingInfoData::Parse(rec_info));
+        });
+
+    // BuildableInfo → TraitInfo<Buildable>(空运行时类)
+    registry.Register(
+        "BuildableInfo",
+        [](const meta::RecordObject&, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<Buildable>();
+        });
+
+    // ValuedInfo → TraitInfo<Valued>(空运行时类)
+    registry.Register(
+        "ValuedInfo",
+        [](const meta::RecordObject&, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<Valued>();
+        });
+
+    // ExitInfo.Create(init) → new Exit(this)
+    registry.Register(
+        "ExitInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<Exit>(ExitInfoData::Parse(rec_info));
+        });
+
+    // ReservableInfo → TraitInfo<Reservable>
+    registry.Register(
+        "ReservableInfo",
+        [](const meta::RecordObject&, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<Reservable>();
+        });
+
+    // RallyPointInfo.Create(init) → new RallyPoint(init.Self, this)
+    registry.Register(
+        "RallyPointInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<RallyPoint>(
+              init.Self(), RallyPointInfoData::Parse(rec_info));
+        });
+
+    // ProvidesPrerequisiteInfo.Create(init) → new ProvidesPrerequisite(
+    // init, this)
+    registry.Register(
+        "ProvidesPrerequisiteInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<ProvidesPrerequisite>(
+              init, ProvidesPrerequisiteInfoData::Parse(rec_info));
+        });
+
+    // TechTreeInfo.Create(init) → new TechTree(init)
+    registry.Register(
+        "TechTreeInfo",
+        [](const meta::RecordObject&, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<TechTree>(init);
+        });
+
+    // DeveloperModeInfo.Create(init) → new DeveloperMode(this)(cheat
+    // 字段随 lobby/命令批接线)
+    registry.Register(
+        "DeveloperModeInfo",
+        [](const meta::RecordObject&, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<DeveloperMode>();
+        });
+
+    // ProductionInfo.Create(init) → new Production(init, this)
+    registry.Register(
+        "ProductionInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<Production>(
+              init, ProductionInfoData::Parse(rec_info));
+        });
+
+    // ProductionQueueInfo.Create(init) → new ProductionQueue(init,
+    // this);RulesetLoaded 的 LowPowerModifier 校验随工厂时点(异常
+    // 文本逐字)
+    registry.Register(
+        "ProductionQueueInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          ProductionQueueInfoData data =
+              ProductionQueueInfoData::Parse(rec_info);
+          if (data.int4_low_power_modifier <= 0)
+            throw yaml::YamlException(
+                "Production queue must have LowPowerModifier of at "
+                "least 1.");
+          return arena.Create<ProductionQueue>(init, std::move(data));
+        });
+
+    // PlayerResourcesInfo.Create(init) → new PlayerResources(init.Self,
+    // this)
+    registry.Register(
+        "PlayerResourcesInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<PlayerResources>(
+              init, PlayerResourcesInfoData::Parse(rec_info));
+        });
+
+    // ClassicProductionQueueInfo.Create(init) → new
+    // ClassicProductionQueue(init, this)(ra 的共享队列;SpeedUp/
+    // BuildTimeSpeedReduction 的加速面随批 —— 缺省 [100] 无加速等价)
+    registry.Register(
+        "ClassicProductionQueueInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          ProductionQueueInfoData data =
+              ProductionQueueInfoData::Parse(rec_info);
+          if (data.int4_low_power_modifier <= 0)
+            throw yaml::YamlException(
+                "Production queue must have LowPowerModifier of at "
+                "least 1.");
+          return arena.Create<ClassicProductionQueue>(
+              init, std::move(data));
+        });
+
+    // BuildingInfluenceInfo.Create(init) → new BuildingInfluence(
+    // init.World)
+    registry.Register(
+        "BuildingInfluenceInfo",
+        [](const meta::RecordObject&, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<BuildingInfluence>(init.Self().world());
+        });
+
     return true;
   }();
   (void)b_registered;
@@ -475,6 +688,62 @@ const bool b_registered_batch3_sync_hash = [] {
       &BodyOrientationSyncHash);
   return true;
 }();
+
+// ———— 第五批 [VerifySync] 哈希注册(gen/sync_gen.cpp 成员表:
+//      FrozenUnderFog {VisibilityHash} / Building {TopLeft} /
+//      PlayerResources {Cash,Resources,ResourceCapacity} /
+//      ProductionQueue {Enabled,IsValidFaction})————
+// ———— The batch-5 [VerifySync] hash registrations (the gen/sync_gen.cpp
+//      member tables: FrozenUnderFog {VisibilityHash} / Building
+//      {TopLeft} / PlayerResources {Cash,Resources,ResourceCapacity} /
+//      ProductionQueue {Enabled,IsValidFaction}) ————
+
+namespace {
+
+int FrozenUnderFogSyncHash(const sim::ISync* s) {
+  const auto* frozen_under_fog = static_cast<const FrozenUnderFog*>(s);
+  return sim::sync::CombineSyncHash(
+      0, frozen_under_fog->VisibilityHash);
+}
+
+int BuildingSyncHash(const sim::ISync* s) {
+  const auto* building = static_cast<const Building*>(s);
+  return sim::sync::CombineSyncHash(
+      0, sim::sync::HashCPos(building->TopLeft()));
+}
+
+int PlayerResourcesSyncHash(const sim::ISync* s) {
+  const auto* player_resources = static_cast<const PlayerResources*>(s);
+  return sim::sync::CombineSyncHash(
+      sim::sync::CombineSyncHash(
+          sim::sync::CombineSyncHash(0, player_resources->Cash),
+          player_resources->Resources),
+      player_resources->ResourceCapacity);
+}
+
+int ProductionQueueSyncHash(const sim::ISync* s) {
+  const auto* queue = static_cast<const ProductionQueue*>(s);
+  return sim::sync::CombineSyncHash(
+      sim::sync::CombineSyncHash(0, queue->Enabled() ? 1 : 0),
+      queue->IsValidFaction() ? 1 : 0);
+}
+
+const bool b_registered_batch5_sync_hash = [] {
+  sim::RegisterSyncHashFunction(
+      "OpenRA.Mods.Common.Traits.FrozenUnderFog",
+      &FrozenUnderFogSyncHash);
+  sim::RegisterSyncHashFunction("OpenRA.Mods.Common.Traits.Building",
+                                &BuildingSyncHash);
+  sim::RegisterSyncHashFunction(
+      "OpenRA.Mods.Common.Traits.PlayerResources",
+      &PlayerResourcesSyncHash);
+  sim::RegisterSyncHashFunction(
+      "OpenRA.Mods.Common.Traits.ProductionQueue",
+      &ProductionQueueSyncHash);
+  return true;
+}();
+
+}  // namespace
 
 }  // namespace
 

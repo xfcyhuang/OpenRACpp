@@ -144,6 +144,13 @@ void SetBulletAnimationFactory(
                                   const std::string&,
                                   std::function<WAngle()>)> fn_factory);
 
+/// 注入面的消费入口(Missile/GravityBomb 等跨文件构造;未接线 → nullptr)
+/// The injection face's consumption entry (cross-file construction for
+/// Missile/GravityBomb etc.; unwired → nullptr).
+gfx::Animation* MakeBulletAnimation(
+    sim::World& world, const std::string& str_image,
+    const std::string& str_sequence, std::function<WAngle()> fn_facing);
+
 /// 弹着音注入面(Game.Sound.Play 的 World 型;同 Armament 形)
 /// The impact-sound injection face (Game.Sound.Play's World form;
 /// Armament's shape).

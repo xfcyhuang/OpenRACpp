@@ -172,6 +172,12 @@ class ITickRender {
  public:
   static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_ITickRender;
   virtual ~ITickRender() = default;
+  /// TraitsInterfaces.cs L112:TickRender(WorldRenderer, Actor)——
+  /// WorldRenderer 参数 = 渲染批的注入面,C++ 承载为 Actor 单参
+  /// TraitsInterfaces.cs L112: TickRender(WorldRenderer, Actor) — the
+  /// WorldRenderer parameter is the render batch's injection face,
+  /// carried in C++ as the single Actor parameter.
+  virtual void TickRender(Actor& self) = 0;
 };
 
 /// TraitsInterfaces.cs L155
@@ -1225,6 +1231,100 @@ class IBlocksProjectiles {
   virtual ~IBlocksProjectiles() = default;
   virtual WDist BlockingHeight() const = 0;
   virtual PlayerRelationship ValidRelationships() const = 0;
+};
+
+// ———— 第五批接口增量(建筑/生产链 + 迷雾修饰的承载面)————
+// ———— The batch-5 interface additions (the carrier faces of the
+//      building/production chain + the fog modifiers) ————
+
+/// Mods.Common/TraitsInterfaces.cs L70-74:INotifySold
+/// Mods.Common/TraitsInterfaces.cs L70-74: INotifySold.
+class INotifySold {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifySold;
+  virtual ~INotifySold() = default;
+  virtual void Selling(Actor& self) = 0;
+  virtual void Sold(Actor& self) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L333-338:INotifyTransform
+/// (AfterTransform 的参数 = 变换后的 actor)
+/// Mods.Common/TraitsInterfaces.cs L333-338: INotifyTransform (the
+/// AfterTransform parameter = the post-transform actor).
+class INotifyTransform {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyTransform;
+  virtual ~INotifyTransform() = default;
+  virtual void BeforeTransform(Actor& self) = 0;
+  virtual void OnTransform(Actor& self) = 0;
+  virtual void AfterTransform(Actor& to_actor) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L151:INotifyProduction
+/// Mods.Common/TraitsInterfaces.cs L151: INotifyProduction.
+class INotifyProduction {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyProduction;
+  virtual ~INotifyProduction() = default;
+  virtual void UnitProduced(Actor& self, Actor& other, CPos exit) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L152:INotifyOtherProduction
+/// (TypeDictionary 前置声明承载 init 参数面)
+/// Mods.Common/TraitsInterfaces.cs L152: INotifyOtherProduction (a
+/// forward-declared TypeDictionary carries the init parameter face).
+class TypeDictionary;
+
+class INotifyOtherProduction {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyOtherProduction;
+  virtual ~INotifyOtherProduction() = default;
+  virtual void UnitProducedByOther(Actor& self, Actor& producer,
+                                   Actor& produced,
+                                   const std::string& production_type,
+                                   TypeDictionary& inits) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L317-323:ITechTreeElement
+/// (ProductionQueue 等 prerequisite 消费者的回调面)
+/// Mods.Common/TraitsInterfaces.cs L317-323: ITechTreeElement (the
+/// callback face of prerequisite consumers such as ProductionQueue).
+class ITechTreeElement {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ITechTreeElement;
+  virtual ~ITechTreeElement() = default;
+  virtual void PrerequisitesAvailable(const std::string& key) = 0;
+  virtual void PrerequisitesUnavailable(const std::string& key) = 0;
+  virtual void PrerequisitesItemHidden(const std::string& key) = 0;
+  virtual void PrerequisitesItemVisible(const std::string& key) = 0;
+};
+
+/// Mods.Common ITechTreePrerequisiteInfo(Prerequisites(info) 的 Info 面;
+/// 返回 string 序列)
+/// Mods.Common's ITechTreePrerequisiteInfo (the Info face of
+/// Prerequisites(info); returns the string sequence).
+class ITechTreePrerequisiteInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ITechTreePrerequisiteInfo;
+  virtual ~ITechTreePrerequisiteInfo() = default;
+  virtual std::vector<std::string> Prerequisites(
+      const game::ActorInfo& info) = 0;
+};
+
+/// Mods.Common ITechTreePrerequisite(ProvidesPrerequisites 的查询面)
+/// Mods.Common's ITechTreePrerequisite (the ProvidesPrerequisites query).
+class ITechTreePrerequisite {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ITechTreePrerequisite;
+  virtual ~ITechTreePrerequisite() = default;
+  virtual std::vector<std::string> ProvidesPrerequisites() = 0;
 };
 
 /// trait 运行时对象的公共基(C# object 等价;TypeDictionary/TraitDictionary

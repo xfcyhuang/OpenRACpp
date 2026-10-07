@@ -143,6 +143,11 @@ struct CPos {
   }
   friend constexpr bool operator==(CPos cell_a, CPos cell_b) { return cell_a.Bits == cell_b.Bits; }
   friend constexpr bool operator!=(CPos cell_a, CPos cell_b) { return !(cell_a == cell_b); }
+  // 全序(上游 CPos 无此运算;C++ 容器键要求 —— Bits 打包即字典序,
+  // 自有设施面)| A total order (upstream CPos lacks it; required as a
+  // C++ container key — the packed Bits give a lexicographic order, a
+  // self-owned facility face).
+  friend constexpr bool operator<(CPos cell_a, CPos cell_b) { return cell_a.Bits < cell_b.Bits; }
 
  private:
   // 构造打包用的 Layer 辅助:保持公有构造体为委托调用形式,与上游三元重载链对应

@@ -221,6 +221,18 @@ class World final {
   void Add(Actor* a);
   void Remove(Actor* a);
 
+  // ———— ActorAdded/ActorRemoved 事件面(World.cs L338/L348;订阅方:TechTree
+  //      的前置监听 / 渲染与脚本批的消费面)————
+  // ———— The ActorAdded/ActorRemoved event faces (World.cs L338/L348; the
+  //      subscribers: TechTree's prerequisite listening / the render and
+  //      scripting batches' consumers). ————
+  void AddActorAddedHandler(std::function<void(Actor&)> fn) {
+    vec_actor_added_handlers_.push_back(std::move(fn));
+  }
+  void AddActorRemovedHandler(std::function<void(Actor&)> fn) {
+    vec_actor_removed_handlers_.push_back(std::move(fn));
+  }
+
   /// actor 对象所有权(arena 直构;测试构造路径同)—— AdoptActor 保留给
   /// 需要外部生命周期的注入面
   Actor* AdoptActor(std::unique_ptr<Actor> a);
@@ -439,6 +451,12 @@ class World final {
 
   TraitDictionary trait_dict_;
   std::map<std::uint32_t, Actor*> map_actors_;  // SortedDictionary 等价
+
+  // ActorAdded/ActorRemoved 的订阅表(上游 event 多播的回调承载)
+  // The ActorAdded/ActorRemoved subscription tables (the callback carrier
+  // of upstream's event multicast).
+  std::vector<std::function<void(Actor&)>> vec_actor_added_handlers_;
+  std::vector<std::function<void(Actor&)>> vec_actor_removed_handlers_;
 
   // RulesContainTemporaryBlocker 的首查物化(上游 ctor 一次性扫描)
   // The first-query materialization of RulesContainTemporaryBlocker

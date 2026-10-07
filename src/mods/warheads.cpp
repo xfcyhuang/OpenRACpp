@@ -10,6 +10,7 @@
 #include "mods/armor.hpp"
 #include "mods/hit_shape.hpp"
 #include "mods/util.hpp"
+#include "mods/smudge_layer.hpp"
 #include "mods/world_exts.hpp"
 #include "sim/actor.hpp"
 #include "sim/player.hpp"
@@ -334,6 +335,383 @@ int SpreadDamageWarhead::GetDamageFalloff(int distance) const {
   }
 
   return 0;
+}
+
+// ———— 战头基七字段/基链解析(三新战头共用;基链扁平序)————
+// ———— The warhead base-seven/base-chain parse (shared by the three new
+//      warheads; the flattened base-chain order) ————
+namespace {
+
+void ParseWarheadBaseFields(Warhead& wh, const meta::RecordObject& rec_info) {
+  if (const auto v = WarheadFieldInt(rec_info, "ValidTargets"))
+    wh.valid_types = core::BitSet<sim::TargetableType>::FromRawBits(
+        static_cast<std::uint64_t>(*v));
+  if (const auto v = WarheadFieldInt(rec_info, "InvalidTargets"))
+    wh.invalid_types = core::BitSet<sim::TargetableType>::FromRawBits(
+        static_cast<std::uint64_t>(*v));
+  if (const auto v = WarheadFieldInt(rec_info, "ValidRelationships"))
+    wh.valid_relationships =
+        static_cast<sim::PlayerRelationship>(
+            static_cast<std::int32_t>(*v));
+  if (const auto v = WarheadFieldInt(rec_info, "AffectsParent"))
+    wh.affects_parent = *v != 0;
+  if (const auto v = WarheadFieldInt(rec_info, "AirThreshold"))
+    wh.air_threshold = WDist{static_cast<std::int32_t>(*v)};
+  if (const auto v = WarheadFieldInt(rec_info, "Delay"))
+    wh.delay = static_cast<int>(*v);
+}
+
+}  // namespace
+
+// ———— TargetDamageWarhead(L15-66)————
+// ———— TargetDamageWarhead (L15-66) ————
+
+std::unique_ptr<TargetDamageWarhead> TargetDamageWarhead::Parse(
+    const meta::RecordObject& rec_info) {
+  auto wh = std::make_unique<TargetDamageWarhead>();
+  ParseWarheadBaseFields(*wh, rec_info);
+  wh->ParseDamageFields(rec_info);
+  if (const auto v = WarheadFieldInt(rec_info, "Spread"))
+    wh->Spread = WDist{static_cast<std::int32_t>(*v)};
+  return wh;
+}
+
+void TargetDamageWarhead::DoImpact(const WPos& pos, sim::Actor* fired_by,
+                                   sim::WarheadArgs& args) {
+  // L21-64(DebugVisualizations 面 L25-29 随 Phase 6)
+  // (the DebugVisualizations face of L25-29 rides Phase 6.)
+  if (Spread == WDist{0})
+    return;
+
+  sim::World& world = fired_by->world();
+  for (Actor* victim : FindActorsOnCircle(world, pos, Spread)) {
+    if (!IsValidAgainst(*victim, fired_by))
+      continue;
+
+    HitShape* closest_active_shape = nullptr;
+    int closest_distance = std::numeric_limits<int>::max();
+
+    // PERF: Avoid using TraitsImplementing<HitShape>...(上游注释)
+    for (sim::ITargetablePositions* target_pos :
+         victim->EnabledTargetablePositions()) {
+      if (auto* h = dynamic_cast<HitShape*>(target_pos)) {
+        const int distance = h->DistanceFromEdge(*victim, pos).Length;
+        if (distance < closest_distance) {
+          closest_distance = distance;
+          closest_active_shape = h;
+        }
+      }
+    }
+
+    // Cannot be damaged without an active HitShape.
+    if (closest_active_shape == nullptr)
+      continue;
+
+    // Cannot be damaged if HitShape is outside Spread.
+    if (closest_distance > Spread.Length)
+      continue;
+
+    InflictDamage(*victim, fired_by, *closest_active_shape, args);
+  }
+}
+
+// ———— CreateEffectWarhead(L17-149)————
+// ———— CreateEffectWarhead (L17-149) ————
+
+namespace {
+
+std::function<void(const std::string&, sim::World&, const WPos&)>
+    fn_warhead_sound_play_ = nullptr;
+
+/// RandomOrDefault(IReadOnlyList, Random):空集合零消耗
+/// RandomOrDefault (IReadOnlyList, Random): an empty list consumes
+/// nothing.
+std::string RandomOrDefaultOf(MersenneTwister& rng,
+                              const std::vector<std::string>& vec_xs) {
+  if (vec_xs.empty())
+    return {};
+  const std::int32_t index =
+      rng.Next(0, static_cast<std::int32_t>(vec_xs.size()));
+  return vec_xs[static_cast<std::size_t>(index)];
+}
+
+}  // namespace
+
+void SetWarheadSoundPlayer(
+    std::function<void(const std::string&, sim::World&, const WPos&)>
+        fn_play) {
+  fn_warhead_sound_play_ = std::move(fn_play);
+}
+
+std::unique_ptr<CreateEffectWarhead> CreateEffectWarhead::Parse(
+    const meta::RecordObject& rec_info) {
+  auto wh = std::make_unique<CreateEffectWarhead>();
+  ParseWarheadBaseFields(*wh, rec_info);
+
+  if (const auto slot = RecordSlotOf(rec_info, "Explosions"))
+    if (auto* list =
+            std::get_if<std::vector<meta::GenericValue>>(&(*slot)->val))
+      for (const auto& element : *list)
+        if (auto* s = std::get_if<std::string>(&element.val))
+          wh->vec_explosions.push_back(*s);
+  if (const auto slot = RecordSlotOf(rec_info, "Image"))
+    if (auto* s = std::get_if<std::string>(&(*slot)->val))
+      wh->str_image = *s;
+  if (const auto slot = RecordSlotOf(rec_info, "ExplosionPalette"))
+    if (auto* s = std::get_if<std::string>(&(*slot)->val))
+      wh->str_explosion_palette = *s;
+  if (const auto v = WarheadFieldInt(rec_info, "UsePlayerPalette"))
+    wh->b_use_player_palette = *v != 0;
+  if (const auto v = WarheadFieldInt(rec_info, "ForceDisplayAtGroundLevel"))
+    wh->b_force_display_at_ground_level = *v != 0;
+  if (const auto slot = RecordSlotOf(rec_info, "ImpactSounds"))
+    if (auto* list =
+            std::get_if<std::vector<meta::GenericValue>>(&(*slot)->val))
+      for (const auto& element : *list)
+        if (auto* s = std::get_if<std::string>(&element.val))
+          wh->vec_impact_sounds.push_back(*s);
+  if (const auto v = WarheadFieldInt(rec_info, "ImpactSoundChance"))
+    wh->int4_impact_sound_chance = static_cast<int>(*v);
+  if (const auto v = WarheadFieldInt(rec_info, "ImpactActors"))
+    wh->b_impact_actors = *v != 0;
+  if (const auto v = WarheadFieldInt(rec_info, "Inaccuracy"))
+    wh->dist_inaccuracy = WDist{static_cast<std::int32_t>(*v)};
+  return wh;
+}
+
+CreateEffectWarhead::ImpactActorType CreateEffectWarhead::ActorTypeAtImpact(
+    sim::World& world, const WPos& pos, sim::Actor* fired_by) {
+  // L51-70
+  bool any_invalid_actor = false;
+
+  // Check whether the impact position overlaps with an actor's hitshape
+  // (上游注释)
+  for (Actor* victim : FindActorsOnCircle(world, pos, WDist{0})) {
+    if (!affects_parent && victim == fired_by)
+      continue;
+
+    bool any_active_shape_within = false;
+    for (sim::ITargetablePositions* t :
+         victim->EnabledTargetablePositions())
+      if (auto* h = dynamic_cast<HitShape*>(t);
+          h != nullptr && !h->IsTraitDisabled() &&
+          h->DistanceFromEdge(*victim, pos).Length <= 0) {
+        any_active_shape_within = true;
+        break;
+      }
+    if (!any_active_shape_within)
+      continue;
+
+    if (IsValidAgainst(*victim, fired_by))
+      return ImpactActorType::Valid;
+
+    any_invalid_actor = true;
+  }
+
+  return any_invalid_actor ? ImpactActorType::Invalid
+                           : ImpactActorType::None;
+}
+
+bool CreateEffectWarhead::IsValidAgainst(sim::Actor& victim,
+                                         sim::Actor* fired_by) {
+  // L96-101
+  const sim::PlayerRelationship relationship =
+      fired_by->Owner()->RelationshipWith(victim.Owner());
+  if (!sim::HasRelationship(valid_relationships, relationship))
+    return false;
+
+  // A target type is valid if it is in the valid targets list, and not in
+  // the invalid targets list.(上游注释)
+  if (!IsValidTarget(victim.GetEnabledTargetTypes()))
+    return false;
+
+  return true;
+}
+
+void CreateEffectWarhead::DoImpact(const sim::Target& target,
+                                   sim::WarheadArgs& args) {
+  // L103-137
+  if (target.Type() == sim::TargetType::Invalid)
+    return;
+
+  sim::Actor* fired_by = args.source_actor;
+  WPos pos = target.CenterPosition();
+  sim::World& world = fired_by->world();
+  const ImpactActorType actor_at_impact =
+      b_impact_actors ? ActorTypeAtImpact(world, pos, fired_by)
+                      : ImpactActorType::None;
+
+  // Ignore the impact if there are only invalid actors within range
+  // (上游注释)
+  if (actor_at_impact == ImpactActorType::Invalid)
+    return;
+
+  // Ignore the impact if there are no valid actors and no valid terrain
+  // (impacts are allowed on valid actors sitting on invalid terrain!)
+  // (上游注释)
+  if (actor_at_impact == ImpactActorType::None &&
+      !IsValidAgainstTerrain(world, pos))
+    return;
+
+  // RNG 序:Explosions.RandomOrDefault(LocalRandom) → (Inaccuracy)
+  // FromPDF(SharedRandom) → ImpactSounds.RandomOrDefault(LocalRandom) →
+  // LocalRandom.Next(0,100)(上游序逐字)
+  // The RNG order: Explosions.RandomOrDefault(LocalRandom) →
+  // (Inaccuracy) FromPDF(SharedRandom) → ImpactSounds.RandomOrDefault(
+  // LocalRandom) → LocalRandom.Next(0,100) (upstream's order verbatim).
+  const std::string explosion =
+      RandomOrDefaultOf(world.LocalRandom(), vec_explosions);
+  if (str_image.empty() == false && !explosion.empty()) {
+    if (dist_inaccuracy.Length > 0)
+      pos = pos + WVec::FromPDF(world.SharedRandom(), 2) *
+                      dist_inaccuracy.Length / 1024;
+
+    if (b_force_display_at_ground_level) {
+      const WDist dat = world.Map().DistanceAboveTerrain(pos);
+      pos = pos - WVec{0, 0, dat.Length};
+    }
+
+    std::string palette = str_explosion_palette;
+    if (b_use_player_palette)
+      palette += fired_by->Owner()->InternalName();
+
+    // SpriteEffect(视觉)不构造 —— 渲染批;登记 COVERAGE
+    // The SpriteEffect (visual) is not constructed — the render batch;
+    // registered in COVERAGE.
+  }
+
+  const std::string impact_sound =
+      RandomOrDefaultOf(world.LocalRandom(), vec_impact_sounds);
+  if (!impact_sound.empty() &&
+      world.LocalRandom().Next(0, 100) < int4_impact_sound_chance) {
+    if (fn_warhead_sound_play_ != nullptr)
+      fn_warhead_sound_play_(impact_sound, world, pos);
+  }
+}
+
+bool CreateEffectWarhead::IsValidAgainstTerrain(sim::World& world,
+                                                const WPos& pos) {
+  // L140-149
+  const CPos cell = world.Map().CellContaining(pos);
+  if (!world.Map().Contains(cell))
+    return false;
+
+  const WDist dat = world.Map().DistanceAboveTerrain(pos);
+  // TargetTypeAir = new BitSet<TargetableType>("Air")(L47;运行时分配器
+  // 的首遇位)
+  // TargetTypeAir = new BitSet<TargetableType>("Air") (L47; the runtime
+  // allocator's first-appearance bit).
+  if (dat > air_threshold) {
+    const std::vector<std::string> vec_air{"Air"};
+    return IsValidTarget(core::BitSet<sim::TargetableType>::FromRawBits(
+        meta::BitsOf("OpenRA.Traits.TargetableType", vec_air)));
+  }
+  return IsValidTarget(
+      core::BitSet<sim::TargetableType>::FromRawBits(
+          world.Map().GetTerrainInfo(cell).uint8_target_types));
+}
+
+// ———— LeaveSmudgeWarhead(L16-75)————
+// ———— LeaveSmudgeWarhead (L16-75) ————
+
+std::unique_ptr<LeaveSmudgeWarhead> LeaveSmudgeWarhead::Parse(
+    const meta::RecordObject& rec_info) {
+  auto wh = std::make_unique<LeaveSmudgeWarhead>();
+  ParseWarheadBaseFields(*wh, rec_info);
+
+  if (const auto slot = RecordSlotOf(rec_info, "Size"))
+    if (auto* list =
+            std::get_if<std::vector<meta::GenericValue>>(&(*slot)->val)) {
+      wh->vec_size.clear();
+      for (const auto& element : *list)
+        if (auto* n = std::get_if<std::int64_t>(&element.val))
+          wh->vec_size.push_back(static_cast<int>(*n));
+    }
+  if (const auto slot = RecordSlotOf(rec_info, "SmudgeType"))
+    if (auto* list =
+            std::get_if<std::vector<meta::GenericValue>>(&(*slot)->val))
+      for (const auto& element : *list)
+        if (auto* s = std::get_if<std::string>(&element.val))
+          wh->vec_smudge_type.push_back(*s);
+  if (const auto v = WarheadFieldInt(rec_info, "Chance"))
+    wh->int4_chance = static_cast<int>(*v);
+  return wh;
+}
+
+void LeaveSmudgeWarhead::DoImpact(const sim::Target& target,
+                                  sim::WarheadArgs& args) {
+  // L28-75
+  if (target.Type() == sim::TargetType::Invalid)
+    return;
+
+  sim::Actor* fired_by = args.source_actor;
+  sim::World& world = fired_by->world();
+
+  if (int4_chance < world.LocalRandom().Next(100))
+    return;
+
+  WPos pos = target.CenterPosition();
+  const WDist dat = world.Map().DistanceAboveTerrain(pos);
+
+  if (dat > air_threshold)
+    return;
+
+  const CPos target_tile = world.Map().CellContaining(pos);
+
+  // world.WorldActor.TraitsImplementing<SmudgeLayer>().ToDictionary(
+  // Info.Type)(注册表驱动;WorldActor 查询面)
+  // world.WorldActor.TraitsImplementing<SmudgeLayer>().ToDictionary(
+  // Info.Type) (registry-driven; the WorldActor query face).
+  std::vector<SmudgeLayer*> vec_layers;
+  for (auto* layer : world.WorldActor()->TraitsImplementing<SmudgeLayer>())
+    vec_layers.push_back(layer);
+
+  const int min_range =
+      (vec_size.size() > 1 && vec_size[1] > 0) ? vec_size[1] : 0;
+  const std::vector<CPos> vec_all_cells =
+      world.Map().FindTilesInAnnulus(target_tile, min_range, vec_size[0]);
+
+  // Draw the smudges:(上游注释)
+  for (const CPos& sc : vec_all_cells) {
+    // GetTerrainInfo(sc).AcceptsSmudgeType.FirstOrDefault(SmudgeType.
+    // Contains)(插入序首匹配)
+    // GetTerrainInfo(sc).AcceptsSmudgeType.FirstOrDefault(SmudgeType.
+    // Contains) (the insertion-order first match).
+    std::string smudge_type;
+    bool found = false;
+    for (const std::string& accepts :
+         world.Map().GetTerrainInfo(sc).vec_accepts_smudge_type)
+      if (std::find(vec_smudge_type.begin(), vec_smudge_type.end(),
+                    accepts) != vec_smudge_type.end()) {
+        smudge_type = accepts;
+        found = true;
+        break;
+      }
+    if (!found)
+      continue;
+
+    bool any_invalid = false;
+    for (Actor* a : world.ActorMapFace()->GetActorsAt(sc))
+      if (!IsValidAgainst(*a, fired_by)) {
+        any_invalid = true;
+        break;
+      }
+    if (any_invalid)
+      continue;
+
+    SmudgeLayer* smudge_layer = nullptr;
+    for (SmudgeLayer* layer : vec_layers)
+      if (layer->Info().str_type == smudge_type) {
+        smudge_layer = layer;
+        break;
+      }
+    if (smudge_layer == nullptr)
+      throw std::runtime_error(
+          "Unknown smudge type `" + smudge_type +
+          "`");  // NotImplementedException 等价文本 | the NotImplementedException-equivalent text.
+
+    smudge_layer->AddSmudge(sc);
+  }
 }
 
 }  // namespace ora::mods
