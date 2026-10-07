@@ -35,6 +35,15 @@ import std;
 #include "mods/body_orientation.hpp"
 #include "mods/mobile.hpp"
 #include "mods/unit_order_generator.hpp"
+#include "mods/turreted.hpp"
+#include "mods/attack_follow.hpp"
+#include "mods/power.hpp"
+#include "mods/resource_layer.hpp"
+#include "mods/dock_client.hpp"
+#include "mods/dock_host.hpp"
+#include "mods/stores_resources.hpp"
+#include "mods/harvester.hpp"
+#include "mods/refinery.hpp"
 #include "net/session.hpp"
 #include "sim/actor.hpp"
 #include "sim/actor_map.hpp"
@@ -645,6 +654,172 @@ void RegisterCommonTraits() {
         [](const meta::RecordObject&, ActorInitializer& init,
            ora::WorldArena& arena) -> TraitBase* {
           return arena.Create<BuildingInfluence>(init.Self().world());
+        });
+
+    // ———— 第六批增补:ClassicFacingBodyOrientation(Mods.Cnc 的
+    // BodyOrientation 子类;QuantizeFacing 覆写在 facings == 32 时走
+    // ClassicIndexFacing/SpriteFacings 表 —— 该域随渲染批的序列表面
+    // 接线,其余域与基类同式;COVERAGE 登记)————
+    // The batch-6 addition: ClassicFacingBodyOrientation (the Mods.Cnc
+    // subclass of BodyOrientation; its QuantizeFacing override goes
+    // through the ClassicIndexFacing/SpriteFacings table at facings == 32
+    // — that domain rides the render batch's sequence face, every other
+    // domain matches the base formula; registered in COVERAGE).
+    registry.Register(
+        "ClassicFacingBodyOrientationInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<BodyOrientation>(
+              init, BodyOrientationInfoData::Parse(rec_info));
+        });
+
+    // ———— 第六批:AttackFollow 族/Turreted ————
+
+    // AttackFollowInfo.Create(init) → new AttackFollow(init.Self, this)
+    registry.Register(
+        "AttackFollowInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<AttackFollow>(
+              init, AttackFollowInfoData::Parse(rec_info));
+        });
+
+    // AttackTurretedInfo.Create(init) → new AttackTurreted(init.Self,
+    // this)
+    registry.Register(
+        "AttackTurretedInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<AttackTurreted>(
+              init, AttackTurretedInfoData::Parse(rec_info));
+        });
+
+    // TurretedInfo.Create(init) → new Turreted(init, this)(init 的按名
+    // 匹配面携带声明实例名)
+    registry.Register(
+        "TurretedInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          TurretedInfoData data = TurretedInfoData::Parse(rec_info);
+          std::string str_instance_name;
+          if (init.Self().Info() != nullptr)
+            str_instance_name =
+                std::string{init.Self().Info()->InstanceNameOf(&rec_info)};
+          return arena.Create<Turreted>(init, data,
+                                        std::move(str_instance_name));
+        });
+
+    // ———— 第六批:电源链 ————
+
+    // PowerManagerInfo.Create(init) → new PowerManager(init.Self, this)
+    registry.Register(
+        "PowerManagerInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<PowerManager>(
+              init, PowerManagerInfoData::Parse(rec_info));
+        });
+
+    // PowerInfo.Create(init) → new Power(init.Self, this)
+    registry.Register(
+        "PowerInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<Power>(init, PowerInfoData::Parse(rec_info));
+        });
+
+    // AffectedByPowerOutageInfo.Create(init) → new
+    // AffectedByPowerOutage(init.Self, this)
+    registry.Register(
+        "AffectedByPowerOutageInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<AffectedByPowerOutage>(
+              init, AffectedByPowerOutageInfoData::Parse(rec_info));
+        });
+
+    // ———— 第六批:资源链(world actor + 单位/厂)————
+
+    // ResourceLayerInfo.Create(init) → new ResourceLayer(init.Self, this)
+    registry.Register(
+        "ResourceLayerInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<ResourceLayer>(
+              init.Self(), ResourceLayerInfoData::Parse(rec_info));
+        });
+
+    // ResourceClaimLayerInfo.Create(init) → new ResourceClaimLayer()
+    registry.Register(
+        "ResourceClaimLayerInfo",
+        [](const meta::RecordObject&, ActorInitializer&,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<ResourceClaimLayer>();
+        });
+
+    // DockClientManagerInfo.Create(init) → new DockClientManager(
+    // init.Self, this)
+    registry.Register(
+        "DockClientManagerInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<DockClientManager>(
+              init, DockClientManagerInfoData::Parse(rec_info));
+        });
+
+    // DockHostInfo.Create(init) → new DockHost(init.Self, this)
+    registry.Register(
+        "DockHostInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<DockHost>(init,
+                                        DockHostInfoData::Parse(rec_info));
+        });
+
+    // StoresResourcesInfo.Create(init) → new StoresResources(init.Self,
+    // this)
+    registry.Register(
+        "StoresResourcesInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<StoresResources>(
+              init, StoresResourcesInfoData::Parse(rec_info));
+        });
+
+    // StoresPlayerResourcesInfo.Create(init) → new
+    // StoresPlayerResources(init.Self, this)
+    registry.Register(
+        "StoresPlayerResourcesInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<StoresPlayerResources>(
+              init, StoresPlayerResourcesInfoData::Parse(rec_info));
+        });
+
+    // RefineryInfo.Create(init) → new Refinery(init.Self, this)
+    // (Requires<WithSpriteBodyInfo> 的约束面:WithSpriteBody 未移植 →
+    // 注册侧跳过 —— COVERAGE 登记)
+    // (the Requires<WithSpriteBodyInfo> constraint face: WithSpriteBody is
+    // unported → the registration-side skip — registered in COVERAGE).
+    registry.Register(
+        "RefineryInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<Refinery>(
+              init, RefineryInfoData::Parse(rec_info));
+        });
+
+    // HarvesterInfo.Create(init) → new Harvester(init.Self, this)
+    // (IRulesetLoaded 的 Resources 校验 = 工厂时点)
+    // (the IRulesetLoaded Resources validation = factory time).
+    registry.Register(
+        "HarvesterInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          HarvesterInfoData data = HarvesterInfoData::Parse(rec_info);
+          if (init.Self().Info() != nullptr)
+            data.ValidateResources(*init.Self().Info());
+          return arena.Create<Harvester>(init, data);
         });
 
     return true;

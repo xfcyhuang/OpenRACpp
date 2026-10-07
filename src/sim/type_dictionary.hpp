@@ -88,6 +88,19 @@ class ActorInit : public TraitBase {
     return std::span<const gen::TypeId>(kIds);                           \
   }
 
+/// 零接口变体(TurretFacingInit 族:仅自身键,无 ISingleInstanceInit ——
+/// 上游按 trait info 实例名匹配,非单实例)
+/// The zero-interface variant (the TurretFacingInit family: the self key
+/// only, no ISingleInstanceInit — upstream matches by trait-info instance
+/// name, not singleton).
+#define ORA_INIT_TYPE_SELF_ONLY(InitT, TypeIdEnum)                        \
+  static constexpr gen::TypeId kInitTypeId = gen::TypeId::TypeIdEnum;     \
+  gen::TypeId GetTraitTypeId() const override { return kInitTypeId; }    \
+  gen::TypeId GetInitTypeId() const override { return kInitTypeId; }     \
+  std::span<const gen::TypeId> InitTypeIds() const override {            \
+    return {};                                                           \
+  }
+
 /// TypeDictionary.cs L19-183
 class TypeDictionary {
  public:

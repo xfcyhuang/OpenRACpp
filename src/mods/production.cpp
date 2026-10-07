@@ -1,6 +1,7 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Production.cs + OpenRA.Mods.Common/Traits/Player/ProductionQueue.cs + OpenRA.Mods.Common/Traits/Buildings/Exit.cs 实现部分
 //          The implementation half.
 #include "mods/production.hpp"
+#include "mods/power.hpp"
 
 #include "core/percent_modifiers.hpp"
 #include "game/actor_info.hpp"
@@ -475,7 +476,9 @@ ProductionQueue::ProductionQueue(sim::ActorInitializer& init,
 }
 
 void ProductionQueue::Created(sim::Actor& self) {
-  // L177-186(PowerManager 未移植 → null)
+  // L177-186(PowerManager 第六批接线)
+  p_player_power_ =
+      self.Owner()->PlayerActor()->TraitOrDefault<PowerManager>();
   p_player_resources_ =
       self.Owner()->PlayerActor()->Trait<PlayerResources>();
   p_developer_mode_ =
@@ -511,6 +514,8 @@ void ProductionQueue::OnOwnerChanged(sim::Actor& self,
   // L205-224
   ClearQueue();
 
+  p_player_power_ =
+      new_owner.PlayerActor()->TraitOrDefault<PowerManager>();
   p_player_resources_ =
       new_owner.PlayerActor()->Trait<PlayerResources>();
   p_developer_mode_ =
@@ -944,7 +949,7 @@ void ProductionQueue::ResolveOrder(sim::Actor& self,
       ProductionQueue* queue_this = this;
       auto item = std::make_unique<ProductionItemLike>(
           *this, order.str_target_string.value_or(""), cost,
-          std::function<void(ProductionItemLike*)>{});
+          p_player_power_, std::function<void(ProductionItemLike*)>{});
       item->OnComplete =
           [queue_this, unit_name, time,
            is_building = HasBuildingInfo(*unit)](
@@ -1061,7 +1066,7 @@ bool ProductionQueue::CancelProductionInner(const std::string& item_name) {
       item->Infinite = false;
       for (int i = 1; i < info_.int4_infinite_build_limit; i++)
         vec_queue_.push_back(std::make_unique<ProductionItemLike>(
-            *this, item->Item, item->TotalCost,
+            *this, item->Item, item->TotalCost, p_player_power_,
             std::function<void(ProductionItemLike*)>{}));
     } else {
       // Refund what has been paid(上游注释)
@@ -1096,7 +1101,8 @@ void ProductionQueue::EndProduction(ProductionItemLike& item) {
 
   if (infinite) {
     auto rebuilt = std::make_unique<ProductionItemLike>(
-        *this, rebuild_name, rebuild_cost, std::move(rebuild_on_complete));
+        *this, rebuild_name, rebuild_cost, p_player_power_,
+        std::move(rebuild_on_complete));
     rebuilt->Infinite = true;  // 上游对象初始化器 { Infinite = true }
     vec_queue_.push_back(std::move(rebuilt));
   }
@@ -1396,7 +1402,7 @@ bool ClassicProductionQueue::BuildUnit(const game::ActorInfo& unit) {
 // ———— ProductionItem ————
 
 ProductionItemLike::ProductionItemLike(
-    ProductionQueue& queue, std::string item, int cost,
+    ProductionQueue& queue, std::string item, int cost, PowerManager* pm,
     std::function<void(ProductionItemLike*)> on_complete)
     : Item{std::move(item)},
       TotalCost{cost},
@@ -1404,6 +1410,7 @@ ProductionItemLike::ProductionItemLike(
       Queue{&queue},
       OnComplete{std::move(on_complete)} {
   // L743-756
+  p_pm_ = pm;
   int4_remaining_time_ = int4_total_time_ = 1;
   p_ai_ = queue.Actor()->world().Map().Rules().FindActor(Item);
   const std::optional<BuildableInfoData> bi =
@@ -1414,9 +1421,13 @@ ProductionItemLike::ProductionItemLike(
 }
 
 int ProductionItemLike::RemainingTimeActual() const {
-  // L728-731(pm == null 路径 —— PowerManager 未移植;登记)
-  // (the pm == null path — PowerManager unported; registered.)
-  return int4_remaining_time_;
+  // L728-731(第六批 PowerManager 接线)
+  // L728-731 (wired with batch 6's PowerManager).
+  return (p_pm_ == nullptr ||
+          p_pm_->GetPowerState() == sim::PowerState::Normal)
+             ? int4_remaining_time_
+             : int4_remaining_time_ *
+                   Queue->Info().int4_low_power_modifier / 100;
 }
 
 void ProductionItemLike::Tick(PlayerResources& pr) {
@@ -1437,9 +1448,17 @@ void ProductionItemLike::Tick(PlayerResources& pr) {
   if (b_paused_)
     return;
 
-  // PowerManager 的 Slowdown 面未移植(pm == null 跳过;登记)
-  // PowerManager's Slowdown face is unported (the pm == null skip;
-  // registered).
+  // L774-784:PowerManager 的 Slowdown 面(第六批接线)
+  // L774-784: PowerManager's Slowdown face (wired with batch 6).
+  if (p_pm_ != nullptr &&
+      p_pm_->GetPowerState() != sim::PowerState::Normal) {
+    int4_slowdown_ -= 100;
+    if (int4_slowdown_ < 0)
+      int4_slowdown_ = Queue->Info().int4_low_power_modifier +
+                       int4_slowdown_;
+    else
+      return;
+  }
 
   if (!Queue->Info().b_pay_up_front) {
     const int expected_remaining_cost =

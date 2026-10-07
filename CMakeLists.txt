@@ -325,7 +325,18 @@ add_library(ora_mods STATIC
   src/mods/pathfinding/path_search.cpp
   src/mods/pathfinding/locomotor.cpp
   src/mods/pathfinding/hierarchical_path_finder.cpp
-  src/mods/pathfinding/path_finder.cpp)
+  src/mods/pathfinding/path_finder.cpp
+  src/mods/turreted.cpp
+  src/mods/attack_follow.cpp
+  src/mods/power.cpp
+  src/mods/resource_layer.cpp
+  src/mods/dock_client.cpp
+  src/mods/dock_host.cpp
+  src/mods/dock_activities.cpp
+  src/mods/stores_resources.cpp
+  src/mods/harvester.cpp
+  src/mods/harvest_activities.cpp
+  src/mods/refinery.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats)
 ora_link_std(ora_mods)
 
@@ -554,6 +565,15 @@ add_custom_command(TARGET move_test POST_BUILD
           ${CMAKE_SOURCE_DIR}/third_party/OpenAL/bin/OpenAL32.dll $<TARGET_FILE_DIR:move_test>
           ${CMAKE_SOURCE_DIR}/third_party/FreeType/bin/freetype6.dll $<TARGET_FILE_DIR:move_test>)
 add_test(NAME move_test COMMAND move_test ${ORA_UPSTREAM_ROOT})
+add_executable(resource_test tests/resource_test.cpp)
+ora_link_std(resource_test)
+target_link_libraries(resource_test PRIVATE
+  ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
+  ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
+  ora_miniz ora_sdl2 ora_openal ora_freetype)
+ora_link_std(resource_test)
+
+add_test(NAME resource_test COMMAND resource_test ${ORA_UPSTREAM_ROOT})
 add_test(NAME production_test COMMAND production_test ${ORA_UPSTREAM_ROOT})
 set_tests_properties(production_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
 add_test(NAME attack_test COMMAND attack_test ${ORA_UPSTREAM_ROOT})

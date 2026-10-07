@@ -47,7 +47,18 @@ class Armament;  // Mods.Common(armament.hpp;接口签名前向承载)
                  // Mods.Common (armament.hpp; the forward carrier of the
                  // interface signatures).
 struct Barrel;   // Armament.cs L22(同上 | same as above)
+class DockClientManager;  // 第六批 dock 链(接口签名前向承载;定义于
+                          // mods/dock_client.hpp)
+                          // The batch-6 dock chain (the forward carrier of
+                          // the interface signatures; defined in
+                          // mods/dock_client.hpp).
 }  // namespace ora::mods
+
+namespace ora::mods::activities {
+class MoveCooldownHelper;  // move_activities.hpp(IDockHost 签名前向)
+                           // move_activities.hpp (IDockHost's signature
+                           // forward).
+}
 
 namespace ora::mods::pathfinding {
 class LocomotorInfo;  // Mods.Common;寻路批的类型面(a pathfinding-batch type)
@@ -1325,6 +1336,308 @@ class ITechTreePrerequisite {
       gen::TypeId::OpenRA_Mods_Common_Traits_ITechTreePrerequisite;
   virtual ~ITechTreePrerequisite() = default;
   virtual std::vector<std::string> ProvidesPrerequisites() = 0;
+};
+
+// ———— 第六批接口增补(Modules:电源/资源/dock/turret 链)————
+// ———— The batch-6 interface additions (power/resources/dock/turret) ————
+
+/// Mods.Common TraitsInterfaces.cs L145:INotifyPowerLevelChanged
+/// Mods.Common TraitsInterfaces.cs L145: INotifyPowerLevelChanged.
+class INotifyPowerLevelChanged {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyPowerLevelChanged;
+  virtual ~INotifyPowerLevelChanged() = default;
+  virtual void PowerLevelChanged(Actor& self) = 0;
+};
+
+/// TraitsInterfaces.cs L471:IPowerModifier
+/// TraitsInterfaces.cs L471: IPowerModifier.
+class IPowerModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IPowerModifier;
+  virtual ~IPowerModifier() = default;
+  virtual int GetPowerModifier() = 0;
+};
+
+/// TraitsInterfaces.cs L489:IResourceValueModifier
+/// TraitsInterfaces.cs L489: IResourceValueModifier.
+class IResourceValueModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IResourceValueModifier;
+  virtual ~IResourceValueModifier() = default;
+  virtual int GetResourceValueModifier() = 0;
+};
+
+/// TraitsInterfaces.cs L176:INotifyResourceAccepted
+/// TraitsInterfaces.cs L176: INotifyResourceAccepted.
+class INotifyResourceAccepted {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyResourceAccepted;
+  virtual ~INotifyResourceAccepted() = default;
+  virtual void OnResourceAccepted(Actor& self, Actor& refinery,
+                                  const std::string& resource_type, int count,
+                                  int value) = 0;
+};
+
+/// TraitsInterfaces.cs L208-213:INotifyHarvestAction
+/// TraitsInterfaces.cs L208-213: INotifyHarvestAction.
+class INotifyHarvestAction {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyHarvestAction;
+  virtual ~INotifyHarvestAction() = default;
+  virtual void Harvested(Actor& self, const std::string& resource_type) = 0;
+  virtual void MovingToResources(Actor& self, CPos target_cell) = 0;
+  virtual void MovementCancelled(Actor& self) = 0;
+};
+
+/// CaptureType 位标签(TraitsInterfaces.cs L180 的 BitSet<CaptureType>)
+/// The CaptureType bit tag (TraitsInterfaces.cs L180's
+/// BitSet<CaptureType>).
+class CaptureType {};
+
+/// TraitsInterfaces.cs L178-181:INotifyCapture(BitSet<CaptureType> 面随
+/// Capturable 族批;本批实现者仅消费 owner 迁移语义)
+/// TraitsInterfaces.cs L178-181: INotifyCapture (the BitSet<CaptureType>
+/// face rides the Capturable-family batch; this batch's implementers only
+/// consume the owner-migration semantics).
+class INotifyCapture {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyCapture;
+  virtual ~INotifyCapture() = default;
+  virtual void OnCapture(Actor& self, Actor& captor, Player& old_owner,
+                         Player& new_owner,
+                         const core::BitSet<CaptureType>&
+                             capture_types) = 0;
+};
+
+/// ResourceLayer.cs L21-26:ResourceLayerContents(readonly struct)
+/// ResourceLayer.cs L21-26: ResourceLayerContents (a readonly struct).
+struct ResourceLayerContents {
+  /// 上游 static readonly Empty(类内不完整类型 → 访问器函数承载)
+  /// Upstream's static readonly Empty (in-class incompleteness → an
+  /// accessor function).
+  static const ResourceLayerContents& Empty();
+
+  std::string str_type;  // null 语义 = 空串(上游 null 与 "" 同为无资源域)
+  std::uint8_t uint1_density = 0;
+};
+
+inline const ResourceLayerContents& ResourceLayerContents::Empty() {
+  static const ResourceLayerContents k_empty{};
+  return k_empty;
+}
+
+/// TraitsInterfaces.cs L812:IResourceLayerInfo
+/// TraitsInterfaces.cs L812: IResourceLayerInfo.
+class IResourceLayerInfo {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IResourceLayerInfo;
+  virtual ~IResourceLayerInfo() = default;
+  virtual bool TryGetTerrainType(const std::string& resource_type,
+                                 std::string& terrain_type_out) = 0;
+  virtual bool TryGetResourceIndex(const std::string& resource_type,
+                                   std::uint8_t& index_out) = 0;
+};
+
+/// TraitsInterfaces.cs L822-835:IResourceLayer(CellChanged 事件 → 回调表
+/// 形态,与 World 事件面同法;本批无订阅者)
+/// TraitsInterfaces.cs L822-835: IResourceLayer (the CellChanged event →
+/// a callback list, the same device as the World event faces; no
+/// subscribers this batch).
+class IResourceLayer {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IResourceLayer;
+  virtual ~IResourceLayer() = default;
+  virtual ResourceLayerContents GetResource(CPos cell) = 0;
+  virtual std::uint8_t GetMaxDensity(const std::string& resource_type) = 0;
+  virtual bool CanAddResource(const std::string& resource_type, CPos cell,
+                              std::uint8_t amount = 1) = 0;
+  virtual int AddResource(const std::string& resource_type, CPos cell,
+                          std::uint8_t amount = 1) = 0;
+  virtual int RemoveResource(const std::string& resource_type, CPos cell,
+                             std::uint8_t amount = 1) = 0;
+  virtual void ClearResources(CPos cell) = 0;
+  virtual bool IsVisible(CPos cell) = 0;
+  virtual bool IsEmpty() = 0;
+  virtual const IResourceLayerInfo& ResourceLayerInfo() const = 0;
+};
+
+/// Game TraitsInterfaces.cs L178-181:IStoresResourcesInfo
+/// Game TraitsInterfaces.cs L178-181: IStoresResourcesInfo.
+class IStoresResourcesInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IStoresResourcesInfo;
+  virtual std::vector<std::string> ResourceTypes() = 0;
+};
+
+/// Game TraitsInterfaces.cs L183-200:IStoresResources(Contents 的只读字典
+/// → 插入序 vector 对)
+/// Game TraitsInterfaces.cs L183-200: IStoresResources (the read-only
+/// Contents dictionary → insertion-ordered pairs).
+class IStoresResources {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IStoresResources;
+  virtual ~IStoresResources() = default;
+  virtual bool HasType(const std::string& resource_type) = 0;
+  virtual int Capacity() const = 0;
+  virtual const std::vector<std::pair<std::string, int>>& Contents()
+      const = 0;
+  virtual int ContentsSum() const = 0;
+  virtual int AddResource(const std::string& resource_type, int value) = 0;
+  virtual int RemoveResource(const std::string& resource_type, int value) = 0;
+};
+
+/// TraitsInterfaces.cs L297:IAcceptResources
+/// TraitsInterfaces.cs L297: IAcceptResources.
+class IAcceptResources {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IAcceptResources;
+  virtual ~IAcceptResources() = default;
+  virtual int AcceptResources(Actor& self, const std::string& resource_type,
+                              int count = 1) = 0;
+};
+
+/// DockHost.cs L19:DockType 位标签(BitSet<DockType> 的 tag)
+/// DockHost.cs L19: the DockType bit tag (BitSet<DockType>'s tag).
+class DockType {};
+
+/// TraitsInterfaces.cs L215:IDockClientInfo | TraitsInterfaces.cs L215:
+/// IDockClientInfo.
+class IDockClientInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IDockClientInfo;
+};
+
+class IDockHost;  // 定义于本文件下方(IDockClient 签名先行)
+                   // (defined later in this file — IDockClient's
+                   // signatures come first).
+
+/// TraitsInterfaces.cs L217-243:IDockClient(DockClientManager 前向引用:
+/// mods 层具体类)
+/// TraitsInterfaces.cs L217-243: IDockClient (DockClientManager forward
+/// references the mods-layer concrete class).
+class IDockClient {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IDockClient;
+  virtual ~IDockClient() = default;
+  virtual core::BitSet<DockType> GetDockType() = 0;
+  virtual ora::mods::DockClientManager* GetDockClientManager() = 0;
+  virtual void OnDockStarted(Actor& self, Actor& host_actor,
+                             IDockHost* host) = 0;
+  virtual bool OnDockTick(Actor& self, Actor& host_actor,
+                          IDockHost* dock) = 0;
+  virtual void OnDockCompleted(Actor& self, Actor& host_actor,
+                               IDockHost* host) = 0;
+  virtual bool CanDock(const core::BitSet<DockType>& type,
+                       bool force_enter = false) = 0;
+  virtual bool CanDockAt(Actor& host_actor, IDockHost* host,
+                         bool force_enter = false,
+                         bool ignore_occupancy = false) = 0;
+  virtual bool CanQueueDockAt(Actor& host_actor, IDockHost* host,
+                              bool force_enter, bool is_queued) = 0;
+};
+
+/// TraitsInterfaces.cs L251-280:IDockHost(QueueMoveActivity 的
+/// MoveCooldownHelper 为 mods::activities 前向)
+/// TraitsInterfaces.cs L251-280: IDockHost (QueueMoveActivity's
+/// MoveCooldownHelper forwards from mods::activities).
+class IDockHost {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IDockHost;
+  virtual ~IDockHost() = default;
+  virtual core::BitSet<DockType> GetDockType() = 0;
+  virtual bool IsEnabledAndInWorld() = 0;
+  virtual int ReservationCount() = 0;
+  virtual bool CanBeReserved() = 0;
+  virtual WPos DockPosition() = 0;
+  virtual bool IsDockingPossible(
+      Actor& client_actor, IDockClient* client,
+      bool ignore_reservations = false) = 0;
+  virtual bool Reserve(Actor& self,
+                       ora::mods::DockClientManager* client) = 0;
+  virtual void UnreserveAll() = 0;
+  virtual void Unreserve(ora::mods::DockClientManager* client) = 0;
+  virtual void OnDockStarted(Actor& self, Actor& client_actor,
+                             ora::mods::DockClientManager* client) = 0;
+  virtual void OnDockCompleted(Actor& self, Actor& client_actor,
+                               ora::mods::DockClientManager* client) = 0;
+  virtual bool QueueMoveActivity(
+      class Activity* move_to_dock_activity, Actor& self, Actor& client_actor,
+      ora::mods::DockClientManager* client,
+      ora::mods::activities::MoveCooldownHelper& move_cooldown_helper) = 0;
+  virtual void QueueDockActivity(
+      class Activity* move_to_dock_activity, Actor& self, Actor& client_actor,
+      ora::mods::DockClientManager* client) = 0;
+};
+
+/// TraitsInterfaces.cs L283:IDockClientManagerInfo
+/// TraitsInterfaces.cs L283: IDockClientManagerInfo.
+class IDockClientManagerInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IDockClientManagerInfo;
+};
+
+/// TraitsInterfaces.cs L164:INotifyDockHost | TraitsInterfaces.cs L164:
+/// INotifyDockHost.
+class INotifyDockHost {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyDockHost;
+  virtual ~INotifyDockHost() = default;
+  virtual void Docked(Actor& self, Actor& client) = 0;
+  virtual void Undocked(Actor& self, Actor& client) = 0;
+};
+
+/// TraitsInterfaces.cs L166:INotifyDockClient | TraitsInterfaces.cs L166:
+/// INotifyDockClient.
+class INotifyDockClient {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyDockClient;
+  virtual ~INotifyDockClient() = default;
+  virtual void Docked(Actor& self, Actor& host) = 0;
+  virtual void Undocked(Actor& self, Actor& host) = 0;
+};
+
+/// TraitsInterfaces.cs L169-173:INotifyDockClientMoving
+/// TraitsInterfaces.cs L169-173: INotifyDockClientMoving.
+class INotifyDockClientMoving {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyDockClientMoving;
+  virtual ~INotifyDockClientMoving() = default;
+  virtual void MovingToDock(Actor& self, Actor& host_actor,
+                            IDockHost* host) = 0;
+  virtual void MovementCancelled(Actor& self) = 0;
+};
+
+/// TraitsInterfaces.cs L289-293:IDockClientBody(动画闭包 → std::function)
+/// TraitsInterfaces.cs L289-293: IDockClientBody (the animation closure →
+/// std::function).
+class IDockClientBody {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IDockClientBody;
+  virtual ~IDockClientBody() = default;
+  virtual void PlayDockAnimation(
+      Actor& self, std::function<void()> after) = 0;
+  virtual void PlayReverseDockAnimation(
+      Actor& self, std::function<void()> after) = 0;
 };
 
 /// trait 运行时对象的公共基(C# object 等价;TypeDictionary/TraitDictionary

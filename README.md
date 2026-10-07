@@ -12,7 +12,7 @@
 
 ## 进度总览
 
-**整体完成度约 52%**（按 PORTING_PLAN 各阶段工作量加权估算）。数据/引擎/渲染/平台层（前半程）已完成并经黄金对拍锁定；当前处于 **Phase 5 的 gameplay 大面**——攻击/迷雾链与建筑/生产链（AttackBase/AutoTarget/全部主力弹丸战头/Shroud/FrozenActorLayer/FrozenUnderFog/Building/Production/ProductionQueue+Classic/PlayerResources/TechTree）已打通，**控制台发 order 造兵→出厂→战斗的 skirmish 链路已在测试中全程跑通**；下一步补齐 Harvester/ResourceLayer/Cloak/GainsExperience/Selectable 行为面/SpawnMapActors 等剩余核心 trait 后，即开启 replay SyncHash 对拍（确定性移植总关卡）。
+**整体完成度约 55%**（按 PORTING_PLAN 各阶段工作量加权估算）。数据/引擎/渲染/平台层（前半程）已完成并经黄金对拍锁定；当前处于 **Phase 5 的 gameplay 大面**——攻击/迷雾/建筑/生产/电力/资源全链（AttackBase+Follow+Turreted/AutoTarget/全部主力弹丸战头/Shroud/FrozenActorLayer/Building/Production/PlayerResources/TechTree/PowerManager/Harvester+ResourceLayer+Dock 子系统/Refinery）已打通，**控制台发 order 造兵→出厂→战斗→采矿→卸货入账的 skirmish 链路已在测试中全程跑通**；下一步补齐 Cloak/GainsExperience/Capturable 族/Conditions 34 件/Selectable 行为面/Render·WithSpriteBody 族/SpawnMapActors 等剩余核心 trait 后，即开启 replay SyncHash 对拍（确定性移植总关卡）。
 
 | 阶段 | 内容 | 状态 | 完成度 |
 |---|---|---|---|
@@ -21,7 +21,7 @@
 | Phase 2 | 元数据框架 + 数据加载链 | ✅ 完成（2026-10-03） | 100% |
 | Phase 3 | 仿真核心 + Order/锁步 | ✅ 完成（2026-10-03） | 100% |
 | Phase 4 | 平台层 + 渲染 + 文件格式 + 音频 + UI 框架起步 + Game 主循环骨架（15 批） | ✅ 完成（2026-10-06） | 100% |
-| Phase 5 | 主循环整合 + 核心 gameplay（已完成 Map/World/寻路/Mobile+Move/Armament/攻击链/迷雾链/弹丸战头全量/建筑生产链 5 批） | 🔨 进行中（2026-10-07 起） | ~70% |
+| Phase 5 | 主循环整合 + 核心 gameplay（已完成 Map/World/寻路/Mobile+Move/Armament/攻击链+炮塔/迷雾链/弹丸战头全量/建筑生产链/电力链/资源链 6 批） | 🔨 进行中（2026-10-07 起） | ~80% |
 | Phase 6 | UI + 本地化 | 🌱 起步（框架内核已就位） | ~10% |
 | Phase 7 | 网络与服务器 | 🌱 起步（锁步内核已就位） | ~20% |
 | Phase 8 | Lua 脚本 + AI + 战役 + Utility | ⬜ 未开始 | ~0% |
@@ -34,11 +34,11 @@
 - **三 mod 规则深解析**：ra 80,274 / cnc 49,416 / d2k 35,833 行**逐字节快照回归**；上游 `--check-yaml` exit=0 佐证。
 - **资产解码黄金对拍**：mods 全部 .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 资产 + 合成夹具，`tests/golden_formats.txt` **6,737 行逐行一致**；字形 **216 个逐字节一致**（与 C# oracle 加载同一 freetype6.dll）。
 - **锁步确定性**：EchoConnection 单机 **10⁶ tick 双构建（ASan+UBSan/Release）通过，无泄漏无 desync**。
-- **持续门禁**：ctest **23/23** 双构建（ASan+UBSan 与 Release）全绿；`import std;` 严控（**384 文件**）；UPSTREAM 溯源标注（**369 条**）；偏离登记 **D1~D142**。
+- **持续门禁**：ctest **24/24** 双构建（ASan+UBSan 与 Release）全绿；`import std;` 严控（**407 文件**）；UPSTREAM 溯源标注（**391 条**）；偏离登记 **D1~D151**。
 
-### 当前焦点（Phase 5 第六批）
+### 当前焦点（Phase 5 第七批）
 
-其余核心 trait（Harvester+ResourceLayer+ResourceClaimLayer/Cloak/GainsExperience/Capturable 族/Conditions 34 件/Selectable 行为面/Render·WithSpriteBody 族/SpawnMapActors）+ AttackFollow/Turreted 族 + PowerManager 真实现。关键里程碑：**C# 录制 replay 逐帧 SyncHash 对拍（确定性移植总关卡）**。
+其余核心 trait（Cloak/GainsExperience/Capturable 族/Conditions 34 件/Selectable 行为面/Render·WithSpriteBody 族/SpawnMapActors）+ SyncReport/录像录制起步。关键里程碑：**C# 录制 replay 逐帧 SyncHash 对拍（确定性移植总关卡）**。
 
 ## 各阶段完成情况
 
@@ -69,7 +69,7 @@ clang `-std=c++26` + `import std;`（std.cppm 预编译 PCM）+ CMake/Ninja + ct
 - **UI 框架起步**（`src/ui/`）：widget（Widget.cs 全文：焦点三态/输入冒泡/LoadFieldOrProperty 虚链）、ui 门面（窗口栈双态所有权/悬停三态迁移）、chrome_metrics、widget_loader（名字分派注册表 + 异常文本逐字）。
 - **Game 主循环骨架**（`src/game/game.cpp`）：RunTime 时钟/InnerLogicTick 双 TickTime 节拍（全经 Sync.RunUnsynced 门禁）/Loop 双时间表（MaxLogicTicksBehind=250 截断/MinReplayFps=10 强制帧）/Run 清理；Phase 5-8 依赖面 → Deps/钩子注入。
 
-### Phase 5 — 主循环整合 + 核心 gameplay 🔨（~55%）
+### Phase 5 — 主循环整合 + 核心 gameplay 🔨（~75%）
 
 **第一批（2026-10-06）：Map 全量 + World 接线**
 
@@ -105,7 +105,15 @@ clang `-std=c++26` + `import std;`（std.cppm 预编译 PCM）+ CMake/Ninja + ct
 - 建筑/生产链：**Building 全文**（Footprint 五类型序/CenterOffset/IOccupySpace/ITargetableCells/{TopLeft}）、BuildingInfluence 全文、**Production 全文**（DoProduction 帧末出厂 + 双通知/ExitExts 的 Shuffle(SharedRandom) Fisher-Yates RNG 序保真）、**ProductionQueue 全文**（StartProduction/Pause/Cancel 三 order/逐 tick 计费/OnComplete 帧末闭包→item 成员/{Enabled,IsValidFaction}）、**ClassicProductionQueue 全文**（player actor 挂载的世界级 producer 查找）、**PlayerResources 全文**（ore-first 序/checked 溢出→饱和/{Cash,Resources,ResourceCapacity}）、Valued/Buildable/Exit/Reservable/RallyPoint/ProvidesPrerequisite/**TechTree 全文**（Watcher 双状态机/'!''~' 标记语义）/DeveloperMode 最小承载。
 - 验收：新 production_test（**真实 ra 全链**：startingcash 5000 → TENT 建筑（occupied 4 格/CenterOffset/BuildingInfluence/FrozenUnderFog 入层）→ TechTree 汇 'barracks' → **e1 下单 → 60 tick 建造 → Exit@Soldier 出口 → 出厂入世界（逐 tick 扣费恰 100）** → Cancel 退款 → Dragon 导弹（Speed 213/Arm 2/80 tick 飞行））；ctest 22→23。修出六个真问题（Classic 子类 upcast 表漏基类接口集致 Created/Tick 分发断链、Player ctor 的 player-actor 构造序（Created 回调早于 PlayerActor 赋值 + 双 Initialize）、EndProduction 的 erase 后 UAF、Faction().Name 误代 InternalName、Exit/Production 族漏挂 IObservesVariables 致条件 trait 恒禁用、DelayedImpact 帧末闭包悬垂捕获）。
 
-**剩余（~30%）**：AttackFollow/Turreted 族；Harvester+ResourceLayer+ResourceClaimLayer；Cloak/GainsExperience/Capturable 族/Conditions 34 个/Selectable 行为面/Render·WithSpriteBody 族/SpawnMapActors；PowerManager 真实现；Settings/FieldSaver；MapPreview 异步面；SyncReport；录像录制。
+**第六批（2026-10-07）：AttackFollow/AttackTurreted/Turreted + PowerManager/Power/AffectedByPowerOutage + 资源链全量**
+
+- 攻击面接面：**AttackFollow 全文**（Requested/Opportunity 双目标/PersistentTargeting 迁移/机会射击/OnResolveAttackOrder 预置/嵌套 AttackActivity 的 RangeMargin 钳制与 lastVisible 三段快照）+ **AttackTurreted 全文**（全炮塔就位判定）；上游以具体类 AttackBase 充当接口 → **AttackBaseFace**（TypeId=上游 AttackBase 键）接入，AutoTarget/Activities·Attack 全面换脸。
+- 炮塔：**Turreted 全文**（WorldFacingFromInit 闭包族/realignTick 回正/DesiredLocalFacing 的垂直轴直差 vs 旋转变换/FaceTarget 五门/双 init 修饰/{QuantizedFacings}）+ TurretFacingInit/DynamicTurretFacingInit（按 info 实例名匹配）。
+- 电力：**PowerManager 全文**（正负分流账本/UnlimitedPower 重建/PowerState 三档/TriggerPowerOutage 分发/{PowerProvided,PowerDrained}）+ **Power 全文**（IPowerModifier=OPT-A1 修正链/账本联动）+ **AffectedByPowerOutage 全文**；ProductionQueue 接线（RemainingTimeActual 的 LowPowerModifier 折算 + Slowdown 节流）；DeveloperMode 增 Enabled/UnlimitedPower。
+- 资源链：**ResourceLayer 全文**（map.bin 装载/RecalculateResourceDensity 的 Lerp HACK/AllowResourceAt 五门/密度记账）+ **ResourceClaimLayer 全文**、**DockClientManager/DockHost/MoveToDock/GenericDockSequence 全文**（预约-移动-入坞-卸载状态机/DockExts.ClosestDock 的占用代价寻路）、**Harvester 全文**（载荷/卸载节拍/速度修正/{currentUnloadTicks}）+ **HarvestResource/FindAndDeliverResources 全文**（余弦定理代价的谓词寻路/备援搜索/厂口让位）、**StoresResources/StoresPlayerResources/Refinery 全文**（ContentHash/容量占比/修正链入账）；ClassicFacingBodyOrientation 注册（HARV/e1 全域）。
+- 验收：新 resource_test（**真实 ra 全链**：POWR +100/三·六 TENT 的 60/120 drain → Normal→Low → UnlimitedPower 清零重建 → 低电 e1 建造 ×3 → **2tnk 炮塔对敌 e1 的 ForceAttack 追踪-开火-击杀-回正** → **HARV 邻 PROC 出生 → 500 tick 采满 20 → ClosestDock 寻路入坞 → 卸货 → PlayerResources 入账**）；ctest 23→24。修出三个真问题（AttackBase 接口面缺位、TestWorld 的 Map 逆序析构 UAF（ASan 实证）、ClassicFacingBodyOrientation 未注册致 HARV 构造抛）。
+
+**剩余（~20%）**：Cloak/GainsExperience/Capturable 族/Conditions 34 个/Selectable 行为面/Render·WithSpriteBody 族/SpawnMapActors；Settings/FieldSaver；MapPreview 异步面；SyncReport；录像录制。
 
 ### Phase 6 — UI + 本地化 🌱（~10%）
 
@@ -125,10 +133,10 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 
 ## 工程门禁
 
-- **双构建**：ASan+UBSan 与 Release，ctest 21/21 全绿。
-- **`import std;` 严控**：禁传统 std 头引入（`tools/std_import_check.py`，339 文件 PASS；白名单仅第三方 C 头）。
+- **双构建**：ASan+UBSan 与 Release，ctest 24/24 全绿。
+- **`import std;` 严控**：禁传统 std 头引入（`tools/std_import_check.py`，407 文件 PASS；白名单仅第三方 C 头）。
 - **函数级裁剪**：`-ffunction-sections -fdata-sections` + `--gc-sections`。
-- **UPSTREAM 溯源**：每个移植文件带上游 file:line 标注（`tools/upstream_check.py`，326 条 PASS）。
+- **UPSTREAM 溯源**：每个移植文件带上游 file:line 标注（`tools/upstream_check.py`，391 条 PASS）。
 - **黄金对拍体系**：yaml（759 文件）/定点原语（60,883 行）/规则深解析（三 mod）/资产解码（6,737 行）/字形（216 个），oracle 双跑确定性验证。
 - **双语注释**：全部代码中英双语注释。
 
@@ -153,7 +161,7 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 
 ### 与上游不同步处（偏离登记摘要）
 
-当前登记 **D1~D142**（全文见 [docs/COVERAGE.md](docs/COVERAGE.md)），按模块：
+当前登记 **D1~D151**（全文见 [docs/COVERAGE.md](docs/COVERAGE.md)），按模块：
 
 - **yaml/fs（D1~D9）**：异常类型统一 YamlException（消息逐字）、惰性枚举物化 vector、null/"" 键合流——合法输入下行为等价或不可观测；
 - **meta/加载链（D10~D24）**：TypeConverter 兜底未实现（字段类型已全覆盖）、字典字段插入序 vector、三 mod 解析快照 C++ 侧固化（D24，工具恢复后可再对拍）；
@@ -168,7 +176,8 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 - **第四批（D126~D132）**：Shroud 的 lobby/Session 承载面 + 事件回调表 + touched 线性推进（vector<bool> 特化）、FrozenActorLayer 的渲染缓存无写入者 + ITooltip 最小值面 + ScreenMap 惰性冻结分区、Target::FromCell 落地 + Actor 目标位物化点（Initialize 头 = 上游 ctor 末）、四 HitShape 的记录全名分派 + Turreted/Cloak 空集、AttackBase/AutoTarget 的 CRTP + 稳定序单遍择优 + **优先级禁用过滤消费时求值（上游惰性 Where）** + Passenger/IOverride 空集、弹丸的 Animation/SpriteEffect/Contrail 注入或不构造但 **RNG 消耗序保真** + 同步效果哈希装配器、Damage/SpreadWarhead 的工厂时点校验 + Versus 插入序对 + AffectsShroud 模板基。
 - **第五批（D133~D142）**：Missile/TeslaZap/GravityBomb 的视觉注入面 + **RNG 消耗序逐字保真**（GravityBomb 的 OpenSequence 延迟链 = 零消耗）+ JamsMissiles 空集、CreateEffect/LeaveSmudge 的三段 RNG 序 + SpriteEffect/声音注入、SmudgeLayer 记账面（CosmeticRandom 烟效纯视觉未接）、FrozenUnderFog 的渲染物化空 + PlayerDictionary→玩家序 vector、DeveloperMode/PowerManager/IProductionTime 修正链等空集承载、ProductionQueue 的 LINQ 惰性→消费时物化 + OnComplete 闭包→item 成员 + Classic 的 IsPrimaryBuilding 序退化、World 事件回调表 + CPos 全序（自有设施）、**Player 的 player-actor 构造序与 DelayedImpact 悬垂捕获两处语义修复**、ExitExts 的 Shuffle Fisher-Yates RNG 序保真、记录全名查询族（BuildingInfo/MobileInfo/FacingInfo 等）。
 
-**尚未移植（Phase 5-8 范围）**：AttackFollow/Turreted 族、Harvester/ResourceLayer/Cloak/GainsExperience/Capturable 族/Conditions 34 件/Selectable 行为面/Render·WithSpriteBody 族/SpawnMapActors、62 个 chrome widget + 131 Logic、Fluent、WorldInteractionController、NetworkConnection 实体、Session 完整协议、Replay、Server、Lua、AI、战役、Utility 子命令——详见上方各阶段"剩余"节。
+- **第六批（D143~D151）**：AttackBaseFace 接入（上游以具体类 AttackBase 充当接口；AutoTarget/attack_activity 换脸）+ AttackFollow 的 `new` Info 隐藏→切片副本 + Rearmable/Aircraft 空集、Turreted 的 TurretFacingInit 族（ORA_INIT_TYPE_SELF_ONLY 按实例名匹配）+ 预览/编辑器面随 Phase 6、PowerManager 的通知注入面缺省 + AffectedByPowerOutage 的 ISelectionBar 随 Phase 6、ResourceLayer 的 FrozenDictionary→声明序 vector + CellChanged 回调、DockClientManager 的游标覆盖表/闭包 targeter + WithDockingOverlay/IDockClientBody 空集直通 + DockClientManager 属性名冲突→GetDockClientManager、Harvester 的 Resources 校验工厂时点 + IResourceRenderer 空集恒 false 域、Refinery 的 Requires<WithSpriteBodyInfo> 注册侧跳过 + FloatingText 随 Phase 6、**Target 的 operator==/!= 补齐**（此前无消费点）、ClassicFacingBodyOrientation 的 facings==32 表域随渲染批。
+**尚未移植（Phase 5-8 范围）**：Cloak/GainsExperience/Capturable 族/Conditions 34 件/Selectable 行为面/Render·WithSpriteBody 族/SpawnMapActors、62 个 chrome widget + 131 Logic、Fluent、WorldInteractionController、NetworkConnection 实体、Session 完整协议、Replay、Server、Lua、AI、战役、Utility 子命令——详见上方各阶段"剩余"节。
 
 ## 许可证与归属
 
@@ -195,7 +204,7 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 
 ## Progress at a Glance
 
-**Overall completion ≈ 52%** (weighted by the PORTING_PLAN phase budgets). The data/engine/rendering/platform layers (the first half) are complete and locked in by golden differentials; the project is currently in **Phase 5's gameplay surface** — the attack/fog chains and the building/production chain (AttackBase/AutoTarget/all the mainline projectiles & warheads/Shroud/FrozenActorLayer/FrozenUnderFog/Building/Production/ProductionQueue+Classic/PlayerResources/TechTree) are through end to end, and **the full skirmish chain — issuing build orders by console, the unit leaving the factory, and combat — runs through in tests**; once the remaining core traits (Harvester/ResourceLayer/Cloak/GainsExperience/the Selectable behavior face/SpawnMapActors) land, the replay SyncHash differential (the determinism capstone) opens.
+**Overall completion ≈ 55%** (weighted by the PORTING_PLAN phase budgets). The data/engine/rendering/platform layers (the first half) are complete and locked in by golden differentials; the project is currently in **Phase 5's gameplay surface** — the attack/fog/building/production/power/resource chains (AttackBase+Follow+Turreted/AutoTarget/all the mainline projectiles & warheads/Shroud/FrozenActorLayer/Building/Production/PlayerResources/TechTree/PowerManager/Harvester+ResourceLayer+the dock subsystem/Refinery) are through end to end, and **the full skirmish chain — issuing build orders by console, units leaving the factory, combat, harvesting, and docked unloading credited — runs through in tests**; once the remaining core traits (Cloak/GainsExperience/the Capturable family/the 34 Conditions traits/the Selectable behavior face/the Render·WithSpriteBody family/SpawnMapActors) land, the replay SyncHash differential (the determinism capstone) opens.
 
 | Phase | Scope | Status | Done |
 |---|---|---|---|
@@ -204,7 +213,7 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 | Phase 2 | Metadata framework + data-loading chain | ✅ complete (2026-10-03) | 100% |
 | Phase 3 | Simulation core + orders/lockstep | ✅ complete (2026-10-03) | 100% |
 | Phase 4 | Platform + rendering + file formats + audio + the UI-framework start + the game main loop (15 batches) | ✅ complete (2026-10-06) | 100% |
-| Phase 5 | Main-loop integration + core gameplay (Map/World/pathfinding/Mobile+move/Armament/the attack+fog chains/the full projectile+warhead set/the building+production chain, 5 batches) | 🔨 in progress (since 2026-10-07) | ~70% |
+| Phase 5 | Main-loop integration + core gameplay (Map/World/pathfinding/Mobile+move/Armament/the attack+fog+turret chains/the full projectile+warhead set/the building+production+power+resource chains, 6 batches) | 🔨 in progress (since 2026-10-07) | ~80% |
 | Phase 6 | UI + localization | 🌱 started (the framework core is in place) | ~10% |
 | Phase 7 | Network + server | 🌱 started (the lockstep core is in place) | ~20% |
 | Phase 8 | Lua scripting + AI + campaigns + Utility | ⬜ not started | ~0% |
@@ -217,11 +226,11 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 - **The three-mod deep rules parse**: ra 80,274 / cnc 49,416 / d2k 35,833 lines as **byte-for-byte frozen snapshots**; upstream `--check-yaml` exit=0 corroborates.
 - **The asset-decode golden differential**: all mods .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 assets + synthetic fixtures, `tests/golden_formats.txt` **6,737 lines matching line for line**; **216 glyphs byte-identical** (the same freetype6.dll the C# oracle loads).
 - **Lockstep determinism**: EchoConnection **10⁶ ticks on both builds (ASan+UBSan / Release), leak-free and desync-free**.
-- **Standing gates**: ctest **23/23** green on both builds (ASan+UBSan and Release); strict `import std;` (**384 files**); UPSTREAM provenance tags (**369 entries**); the deviation registry **D1–D142**.
+- **Standing gates**: ctest **24/24** green on both builds (ASan+UBSan and Release); strict `import std;` (**407 files**); UPSTREAM provenance tags (**391 entries**); the deviation registry **D1–D151**.
 
-### Current focus (Phase 5, sixth installment)
+### Current focus (Phase 5, seventh installment)
 
-The remaining core traits (Harvester+ResourceLayer+ResourceClaimLayer/Cloak/GainsExperience/the Capturable family/the 34 Conditions traits/the Selectable behavior face/the Render·WithSpriteBody family/SpawnMapActors) + the AttackFollow/Turreted family + the real PowerManager. The milestone after that: **the frame-by-frame replay SyncHash differential against a C#-recorded replay (the determinism capstone)**.
+The remaining core traits (Cloak/GainsExperience/the Capturable family/the 34 Conditions traits/the Selectable behavior face/the Render·WithSpriteBody family/SpawnMapActors) + the SyncReport/replay-recording start. The milestone after that: **the frame-by-frame replay SyncHash differential against a C#-recorded replay (the determinism capstone)**.
 
 ## Phase Details
 
@@ -252,7 +261,7 @@ clang `-std=c++26` + `import std;` (the precompiled std.cppm PCM) + CMake/Ninja 
 - **The UI-framework start** (`src/ui/`): widget (the whole of Widget.cs: the focus trio / input bubbling / the LoadFieldOrProperty virtual chain), the Ui facade (the window stack's dual-state ownership / the hover three-state transitions), chrome_metrics, widget_loader (name-dispatch registries + verbatim exception texts).
 - **The game main-loop skeleton** (`src/game/game.cpp`): the RunTime clock / InnerLogicTick's dual TickTime pacing (all under the Sync.RunUnsynced gate) / Loop's dual schedule (the MaxLogicTicksBehind=250 cutoff / the MinReplayFps=10 forced frame) / Run's cleanup; the Phase 5-8 dependency faces ride Deps/hooks.
 
-### Phase 5 — main-loop integration + core gameplay 🔨 (~55%)
+### Phase 5 — main-loop integration + core gameplay 🔨 (~75%)
 
 **First installment (2026-10-06): the full Map + the World wiring**
 
@@ -288,7 +297,15 @@ clang `-std=c++26` + `import std;` (the precompiled std.cppm PCM) + CMake/Ninja 
 - The building/production chain: **the whole of Building** (the Footprint five-type order/CenterOffset/IOccupySpace/ITargetableCells/{TopLeft}), the whole of BuildingInfluence, **the whole of Production** (DoProduction's frame-end spawn + the two notifications/ExitExts' Shuffle(SharedRandom) Fisher-Yates RNG order preserved), **the whole of ProductionQueue** (the StartProduction/Pause/Cancel orders/per-tick payments/the OnComplete frame-end closure→item member/{Enabled,IsValidFaction}), **the whole of ClassicProductionQueue** (the player-actor-mounted world-scope producer lookup), **the whole of PlayerResources** (the ore-first order/checked overflow→saturation/{Cash,Resources,ResourceCapacity}), Valued/Buildable/Exit/Reservable/RallyPoint/ProvidesPrerequisite/**the whole of TechTree** (the Watcher two-state machine/the '!''~' marker semantics)/DeveloperMode's minimal carrier.
 - Acceptance: the new production_test (the real ra full chain: startingcash 5000 → the TENT building (4 occupied cells/CenterOffset/BuildingInfluence/FrozenUnderFog ingested) → TechTree gathering 'barracks' → **an e1 ordered → built over 60 ticks → leaving via the Exit@Soldier exit → produced into the world (exactly 100 paid per-tick)** → the Cancel refund → the Dragon missile (Speed 213/Arm 2/an 80-tick flight)); ctest 22→23. Six real problems fixed (the Classic subclass's upcast table omitting the base's interface set, breaking the Created/Tick dispatch; the Player ctor's player-actor construction order (the Created callbacks running before PlayerActor's assignment + a double Initialize); EndProduction's post-erase UAF; Faction().Name misused for InternalName; the Exit/Production family missing IObservesVariables, leaving conditional traits permanently disabled; the DelayedImpact frame-end closure's dangling capture).
 
-**Remaining (~30%)**: the AttackFollow/Turreted family; Harvester+ResourceLayer+ResourceClaimLayer; Cloak/GainsExperience/the Capturable family/the 34 Conditions/the Selectable behavior face/the Render·WithSpriteBody family/SpawnMapActors; the real PowerManager; Settings/FieldSaver; the MapPreview async face; SyncReport; replay recording.
+**Sixth installment (2026-10-07): AttackFollow/AttackTurreted/Turreted + PowerManager/Power/AffectedByPowerOutage + the full resource chain**
+
+- The attack face's interface: **the whole of AttackFollow** (the Requested/Opportunity target pair/PersistentTargeting migration/opportunity fire/OnResolveAttackOrder's preemption/the nested AttackActivity's RangeMargin clamp and three-stage lastVisible snapshots) + **the whole of AttackTurreted** (the all-turrets-brought-to-bear check); upstream's concrete AttackBase doubles as the interface → **AttackBaseFace** (the TypeId = upstream's AttackBase key) wired in, with AutoTarget/Activities·Attack swapped over.
+- Turrets: **the whole of Turreted** (the WorldFacingFromInit closure family/the realignTick realignment/DesiredLocalFacing's vertical-axis difference vs rotation transform/FaceTarget's five gates/both init modifiers/{QuantizedFacings}) + TurretFacingInit/DynamicTurretFacingInit (matched by info instance name).
+- Power: **the whole of PowerManager** (the signed split ledger/the UnlimitedPower rebuild/the three PowerState tiers/the TriggerPowerOutage dispatch/{PowerProvided,PowerDrained}) + **the whole of Power** (IPowerModifier = the OPT-A1 modifier chain/ledger interplay) + **the whole of AffectedByPowerOutage**; the ProductionQueue wiring (RemainingTimeActual's LowPowerModifier scaling + the Slowdown throttle); DeveloperMode gains Enabled/UnlimitedPower.
+- The resource chain: **the whole of ResourceLayer** (the map.bin load/the RecalculateResourceDensity Lerp HACK/AllowResourceAt's five gates/density bookkeeping) + **the whole of ResourceClaimLayer**, **the whole of DockClientManager/DockHost/MoveToDock/GenericDockSequence** (the reserve-move-dock-unload state machine/DockExts.ClosestDock's occupancy-cost pathfinding), **the whole of Harvester** (cargo/the unload cadence/the speed modifier/{currentUnloadTicks}) + **the whole of HarvestResource/FindAndDeliverResources** (the cosine-rule-cost predicate pathfinding/the fallback search/unblocking the refinery entrance), **the whole of StoresResources/StoresPlayerResources/Refinery** (ContentHash/the capacity share/the modifier-chained crediting); ClassicFacingBodyOrientation registered (the HARV/e1 domain).
+- Acceptance: the new resource_test (the real ra full chain: POWR +100/three·six TENTs' 60/120 drain → Normal→Low → the UnlimitedPower zero-and-rebuild → the low-power e1 build ×3 → **the 2tnk turret's ForceAttack track-fire-kill-realign on an enemy e1** → **a HARV born beside the PROC → 20 harvested within 500 ticks → ClosestDock pathing → docking → unloading → PlayerResources credited**); ctest 23→24. Three real problems fixed (the missing AttackBase interface face, TestWorld's Map reverse-destruction UAF (ASan-proven), ClassicFacingBodyOrientation unregistered throwing HARV construction).
+
+**Remaining (~20%)**: Cloak/GainsExperience/the Capturable family/the 34 Conditions/the Selectable behavior face/the Render·WithSpriteBody family/SpawnMapActors; Settings/FieldSaver; the MapPreview async face; SyncReport; replay recording.
 
 ### Phase 6 — UI + localization 🌱 (~10%)
 
@@ -308,10 +325,10 @@ Performance tuning, packaging, remaining platform compatibility.
 
 ## Project Gates
 
-- **Dual builds**: ASan+UBSan and Release; ctest 21/21 green on both.
-- **Strict `import std;`**: no classic std-header includes (`tools/std_import_check.py`; 339 files PASS; the whitelist covers only third-party C headers).
+- **Dual builds**: ASan+UBSan and Release; ctest 24/24 green on both.
+- **Strict `import std;`**: no classic std-header includes (`tools/std_import_check.py`; 407 files PASS; the whitelist covers only third-party C headers).
 - **Function-level dead-code elimination**: `-ffunction-sections -fdata-sections` + `--gc-sections`.
-- **UPSTREAM provenance**: every ported file carries upstream file:line tags (`tools/upstream_check.py`; 326 entries PASS).
+- **UPSTREAM provenance**: every ported file carries upstream file:line tags (`tools/upstream_check.py`; 391 entries PASS).
 - **The golden-differential system**: yaml (759 files) / the fixed-point primitives (60,883 lines) / the deep rules parse (three mods) / asset decoding (6,737 lines) / glyphs (216), with the oracle's cross-run determinism verified.
 - **Bilingual comments** throughout.
 
@@ -336,7 +353,7 @@ The full review evidence (upstream file:line anchors, 40+ items) lives in [docs/
 
 ### Not-yet-synced with upstream (the registered-deviation summary)
 
-Currently **D1–D142** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
+Currently **D1–D151** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
 
 - **yaml/fs (D1–D9)**: exceptions unified into YamlException (texts verbatim), lazy enumerations materialized, null/"" key coalescing — behavior-equivalent for valid inputs;
 - **meta/loading chain (D10–D24)**: the TypeConverter fallback not implemented (field types fully covered), insertion-ordered dictionary fields, the three-mod parse snapshots frozen on the C++ side (D24; re-differential once the tool is restored);
@@ -351,7 +368,9 @@ Currently **D1–D142** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by
 - **the fourth installment (D126–D132)**: Shroud's lobby/Session carrier face + the event callback list + the touched linear advance (the vector<bool> specialization), FrozenActorLayer's render caches without writers + ITooltip's minimal value face + ScreenMap's lazy frozen partitions, Target::FromCell landed + Actor's targetable-positions materialization point (Initialize's head = upstream's ctor tail), the four HitShapes' record-full-name dispatch + the Turreted/Cloak empty sets, AttackBase/AutoTarget's CRTP + the stable-order single-pass pick + **the priority disabled-filter evaluating per consumption (upstream's lazy Where)** + the Passenger/IOverride empty sets, the projectiles' Animation/SpriteEffect/Contrail injected or not constructed with **the RNG consumption order preserved** + the synced-effect hash assembler, Damage/SpreadWarhead's factory-time validations + Versus as insertion-ordered pairs + the AffectsShroud template base.
 - **the fifth installment (D133–D142)**: Missile/TeslaZap/GravityBomb's visual injection faces + **the RNG consumption order kept verbatim** (GravityBomb's OpenSequence delayed chain = zero consumption) + the JamsMissiles empty set, CreateEffect/LeaveSmudge's three-stage RNG order + the SpriteEffect/sound injection, SmudgeLayer's bookkeeping face (the CosmeticRandom smoke effect — purely visual — unwired), FrozenUnderFog's empty render materialization + PlayerDictionary→the player-indexed vector, the DeveloperMode/PowerManager/IProductionTime modifier chains and other empty-set carriers, ProductionQueue's LINQ laziness→per-consumption materialization + the OnComplete closure→item member + Classic's IsPrimaryBuilding order degradation, World's event callback tables + CPos's total order (self-owned facility), **the two semantic fixes of Player's player-actor construction order and DelayedImpact's dangling capture**, ExitExts' Shuffle Fisher-Yates RNG order preserved, the record-full-name query family (BuildingInfo/MobileInfo/FacingInfo etc.).
 
-**Not yet ported (the Phase 5-8 scope)**: the AttackFollow/Turreted family, Harvester/ResourceLayer/Cloak/GainsExperience/the Capturable family/the 34 Conditions/the Selectable behavior face/the Render·WithSpriteBody family/SpawnMapActors, the 62 chrome widgets + 131 Logics, Fluent, WorldInteractionController, the real NetworkConnection, the full Session protocol, replay, the server, Lua, AI, campaigns, and the Utility subcommands — see each phase's "remaining" section above.
+- **the sixth installment (D143–D151)**: the AttackBaseFace wiring (upstream's concrete AttackBase doubles as the interface; AutoTarget/attack_activity swapped over) + AttackFollow's `new` Info hiding→the slice copy + the Rearmable/Aircraft empty sets, Turreted's TurretFacingInit family (ORA_INIT_TYPE_SELF_ONLY matched by instance name) + the preview/editor faces ride Phase 6, PowerManager's notification injection face defaults off + AffectedByPowerOutage's ISelectionBar rides Phase 6, ResourceLayer's FrozenDictionary→the declaration-ordered vector + the CellChanged callback list, DockClientManager's cursor-override table/closure targeter + the WithDockingOverlay/IDockClientBody empty-set pass-through + the DockClientManager property-name clash→GetDockClientManager, Harvester's Resources validation at factory time + the IResourceRenderer empty-set constantly-false domain, Refinery's Requires<WithSpriteBodyInfo> registration-side skip + FloatingText rides Phase 6, **Target's operator==/!= filled in** (no consumer until now), ClassicFacingBodyOrientation's facings==32 table domain rides the render batch.
+
+**Not yet ported (the Phase 5-8 scope)**: Cloak/GainsExperience/the Capturable family/the 34 Conditions/the Selectable behavior face/the Render·WithSpriteBody family/SpawnMapActors, the 62 chrome widgets + 131 Logics, Fluent, WorldInteractionController, the real NetworkConnection, the full Session protocol, replay, the server, Lua, AI, campaigns, and the Utility subcommands — see each phase's "remaining" section above.
 
 ## License & Attribution
 

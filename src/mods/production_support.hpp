@@ -428,8 +428,13 @@ class DeveloperMode final : public sim::TraitBase {
     return kTraitUpcasts;
   }
 
-  bool FastBuild = false;  // L53
-  bool AllTech = false;    // L59(cheat 开关的同步面)
+  bool Enabled = false;         // L44(cheat 总开关;第六批 PowerManager 消费)
+                                // L44 (the cheat master switch; consumed by
+                                // batch 6's PowerManager).
+  bool FastBuild = false;       // L53
+  bool AllTech = false;         // L59(cheat 开关的同步面)
+  bool UnlimitedPower = false;  // L62(第六批 PowerManager 消费)
+                                // L62 (consumed by batch 6's PowerManager).
 };
 
 }  // namespace ora::mods

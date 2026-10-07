@@ -66,6 +66,15 @@ class ActorInfo final {
   std::vector<const meta::RecordObject*> TraitInfosByInterface(
       std::string_view str_interface) const;
 
+  /// 该 trait 声明的实例名('@' 后缀;Turreted 的 init 按名匹配面 ——
+  /// 上游 ActorInitializer.GetOrDefault<T>(TraitInfo) 以 info.InstanceName
+  /// 过滤)。未找到 = 空串
+  /// The declaration's instance name (the '@' suffix; Turreted's by-name
+  /// init matching face — upstream's
+  /// ActorInitializer.GetOrDefault<T>(TraitInfo) filters on
+  /// info.InstanceName). Not found = the empty string.
+  std::string_view InstanceNameOf(const meta::RecordObject* rec) const;
+
   /// HasTraitInfo<T>(L187)
   bool HasTraitInfoOfInterface(std::string_view str_interface) const;
 

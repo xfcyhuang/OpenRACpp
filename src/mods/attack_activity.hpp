@@ -5,9 +5,9 @@
 //          by the Activity base).
 //
 // 机制对照 / Mechanism mapping:
-//  - attackTraits 的 IEnumerable<AttackFrontal>(非禁用过滤)→ 构造期物化
+//  - attackTraits 的 IEnumerable<AttackBase>(非禁用过滤)→ 构造期物化
 //    向量;armaments 的 LINQ 物化(ToList)→ 复用调用点局部 vector
-//    attackTraits' IEnumerable<AttackFrontal> (the non-disabled filter) →
+//    attackTraits' IEnumerable<AttackBase> (the non-disabled filter) →
 //    the construction-time materialized vector; armaments' LINQ ToList →
 //    a reused call-site local vector.
 //  - StanceChanged 的 autoTarget.HasValidTargetPriority 消费 = AutoTarget
@@ -60,17 +60,18 @@ class Attack : public sim::Activity,
 
   /// L164-252:TickAttack(virtual)
   /// L164-252: TickAttack (virtual).
-  virtual AttackStatus TickAttack(sim::Actor& self, AttackFrontal* attack);
+  virtual AttackStatus TickAttack(sim::Actor& self,
+                                   AttackBaseFace* attack);
 
   /// L254-259:DoAttack(virtual)
   /// L254-259: DoAttack (virtual).
-  virtual void DoAttack(sim::Actor& self, AttackFrontal* attack,
+  virtual void DoAttack(sim::Actor& self, AttackBaseFace* attack,
                         const std::vector<Armament*>& vec_armaments);
 
   /// L278-281:HasArmamentsFor | L278-281: HasArmamentsFor.
   bool HasArmamentsFor(const sim::Target& target);
 
-  std::vector<AttackFrontal*> vec_attack_traits_;  // L28
+  std::vector<AttackBaseFace*> vec_attack_traits_;  // L28
   std::vector<RevealsShroud*> vec_reveals_shroud_;  // L29
   sim::IMove* move_ = nullptr;                      // L30
   Mobile* mobile_ = nullptr;                        // L31

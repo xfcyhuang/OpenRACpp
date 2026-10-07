@@ -204,9 +204,11 @@ class AutoTarget final : public TraitBase,
     return sim::ConditionalTraitCore<AutoTarget>::IsTraitDisabled();
   }
 
-  /// L138:ActiveAttackBases(构造期非禁用过滤)
-  /// L138: ActiveAttackBases (the construction-time non-disabled filter).
-  std::span<AttackFrontal* const> ActiveAttackBases() const {
+  /// L138:ActiveAttackBases(构造期非禁用过滤;AttackBaseFace = 上游
+  /// TraitsImplementing<AttackBase> 查询面)
+  /// L138: ActiveAttackBases (the construction-time non-disabled filter;
+  /// AttackBaseFace = upstream's TraitsImplementing<AttackBase> query).
+  std::span<AttackBaseFace* const> ActiveAttackBases() const {
     return vec_active_attack_bases_;
   }
 
@@ -271,7 +273,7 @@ class AutoTarget final : public TraitBase,
   void Attack(const sim::Target& target, bool allow_move);
 
   /// L355-470:ChooseTarget | L355-470: ChooseTarget.
-  sim::Target ChooseTarget(Actor& self, AttackFrontal* ab,
+  sim::Target ChooseTarget(Actor& self, AttackBaseFace* ab,
                            sim::PlayerRelationship attack_stances,
                            WDist scan_range, bool allow_move,
                            bool allow_turn);
@@ -284,7 +286,7 @@ class AutoTarget final : public TraitBase,
   bool b_allow_movement_ = false;
   UnitStance stance_ = UnitStance::Defend;
   UnitStance predicted_stance_ = UnitStance::Defend;
-  std::vector<AttackFrontal*> vec_active_attack_bases_;
+  std::vector<AttackBaseFace*> vec_active_attack_bases_;
   std::vector<sim::IOverrideAutoTarget*> vec_override_auto_target_;
   std::vector<INotifyStanceChanged*> vec_notify_stance_changed_;
   std::vector<AutoTargetPriority*>

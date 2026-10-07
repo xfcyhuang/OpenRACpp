@@ -366,4 +366,41 @@ class HuskSpeedInit : public ValueActorInit<int>, public ISingleInstanceInit {
   }
 };
 
+// ———— 第六批 init 增补(Turreted.cs L316-332)————
+// ———— The batch-6 init additions (Turreted.cs L316-332) ————
+
+/// TurretFacingInit(Turreted.cs L316-326;info 实例名携带 —— Turreted 的
+/// 按名匹配面)
+/// TurretFacingInit (Turreted.cs L316-326; carries the info instance name —
+/// Turreted's by-name matching face).
+class TurretFacingInit : public ValueActorInit<WAngle> {
+ public:
+  ORA_INIT_TYPE_SELF_ONLY(TurretFacingInit, OpenRA_Mods_Common_Traits_TurretFacingInit)
+  explicit TurretFacingInit(WAngle value,
+                            std::string str_instance_name = "")
+      : ValueActorInit<WAngle>(value, std::move(str_instance_name)) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// DynamicTurretFacingInit(Turreted.cs L328-332;Value = 朝向闭包)
+/// DynamicTurretFacingInit (Turreted.cs L328-332; the Value is a facing
+/// closure).
+class DynamicTurretFacingInit
+    : public ValueActorInit<std::function<WAngle()>> {
+ public:
+  ORA_INIT_TYPE_SELF_ONLY(DynamicTurretFacingInit,
+                          OpenRA_Mods_Common_Traits_DynamicTurretFacingInit)
+  explicit DynamicTurretFacingInit(std::function<WAngle()> value,
+                                   std::string str_instance_name = "")
+      : ValueActorInit<std::function<WAngle()>>(std::move(value),
+                                                std::move(str_instance_name)) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
 }  // namespace ora::sim

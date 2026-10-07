@@ -679,8 +679,11 @@ sim::Activity* AttackFrontal::GetAttackActivity(
       self, new_target, allow_move, force_attack, target_line_color);
 }
 
-// 模板显式实例化
-// The explicit template instantiation.
+// 模板显式实例化(AttackTurreted 经 AttackFollow 继承 —— 实例化点在
+// 本 TU:模板体定义于此)
+// The explicit template instantiations (AttackTurreted inherits through
+// AttackFollow — the instantiation point sits in this TU: the template
+// bodies are defined here).
 template class AttackBaseCore<AttackFrontal>;
 
 // ———— [VerifySync] 哈希注册(gen/sync_gen.cpp:AttackFrontal {IsAiming})————
@@ -701,3 +704,11 @@ const bool b_attack_frontal_sync_registered = [] {
     &b_attack_frontal_sync_registered;
 
 }  // namespace ora::mods
+
+// AttackFollow 的显式实例化(attack_follow.hpp 引入完整类;实例化点在
+// 本 TU —— 模板体定义于此)
+// AttackFollow's explicit instantiation (attack_follow.hpp pulls in the
+// complete class; the instantiation point sits in this TU — the template
+// bodies are defined here).
+#include "mods/attack_follow.hpp"
+template class ora::mods::AttackBaseCore<ora::mods::AttackFollow>;

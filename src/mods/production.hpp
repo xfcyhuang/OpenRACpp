@@ -75,6 +75,7 @@ class Production;
 class ProductionQueue;
 class PlayerResources;
 class ProductionItemLike;
+class PowerManager;
 
 // ———— Production(L15-156)————
 // ———— Production (L15-156) ————
@@ -198,6 +199,7 @@ class ProductionItemLike {
   bool Infinite = false;
 
   ProductionItemLike(ProductionQueue& queue, std::string item, int cost,
+                     PowerManager* pm,
                      std::function<void(ProductionItemLike*)> on_complete);
 
   int TotalTime() const { return int4_total_time_; }
@@ -234,6 +236,7 @@ class ProductionItemLike {
   int int4_slowdown_ = 0;
   int int4_build_palette_order_ = 0;
   const game::ActorInfo* p_ai_ = nullptr;
+  PowerManager* p_pm_ = nullptr;  // L741(第六批接线)
 };
 
 
@@ -373,6 +376,7 @@ class ProductionQueue : public sim::TraitBase,
   sim::Actor* p_actor_ = nullptr;
   std::vector<ProducibleEntry> vec_producible_;  // 插入序 = rules 枚举序
   std::vector<std::unique_ptr<ProductionItemLike>> vec_queue_;
+  PowerManager* p_player_power_ = nullptr;  // L149(第六批接线)
   std::vector<Production*> vec_production_traits_;
   PlayerResources* p_player_resources_ = nullptr;
   DeveloperMode* p_developer_mode_ = nullptr;

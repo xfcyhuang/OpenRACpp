@@ -146,6 +146,44 @@ struct Target {
   /// Target.cs L196-203: range check (2D distance).
   bool IsInRange(const WPos& origin, const WDist& range) const;
 
+  /// Target.cs L224-240:operator ==(第六批消费点:AttackFollow 的持久
+  /// 机会目标判定)
+  /// Target.cs L224-240: operator == (the batch-6 consumer:
+  /// AttackFollow's persistent-opportunity-target check).
+  friend bool operator==(const Target& me, const Target& other) {
+    if (me.type != other.type)
+      return false;
+
+    switch (me.type) {
+      case TargetType::Terrain:
+        return me.terrain_center_position == other.terrain_center_position &&
+               me.vec_terrain_positions == other.vec_terrain_positions &&
+               ((!me.b_has_cell && !other.b_has_cell) ||
+                (me.b_has_cell && other.b_has_cell &&
+                 me.cell == other.cell)) &&
+               ((!me.b_has_sub_cell && !other.b_has_sub_cell) ||
+                (me.b_has_sub_cell && other.b_has_sub_cell &&
+                 me.sub_cell == other.sub_cell));
+
+      case TargetType::Actor:
+        return me.ActorPtr == other.ActorPtr &&
+               me.generation == other.generation;
+
+      case TargetType::FrozenActor:
+        return me.FrozenActorPtr == other.FrozenActorPtr;
+
+      case TargetType::Invalid:
+      default:
+        return false;
+    }
+  }
+
+  /// Target.cs L242-246:operator !=
+  /// Target.cs L242-246: operator !=
+  friend bool operator!=(const Target& me, const Target& other) {
+    return !(me == other);
+  }
+
   /// Target.cs L292-293(序列化状态导出)
   /// Target.cs L292-293 (the serialization state export).
   struct SerializableState {

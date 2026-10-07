@@ -39,7 +39,7 @@ Attack::Attack(sim::Actor& self, const sim::Target& target,
   // L49-89
   b_child_has_priority_ = false;
 
-  for (AttackFrontal* t : self.TraitsImplementing<AttackFrontal>())
+  for (AttackBaseFace* t : self.TraitsImplementing<AttackBaseFace>())
     if (!t->IsTraitDisabled())
       vec_attack_traits_.push_back(t);
   vec_reveals_shroud_ = self.TraitsImplementing<RevealsShroud>();
@@ -64,7 +64,7 @@ Attack::Attack(sim::Actor& self, const sim::Target& target,
     // (上游注释)
     const sim::Target& range_target = target;
     WDist min_range = WDist::MaxValue();
-    for (AttackFrontal* attack : vec_attack_traits_) {
+    for (AttackBaseFace* attack : vec_attack_traits_) {
       const WDist range =
           attack->GetMaximumRangeVersusTarget(range_target);
       if (range < min_range)
@@ -109,7 +109,7 @@ bool Attack::Tick(sim::Actor& self) {
       target_.Type() == sim::TargetType::Actor) {
     last_visible_target_ = sim::Target::FromTargetPositions(target_);
     WDist min_range = WDist::MaxValue();
-    for (AttackFrontal* attack : vec_attack_traits_) {
+    for (AttackBaseFace* attack : vec_attack_traits_) {
       const WDist range = attack->GetMaximumRangeVersusTarget(target_);
       if (range < min_range)
         min_range = range;
@@ -159,10 +159,10 @@ bool Attack::Tick(sim::Actor& self) {
 
   attack_status_ = AttackStatus::UnableToAttack;
 
-  for (AttackFrontal* attack : vec_attack_traits_) {
+  for (AttackBaseFace* attack : vec_attack_traits_) {
     const AttackStatus status = TickAttack(self, attack);
-    attack->b_is_aiming = status == AttackStatus::Attacking ||
-                          status == AttackStatus::NeedsToTurn;
+    attack->SetIsAiming(status == AttackStatus::Attacking ||
+                       status == AttackStatus::NeedsToTurn);
   }
 
   if (static_cast<std::int32_t>(attack_status_) >=
@@ -174,24 +174,24 @@ bool Attack::Tick(sim::Actor& self) {
 
 void Attack::OnLastRun(sim::Actor& /*self*/) {
   // L158-162
-  for (AttackFrontal* attack : vec_attack_traits_)
-    attack->b_is_aiming = false;
+  for (AttackBaseFace* attack : vec_attack_traits_)
+    attack->SetIsAiming(false);
 }
 
 Attack::AttackStatus Attack::TickAttack(sim::Actor& self,
-                                        AttackFrontal* attack) {
+                                        AttackBaseFace* attack) {
   // L164-252
   if (!target_.IsValidFor(&self))
     return AttackStatus::UnableToAttack;
 
-  if (attack->Info().b_attack_requires_entering_cell &&
+  if (attack->AttackRequiresEnteringCell() &&
       !positionable_->CanEnterCell(
           target_.ActorPtr != nullptr ? target_.ActorPtr->Location()
                                       : CPos{},
           nullptr, sim::BlockedByActor::None))
     return AttackStatus::UnableToAttack;
 
-  if (!attack->Info().b_target_frozen_actors && !b_force_attack_ &&
+  if (!attack->TargetFrozenActors() && !b_force_attack_ &&
       target_.Type() == sim::TargetType::FrozenActor) {
     // Try to move within range, drop the target otherwise(上游注释)
     if (move_ == nullptr)
@@ -269,7 +269,7 @@ Attack::AttackStatus Attack::TickAttack(sim::Actor& self,
   }
 
   if (!attack->TargetInFiringArc(self, target_,
-                                 attack->Info().angle_facing_tolerance)) {
+                                 attack->FacingTolerance())) {
     // Mirror Turn activity checks.(上游注释)
     if (mobile_ == nullptr ||
         (!mobile_->IsTraitDisabled() && !mobile_->IsTraitPaused())) {
@@ -283,7 +283,7 @@ Attack::AttackStatus Attack::TickAttack(sim::Actor& self,
       // Check again if we turned enough and directly continue attacking if
       // we did.(上游注释)
       if (!attack->TargetInFiringArc(
-              self, target_, attack->Info().angle_facing_tolerance)) {
+              self, target_, attack->FacingTolerance())) {
         attack_status_ = attack_status_ | AttackStatus::NeedsToTurn;
         return AttackStatus::NeedsToTurn;
       }
@@ -299,7 +299,7 @@ Attack::AttackStatus Attack::TickAttack(sim::Actor& self,
   return AttackStatus::Attacking;
 }
 
-void Attack::DoAttack(sim::Actor& self, AttackFrontal* attack,
+void Attack::DoAttack(sim::Actor& self, AttackBaseFace* attack,
                       const std::vector<Armament*>& vec_armaments) {
   // L254-259
   if (!attack->IsTraitPaused())
@@ -325,7 +325,7 @@ void Attack::StanceChanged(sim::Actor& self, AutoTarget* auto_target,
 
 bool Attack::HasArmamentsFor(const sim::Target& target) {
   // L278-281
-  for (AttackFrontal* attack : vec_attack_traits_)
+  for (AttackBaseFace* attack : vec_attack_traits_)
     if (!attack->ChooseArmamentsForTarget(target, b_force_attack_)
              .empty())
       return true;

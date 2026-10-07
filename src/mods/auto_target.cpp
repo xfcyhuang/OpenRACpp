@@ -121,7 +121,7 @@ AutoTarget::AutoTarget(ActorInitializer& init, const AutoTargetInfoData& info)
     : sim::ConditionalTraitCore<AutoTarget>(info.conditional), info_{info} {
   // L184-195
   Actor& self = init.Self();
-  for (AttackFrontal* t : self.TraitsImplementing<AttackFrontal>())
+  for (AttackBaseFace* t : self.TraitsImplementing<AttackBaseFace>())
     if (!t->IsTraitDisabled())
       vec_active_attack_bases_.push_back(t);
 
@@ -267,7 +267,7 @@ void AutoTarget::Damaged(Actor& self, const sim::AttackInfo& e) {
   // should automatically run away?(上游注释)
   const sim::Target attacker_as_target = sim::Target::FromActor(attacker);
   bool b_any_valid = false;
-  for (AttackFrontal* a : vec_active_attack_bases_)
+  for (AttackBaseFace* a : vec_active_attack_bases_)
     if (a->HasAnyValidWeapons(attacker_as_target)) {
       b_any_valid = true;
       break;
@@ -330,7 +330,7 @@ sim::Target AutoTarget::ScanForTarget(Actor& self, bool allow_move,
           info_.int4_minimum_scan_time_interval,
           info_.int4_maximum_scan_time_interval);
 
-    for (AttackFrontal* ab : vec_active_attack_bases_) {
+    for (AttackBaseFace* ab : vec_active_attack_bases_) {
       // If we can't attack right now, there's no need to try and find a
       // target.(上游注释)
       const sim::PlayerRelationship attack_stances =
@@ -361,7 +361,7 @@ void AutoTarget::ScanAndAttack(Actor& self, bool allow_move,
 
 void AutoTarget::Attack(const sim::Target& target, bool allow_move) {
   // L330-334
-  for (AttackFrontal* ab : vec_active_attack_bases_)
+  for (AttackBaseFace* ab : vec_active_attack_bases_)
     ab->AttackTarget(target, AttackSource::AutoTarget, false, allow_move);
 }
 
@@ -391,7 +391,7 @@ bool AutoTarget::HasValidTargetPriority(
 }
 
 sim::Target AutoTarget::ChooseTarget(
-    Actor& self, AttackFrontal* ab, sim::PlayerRelationship attack_stances,
+    Actor& self, AttackBaseFace* ab, sim::PlayerRelationship attack_stances,
     WDist scan_range, bool allow_move, bool allow_turn) {
   // L355-470
   sim::Target chosen_target = sim::Target::Invalid();
@@ -414,7 +414,7 @@ sim::Target AutoTarget::ChooseTarget(
 
   sim::FrozenActorLayer* frozen_layer =
       self.Owner()->GetFrozenActorLayer();
-  if ((allow_move || ab->Info().b_target_frozen_actors) &&
+  if ((allow_move || ab->TargetFrozenActors()) &&
       frozen_layer != nullptr)
     for (sim::FrozenActor* fa : frozen_layer->FrozenActorsInCircle(
              self.world(), self.CenterPosition(), scan_range))
@@ -503,7 +503,7 @@ sim::Target AutoTarget::ChooseTarget(
 
     if (!allow_turn &&
         !ab->TargetInFiringArc(self, target,
-                               ab->Info().angle_facing_tolerance))
+                               ab->FacingTolerance()))
       continue;
 
     // Evaluate whether we want to target this actor(上游注释)

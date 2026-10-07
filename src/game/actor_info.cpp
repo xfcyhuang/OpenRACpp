@@ -136,6 +136,14 @@ std::vector<const meta::RecordObject*> ActorInfo::TraitInfosByInterface(
   return vec_ret;
 }
 
+std::string_view ActorInfo::InstanceNameOf(
+    const meta::RecordObject* rec) const {
+  for (std::size_t i = 0; i < vec_traits_.size(); i++)
+    if (vec_traits_[i].get() == rec)
+      return vec_instanceNames_[i];
+  return {};
+}
+
 bool ActorInfo::HasTraitInfoOfInterface(std::string_view str_interface) const {
   for (const auto& rec_trait : vec_traits_)
     if (ImplementsInterface(rec_trait->record_desc(), str_interface))

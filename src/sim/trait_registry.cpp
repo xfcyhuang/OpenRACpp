@@ -94,6 +94,19 @@ std::optional<std::int64_t> RecordFieldInt(const meta::RecordObject& rec,
   return std::nullopt;
 }
 
+const meta::GenericValue* RecordFieldValue(
+    const meta::RecordObject& rec, std::string_view str_name) {
+  const auto* generated = dynamic_cast<const meta::GeneratedRecord*>(&rec);
+  if (generated == nullptr)
+    return nullptr;
+  const std::vector<const meta::FieldDesc*> fields =
+      meta::CollectFields(generated->record_desc());
+  for (std::size_t i = 0; i < fields.size(); i++)
+    if (fields[i]->str_name == str_name)
+      return &generated->Slot(i);
+  return nullptr;
+}
+
 void RegisterWorldTraits() {
   static const bool b_registered = [] {
     // ScreenMapInfo.Create(init) → new ScreenMap(init.World, this)

@@ -52,6 +52,14 @@ using sim::Actor;
 using sim::ActorInitializer;
 using sim::TraitBase;
 
+/// AttackBase 的接口面(上游以具体类 AttackBase 充当接口 —— AutoTarget 的
+/// TraitsImplementing<AttackBase> 查询族;TypeId 即上游 AttackBase 键)。
+/// 第六批引入:AttackFollow 族落地后 AutoTarget/Move 族不再硬绑 AttackFrontal
+/// The interface face of AttackBase (upstream's concrete class doubles as
+/// the interface — AutoTarget's TraitsImplementing<AttackBase> query
+/// family; the TypeId is upstream's AttackBase key itself). Introduced
+/// with batch 6: once the AttackFollow family lands, AutoTarget/the move
+/// family stop being hard-wired to AttackFrontal.
 /// AttackBase.cs L23:AttackSource
 /// AttackBase.cs L23: AttackSource.
 enum class AttackSource : std::int32_t {
@@ -59,6 +67,69 @@ enum class AttackSource : std::int32_t {
   AutoTarget = 1,
   AttackMove = 2,
 };
+
+class AttackBaseFace {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_AttackBase;
+  virtual ~AttackBaseFace() = default;
+
+  /// IsAiming(L78 的 [VerifySync] 面;Turreted 的 realign 判据;活动侧的
+  /// 公开写 = 上游 public set)
+  /// IsAiming (the [VerifySync] face at L78; Turreted's realign
+  /// predicate; the activities' public write = upstream's public set).
+  virtual bool IsAiming() const = 0;
+  virtual void SetIsAiming(bool value) = 0;
+
+  /// TraitBase::IsTraitDisabled 的面投影(具体类的 override 同时支配
+  /// 两条基路径)
+  /// The face projection of TraitBase::IsTraitDisabled (the concrete
+  /// class's override dominates both base paths).
+  virtual bool IsTraitDisabled() const { return false; }
+  virtual bool IsTraitPaused() const = 0;
+  virtual bool AttackRequiresEnteringCell() const = 0;
+
+  /// AutoTarget.ScanForTarget 的消费面
+  /// The consumption faces of AutoTarget.ScanForTarget.
+  virtual sim::PlayerRelationship UnforcedAttackTargetStances() = 0;
+  virtual WDist GetMaximumRange() = 0;
+  virtual void AttackTarget(const sim::Target& target, AttackSource source,
+                            bool queued, bool allow_move,
+                            bool force_attack = false,
+                            std::optional<core::Color> target_line_color =
+                                std::nullopt) = 0;
+
+  /// ChooseTarget 的消费面(ab.Info.TargetFrozenActors/FacingTolerance →
+  /// 值访问器;ChooseArmamentsForTarget/TargetInFiringArc)
+  /// ChooseTarget's consumption faces (ab.Info.TargetFrozenActors/
+  /// FacingTolerance → value accessors; ChooseArmamentsForTarget/
+  /// TargetInFiringArc).
+  virtual bool TargetFrozenActors() const = 0;
+  virtual WAngle FacingTolerance() const = 0;
+  virtual std::vector<Armament*> ChooseArmamentsForTarget(
+      const sim::Target& t, bool force_attack) = 0;
+
+  /// AutoTarget.Damaged 的还击判定面
+  /// The retaliation predicate face of AutoTarget.Damaged.
+  virtual bool HasAnyValidWeapons(
+      const sim::Target& t, bool check_for_center_targeting_weapons = false,
+      bool reloading_is_invalid = false) = 0;
+  virtual bool TargetInFiringArc(Actor& self, const sim::Target& target,
+                                 WAngle facing_tolerance) = 0;
+
+  /// AttackFollow 活动族的范围消费面
+  /// The range consumption faces of the AttackFollow activity family.
+  virtual WDist GetMinimumRange() = 0;
+  virtual WDist GetMinimumRangeVersusTarget(const sim::Target& target) = 0;
+  virtual WDist GetMaximumRangeVersusTarget(const sim::Target& target) = 0;
+
+  /// Turreted::FaceTarget 的目标位消费面
+  /// The target-position consumption face of Turreted::FaceTarget.
+  virtual WPos GetTargetPosition(const WPos& pos,
+                                 const sim::Target& target) = 0;
+  virtual void OnStopOrder(Actor& self) = 0;
+};
+
 
 /// AttackBaseInfo 的解析面(L25-71)
 /// The parsed face of AttackBaseInfo (L25-71).
@@ -88,6 +159,7 @@ struct AttackBaseInfoData {
 /// Armament's shape).
 template <class Derived>
 class AttackBaseCore : public TraitBase,
+                       public AttackBaseFace,
                        public sim::ConditionalTraitCore<Derived>,
                        public sim::ITick,
                        public sim::IIssueOrder,
@@ -99,6 +171,20 @@ class AttackBaseCore : public TraitBase,
 
   // ———— [VerifySync] L78-79 ————
   bool b_is_aiming = false;  // IsAiming
+
+  /// AttackBaseFace.IsAiming | AttackBaseFace.IsAiming.
+  bool IsAiming() const override { return b_is_aiming; }
+
+  /// AttackBaseFace.IsTraitPaused(条件核转发)
+  /// AttackBaseFace.IsTraitPaused (the condition-core forwarding).
+  bool IsTraitPaused() const override {
+    return sim::ConditionalTraitCore<Derived>::IsTraitPaused();
+  }
+
+  void SetIsAiming(bool value) override { b_is_aiming = value; }
+  bool AttackRequiresEnteringCell() const override {
+    return info_.b_attack_requires_entering_cell;
+  }
 
   /// L81:Armaments(过滤物化;见头注) | L81: Armaments (the filtered
   /// materialization; see the header).
@@ -115,7 +201,7 @@ class AttackBaseCore : public TraitBase,
 
   /// L134-147:TargetInFiringArc | L134-147: TargetInFiringArc.
   bool TargetInFiringArc(Actor& self, const sim::Target& target,
-                         WAngle facing_tolerance);
+                         WAngle facing_tolerance) override;
 
   /// L149-165:CanAttack(virtual) | L149-165: CanAttack (virtual).
   virtual bool CanAttack(Actor& self, const sim::Target& target);
@@ -137,43 +223,46 @@ class AttackBaseCore : public TraitBase,
   /// 活动未移植,COVERAGE 登记)
   /// L214-223: OnStopOrder (virtual; the Resupply/ReturnToBase checks stay
   /// false — the activities are unported, registered in COVERAGE).
-  virtual void OnStopOrder(Actor& self);
+  virtual void OnStopOrder(Actor& self) override;
 
   /// L225-228:IOrderVoice.VoicePhraseForOrder
   std::string VoicePhraseForOrder(Actor& self,
                                   const net::Order& order) override;
 
   /// L233-251:HasAnyValidWeapons
-  bool HasAnyValidWeapons(const sim::Target& t,
-                          bool check_for_center_targeting_weapons = false,
-                          bool reloading_is_invalid = false);
+  bool HasAnyValidWeapons(
+      const sim::Target& t,
+      bool check_for_center_targeting_weapons = false,
+      bool reloading_is_invalid = false) override;
 
   /// L253-256:GetTargetPosition(virtual)
   /// L253-256: GetTargetPosition (virtual).
   virtual WPos GetTargetPosition(const WPos& pos,
-                                 const sim::Target& target);
+                                 const sim::Target& target) override;
 
   /// L258-279:GetMinimumRange | L258-279: GetMinimumRange.
-  WDist GetMinimumRange();
+  WDist GetMinimumRange() override;
 
   /// L281-302:GetMaximumRange | L281-302: GetMaximumRange.
-  WDist GetMaximumRange();
+  WDist GetMaximumRange() override;
 
   /// L304-328:GetMinimumRangeVersusTarget
-  WDist GetMinimumRangeVersusTarget(const sim::Target& target);
+  WDist GetMinimumRangeVersusTarget(
+      const sim::Target& target) override;
 
   /// L330-362:GetMaximumRangeVersusTarget
-  WDist GetMaximumRangeVersusTarget(const sim::Target& target);
+  WDist GetMaximumRangeVersusTarget(
+      const sim::Target& target) override;
 
   /// L365-385:ChooseArmamentsForTarget
-  std::vector<Armament*> ChooseArmamentsForTarget(const sim::Target& t,
-                                                  bool force_attack);
+  std::vector<Armament*> ChooseArmamentsForTarget(
+      const sim::Target& t, bool force_attack) override;
 
   /// L387-398:AttackTarget | L387-398: AttackTarget.
   void AttackTarget(const sim::Target& target, AttackSource source,
                     bool queued, bool allow_move, bool force_attack = false,
                     std::optional<core::Color> target_line_color =
-                        std::nullopt);
+                        std::nullopt) override;
 
   /// L400:OnResolveAttackOrder(virtual 空体)
   /// L400: OnResolveAttackOrder (the virtual empty body).
@@ -188,7 +277,7 @@ class AttackBaseCore : public TraitBase,
   bool IsReachableTarget(const sim::Target& target, bool allow_move);
 
   /// L408-417:UnforcedAttackTargetStances
-  sim::PlayerRelationship UnforcedAttackTargetStances();
+  sim::PlayerRelationship UnforcedAttackTargetStances() override;
 
   /// L109-124:ITick.Tick(protected Tick 的接口面)
   void Tick(Actor& self) override;
@@ -198,6 +287,16 @@ class AttackBaseCore : public TraitBase,
   void CoreAttackBaseCreated(Actor& self);
 
   const AttackBaseInfoData& Info() const { return info_; }
+
+  /// AttackBaseFace 的 Info 值访问器(ab.Info.TargetFrozenActors 等)
+  /// AttackBaseFace's Info value accessors (ab.Info.TargetFrozenActors
+  /// and friends).
+  bool TargetFrozenActors() const override {
+    return info_.b_target_frozen_actors;
+  }
+  WAngle FacingTolerance() const override {
+    return info_.angle_facing_tolerance;
+  }
 
  protected:
   sim::IFacing* facing_ = nullptr;              // L83
@@ -256,8 +355,8 @@ class AttackFrontal final
   AttackFrontal(ActorInitializer& init, AttackBaseInfoData&& info);
 
   ORA_TRAIT_INTERFACES(AttackFrontal,
-                       OpenRA_Mods_Common_Traits_AttackFrontal, sim::ITick,
-                       sim::IIssueOrder, sim::IResolveOrder,
+                       OpenRA_Mods_Common_Traits_AttackFrontal, AttackBaseFace,
+                       sim::ITick, sim::IIssueOrder, sim::IResolveOrder,
                        sim::IOrderVoice, sim::ISync,
                        sim::IObservesVariables, sim::INotifyCreated)
 

@@ -96,4 +96,10 @@ std::optional<std::string_view> RecordFieldString(const meta::RecordObject& rec,
 std::optional<std::int64_t> RecordFieldInt(const meta::RecordObject& rec,
                                            std::string_view str_name);
 
+/// 按名读值槽本体(缺字段 = nullptr;集合/字典判别消费)
+/// Reads the value slot itself by name (nullptr when the field is
+/// absent; consumers discriminate on the collection/dict payload).
+const meta::GenericValue* RecordFieldValue(const meta::RecordObject& rec,
+                                           std::string_view str_name);
+
 }  // namespace ora::sim
