@@ -411,6 +411,23 @@ class World final {
   /// reflection construct).
   void CancelInputMode();
 
+  // ———— 第三批扩展(World.cs L234 的 RulesContainTemporaryBlocker +
+  //      WorldUtils.cs L77-95 的 ContainsTemporaryBlocker)————
+  // ———— The batch-3 extensions (World.cs L234's
+  //      RulesContainTemporaryBlocker + WorldUtils.cs L77-95's
+  //      ContainsTemporaryBlocker) ————
+
+  /// World.cs L234:RulesContainTemporaryBlocker(ctor 内规则扫描;
+  /// C++ 侧首查物化 —— 同一布尔,时点差异不可观测)
+  /// World.cs L234: RulesContainTemporaryBlocker (the ctor's rules scan;
+  /// materialized on first query here — the same boolean, the timing
+  /// difference unobservable).
+  bool RulesContainTemporaryBlocker();
+
+  /// WorldUtils.cs L77-95:ContainsTemporaryBlocker(cell, ignoreActor)
+  /// WorldUtils.cs L77-95: ContainsTemporaryBlocker(cell, ignoreActor).
+  bool ContainsTemporaryBlocker(CPos cell, Actor* ignore_actor = nullptr);
+
  private:
   // C# internal(同程序集可见)的友元等价:Actor 构造调 NextAID
   friend class Actor;
@@ -418,6 +435,12 @@ class World final {
 
   TraitDictionary trait_dict_;
   std::map<std::uint32_t, Actor*> map_actors_;  // SortedDictionary 等价
+
+  // RulesContainTemporaryBlocker 的首查物化(上游 ctor 一次性扫描)
+  // The first-query materialization of RulesContainTemporaryBlocker
+  // (upstream's one-shot ctor scan).
+  bool b_rules_temporary_blocker_cached_ = false;
+  bool b_rules_contain_temporary_blocker_ = false;
 
   ora::WorldArena arena_{64 * 1024};  // §4.5 每局世界区(D26/D27)
   std::vector<std::unique_ptr<Actor>> vec_owned_actors_;  // 测试路径所有权
@@ -463,7 +486,6 @@ class World final {
   std::string str_default_order_generator_;           // L153(defaultOrderGeneratorType)
   std::vector<IValidateOrder*> vec_order_validators_;   // L145
   std::vector<INotifyPlayerDisconnected*> vec_notify_disconnected_;  // L146
-  bool b_rules_contain_temporary_blocker_ = false;       // L174
 
   bool b_is_game_over_ = false;                          // L74
   bool b_was_loading_game_save_ = false;                 // L176

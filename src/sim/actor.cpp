@@ -136,9 +136,66 @@ void Actor::CancelActivity() {
 }
 
 void Actor::AddTrait(TraitBase* trait) {
-  // L414-417(接口缓存面 L169-195:由 World.CreateTraitsForActor 内的注册
-  // 回调填充 SyncHashes/OccupySpace —— 见 world.cpp)
+  // L414-417(接口缓存面 L169-195:upcast 表逐键填充 —— 单值缓存后者覆写,
+  // 列表缓存构造序;SyncHashes 由 CreateTraitsForActor 的同形循环收集)
+  // L414-417 (the interface caches of L169-195: filled per key off the
+  // upcast table — the single-value caches take the last write, the list
+  // caches keep construct order; SyncHashes ride CreateTraitsForActor's
+  // same-shape loop).
   world_.TraitDict().AddTrait(this, trait);
+
+  for (const auto& entry : trait->TraitUpcasts()) {
+    if (entry.type_id == IOccupySpace::kTypeId)
+      vec_occupy_space_.push_back(
+          static_cast<IOccupySpace*>(entry.upcast(trait)));
+    else if (entry.type_id == IFacing::kTypeId)
+      p_facing_ = static_cast<IFacing*>(entry.upcast(trait));
+    else if (entry.type_id == ITargetable::kTypeId)
+      vec_targetables_.push_back(
+          static_cast<ITargetable*>(entry.upcast(trait)));
+    else if (entry.type_id == ICrushable::kTypeId)
+      vec_crushables_.push_back(
+          static_cast<ICrushable*>(entry.upcast(trait)));
+    else if (entry.type_id == IVisibilityModifier::kTypeId)
+      vec_visibility_modifiers_.push_back(
+          static_cast<IVisibilityModifier*>(entry.upcast(trait)));
+    else if (entry.type_id == IDefaultVisibility::kTypeId)
+      p_default_visibility_ =
+          static_cast<IDefaultVisibility*>(entry.upcast(trait));
+  }
+}
+
+core::BitSet<TargetableType> Actor::GetAllTargetTypes() const {
+  // L517-525(PERF:避 LINQ;构造序并集)
+  // L517-525 (PERF: avoiding LINQ; the construct-order union).
+  std::uint64_t uint8_bits = 0;
+  for (const auto* targetable : vec_targetables_)
+    uint8_bits |= targetable->TargetTypes().RawBits();
+  return core::BitSet<TargetableType>::FromRawBits(uint8_bits);
+}
+
+core::BitSet<TargetableType> Actor::GetEnabledTargetTypes() const {
+  // L530-538(PERF:避 LINQ;启用者并集 —— ITargetable 实现即 TraitBase
+  // 子对象的使能面)
+  // L530-538 (PERF: avoiding LINQ; the enabled union — an ITargetable
+  // implementor's enablement rides its TraitBase subobject).
+  std::uint64_t uint8_bits = 0;
+  for (auto* targetable : vec_targetables_) {
+    auto* base = dynamic_cast<TraitBase*>(targetable);
+    if (base == nullptr || base->IsTraitEnabled())
+      uint8_bits |= targetable->TargetTypes().RawBits();
+  }
+  return core::BitSet<TargetableType>::FromRawBits(uint8_bits);
+}
+
+bool Actor::IsTargetableBy(Actor& by_actor) const {
+  // L540-548(PERF:避 LINQ)
+  // L540-548 (PERF: avoiding LINQ).
+  for (auto* targetable : vec_targetables_)
+    if (targetable->TargetableBy(const_cast<Actor&>(*this), by_actor))
+      return true;
+
+  return false;
 }
 
 void Actor::Initialize(bool add_to_world) {

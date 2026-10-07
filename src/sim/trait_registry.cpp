@@ -84,6 +84,11 @@ std::optional<std::int64_t> RecordFieldInt(const meta::RecordObject& rec,
     const meta::GenericValue& v = generated->Slot(i);
     if (auto* n = std::get_if<std::int64_t>(&v.val))
       return *n;
+    // bool 载荷(true/false 的整型面;C# 布尔字段 = 0/1)
+    // The bool payload (the integral face of true/false; a C# boolean
+    // field is 0/1).
+    if (auto* b = std::get_if<bool>(&v.val))
+      return *b ? 1 : 0;
     return std::int64_t{0};
   }
   return std::nullopt;

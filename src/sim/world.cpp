@@ -268,6 +268,11 @@ void World::CreateTraitsForActor(Actor& actor, ActorInitializer& init,
   if (info == nullptr)
     throw std::runtime_error("No rules definition for unit " + str_name);
 
+  // Actor.cs L157-159:Info 先于 trait 构造赋值(工厂面消费 Info())
+  // Actor.cs L157-159: Info is assigned before trait construction (the
+  // factory face consumes Info()).
+  actor.SetInfo(info);
+
   for (const meta::RecordObject* rec : info->TraitsInConstructOrder()) {
     TraitBase* trait = TraitRegistry::Instance().Create(
         std::string{rec->record_desc().str_name}, *rec, init, arena_);
@@ -696,6 +701,48 @@ int World::SyncHash() {
       ret += sync::HashPlayer(p);
 
   return ret;
+}
+
+bool World::RulesContainTemporaryBlocker() {
+  // World.cs L234(ctor 一次性扫描;C++ 首查物化 —— ITemporaryBlockerInfo
+  // 的接口名查询走值袋面)
+  // World.cs L234 (the ctor's one-shot scan; materialized on first query
+  // here — the ITemporaryBlockerInfo query goes through the bag's
+  // interface-name face).
+  if (!b_rules_temporary_blocker_cached_) {
+    b_rules_contain_temporary_blocker_ = false;
+    if (ptr_map_ != nullptr) {
+      for (const auto& [name, info] : Map().Rules().Actors()) {
+        (void)name;
+        if (info->HasTraitInfoOfInterface("OpenRA.Traits.ITemporaryBlockerInfo")) {
+          b_rules_contain_temporary_blocker_ = true;
+          break;
+        }
+      }
+    }
+    b_rules_temporary_blocker_cached_ = true;
+  }
+
+  return b_rules_contain_temporary_blocker_;
+}
+
+bool World::ContainsTemporaryBlocker(CPos cell, Actor* ignore_actor) {
+  // WorldUtils.cs L77-95
+  if (!RulesContainTemporaryBlocker())
+    return false;
+
+  for (Actor* temporary_blocker :
+       ptr_actor_map_->GetActorsAt(cell)) {
+    if (temporary_blocker == ignore_actor)
+      continue;
+
+    for (auto* temporary_blocker_trait :
+         temporary_blocker->TraitsImplementing<ITemporaryBlocker>())
+      if (temporary_blocker_trait->IsBlocking(*temporary_blocker, cell))
+        return true;
+  }
+
+  return false;
 }
 
 }  // namespace ora::sim

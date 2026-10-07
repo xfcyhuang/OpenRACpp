@@ -196,4 +196,135 @@ class OwnerInit : public ActorInit, public ISingleInstanceInit {
   std::string str_internal_name_;
 };
 
+// ———— 第三批 init 增补(Mods.Common/ActorInitializer.cs + 引用处定义)————
+// ———— The batch-3 init additions (Mods.Common/ActorInitializer.cs + the
+//      definitions at the use sites) ————
+
+/// FacingInit(ActorInitializer.cs L20)
+class FacingInit : public ValueActorInit<WAngle>,
+                   public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(FacingInit, OpenRA_Mods_Common_FacingInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit FacingInit(WAngle value)
+      : ValueActorInit<WAngle>(value) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// CreationActivityDelayInit(ActorInitializer.cs L28)
+class CreationActivityDelayInit : public ValueActorInit<int>,
+                                 public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(CreationActivityDelayInit,
+                OpenRA_Mods_Common_CreationActivityDelayInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit CreationActivityDelayInit(int value)
+      : ValueActorInit<int>(value) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// DynamicFacingInit(ActorInitializer.cs L32;Value = 面向闭包)
+/// DynamicFacingInit (ActorInitializer.cs L32; the Value is a facing
+/// closure).
+class DynamicFacingInit
+    : public ValueActorInit<std::function<WAngle()>>,
+      public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(DynamicFacingInit, OpenRA_Mods_Common_DynamicFacingInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit DynamicFacingInit(std::function<WAngle()> value)
+      : ValueActorInit<std::function<WAngle()>>(std::move(value)) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// SubCellInit(ActorInitializer.cs L37-58;非 ValueInit —— map.yaml 以数值
+/// 而非枚举名携带)
+/// SubCellInit (ActorInitializer.cs L37-58; not a ValueInit — map.yaml
+/// carries the numeric value, not the enum name).
+class SubCellInit : public ActorInit, public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(SubCellInit, OpenRA_Mods_Common_SubCellInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+
+  explicit SubCellInit(SubCell value)
+      : uint1_value_(static_cast<std::uint8_t>(value)) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+
+  SubCell Value() const { return static_cast<SubCell>(uint1_value_); }
+
+ private:
+  std::uint8_t uint1_value_;
+};
+
+/// CenterPositionInit(ActorInitializer.cs L61)
+class CenterPositionInit : public ValueActorInit<WPos>,
+                           public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(CenterPositionInit, OpenRA_Mods_Common_CenterPositionInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit CenterPositionInit(WPos value)
+      : ValueActorInit<WPos>(value) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// FactionInit(ActorInitializer.cs L66;地图/变身指定 actor 的阵营变体)
+/// FactionInit (ActorInitializer.cs L66; maps/transformations name the
+/// actor's faction variant).
+class FactionInit : public ValueActorInit<std::string>,
+                    public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(FactionInit, OpenRA_Mods_Common_FactionInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit FactionInit(std::string value)
+      : ValueActorInit<std::string>(std::move(value)) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// RallyPointInit(Production.cs L151;CPos[] 集结路径)
+/// RallyPointInit (Production.cs L151; the CPos[] rally path).
+class RallyPointInit : public ValueActorInit<std::vector<CPos>>,
+                       public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(RallyPointInit, OpenRA_Mods_Common_Traits_RallyPointInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit RallyPointInit(std::vector<CPos> value)
+      : ValueActorInit<std::vector<CPos>>(std::move(value)) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+/// HuskSpeedInit(Husk.cs L193;残骸拖尾速度)
+/// HuskSpeedInit (Husk.cs L193; the husk's drag speed).
+class HuskSpeedInit : public ValueActorInit<int>, public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(HuskSpeedInit, OpenRA_Mods_Common_Traits_HuskSpeedInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit HuskSpeedInit(int value)
+      : ValueActorInit<int>(value) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
 }  // namespace ora::sim

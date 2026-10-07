@@ -176,6 +176,8 @@ add_library(ora_sim STATIC
   src/sim/control_groups.cpp
   src/sim/player.cpp
   src/sim/trait_registry.cpp
+  src/sim/conditional_trait.cpp
+  src/sim/weapons.cpp
   src/sim/world.cpp)
 # gen/interfaces_gen.h 位于仓库根(gen/ 目录),TypeId 头需根 include
 # gen/interfaces_gen.h lives at the repo root (gen/); the TypeId header
@@ -292,6 +294,10 @@ add_library(ora_mods STATIC
   src/mods/sequence_loader_factory.cpp
   src/mods/create_map_players.cpp
   src/mods/health.cpp
+  src/mods/armament.cpp
+  src/mods/body_orientation.cpp
+  src/mods/mobile.cpp
+  src/mods/move_activities.cpp
   src/mods/unit_order_generator.cpp
   src/mods/pathfinding/cell_info_layer_pool.cpp
   src/mods/pathfinding/dense_path_graph.cpp
@@ -491,6 +497,24 @@ add_custom_command(TARGET path_test POST_BUILD
           ${CMAKE_SOURCE_DIR}/third_party/OpenAL/bin/OpenAL32.dll $<TARGET_FILE_DIR:path_test>
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           ${CMAKE_SOURCE_DIR}/third_party/FreeType/bin/freetype6.dll $<TARGET_FILE_DIR:path_test>)
+# Phase 5 第三批验收:Mobile/BodyOrientation/Move 活动族/Armament 开火链
+# (纯逻辑矩阵 + 真实 ra 规则/地图全链)
+# The Phase 5 batch-3 acceptance: Mobile/BodyOrientation/the move activity
+# family/the Armament firing chain (pure-logic matrices + the real ra
+# rules/map full chain).
+add_executable(move_test tests/move_test.cpp)
+target_link_libraries(move_test PRIVATE
+  ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
+  ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
+  ora_miniz ora_sdl2 ora_openal ora_freetype)
+ora_link_std(move_test)
+add_custom_command(TARGET move_test POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:move_test>
+          ${CMAKE_SOURCE_DIR}/third_party/OpenAL/bin/OpenAL32.dll $<TARGET_FILE_DIR:move_test>
+          ${CMAKE_SOURCE_DIR}/third_party/FreeType/bin/freetype6.dll $<TARGET_FILE_DIR:move_test>)
+add_test(NAME move_test COMMAND move_test ${ORA_UPSTREAM_ROOT})
+
 add_test(NAME path_test COMMAND path_test ${ORA_UPSTREAM_ROOT})
 
 # 仿真核心单测(PORTING_PLAN §Phase 3 验收:TraitDictionary/Activity/条件

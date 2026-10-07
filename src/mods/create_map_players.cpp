@@ -12,6 +12,9 @@ import std;
 #include "mods/health.hpp"
 #include "mods/pathfinding/locomotor.hpp"
 #include "mods/pathfinding/path_finder.hpp"
+#include "mods/armament.hpp"
+#include "mods/body_orientation.hpp"
+#include "mods/mobile.hpp"
 #include "mods/unit_order_generator.hpp"
 #include "net/session.hpp"
 #include "sim/actor.hpp"
@@ -19,6 +22,7 @@ import std;
 #include "sim/control_groups.hpp"
 #include "sim/order_generator.hpp"
 #include "sim/player.hpp"
+#include "sim/sync_hash.hpp"
 #include "sim/trait_registry.hpp"
 #include "sim/world.hpp"
 
@@ -162,8 +166,21 @@ void RegisterCommonTraits() {
         "HealthInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
            ora::WorldArena& arena) -> TraitBase* {
-          if (!init.Self().Info()->HasTraitInfoOfInterface(
-                  "OpenRA.Mods.Common.Traits.IHitShapeInfo"))
+          // 上游查具体 Info 类(HasTraitInfo<HitShapeInfo>() —— 其接口集
+          // 不含 IHitShapeInfo),按记录全名匹配
+          // Upstream queries the concrete Info class
+          // (HasTraitInfo<HitShapeInfo>() — its interface set carries no
+          // IHitShapeInfo), matched here by record full name.
+          bool has_hit_shape = false;
+          for (const auto& rec_trait :
+               init.Self().Info()->TraitsInConstructOrder())
+            if (rec_trait->record_desc().str_full_name ==
+                std::string_view{
+                    "OpenRA.Mods.Common.Traits.HitShapeInfo"}) {
+              has_hit_shape = true;
+              break;
+            }
+          if (!has_hit_shape)
             throw yaml::YamlException(
                 "Actors with Health need at least one HitShape trait!");
           const HealthInfoData data = HealthInfoData::Parse(rec_info);
@@ -239,9 +256,90 @@ void RegisterCommonTraits() {
           return std::make_unique<UnitOrderGenerator>(world);
         });
 
+    // ———— 第三批:Mobile/BodyOrientation/Armament ————
+
+    // MobileInfo.Create(init) → new Mobile(init, this);LocomotorInfo 解析
+    // = RulesetLoaded 的工厂时点面(D 系登记)
+    // MobileInfo.Create(init) → new Mobile(init, this); the LocomotorInfo
+    // resolution = the factory-time face of RulesetLoaded (the D-series
+    // registration).
+    registry.Register(
+        "MobileInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          MobileInfoData data = MobileInfoData::Parse(rec_info);
+          data.locomotor_info =
+              ResolveMobileLocomotorInfo(init.Self().world(),
+                                         data.str_locomotor);
+          return arena.Create<Mobile>(init, std::move(data));
+        });
+
+    // BodyOrientationInfo.Create(init) → new BodyOrientation(init, this)
+    registry.Register(
+        "BodyOrientationInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          const BodyOrientationInfoData data =
+              BodyOrientationInfoData::Parse(rec_info);
+          return arena.Create<BodyOrientation>(init, data);
+        });
+
+    // ArmamentInfo.Create(init) → new Armament(init.Self, this);武器解析
+    // 与校验 = RulesetLoaded 的工厂时点面(异常文本逐字)
+    // ArmamentInfo.Create(init) → new Armament(init.Self, this); the
+    // weapon resolution + validation = the factory-time face of
+    // RulesetLoaded (exception texts verbatim).
+    registry.Register(
+        "ArmamentInfo",
+        [](const meta::RecordObject& rec_info, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          const ArmamentInfoData data =
+              ArmamentInfoData::Parse(rec_info, init.Self().world());
+          return arena.Create<Armament>(init, std::move(data));
+        });
+
     return true;
   }();
   (void)b_registered;
 }
+
+// ———— 第三批 [VerifySync] 哈希注册(gen/sync_gen.cpp 成员表:
+//      Mobile {Facing,FromCell,ToCell,CenterPosition} /
+//      BodyOrientation {QuantizedFacings};组合协议 = 0 XOR 成员哈希)————
+// ———— The batch-3 [VerifySync] hash registrations (the gen/sync_gen.cpp
+//      member tables: Mobile {Facing,FromCell,ToCell,CenterPosition} /
+//      BodyOrientation {QuantizedFacings}; the combination protocol = 0
+//      XOR the member hashes) ————
+
+namespace {
+
+int MobileSyncHash(const sim::ISync* s) {
+  const auto* mobile = static_cast<const Mobile*>(s);
+  return sim::sync::CombineSyncHash(
+      sim::sync::CombineSyncHash(
+          sim::sync::CombineSyncHash(
+              sim::sync::CombineSyncHash(
+                  0, sim::sync::HashWAngle(mobile->Facing())),
+              sim::sync::HashCPos(mobile->FromCell())),
+          sim::sync::HashCPos(mobile->ToCell())),
+      sim::sync::HashWPos(mobile->CenterPosition()));
+}
+
+int BodyOrientationSyncHash(const sim::ISync* s) {
+  const auto* body_orientation = static_cast<const BodyOrientation*>(s);
+  return sim::sync::CombineSyncHash(
+      0, body_orientation->QuantizedFacings());
+}
+
+const bool b_registered_batch3_sync_hash = [] {
+  sim::RegisterSyncHashFunction("OpenRA.Mods.Common.Traits.Mobile",
+                                &MobileSyncHash);
+  sim::RegisterSyncHashFunction(
+      "OpenRA.Mods.Common.Traits.BodyOrientation",
+      &BodyOrientationSyncHash);
+  return true;
+}();
+
+}  // namespace
 
 }  // namespace ora::mods

@@ -100,6 +100,31 @@ struct Target {
   /// dead / generation-bumped degrades to Invalid).
   TargetType Type() const;
 
+  /// Target.cs L110-125:IsValidFor(targeter)
+  /// Target.cs L110-125: IsValidFor(targeter).
+  bool IsValidFor(const Actor* targeter) const;
+
+  /// Target.cs L86:FromTargetPositions(t)(地形化快照)
+  /// Target.cs L86: FromTargetPositions(t) (the terrain-ized snapshot).
+  static Target FromTargetPositions(const Target& t) {
+    Target r;
+    r.type = TargetType::Terrain;
+    r.terrain_center_position = t.terrain_center_position;
+    r.vec_terrain_positions = t.vec_terrain_positions;
+    return r;
+  }
+
+  /// TargetExtensions.cs L31-81:Recalculate(viewer, out targetIsHiddenActor)
+  /// —— FrozenActor/可视面未移植段的等价分支(COVERAGE 登记):
+  /// bot 视角的 FrozenActor→Invalid、Actor 可视(CanBeViewedByPlayer 真值
+  /// 面)、ReplacedByActor 换代修复
+  /// TargetExtensions.cs L31-81: Recalculate(viewer, out
+  /// targetIsHiddenActor) — the equivalent branches of the not-yet-ported
+  /// FrozenActor/visibility faces (registered in COVERAGE): the bot view's
+  /// FrozenActor→Invalid, the Actor visibility (the CanBeViewedByPlayer
+  /// true face), and the ReplacedByActor replacement fix.
+  Target Recalculate(const Player* viewer, bool& b_target_is_hidden_actor) const;
+
   /// Target.cs L155-172
   WPos CenterPosition() const;
 

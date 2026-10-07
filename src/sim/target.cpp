@@ -3,6 +3,7 @@
 #include "sim/target.hpp"
 
 #include "sim/actor.hpp"
+#include "sim/player.hpp"
 
 namespace ora::sim {
 
@@ -121,6 +122,81 @@ int HashTarget(const Target& t) {
     default:
       return 0;
   }
+}
+
+bool Target::IsValidFor(const Actor* targeter) const {
+  // L110-125
+  if (targeter == nullptr)
+    return false;
+
+  switch (Type()) {
+    case TargetType::Actor:
+      return ActorPtr->IsTargetableBy(const_cast<Actor&>(*targeter));
+    case TargetType::FrozenActor:
+      // FrozenActor 的 IsValid/Visible/Hidden 面随 Shroud 批(COVERAGE 登记;
+      // 无实例 → 不可达分支)
+      // The FrozenActor IsValid/Visible/Hidden faces ride the Shroud batch
+      // (registered in COVERAGE; no instances → the unreachable branch).
+      return false;
+    case TargetType::Invalid:
+      return false;
+    case TargetType::Terrain:
+    default:
+      return true;
+  }
+}
+
+Target Target::Recalculate(const Player* viewer,
+                           bool& b_target_is_hidden_actor) const {
+  // TargetExtensions.cs L31-81(Shroud/FrozenActorLayer 未移植的等价分支)
+  // TargetExtensions.cs L31-81 (the equivalent branches under the
+  // not-yet-ported Shroud/FrozenActorLayer).
+  b_target_is_hidden_actor = false;
+
+  // Check whether the target has transformed into something else
+  // HACK: This relies on knowing the internal implementation details of Target
+  if (Type() == TargetType::Invalid && ActorPtr != nullptr &&
+      ActorPtr->ReplacedByActor() != nullptr)
+    return FromActor(ActorPtr->ReplacedByActor());
+
+  // Bot-controlled units aren't yet capable of understanding visibility changes
+  if (viewer->IsBot()) {
+    // Prevent that bot-controlled units endlessly fire at frozen actors.
+    if (Type() == TargetType::FrozenActor) {
+      // FrozenActor.Actor 面随 Shroud 批:上游 fa.Actor != null 时回退
+      // FromActor,否则 Invalid —— 本批无实例,取 Invalid 分支(COVERAGE)
+      // The FrozenActor.Actor face rides the Shroud batch: upstream falls
+      // back to FromActor when fa.Actor != null, otherwise Invalid — no
+      // instances this batch, so the Invalid branch (COVERAGE).
+      return Invalid();
+    }
+
+    return *this;
+  }
+
+  if (Type() == TargetType::Actor) {
+    // Actor has been hidden under the fog
+    if (!ActorPtr->CanBeViewedByPlayer(const_cast<Player*>(viewer))) {
+      // FrozenActorLayer.FromID 面随 Shroud 批:上游 frozen != null 时换
+      // FromFrozenActor —— 本批无层,落 targetIsHiddenActor = true 分支
+      // (COVERAGE 登记)
+      // The FrozenActorLayer.FromID face rides the Shroud batch: upstream
+      // swaps in FromFrozenActor when frozen != null — no layer this
+      // batch, so the targetIsHiddenActor = true branch lands
+      // (registered in COVERAGE).
+      b_target_is_hidden_actor = true;
+      return *this;
+    }
+  } else if (Type() == TargetType::FrozenActor) {
+    // FrozenActor 可见性/换回 Actor 面随 Shroud 批;本批无实例,保持原样
+    // (上游 Visible/IsValid 真分支)
+    // The FrozenActor visibility / swap-back-to-Actor faces ride the Shroud
+    // batch; no instances this batch, so the target passes through
+    // (upstream's Visible/IsValid true branch).
+    return *this;
+  }
+
+  return *this;
 }
 
 }  // namespace ora::sim

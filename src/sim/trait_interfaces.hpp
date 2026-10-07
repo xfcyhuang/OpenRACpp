@@ -28,6 +28,7 @@ import std;
 
 #include "core/bitset.hpp"
 #include "core/cell_pos.hpp"
+#include "core/color.hpp"
 #include "core/long_bitset.hpp"
 #include "core/mersenne_twister.hpp"
 #include "core/wangle.hpp"
@@ -36,6 +37,17 @@ import std;
 #include "core/wrot.hpp"
 #include "gen/interfaces_gen.h"
 #include "yaml/mini_yaml.hpp"
+
+namespace ora::game {
+class ActorInfo;  // Phase 2 加载链产物 | the Phase 2 loading-chain product.
+}
+
+namespace ora::mods {
+class Armament;  // Mods.Common(armament.hpp;接口签名前向承载)
+                 // Mods.Common (armament.hpp; the forward carrier of the
+                 // interface signatures).
+struct Barrel;   // Armament.cs L22(同上 | same as above)
+}  // namespace ora::mods
 
 namespace ora::mods::pathfinding {
 class LocomotorInfo;  // Mods.Common;寻路批的类型面(a pathfinding-batch type)
@@ -57,6 +69,7 @@ class Actor;
 class Player;
 class World;
 class Activity;
+class TypeDictionary;
 struct Target;
 
 /// Player.cs L37 的位标签 + LongBitSet 全量位集(core/long_bitset.hpp)
@@ -551,6 +564,13 @@ inline bool HasMovementType(MovementType m, MovementType movement_type) {
          static_cast<std::int32_t>(movement_type);
 }
 
+/// MovementType 的 [Flags] 组合(C# |=)
+/// The [Flags] composition of MovementType (C#'s |=).
+constexpr MovementType operator|(MovementType a, MovementType b) {
+  return static_cast<MovementType>(static_cast<std::int32_t>(a) |
+                                   static_cast<std::int32_t>(b));
+}
+
 /// OpenRA.Mods.Common/TraitsInterfaces.cs L858:BlockedByActor
 /// OpenRA.Mods.Common/TraitsInterfaces.cs L858: BlockedByActor.
 enum class BlockedByActor : std::int32_t { None, Immovable, Stationary, All };
@@ -563,6 +583,14 @@ enum class TargetModifiers : std::int32_t {
   ForceQueue = 2,
   ForceMove = 4,
 };
+
+/// PlayerRelationship 的 [Flags] 组合(C# '|')
+/// The [Flags] composition of PlayerRelationship (C# '|').
+constexpr PlayerRelationship operator|(PlayerRelationship a,
+                                       PlayerRelationship b) {
+  return static_cast<PlayerRelationship>(static_cast<std::int32_t>(a) |
+                                         static_cast<std::int32_t>(b));
+}
 
 constexpr TargetModifiers operator|(TargetModifiers a, TargetModifiers b) {
   return static_cast<TargetModifiers>(static_cast<std::int32_t>(a) |
@@ -807,6 +835,304 @@ class IIssueOrder {
   virtual std::vector<IOrderTargeter*> Orders() = 0;
   virtual net::Order* IssueOrder(Actor& self, IOrderTargeter* order,
                                  const Target& target, bool queued) = 0;
+};
+
+// ———— 第三批接口增量(TraitsInterfaces.cs 引擎侧 + Mods.Common;
+//      Mobile/Move 族/Armament 的承载面)————
+// ———— The batch-3 interface additions (TraitsInterfaces.cs engine side +
+//      Mods.Common; the carrier faces of Mobile/the move family/Armament)
+// ————
+
+/// OpenRA.Traits/TraitsInterfaces.cs L152:IOrderVoice
+/// OpenRA.Traits/TraitsInterfaces.cs L152: IOrderVoice.
+class IOrderVoice {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IOrderVoice;
+  virtual ~IOrderVoice() = default;
+  virtual std::string VoicePhraseForOrder(Actor& self,
+                                          const net::Order& order) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L765-771:MoveResult
+/// Mods.Common/TraitsInterfaces.cs L765-771: MoveResult.
+enum class MoveResult : std::int32_t {
+  InProgress = 0,
+  CompleteCanceled = 1,
+  CompleteDestinationReached = 2,
+  CompleteDestinationBlocked = 3,
+};
+
+/// Mods.Common/TraitsInterfaces.cs L77:INotifyCustomLayerChanged
+class INotifyCustomLayerChanged {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyCustomLayerChanged;
+  virtual ~INotifyCustomLayerChanged() = default;
+  virtual void CustomLayerChanged(Actor& self, std::uint8_t old_layer,
+                                  std::uint8_t new_layer) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L83:INotifyCenterPositionChanged
+class INotifyCenterPositionChanged {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyCenterPositionChanged;
+  virtual ~INotifyCenterPositionChanged() = default;
+  virtual void CenterPositionChanged(Actor& self, std::uint8_t old_layer,
+                                     std::uint8_t new_layer) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L89:INotifyFinishedMoving
+class INotifyFinishedMoving {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyFinishedMoving;
+  virtual ~INotifyFinishedMoving() = default;
+  virtual void FinishedMoving(Actor& self, std::uint8_t old_layer,
+                              std::uint8_t new_layer) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L774:INotifyMoving
+class INotifyMoving {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyMoving;
+  virtual ~INotifyMoving() = default;
+  virtual void MovementTypeChanged(Actor& self, MovementType type) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L102:INotifyCrushed(双方法)
+/// Mods.Common/TraitsInterfaces.cs L102: INotifyCrushed (both methods).
+class INotifyCrushed {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyCrushed;
+  virtual ~INotifyCrushed() = default;
+  virtual void OnCrush(Actor& self, Actor& crusher,
+                       const core::BitSet<CrushClass>& crush_classes) = 0;
+  virtual void WarnCrush(Actor& self, Actor& crusher,
+                         const core::BitSet<CrushClass>& crush_classes) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L116:INotifyAttack(签名经 ora::mods::
+/// Armament/Barrel 头部前向声明承载)
+/// Mods.Common/TraitsInterfaces.cs L116: INotifyAttack (the signatures ride
+/// the head's forward declarations of ora::mods::Armament/Barrel).
+class INotifyAttack {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyAttack;
+  virtual ~INotifyAttack() = default;
+  virtual void Attacking(Actor& self, const Target& target,
+                         mods::Armament& armament, const mods::Barrel& barrel) = 0;
+  virtual void PreparingAttack(Actor& self, const Target& target,
+                               mods::Armament& armament,
+                               const mods::Barrel& barrel) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L149:INotifyBurstComplete
+class INotifyBurstComplete {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyBurstComplete;
+  virtual ~INotifyBurstComplete() = default;
+  virtual void FiredBurst(Actor& self, const Target& target,
+                          mods::Armament& armament) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L194:INotifyBlockingMove
+class INotifyBlockingMove {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyBlockingMove;
+  virtual ~INotifyBlockingMove() = default;
+  virtual void OnNotifyBlockingMove(Actor& self, Actor& blocking) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L395:IDeathActorInitModifier
+class IDeathActorInitModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IDeathActorInitModifier;
+  virtual ~IDeathActorInitModifier() = default;
+  virtual void ModifyDeathActorInit(Actor& self, TypeDictionary& init) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L425:IActorPreviewInitModifier
+class IActorPreviewInitModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IActorPreviewInitModifier;
+  virtual ~IActorPreviewInitModifier() = default;
+  virtual void ModifyActorPreviewInit(Actor& self, TypeDictionary& inits) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L450:ISpeedModifier
+class ISpeedModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ISpeedModifier;
+  virtual ~ISpeedModifier() = default;
+  virtual int GetSpeedModifier() = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L453:IFirepowerModifier
+class IFirepowerModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IFirepowerModifier;
+  virtual ~IFirepowerModifier() = default;
+  virtual int GetFirepowerModifier() = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L456:IReloadModifier
+class IReloadModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IReloadModifier;
+  virtual ~IReloadModifier() = default;
+  virtual int GetReloadModifier() = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L462:IInaccuracyModifier
+class IInaccuracyModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IInaccuracyModifier;
+  virtual ~IInaccuracyModifier() = default;
+  virtual int GetInaccuracyModifier() = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L465:IRangeModifier
+class IRangeModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IRangeModifier;
+  virtual ~IRangeModifier() = default;
+  virtual int GetRangeModifier() = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L468:IRangeModifierInfo
+class IRangeModifierInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IRangeModifierInfo;
+  virtual int GetRangeModifierDefault() = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L911-916:IPositionableInfo
+class IPositionableInfo : public IOccupySpaceInfo {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IPositionableInfo;
+  virtual bool CanEnterCell(World& world, Actor* self, CPos cell,
+                            SubCell sub_cell, Actor* ignore_actor,
+                            BlockedByActor check) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L917-928:IPositionable
+class IPositionable : public IOccupySpace {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IPositionable;
+  virtual bool CanExistInCell(CPos location) = 0;
+  virtual bool IsLeavingCell(CPos location, SubCell sub_cell) = 0;
+  virtual bool CanEnterCell(CPos location, Actor* ignore_actor,
+                            BlockedByActor check) = 0;
+  virtual SubCell GetValidSubCell(SubCell preferred) = 0;
+  virtual SubCell GetAvailableSubCell(CPos location, SubCell preferred_sub_cell,
+                                      Actor* ignore_actor,
+                                      BlockedByActor check) = 0;
+  virtual void SetPosition(Actor* self, CPos cell, SubCell sub_cell) = 0;
+  virtual void SetPosition(Actor* self, WPos pos) = 0;
+  virtual void SetCenterPosition(Actor* self, WPos pos) = 0;
+};
+
+/// OpenRA.Traits/TraitsInterfaces.cs L551:IMoveInfo(查询面随 Mobile 接线)
+/// OpenRA.Traits/TraitsInterfaces.cs L551: IMoveInfo (the query face wires
+/// up with Mobile).
+class IMoveInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IMoveInfo;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L524-545:IMove(MoveTo/MoveWithinRange 等
+/// 活动面;本批实现 = Mobile)
+/// Mods.Common/TraitsInterfaces.cs L524-545: IMove (the MoveTo/MoveWithinRange
+/// activity face; this batch's implementor is Mobile).
+class IMove {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IMove;
+  virtual ~IMove() = default;
+  virtual Activity* MoveTo(CPos cell, int near_enough, Actor* ignore_actor,
+                           bool evaluate_nearest_movable_cell,
+                           std::optional<core::Color> target_line_color) = 0;
+  virtual Activity* MoveWithinRange(
+      const Target& target, WDist range,
+      std::optional<WPos> initial_target_position,
+      std::optional<core::Color> target_line_color) = 0;
+  virtual Activity* MoveWithinRange(
+      const Target& target, WDist min_range, WDist max_range,
+      std::optional<WPos> initial_target_position,
+      std::optional<core::Color> target_line_color) = 0;
+  virtual Activity* MoveFollow(Actor* self, const Target& target,
+                               WDist min_range, WDist max_range,
+                               std::optional<WPos> initial_target_position,
+                               std::optional<core::Color> target_line_color) = 0;
+  virtual Activity* ReturnToCell(Actor* self) = 0;
+  virtual Activity* MoveIntoTarget(Actor* self, const Target& target) = 0;
+  virtual Activity* MoveOntoTarget(Actor* self, const Target& target,
+                                   const WVec& offset,
+                                   std::optional<WAngle> facing,
+                                   std::optional<core::Color> target_line_color) = 0;
+  virtual Activity* LocalMove(Actor* self, WPos from_pos, WPos to_pos) = 0;
+  virtual int EstimatedMoveDuration(Actor* self, WPos from_pos, WPos to_pos) = 0;
+  virtual CPos NearestMoveableCell(CPos target) = 0;
+  virtual MovementType CurrentMovementTypes() const = 0;
+  virtual void SetCurrentMovementTypes(MovementType type) = 0;
+  virtual bool CanEnterTargetNow(Actor* self, const Target& target) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L547:IWrapMove
+class IWrapMove {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IWrapMove;
+  virtual ~IWrapMove() = default;
+  virtual Activity* WrapMove(Activity* move_inner) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L42:IQuantizeBodyOrientationInfo(实现 =
+/// 渲染批的 QuantizeFacingsFromSequence 等;接口先行锚定)
+/// Mods.Common/TraitsInterfaces.cs L42: IQuantizeBodyOrientationInfo (the
+/// implementors are the render batch's QuantizeFacingsFromSequence & co.;
+/// the interface anchors first).
+class SequenceSet;  // gfx 前向(gfx/sprite_cache 侧;实现批接线)
+                    // the gfx fwd (the gfx/sprite_cache side; wired by the
+                    // implementing batch).
+class IQuantizeBodyOrientationInfo : public ITraitInfoInterface {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IQuantizeBodyOrientationInfo;
+  virtual int QuantizedBodyFacings(const game::ActorInfo& ai,
+                                   const SequenceSet& sequences,
+                                   const std::string& faction) = 0;
+};
+
+/// OpenRA.Game/Traits/TraitsInterfaces.cs L324-330:ITemporaryBlocker
+/// (实现 = mod 侧 TransientBlocker 等;接口随 ContainsTemporaryBlocker 锚定)
+/// OpenRA.Game/Traits/TraitsInterfaces.cs L324-330: ITemporaryBlocker (the
+/// implementors are mod traits like TransientBlocker; anchored with
+/// ContainsTemporaryBlocker).
+class ITemporaryBlocker {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_ITemporaryBlocker;
+  virtual ~ITemporaryBlocker() = default;
+  virtual bool CanRemoveBlockage(Actor& self, Actor& blocking) = 0;
+  virtual bool IsBlocking(Actor& self, CPos cell) = 0;
 };
 
 /// trait 运行时对象的公共基(C# object 等价;TypeDictionary/TraitDictionary

@@ -103,6 +103,13 @@ class Actor final {
   void SetOwnerInternal(Player* p) { p_owner_ = p; }  // ChangeOwnerSync 用
   bool IsInWorld() const { return b_is_in_world_; }
   void SetIsInWorld(bool b) { b_is_in_world_ = b; }  // World.Add/Remove 用
+
+  /// Actor.cs L157-159:Info 在 trait 构造循环之前赋值(CreateTraitsForActor
+  /// 的全量路径;测试注入路径不置)
+  /// Actor.cs L157-159: Info is assigned before the trait-construction
+  /// loop (CreateTraitsForActor's full path; the test-injection path leaves
+  /// it unset).
+  void SetInfo(const game::ActorInfo* info) { info_ = info; }
   bool WillDispose() const { return b_will_dispose_; }
   bool Disposed() const { return b_disposed_; }
 
@@ -130,6 +137,63 @@ class Actor final {
   IOccupySpace* OccupiesSpace() const {
     return vec_occupy_space_.empty() ? nullptr : vec_occupy_space_.back();
   }
+
+  // ———— 第三批缓存面 + 扩展(Actor.cs L169-195 的接口缓存;
+  //      Orientation/Targetables/Crushables/CanBeViewedByPlayer)————
+  // ———— The batch-3 cached faces + extensions (Actor.cs L169-195's
+  //      interface caches; Orientation/Targetables/Crushables/
+  //      CanBeViewedByPlayer) ————
+
+  /// Actor.cs L87:Orientation => facing?.Orientation ?? WRot.None
+  WRot Orientation() const {
+    return p_facing_ != nullptr ? p_facing_->Orientation() : WRot::None();
+  }
+
+  /// Actor.cs L517-525:GetAllTargetTypes(构造序并集)
+  /// Actor.cs L517-525: GetAllTargetTypes (the construct-order union).
+  core::BitSet<TargetableType> GetAllTargetTypes() const;
+
+  /// Actor.cs L530-538:GetEnabledTargetTypes(启用者并集)
+  /// Actor.cs L530-538: GetEnabledTargetTypes (the enabled union).
+  core::BitSet<TargetableType> GetEnabledTargetTypes() const;
+
+  /// Actor.cs L540-548:IsTargetableBy(任一 ITargetable.TargetableBy)
+  /// Actor.cs L540-548: IsTargetableBy (any ITargetable.TargetableBy).
+  bool IsTargetableBy(Actor& by_actor) const;
+
+  /// Actor.cs L511-515:CanBeViewedByPlayer —— 可见性修饰面(IVisibility
+  /// 修饰/默认可见)未移植前恒走 defaultVisibility == null 的真分支
+  /// (上游无修饰 trait 时同值;Shroud 批接线 —— COVERAGE 登记)
+  /// Actor.cs L511-515: CanBeViewedByPlayer — until the visibility-modifier
+  /// faces (IVisibility/default visibility) are ported this stays on the
+  /// defaultVisibility == null true branch (the same value upstream gives
+  /// without modifier traits; wired with the Shroud batch — registered in
+  /// COVERAGE).
+  bool CanBeViewedByPlayer(Player* player) const {
+    for (auto* modifier : vec_visibility_modifiers_)
+      if (!modifier->IsVisible(const_cast<Actor&>(*this), player))
+        return false;
+
+    return p_default_visibility_ != nullptr
+               ? p_default_visibility_->IsVisible(const_cast<Actor&>(*this),
+                                                  player)
+               : true;
+  }
+
+  /// Actor.cs L399-417 缓存面:Targetables/Crushables(构造序)
+  /// The Actor.cs L399-417 cached faces: Targetables/Crushables
+  /// (construct order).
+  std::span<ITargetable* const> Targetables() const { return vec_targetables_; }
+  std::span<ICrushable* const> Crushables() const { return vec_crushables_; }
+
+  /// RejectsOrdersExts.cs L50-72:AcceptsOrder —— RejectsOrders trait 未
+  /// 移植:无该 trait 时上游恒真(rejectsOrdersTraits.Length == 0 分支),
+  /// 空集等价面(trait 批接线;COVERAGE 登记)
+  /// RejectsOrdersExts.cs L50-72: AcceptsOrder — the RejectsOrders trait
+  /// is unported: upstream is constantly true without the trait (the
+  /// rejectsOrdersTraits.Length == 0 branch), the empty-set equivalent
+  /// face (wired with the trait batch; registered in COVERAGE).
+  bool AcceptsOrder(std::string_view /*order_string*/) const { return true; }
 
   // ———— Tick(L272-290)————
   void Tick();
@@ -224,6 +288,12 @@ class Actor final {
   std::vector<ActorSyncHashEntry> vec_sync_hashes_;
   std::vector<IOccupySpace*> vec_occupy_space_;  // OccupiesSpace(单值语义:
                                                  // 上游最后写入者生效)
+  IFacing* p_facing_ = nullptr;            // L85 facing(单值,后者覆写)
+                                           // (the single value; later writes win)
+  std::vector<ITargetable*> vec_targetables_;      // Targetables(构造序)
+  std::vector<ICrushable*> vec_crushables_;        // crushables(构造序)
+  std::vector<IVisibilityModifier*> vec_visibility_modifiers_;  // 构造序
+  IDefaultVisibility* p_default_visibility_ = nullptr;  // 单值,后者覆写
   bool b_created_ = false;
 };
 

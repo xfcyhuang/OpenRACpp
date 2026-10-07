@@ -82,13 +82,28 @@ class ActorInit : public TraitBase {
 /// TypeDictionary.cs L19-183
 class TypeDictionary {
  public:
+  /// 查询键解析:Add 注册 {接口集}∪{self 具体键}(上游 GetInterfaces() +
+  /// BaseTypes() 含 self;基类链键无查询点);具体 init 类查询按
+  /// kInitTypeId(ORA_INIT_TYPE),接口查询按 kTypeId
+  /// Query-key resolution: Add registers {interfaces} ∪ {the self concrete
+  /// key} (upstream's GetInterfaces() + BaseTypes() including self; the
+  /// base-chain keys have no query sites); concrete-init queries go by
+  /// kInitTypeId (ORA_INIT_TYPE), interface queries by kTypeId.
+  template <class T>
+  static constexpr gen::TypeId KeyOf() {
+    if constexpr (requires { T::kInitTypeId; })
+      return T::kInitTypeId;
+    else
+      return T::kTypeId;
+  }
+
   /// Add(L41-53):按注册面全量登记
   void Add(ActorInit* val);
 
   /// Contains<T>(L56)/Contains(Type)(L60)
   template <class T>
   bool Contains() const {
-    return Contains(T::kTypeId);
+    return Contains(KeyOf<T>());
   }
   bool Contains(gen::TypeId t) const { return data_.count(t) != 0; }
 
@@ -112,7 +127,7 @@ class TypeDictionary {
   /// T*; empty buckets yield empty).
   template <class T>
   std::vector<T*> WithInterface() const {
-    auto it = data_.find(T::kTypeId);
+    auto it = data_.find(KeyOf<T>());
     if (it == data_.end())
       return {};
     std::vector<T*> out;
@@ -128,12 +143,13 @@ class TypeDictionary {
  private:
   template <class T>
   T* GetImpl(bool throws_if_missing) {
-    auto it = data_.find(T::kTypeId);
+    constexpr gen::TypeId key = KeyOf<T>();
+    auto it = data_.find(key);
     if (it == data_.end()) {
       if (throws_if_missing)
         throw std::runtime_error(
             "TypeDictionary does not contain instance of type `" +
-            std::string(FullNameOfTypeIdSafe(T::kTypeId)) + "`");
+            std::string(FullNameOfTypeIdSafe(key)) + "`");
       return nullptr;
     }
 
@@ -144,7 +160,7 @@ class TypeDictionary {
     if (list.size() > 1)
       throw std::runtime_error(
           "TypeDictionary contains multiple instances of type `" +
-          std::string(FullNameOfTypeIdSafe(T::kTypeId)) + "`");
+          std::string(FullNameOfTypeIdSafe(key)) + "`");
     return list.empty() ? nullptr : list.front();
   }
 
