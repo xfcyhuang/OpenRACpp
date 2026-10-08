@@ -35,6 +35,27 @@ if(ORA_SANITIZE)
   add_link_options(-fsanitize=address,undefined)
 endif()
 
+# ———— GCC -fhardened 的旗标等价集(双编译排错的第二编排;见 readme.md
+#      工程门禁与 ../cpp26.md 工具链表:本机 gcc.exe 为 llvm-mingw 的
+#      clang 壳,-fhardened 原旗标不可执行 —— 按 GCC 文档逐项展开等价:
+#      _FORTIFY_SOURCE=3 / stack-protector-strong / PIE + pie 链接;
+#      Windows/MinGW 下 stack-clash 防护与影子调用栈不可用面照实略去并
+#      登记)————
+# ———— The flag-equivalent set of GCC's -fhardened (the second leg of the
+#      dual-compile debugging; see the readme.md gates and the ../cpp26.md
+#      toolchain table: this machine's gcc.exe is llvm-mingw's clang shim,
+#      so the literal -fhardened is unrunnable — expanded per the GCC docs
+#      into the equivalents: _FORTIFY_SOURCE=3 / stack-protector-strong /
+#      PIE + pie linking; the faces unavailable under Windows/MinGW
+#      (stack-clash protection / the shadow call stack) are dropped and
+#      registered).
+option(ORA_HARDENED "GCC -fhardened 等价硬化构建开关" OFF)
+if(ORA_HARDENED)
+  add_compile_definitions(_FORTIFY_SOURCE=3)
+  add_compile_options(-fstack-protector-strong -fPIE)
+  add_link_options(-fPIE -pie)
+endif()
+
 # ———— import std; 支持:定位并预编译 libc++ 的 std 模块(本机实测 D:/software/LLVM/share/libc++/v1/std.cppm)
 if(NOT ORA_STD_CPPM)
   execute_process(
@@ -59,8 +80,14 @@ message(STATUS "import std; 模块源: ${ORA_STD_CPPM}")
 
 add_custom_command(
   OUTPUT ${CMAKE_BINARY_DIR}/cxx/std.pcm
-  # PCM 须与使用方共享语义相关选项(-fwrapv/-fno-strict-aliasing),否则配置不匹配被拒载
+  # PCM 须与使用方共享语义相关选项(-fwrapv/-fno-strict-aliasing;
+  # 硬化构建的 -fstack-protector-strong 同入 —— 配置失配即拒载),否则配置不匹配被拒载
+  # The PCM must share every semantics-relevant option with its consumers
+  # (-fwrapv/-fno-strict-aliasing; the hardened build's
+  # -fstack-protector-strong joins in — a configuration mismatch refuses
+  # the load).
   COMMAND ${CMAKE_CXX_COMPILER} -std=c++26 -fwrapv -fno-strict-aliasing
+          $<IF:$<BOOL:${ORA_HARDENED}>,-fstack-protector-strong,>
           --precompile ${ORA_STD_CPPM} -o ${CMAKE_BINARY_DIR}/cxx/std.pcm
   DEPENDS ${ORA_STD_CPPM}
   COMMENT "预编译 std 模块 PCM"
@@ -110,7 +137,8 @@ add_library(ora_meta STATIC
   src/meta/type_registry.cpp
   src/meta/generic_record.cpp
   src/meta/field_loader.cpp
-  src/meta/dump_format.cpp)
+  src/meta/dump_format.cpp
+  src/meta/field_saver.cpp)
 target_link_libraries(ora_meta PUBLIC ora_yaml)
 ora_link_std(ora_meta)
 
@@ -144,7 +172,8 @@ add_library(ora_game STATIC
   src/game/game_speed.cpp
   src/game/ruleset.cpp
   src/game/mod_data.cpp
-  src/game/loaders.cpp)
+  src/game/loaders.cpp
+  src/game/settings.cpp)
 target_link_libraries(ora_game PUBLIC ora_gen ora_terrain PRIVATE ora_fs ora_formats)
 ora_link_std(ora_game)
 
@@ -197,7 +226,9 @@ add_library(ora_net STATIC
   src/net/order_io.cpp
   src/net/connection.cpp
   src/net/order_manager.cpp
-  src/net/unit_orders.cpp)
+  src/net/unit_orders.cpp
+  src/net/replay_recorder.cpp
+  src/net/sync_report.cpp)
 target_link_libraries(ora_net PUBLIC ora_sim)
 ora_link_std(ora_net)
 
@@ -344,7 +375,14 @@ add_library(ora_mods STATIC
   src/mods/capture.cpp
   src/mods/selectable.cpp
   src/mods/spawn_map_actors.cpp
-  src/mods/trait_registry_batch7.cpp)
+  src/mods/trait_registry_batch7.cpp
+  src/mods/render_sprites.cpp
+  src/mods/with_sprite_body.cpp
+  src/mods/with_infantry_body.cpp
+  src/mods/with_sprite_turret.cpp
+  src/mods/with_make_animation.cpp
+  src/mods/proximity_capturable.cpp
+  src/mods/trait_registry_batch8.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats)
 ora_link_std(ora_mods)
 
@@ -583,6 +621,23 @@ target_link_libraries(condition_test PRIVATE
 ora_link_std(condition_test)
 add_test(NAME condition_test COMMAND condition_test ${ORA_UPSTREAM_ROOT})
 set_tests_properties(condition_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
+endif()
+
+if(EXISTS ${CMAKE_SOURCE_DIR}/tests/render_test.cpp)
+add_executable(render_test tests/render_test.cpp)
+ora_link_std(render_test)
+target_link_libraries(render_test PRIVATE
+  ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
+  ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
+  ora_miniz ora_sdl2 ora_openal ora_freetype)
+ora_link_std(render_test)
+add_custom_command(TARGET render_test POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          ${CMAKE_SOURCE_DIR}/third_party/SDL2/bin/SDL2.dll $<TARGET_FILE_DIR:render_test>
+          ${CMAKE_SOURCE_DIR}/third_party/OpenAL/bin/OpenAL32.dll $<TARGET_FILE_DIR:render_test>
+          ${CMAKE_SOURCE_DIR}/third_party/FreeType/bin/freetype6.dll $<TARGET_FILE_DIR:render_test>)
+add_test(NAME render_test COMMAND render_test ${ORA_UPSTREAM_ROOT})
+set_tests_properties(render_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
 endif()
 
 add_executable(resource_test tests/resource_test.cpp)

@@ -252,7 +252,8 @@ void World::CreateTraitsForActor(Actor& actor, ActorInitializer& init,
         if (entry.type_id == ISync::kTypeId) {
           auto* s = static_cast<ISync*>(entry.upcast(trait));
           actor.MutableSyncHashes().push_back(
-              ActorSyncHashEntry{s, FindSyncHashFunction(trait->GetTraitTypeId())});
+              ActorSyncHashEntry{s, trait->GetTraitTypeId(),
+                                 FindSyncHashFunction(trait->GetTraitTypeId())});
         }
       }
     }
@@ -283,7 +284,8 @@ void World::CreateTraitsForActor(Actor& actor, ActorInitializer& init,
       if (entry.type_id == ISync::kTypeId) {
         auto* s = static_cast<ISync*>(entry.upcast(trait));
         actor.MutableSyncHashes().push_back(
-            ActorSyncHashEntry{s, FindSyncHashFunction(trait->GetTraitTypeId())});
+            ActorSyncHashEntry{s, trait->GetTraitTypeId(),
+                               FindSyncHashFunction(trait->GetTraitTypeId())});
       }
     }
   }

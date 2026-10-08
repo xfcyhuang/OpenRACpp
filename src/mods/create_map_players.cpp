@@ -835,6 +835,14 @@ void RegisterCommonTraits() {
 
     RegisterCommonTraitsBatch7();
 
+    // ———— 第八批注册(独立翻译单元;Render·WithSpriteBody 渲染族 +
+    //      ProximityCapturable 族)————
+    // ———— The batch-8 registration (a separate translation unit; the
+    //      Render·WithSpriteBody family + the ProximityCapturable family)
+    //      ————
+
+    RegisterCommonTraitsBatch8();
+
     return true;
   }();
   (void)b_registered;

@@ -330,6 +330,13 @@ class World final {
     fn_sync_effect_hash_ = std::move(fn_resolve);
   }
 
+  /// Sync.Hash(effect) 的公开面(SyncReport 的效果哈希记账;未装配 = 0)
+  /// The public face of Sync.Hash(effect) (SyncReport's effect-hash
+  /// bookkeeping; unassembled = 0).
+  int SyncEffectHash(const ISync* s) const {
+    return fn_sync_effect_hash_ ? fn_sync_effect_hash_(s) : 0;
+  }
+
   // ———— Map/ModData/OM 面(L139-151)————
   map::Map& Map() const {
     if (ptr_map_ == nullptr)

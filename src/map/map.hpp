@@ -193,6 +193,15 @@ class Map final {
   game::Ruleset& Rules() const { return *ptr_rules_; }
   gfx::SequenceSet* Sequences() const { return ptr_sequences_.get(); }
 
+  /// 装配面:后置挂载序列集(上游 Sequences 为 ctor 物化 —— C++ 的
+  /// factory 注入在引擎装配侧,测试/嵌入侧以此口后置;等价物,登记于
+  /// COVERAGE)
+  /// The assembly face: mount the sequence set after construction
+  /// (upstream materializes Sequences in the ctor — C++'s factory
+  /// injection lives on the engine-assembly side; tests/embedders use
+  /// this after-the-fact port; the equivalent, registered in COVERAGE).
+  void SetSequences(std::unique_ptr<gfx::SequenceSet> up_sequences);
+
   bool InvalidCustomRules() const { return b_invalid_custom_rules_; }
   const std::exception_ptr& InvalidCustomRulesException() const {
     return ptr_invalid_custom_rules_exception_;

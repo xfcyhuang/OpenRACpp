@@ -21,6 +21,8 @@ import std;
 // (the upstream-root argument touches no golden data; no gtest — the
 // project gate's bare assertion chain).
 #include "game/game.hpp"
+
+#include "render_sequences_fixture.hpp"
 #include "game/game_records.hpp"
 #include "game/manifest.hpp"
 #include "game/mod_data.hpp"
@@ -84,10 +86,12 @@ struct TestWorld {
   std::unique_ptr<ora::sim::World> world;
   ora::map::MapCache cache;
   std::string str_uid;
+  std::string str_root;
   ora::sim::Player* player = nullptr;
 
   explicit TestWorld(const char* str_upstream_root, int combatants = 1)
       : mods_installed{std::string{str_upstream_root} + "/mods"},
+        str_root{str_upstream_root},
         mod_data{*mods_installed.Find("ra"), mods_installed,
                  str_upstream_root},
         game_{ora::game::Game::Deps{
@@ -118,6 +122,8 @@ struct TestWorld {
     map_world = cache.At(str_uid).ToMap();
     if (map_world == nullptr)
       return false;
+    ora::testfx::InstallSyntheticSequences(
+        *map_world, mod_data.ManifestRef(), mod_data, str_root.c_str());
     world = std::make_unique<ora::sim::World>(
         *map_world, mod_data, *game_.OrderManagerFace(),
         ora::sim::WorldType::Regular);

@@ -15,6 +15,8 @@ import std;
 // (the upstream-root argument touches no golden data; no gtest — the
 // project gate's bare assertion chain).
 #include "game/game.hpp"
+
+#include "render_sequences_fixture.hpp"
 #include "game/game_records.hpp"
 #include "game/manifest.hpp"
 #include "game/mod_data.hpp"
@@ -92,6 +94,8 @@ void TestRealRaProductionChain(const char* str_upstream_root) {
   if (map_world == nullptr)
     return;
 
+  ora::testfx::InstallSyntheticSequences(*map_world, *manifest,
+                                          mod_data, str_upstream_root);
   auto world = std::make_unique<sim::World>(
       *map_world, mod_data, *game_.OrderManagerFace(), sim::WorldType::Regular);
   world->LoadComplete(nullptr);
@@ -326,6 +330,8 @@ void TestMissileChain(const char* str_upstream_root) {
   if (map_world == nullptr)
     return;
 
+  ora::testfx::InstallSyntheticSequences(*map_world, *manifest,
+                                          mod_data, str_upstream_root);
   auto world = std::make_unique<sim::World>(
       *map_world, mod_data, *game_.OrderManagerFace(), sim::WorldType::Regular);
   world->LoadComplete(nullptr);

@@ -226,8 +226,16 @@ void Animation::RunTickFunc() {
       if (int4_frame_ >= ptr_current_sequence_->Length()) {
         int4_frame_ = ptr_current_sequence_->Length() - 1;
         mode_tick_ = TickMode::None;
-        if (fn_after_)
-          fn_after_();
+        // 先移出再执行:after 闭包体内常再入 Play(CancelCustomAnimation
+        // 等),PlaySequence 会清 fn_after_ —— 执行中析构自身即 UAF(上游
+        // C# 委托 GC 无此问题;ASan 实证)
+        // Move out before invoking: after-callbacks routinely re-enter
+        // Play (CancelCustomAnimation etc.), and PlaySequence clears
+        // fn_after_ — destroying the closure mid-invocation is a UAF
+        // (upstream's C# delegates lean on the GC; ASan-proven).
+        std::function<void()> fn_done = std::move(fn_after_);
+        if (fn_done)
+          fn_done();
       }
       break;
     case TickMode::FetchIndex:

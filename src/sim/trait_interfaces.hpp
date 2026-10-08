@@ -31,6 +31,8 @@ import std;
 #include "core/color.hpp"
 #include "core/long_bitset.hpp"
 #include "core/mersenne_twister.hpp"
+#include "core/polygon.hpp"
+#include "core/rectangle.hpp"
 #include "core/wangle.hpp"
 #include "core/wdist.hpp"
 #include "core/wpos.hpp"
@@ -66,6 +68,9 @@ class LocomotorInfo;  // Mods.Common;寻路批的类型面(a pathfinding-batch t
 
 namespace ora::gfx {
 class WorldRenderer;  // 渲染域注入面(Phase 4)| the render-domain injection face.
+struct RenderItem;  // 渲染出参域(renderable.hpp;第八批接口面)| the render
+                    // out-parameter domain (renderable.hpp; the batch-8
+                    // interface faces).
 }  // namespace ora::gfx
 
 namespace ora::net {
@@ -1899,6 +1904,73 @@ class ICaptureProgressWatcher {
   virtual ~ICaptureProgressWatcher() = default;
   virtual void Update(Actor& self, Actor& captor, Actor& target,
                       int progress, int total) = 0;
+};
+
+// ———— 第八批接口面(Render·WithSpriteBody 渲染族 +
+//      ProximityCapturable 批;上游 TraitsInterfaces.cs 的渲染域)————
+// ———— The batch-8 interface faces (the Render·WithSpriteBody family +
+//      the ProximityCapturable batch; the render domain of upstream's
+//      TraitsInterfaces.cs) ————
+
+/// TraitsInterfaces.cs L113-117:IRender。上游 yield 惰性序列 → 出参
+/// vector(RenderItem 为 POD,帧复用缓冲;yield 序 = push 序)。
+/// TraitsInterfaces.cs L113-117: IRender. Upstream's lazy yield becomes
+/// the out vector (RenderItem is a POD behind a frame-reused buffer; the
+/// yield order = the push order).
+class IRender {
+ public:
+  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IRender;
+  virtual ~IRender() = default;
+  virtual void Render(Actor& self, gfx::WorldRenderer& wr,
+                      std::vector<gfx::RenderItem>& vec_out) = 0;
+  virtual std::vector<Rectangle> ScreenBounds(Actor& self,
+                                              gfx::WorldRenderer& wr) = 0;
+};
+
+/// TraitsInterfaces.cs L119:IMouseBounds(多边形鼠标界;首非空者胜)
+/// TraitsInterfaces.cs L119: IMouseBounds (the polygon mouse bounds; the
+/// first non-empty one wins).
+class IMouseBounds {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IMouseBounds;
+  virtual ~IMouseBounds() = default;
+  virtual Polygon MouseoverBounds(Actor& self, gfx::WorldRenderer* wr) = 0;
+};
+
+/// TraitsInterfaces.cs L121:IAutoMouseBounds(矩形自动界)
+/// TraitsInterfaces.cs L121: IAutoMouseBounds (the rectangular auto bounds).
+class IAutoMouseBounds {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IAutoMouseBounds;
+  virtual ~IAutoMouseBounds() = default;
+  virtual Rectangle AutoMouseoverBounds(Actor& self,
+                                        gfx::WorldRenderer* wr) = 0;
+};
+
+/// TraitsInterfaces.cs L456-460:IRenderAnnotations(注释层;消费 =
+/// WorldRenderer::DrawAnnotations 的装配面)
+/// TraitsInterfaces.cs L456-460: IRenderAnnotations (the annotation layer;
+/// consumed by WorldRenderer::DrawAnnotations's assembly face).
+class IRenderAnnotations {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IRenderAnnotations;
+  virtual ~IRenderAnnotations() = default;
+  virtual void RenderAnnotations(Actor& self, gfx::WorldRenderer& wr,
+                                 std::vector<gfx::RenderItem>& vec_out) = 0;
+  virtual bool SpatiallyPartitionable() const = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L431-435
+class IRenderInfantrySequenceModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IRenderInfantrySequenceModifier;
+  virtual ~IRenderInfantrySequenceModifier() = default;
+  virtual bool IsModifyingSequence() const = 0;
+  virtual std::string_view SequencePrefix() const = 0;
 };
 
 class TraitBase {

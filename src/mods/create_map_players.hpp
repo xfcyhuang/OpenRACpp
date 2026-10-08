@@ -70,4 +70,14 @@ void RegisterCommonTraits();
 /// called from within RegisterCommonTraits).
 void RegisterCommonTraitsBatch7();
 
+/// 第八批 trait 的注册装配(render_sprites/with_sprite_body 族/
+/// with_infantry_body/with_sprite_turret/with_make_animation/
+/// with_make_overlay/proximity_capturable;独立翻译单元 ——
+/// RegisterCommonTraits 内调用)
+/// The batch-8 trait registry assembly (render_sprites/the
+/// with_sprite_body family/with_infantry_body/with_sprite_turret/
+/// with_make_animation/with_make_overlay/proximity_capturable; a separate
+/// translation unit — called from within RegisterCommonTraits).
+void RegisterCommonTraitsBatch8();
+
 }  // namespace ora::mods

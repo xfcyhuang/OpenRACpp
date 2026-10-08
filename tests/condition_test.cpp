@@ -16,6 +16,8 @@
 import std;
 
 #include "game/game.hpp"
+
+#include "render_sequences_fixture.hpp"
 #include "meta/variable_expression.hpp"
 #include "game/game_records.hpp"
 #include "game/game_records.hpp"
@@ -116,6 +118,8 @@ int main(int argc, char** argv) {
   if (map_world == nullptr)
     return g_failures != 0;
 
+  ora::testfx::InstallSyntheticSequences(*map_world, *manifest,
+                                          mod_data, str_upstream_root);
   auto world = std::make_unique<sim::World>(
       *map_world, mod_data, *game_.OrderManagerFace(),
       sim::WorldType::Regular);
@@ -192,8 +196,18 @@ int main(int argc, char** argv) {
     sim::TypeDictionary dict;
     sim::LocationInit location{cell};
     sim::OwnerInit owner_init{owner};
+    // SkipMakeAnims:第八批起手动 spawn 的建筑会播 make 动画(合成副本
+    // 1024 帧远长于真资产)—— 按"已建成"语义跳过(等价上游地图出生/
+    // 出厂建筑;上游 make 期内 Capturable 被禁用为真语义)
+    // SkipMakeAnims: from batch 8 a hand-spawned building plays its make
+    // animation (the synthetic copy's 1024 frames far outlast the real
+    // asset) — skip it per the "already built" semantics (the map-born /
+    // produced-building equivalent upstream; upstream disabling Capturable
+    // during make is the live semantics).
+    sim::SkipMakeAnimsInit skip_make_anims;
     dict.Add(&location);
     dict.Add(&owner_init);
+    dict.Add(&skip_make_anims);
     std::optional<sim::FacingInit> facing;
     if (opt_facing.has_value()) {
       facing.emplace(WAngle{*opt_facing});

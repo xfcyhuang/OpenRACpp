@@ -2,6 +2,7 @@
 //          The implementation half of Actor.cs (render surface excluded).
 #include "sim/actor.hpp"
 
+#include "gfx/renderable.hpp"
 #include "sim/actor_init.hpp"
 #include "sim/world.hpp"
 
@@ -176,7 +177,54 @@ void Actor::AddTrait(TraitBase* trait) {
     } else if (entry.type_id == IEffectiveOwner::kTypeId)
       p_effective_owner_ =
           static_cast<IEffectiveOwner*>(entry.upcast(trait));
+    else if (entry.type_id == IRender::kTypeId)
+      vec_renders_.push_back(static_cast<IRender*>(entry.upcast(trait)));
+    else if (entry.type_id == IMouseBounds::kTypeId)
+      vec_mouse_bounds_.push_back(
+          static_cast<IMouseBounds*>(entry.upcast(trait)));
   }
+}
+
+void Actor::Render(gfx::WorldRenderer& wr,
+                   std::vector<gfx::RenderItem>& vec_out) {
+  // L292-306:renderables 按渲染器缓存(lastWorldRenderer 键;换渲染器重
+  // 算);IRenderModifier 链空集(Phase 6)
+  // L292-306: renderables cached per renderer (the lastWorldRenderer key;
+  // a different renderer recomputes); the IRenderModifier chain stays
+  // empty (Phase 6).
+  if (ptr_last_world_renderer_ != &wr) {
+    ptr_last_world_renderer_ = &wr;
+    vec_cached_renderables_.clear();
+    for (auto* render : vec_renders_)
+      render->Render(*this, wr, vec_cached_renderables_);
+  }
+
+  vec_out.insert(vec_out.end(), vec_cached_renderables_.begin(),
+                 vec_cached_renderables_.end());
+}
+
+std::vector<Rectangle> Actor::ScreenBounds(gfx::WorldRenderer& wr) {
+  // L322-336:Bounds 的非空过滤(IRenderModifier 链空集)
+  // L322-336: Bounds with the non-empty filter (the empty modifier chain).
+  std::vector<Rectangle> vec_bounds;
+  for (auto* render : vec_renders_)
+    for (const auto& rect : render->ScreenBounds(*this, wr))
+      if (!rect.IsEmpty())
+        vec_bounds.push_back(rect);
+  return vec_bounds;
+}
+
+Polygon Actor::MouseBounds(gfx::WorldRenderer& wr) {
+  // L339-351:首非空多边形胜出;全空 = Polygon.Empty
+  // L339-351: the first non-empty polygon wins; all-empty yields
+  // Polygon.Empty.
+  for (auto* mb : vec_mouse_bounds_) {
+    Polygon bounds = mb->MouseoverBounds(*this, &wr);
+    if (!bounds.IsEmpty())
+      return bounds;
+  }
+
+  return Polygon::Empty();
 }
 
 std::vector<WPos> Actor::GetTargetablePositions() const {

@@ -258,6 +258,10 @@ Map::Map(Params params, const ITerrainInfo& terrain_info, Size size)
   PostInit();
 }
 
+void Map::SetSequences(std::unique_ptr<gfx::SequenceSet> up_sequences) {
+  ptr_sequences_ = std::move(up_sequences);
+}
+
 Map::Map(Params params, const fs::IReadOnlyPackage& package)
     : region_all_cells_{MapGridType::Rectangular, CPos::Zero(), CPos::Zero()},
       params_{std::move(params)} {
@@ -467,6 +471,7 @@ void Map::PostInit() {
 
   SetBounds(PPos{rect_bounds_.Left(), rect_bounds_.Top()},
             PPos{rect_bounds_.Right() - 1, rect_bounds_.Bottom() - 1});
+
 
   ptr_custom_terrain_ =
       std::make_unique<CellLayer<std::uint8_t>>(ptr_grid_->Type, size_map_);

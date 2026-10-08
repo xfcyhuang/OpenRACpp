@@ -54,6 +54,11 @@ namespace ora::net {
 struct Order;
 }
 
+namespace ora::gfx {
+class WorldRenderer;   // 渲染缓存面(Phase 5 第八批)| the render-cache faces.
+struct RenderItem;     // 同上(出参域)| same (the out-parameter domain).
+}  // namespace ora::gfx
+
 namespace ora::sim {
 
 class World;
@@ -72,6 +77,8 @@ enum class SystemActors : std::int32_t {
 /// Actor.SyncHash (L41-47): an ISync trait plus its hash function.
 struct ActorSyncHashEntry {
   ISync* trait = nullptr;
+  gen::TypeId type_id =
+      gen::TypeId::OpenRA_ISync;  // 报告面名键(SyncReport 的 GetType().Name)
   int (*hash_function)(const ISync*) = nullptr;
   int Hash() const { return hash_function != nullptr ? hash_function(trait) : 0; }
 };
@@ -285,6 +292,22 @@ class Actor final {
     return vec_sync_hashes_;  // World::CreateTraitsForActor 收集用
   }
 
+  // ———— 渲染缓存面(L292-346;第八批)————
+  // ———— The render-cache faces (L292-346; batch 8) ————
+  /// Render(wr)(L292-306):renderables 按渲染器缓存 + IRenderModifier 链
+  /// (空集随 Phase 6);出参 vector = 上游 yield 序。
+  /// Render (wr) (L292-306): the renderables cached per renderer + the
+  /// IRenderModifier chain (the empty set rides Phase 6); the out vector
+  /// keeps upstream's yield order.
+  void Render(gfx::WorldRenderer& wr, std::vector<gfx::RenderItem>& vec_out);
+  /// ScreenBounds(wr)(L322-336):Bounds 的非空 IsEmpty 过滤
+  /// ScreenBounds (wr) (L322-336): Bounds with the non-empty filter.
+  std::vector<Rectangle> ScreenBounds(gfx::WorldRenderer& wr);
+  /// MouseBounds(wr)(L339-351):首非空多边形;全空 = Empty
+  /// MouseBounds (wr) (L339-351): the first non-empty polygon; all-empty
+  /// yields Empty.
+  Polygon MouseBounds(gfx::WorldRenderer& wr);
+
   // ———— 相等性(L375-388):ActorID 即身份 ————
   bool Equals(const Actor& other) const {
     return uint4_actor_id_ == other.uint4_actor_id_;
@@ -337,6 +360,12 @@ class Actor final {
       vec_enabled_targetable_positions_;  // L74(构造期 IsTraitEnabled 过滤)
   std::vector<WPos> vec_enabled_targetable_world_positions_;  // L207 物化
   IEffectiveOwner* p_effective_owner_ = nullptr;  // L509(单值,后者覆写)
+  std::vector<IRender*> vec_renders_;              // L117 renders(构造序)
+  std::vector<IMouseBounds*> vec_mouse_bounds_;    // L118 mouseBounds(构造序)
+  gfx::WorldRenderer* ptr_last_world_renderer_ =
+      nullptr;  // L294 lastWorldRenderer(渲染缓存键)
+  std::vector<gfx::RenderItem>
+      vec_cached_renderables_;  // L296 renderables(按渲染器缓存)
   bool b_created_ = false;
 };
 
