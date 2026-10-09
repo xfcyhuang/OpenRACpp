@@ -34,7 +34,7 @@
 - **三 mod 规则深解析**：ra 80,274 / cnc 49,416 / d2k 35,833 行**逐字节快照回归**；上游 `--check-yaml` exit=0 佐证。
 - **资产解码黄金对拍**：mods 全部 .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 资产 + 合成夹具，`tests/golden_formats.txt` **6,737 行逐行一致**；字形 **216 个逐字节一致**（与 C# oracle 加载同一 freetype6.dll）。
 - **锁步确定性**：EchoConnection 单机 **10⁶ tick 双构建（ASan+UBSan/Release）通过，无泄漏无 desync**。
-- **持续门禁**：ctest **26/26** 三构建（ASan+UBSan / Release / **GCC -fhardened 旗级等价硬化**）全绿；`import std;` 严控（**462 文件**）；UPSTREAM 溯源标注（**443 条**）；偏离登记 **D1~D186**。
+- **持续门禁**：ctest **26/26** 三构建（ASan+UBSan / Release / **GCC -fhardened 旗级等价硬化**）全绿；`import std;` 严控（**462 文件**）；偏离登记 **D1~D186**。
 - **双编译排错编排（2026-10-08 起）**：**Clang 23**（llvm-mingw/UCRT，基线工具链）× {ASan+UBSan、Release} + **GCC `-fhardened` 旗级等价第二编排**（`-D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -pie`，CMake `-DORA_HARDENED=ON`；std.pcm 同享 `-fstack-protector-strong` 防配置失配拒载）。实测注记：本机 `gcc.exe` 为 llvm-mingw 的 clang 壳，原旗标 `-fhardened` 不可执行 —— 等价集按 GCC 文档逐项展开；真 GCC 15+ 原旗标验证列为 CI 待办（见 ../cpp26.md 工具链表）。
 
 ### 当前焦点（Phase 5 第十批）
@@ -165,10 +165,7 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 - **双构建**：ASan+UBSan 与 Release，ctest 25/25 全绿。
 - **`import std;` 严控**：禁传统 std 头引入（`tools/std_import_check.py`，423 文件 PASS；白名单仅第三方 C 头）。
 - **函数级裁剪**：`-ffunction-sections -fdata-sections` + `--gc-sections`。
-- **UPSTREAM 溯源**：每个移植文件带上游 file:line 标注（`tools/upstream_check.py`，406 条 PASS）。
 - **黄金对拍体系**：yaml（759 文件）/定点原语（60,883 行）/规则深解析（三 mod）/资产解码（6,737 行）/字形（216 个），oracle 双跑确定性验证。
-- **双语注释**：文件头 UPSTREAM 溯源标注(工具门禁强制)+ 关键设计意图双语注释;复述性注释不写(第九批起收紧)。
-
 ## 与上游的差异（优化点与偏离登记）
 
 ### 有意优化（C++ 侧）
@@ -257,7 +254,7 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 - **The three-mod deep rules parse**: ra 80,274 / cnc 49,416 / d2k 35,833 lines as **byte-for-byte frozen snapshots**; upstream `--check-yaml` exit=0 corroborates.
 - **The asset-decode golden differential**: all mods .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 assets + synthetic fixtures, `tests/golden_formats.txt` **6,737 lines matching line for line**; **216 glyphs byte-identical** (the same freetype6.dll the C# oracle loads).
 - **Lockstep determinism**: EchoConnection **10⁶ ticks on both builds (ASan+UBSan / Release), leak-free and desync-free**.
-- **Standing gates**: ctest **26/26** green on three builds (ASan+UBSan, Release, and the **GCC -fhardened flag-equivalent hardening**); strict `import std;` (**462 files**); UPSTREAM provenance tags (**443 entries**); the deviation registry **D1–D186**.
+- **Standing gates**: ctest **26/26** green on three builds (ASan+UBSan, Release, and the **GCC -fhardened flag-equivalent hardening**); strict `import std;` (**462 files**); the deviation registry **D1–D186**.
 - **The dual-compile debugging rig (since 2026-10-08)**: **Clang 23** (llvm-mingw/UCRT, the baseline toolchain) x {ASan+UBSan, Release} plus a **second leg reproducing GCC `-fhardened` at flag level** (`-D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -pie`, CMake `-DORA_HARDENED=ON`; the std.pcm shares `-fstack-protector-strong` to avoid the configuration-mismatch load refusal). Measured note: this machine's gcc.exe is llvm-mingw's clang shim, so the literal -fhardened is unrunnable — the equivalent set expands the GCC docs item by item; validating the literal flag on real GCC 15+ is a CI TODO (see the toolchain table in ../cpp26.md).
 
 ### Current focus (Phase 5, tenth installment)
@@ -388,10 +385,7 @@ Performance tuning, packaging, remaining platform compatibility.
 - **Dual builds**: ASan+UBSan and Release; ctest 25/25 green on both.
 - **Strict `import std;`**: no classic std-header includes (`tools/std_import_check.py`; 423 files PASS; the whitelist covers only third-party C headers).
 - **Function-level dead-code elimination**: `-ffunction-sections -fdata-sections` + `--gc-sections`.
-- **UPSTREAM provenance**: every ported file carries upstream file:line tags (`tools/upstream_check.py`; 406 entries PASS).
 - **The golden-differential system**: yaml (759 files) / the fixed-point primitives (60,883 lines) / the deep rules parse (three mods) / asset decoding (6,737 lines) / glyphs (216), with the oracle's cross-run determinism verified.
-- **Bilingual comments**: the file-header UPSTREAM provenance tag (tool-enforced) + the key design-intent comments; no restatement comments (tightened since batch 9).
-
 ## Differences from upstream (optimizations & registered deviations)
 
 ### Deliberate optimizations (C++ side)
