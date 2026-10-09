@@ -29,6 +29,7 @@ import std;
 #include "core/bitset.hpp"
 #include "core/cell_pos.hpp"
 #include "core/color.hpp"
+#include "core/int2.hpp"
 #include "core/long_bitset.hpp"
 #include "core/mersenne_twister.hpp"
 #include "core/polygon.hpp"
@@ -1971,6 +1972,36 @@ class IRenderInfantrySequenceModifier {
   virtual ~IRenderInfantrySequenceModifier() = default;
   virtual bool IsModifyingSequence() const = 0;
   virtual std::string_view SequencePrefix() const = 0;
+};
+
+// ———— 第九批接口面:ISelectionDecorations/IDecoration(注释·装饰渲染族)————
+// ———— The batch-9 faces: ISelectionDecorations/IDecoration ————
+
+/// TraitsInterfaces.cs L295-299(yield 序 = push 序)
+/// TraitsInterfaces.cs L295-299 (the yield order = the push order).
+class ISelectionDecorations {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_ISelectionDecorations;
+  virtual ~ISelectionDecorations() = default;
+  virtual void RenderSelectionAnnotations(
+      Actor& self, gfx::WorldRenderer& world_renderer, core::Color color,
+      std::vector<gfx::RenderItem>& vec_out) = 0;
+  virtual int2 GetDecorationOrigin(Actor& self, gfx::WorldRenderer& wr,
+                                   std::string_view pos, int2 margin) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs:IDecoration(RenderDecoration 出参 vector)
+/// Mods.Common/TraitsInterfaces.cs: IDecoration (the out-vector face).
+class IDecoration {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IDecoration;
+  virtual ~IDecoration() = default;
+  virtual bool RequiresSelection() const = 0;
+  virtual void RenderDecoration(Actor& self, gfx::WorldRenderer& wr,
+                                ISelectionDecorations& container,
+                                std::vector<gfx::RenderItem>& vec_out) = 0;
 };
 
 class TraitBase {

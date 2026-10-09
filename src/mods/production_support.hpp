@@ -435,6 +435,10 @@ class DeveloperMode final : public sim::TraitBase {
   bool AllTech = false;         // L59(cheat 开关的同步面)
   bool UnlimitedPower = false;  // L62(第六批 PowerManager 消费)
                                 // L62 (consumed by batch 6's PowerManager).
+  bool PathDebug = false;       // L66 的同步面(第九批 SelectionDecorations
+                                // 的 TargetLine 消费)
+                                // L66's synced face (consumed by batch 9's
+                                // SelectionDecorations TargetLine).
 };
 
 }  // namespace ora::mods

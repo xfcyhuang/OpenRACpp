@@ -26,15 +26,22 @@ import std;
 #include "gfx/world_renderer.hpp"
 #include "map/map.hpp"
 #include "map/map_cache.hpp"
-#include "meta/field_saver.hpp"
 #include "meta/field_loader.hpp"
+#include "meta/field_saver.hpp"
 #include "mods/body_orientation.hpp"
 #include "mods/create_map_players.hpp"
 #include "mods/mobile.hpp"
+#include "mods/production_bar.hpp"
 #include "mods/proximity_capturable.hpp"
 #include "mods/render_sprites.hpp"
+#include "mods/selection_decorations.hpp"
 #include "mods/sequence_loader_factory.hpp"
+#include "mods/sprite_effect.hpp"
 #include "mods/turreted.hpp"
+#include "mods/with_damage_overlay.hpp"
+#include "mods/with_death_animation.hpp"
+#include "mods/with_decoration.hpp"
+#include "mods/with_decoration_pips.hpp"
 #include "mods/with_infantry_body.hpp"
 #include "mods/with_make_animation.hpp"
 #include "mods/with_sprite_body.hpp"
@@ -185,6 +192,24 @@ int main(int argc, char** argv) {
   // consumer).
   gfx::WorldRenderer wr{*world, gfx::WorldRenderer::Desc{}};
   {
+    // 视口桩(注释族消费 WorldToViewPx/Zoom;上游恒有真 Viewport)
+    // The viewport stub (the annotation family consumes WorldToViewPx/Zoom;
+    // upstream always has the real Viewport).
+    class ViewportStub final : public gfx::IViewportSurface {
+     public:
+      int2 WorldToViewPx(int2 int2_world) override { return int2_world; }
+      int2 WorldToViewPx(const core::Vector3& vec_world) override {
+        return int2{static_cast<std::int32_t>(vec_world.X),
+                    static_cast<std::int32_t>(vec_world.Y)};
+      }
+      Rectangle GetScissorBounds(bool) override { return Rectangle{}; }
+      int2 TopLeft() override { return int2{}; }
+      int2 BottomRight() override { return int2{}; }
+    };
+    static ViewportStub viewport_stub;
+    wr.SetViewport(&viewport_stub);
+  }
+  {
     // 灰阶基底(色移无关;引用存在性即所测面)
     // A grayscale base (no color shift; the reference's existence is the
     // tested face).
@@ -217,6 +242,12 @@ int main(int argc, char** argv) {
         wr.AddPalette(std::string{sv_base} + p->InternalName(),
                       gfx::ImmutablePalette{VectorPalette{vec_argb}}, false);
     }
+    // 装饰/死亡效果的世界级调色板(chrome = pips·装饰;effect = 碾压)
+    // The world-scope palettes of the decoration/death family (chrome =
+    // the pips & decorations; effect = the crushed).
+    for (const std::string_view sv_base : {"chrome", "effect"})
+      wr.AddPalette(std::string{sv_base},
+                    gfx::ImmutablePalette{VectorPalette{vec_argb}}, false);
   }
 
   // ———— 1. e1:WithInfantryBody 动画状态机 ————
@@ -562,6 +593,156 @@ int main(int argc, char** argv) {
     Check(sync_report.RecordedFrames().size() ==
               net::SyncReport::kNumSyncReports,
           "the 7-report ring");
+  }
+
+  // ———— 8. 第九批:选择注释/装饰/死亡动画/损伤覆盖/生产条 ————
+  // ———— 8. Batch 9: the selection annotations/decoration/death/damage/
+  //      production faces ————
+
+  {
+    // 8a. e1 的选择注释(^Selectable:SelectionDecorations + 控制组装饰)
+    // 8a. e1's selection annotations.
+    std::vector<sim::IRenderAnnotations*> vec_annotations =
+        e1 != nullptr ? e1->TraitsImplementing<sim::IRenderAnnotations>()
+                      : std::vector<sim::IRenderAnnotations*>{};
+    Check(!vec_annotations.empty(),
+          "e1 carries IRenderAnnotations (SelectionDecorations)");
+    if (e1 != nullptr && !vec_annotations.empty()) {
+      sim::IRenderAnnotations* annotations = vec_annotations.front();
+
+      // 未选中 + Standard → 零项 | Unselected + Standard → zero items.
+      std::vector<gfx::RenderItem> vec_items;
+      annotations->RenderAnnotations(*e1, wr, vec_items);
+      Check(vec_items.empty(),
+            "unselected e1 renders no annotations (Standard bars)");
+
+      // 选中 → 选择框 + 血条(两个 Custom 项)
+      // Selected → the box + bars (two Custom items).
+      world->Selection()->Add(e1);
+      annotations->RenderAnnotations(*e1, wr, vec_items);
+      int int4_custom = 0;
+      for (const gfx::RenderItem& item : vec_items)
+        if (item.kind == gfx::RenderableKind::Custom)
+          ++int4_custom;
+      Check(int4_custom >= 2,
+            "selected e1 renders the selection box + bars annotations");
+
+      // 编组 → 控制组 pip | Grouped → the control-group pip.
+      world->ControlGroups()->AddToControlGroup(e1, 3);
+      vec_items.clear();
+      annotations->RenderAnnotations(*e1, wr, vec_items);
+      int int4_ui_sprites = 0;
+      for (const gfx::RenderItem& item : vec_items)
+        if (item.kind == gfx::RenderableKind::UISprite)
+          ++int4_ui_sprites;
+      Check(int4_ui_sprites >= 1,
+            "the control-group decoration renders the group pip");
+      world->ControlGroups()->RemoveFromControlGroup(e1);
+      world->Selection()->Remove(e1);
+    }
+
+    // 8b. spy 的条件装饰初始禁用 | 8b. spy's conditional decoration.
+    sim::Actor* spy = spawn("spy", player_a, CPos{cx - 8, cy + 3});
+    Check(spy != nullptr, "spy constructed");
+    if (spy != nullptr) {
+      mods::WithDecoration* decoration_spy = nullptr;
+      for (sim::IDecoration* decoration :
+           spy->TraitsImplementing<sim::IDecoration>())
+        if ((decoration_spy =
+                 dynamic_cast<mods::WithDecoration*>(decoration)) != nullptr)
+          break;
+      Check(decoration_spy != nullptr, "spy WithDecoration@disguise mounted");
+      if (decoration_spy != nullptr)
+        Check(decoration_spy->IsTraitDisabled(),
+              "the disguise decoration starts disabled (RequiresCondition)");
+    }
+
+    // 8c. e1 死亡动画(DefaultDeath → SpriteEffect)
+    // 8c. e1's death animation.
+    sim::Actor* victim = spawn("e1", player_a, CPos{cx + 8, cy + 2});
+    Check(victim != nullptr, "death victim e1 constructed");
+    if (victim != nullptr) {
+      Check(victim->TraitOrDefault<mods::WithDeathAnimation>() != nullptr,
+            "victim mounts WithDeathAnimation (^Infantry)");
+      const std::size_t sz_effects_before = world->Effects().size();
+      static sim::Damage damage_death{0};
+      const std::vector<std::string> vec_death_types{"DefaultDeath"};
+      damage_death.Value = 100000;
+      damage_death.DamageTypes = core::BitSet<sim::DamageType>::FromRawBits(
+          meta::BitsOf("OpenRA.Traits.DamageType", vec_death_types));
+      // AutoTarget.Damaged 直读 e.Attacker(上游无空判)—— 传活攻击者
+      // Upstream reads e.Attacker unguarded — pass a live attacker.
+      victim->Trait<sim::IHealth>()->InflictDamage(*victim, e1,
+                                                   damage_death, true);
+      world->Tick();  // 帧末:效果入世界 | frame end: the effect enters
+      bool b_death_effect = false;
+      for (sim::IEffect* effect : world->Effects())
+        if (auto* sprite_effect =
+                dynamic_cast<mods::SpriteEffect*>(effect)) {
+          b_death_effect = true;
+          Check(sprite_effect->ImageNameForTest() == "e1",
+                "the death effect carries the e1 image");
+          const std::string str_sequence =
+              sprite_effect->SequenceNameForTest();
+          Check(str_sequence == "die1" || str_sequence == "die2" ||
+                    str_sequence == "die3",
+                "the death sequence = die + DefaultDeath suffix");
+        }
+      Check(b_death_effect,
+            "killing e1 spawns the death SpriteEffect (frame end)");
+      Check(world->Effects().size() > sz_effects_before,
+            "the death effect entered the world's effect list");
+    }
+
+    // 8d. jeep 重损烟雾链 | 8d. jeep's heavy-damage smoke chain.
+    sim::Actor* jeep = spawn("jeep", player_a, CPos{cx - 6, cy + 4});
+    Check(jeep != nullptr, "jeep constructed");
+    if (jeep != nullptr) {
+      auto* overlay = jeep->TraitOrDefault<mods::WithDamageOverlay>();
+      Check(overlay != nullptr, "jeep WithDamageOverlay mounted (^vehicle)");
+      if (overlay != nullptr) {
+        Check(!overlay->IsPlayingAnimation(),
+              "the overlay stays idle while undamaged");
+        sim::IHealth* health = jeep->Trait<sim::IHealth>();
+        static sim::Damage damage_smoke{0};
+        damage_smoke.Value = health->MaxHP() * 3 / 5;  // 60% → Heavy
+        health->InflictDamage(*jeep, e1, damage_smoke, true);
+        Check(overlay->IsPlayingAnimation(),
+              "heavy damage starts the smoke chain immediately "
+              "(InitialDelay 0)");
+      }
+    }
+
+    // 8e. spen 生产条绑定经典 Ship 队列 | 8e. spen's production bar.
+    sim::Actor* spen = spawn("spen", player_a, CPos{cx - 2, cy + 8});
+    Check(spen != nullptr, "spen constructed");
+    if (spen != nullptr) {
+      auto* bar = spen->TraitOrDefault<mods::ProductionBar>();
+      Check(bar != nullptr, "spen ProductionBar mounted");
+      if (bar != nullptr) {
+        Check(bar->BoundQueueForTest() != nullptr,
+              "the bar binds the classic Ship queue");
+        bar->Tick(*spen);
+        CheckEq(bar->GetValue(), 0.0f, "the empty queue reads value 0");
+        Check(!bar->DisplayWhenEmpty(), "DisplayWhenEmpty = false");
+      }
+    }
+
+    // 8f. harv 存量 pips | 8f. harv's stores pips.
+    sim::Actor* harv = spawn("harv", player_a, CPos{cx + 6, cy - 6});
+    Check(harv != nullptr, "harv constructed");
+    if (harv != nullptr) {
+      auto* pips =
+          harv->TraitOrDefault<mods::WithStoresResourcesPipsDecoration>();
+      Check(pips != nullptr, "harv WithStoresResourcesPips mounted");
+      if (pips != nullptr) {
+        Check(pips->RequiresSelection(),
+              "the stores pips require selection");
+        CheckEq(harv->TraitsImplementing<sim::IDecoration>().size(),
+                std::size_t{2},
+                "harv carries the stores pips + the control-group pip");
+      }
+    }
   }
 
   std::println("render_test: {} failures", g_failures);

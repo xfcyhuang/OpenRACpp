@@ -168,16 +168,14 @@ class World final {
   }
   bool IsHost() const { return fn_is_host_ ? fn_is_host_() : false; }
 
-  /// FogObscures(L106-108):Shroud 面随该批 —— 本批经注入承载(缺省
-  /// false = 无战争迷雾;上游缺 Shroud 时此处抛 NRE,消费面本批为空 ——
-  /// COVERAGE 登记)
-  /// FogObscures (L106-108): the Shroud faces land with that batch —
-  /// carried by injection here (the default false = no fog; upstream throws
-  /// an NRE without Shroud and this batch has no consumers — in COVERAGE).
+  /// FogObscures(L106-108):注入承载(缺省 false = 无迷雾)
+  /// FogObscures (L106-108): injection-carried (false = no fog).
   void SetFogObscuresResolver(std::function<bool(Actor&)> fn_actor,
-                              std::function<bool(const CPos&)> fn_cell) {
+                              std::function<bool(const CPos&)> fn_cell,
+                              std::function<bool(const WPos&)> fn_pos = {}) {
     fn_fog_obscures_actor_ = std::move(fn_actor);
     fn_fog_obscures_cell_ = std::move(fn_cell);
+    fn_fog_obscures_pos_ = std::move(fn_pos);
   }
   bool FogObscures(Actor& a) {
     return RenderPlayer() != nullptr &&
@@ -186,6 +184,10 @@ class World final {
   bool FogObscures(const CPos& p) {
     return RenderPlayer() != nullptr &&
            (fn_fog_obscures_cell_ ? fn_fog_obscures_cell_(p) : false);
+  }
+  bool FogObscures(const WPos& pos) {
+    return RenderPlayer() != nullptr &&
+           (fn_fog_obscures_pos_ ? fn_fog_obscures_pos_(pos) : false);
   }
 
   /// 上游 trait 查询的"缺实例"异常文本(ActorMap/ControlGroups 等待补批)
@@ -526,6 +528,7 @@ class World final {
   int int4_local_client_id_ = 0;  // Game.LocalClientId 注入面
   std::function<bool(Actor&)> fn_fog_obscures_actor_;
   std::function<bool(const CPos&)> fn_fog_obscures_cell_;
+  std::function<bool(const WPos&)> fn_fog_obscures_pos_;
   std::function<void()> fn_sound_stop_audio_;
   std::function<void()> fn_sound_stop_video_;
   std::function<void(bool)> fn_sound_disable_all_sounds_;

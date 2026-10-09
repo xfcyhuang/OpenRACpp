@@ -12,6 +12,7 @@
 import std;
 
 #include "core/cell_pos.hpp"
+#include "core/mersenne_twister.hpp"
 #include "core/percent_modifiers.hpp"
 #include "core/wangle.hpp"
 #include "core/wdist.hpp"
@@ -32,6 +33,18 @@ enum class InaccuracyType : std::int32_t {
   PerCellIncrement = 1,
   Absolute = 2,
 };
+
+/// Util.cs L228-238:RandomInRange(空 = 0;单值 = 该值;双值 = [a,b) 随机)
+/// Util.cs L228-238: RandomInRange (empty = 0; a lone value = itself; a
+/// pair = random within [a, b)).
+inline int RandomInRange(MersenneTwister& random,
+                         const std::vector<int>& vec_range) {
+  if (vec_range.empty())
+    return 0;
+  if (vec_range.size() == 1)
+    return vec_range.front();
+  return random.Next(vec_range[0], vec_range[1]);
+}
 
 
 /// Util.cs L26-45:TickFacing(int, int, int)(facing 域 0-255 的 &0xFF 回绕版)

@@ -382,7 +382,15 @@ add_library(ora_mods STATIC
   src/mods/with_sprite_turret.cpp
   src/mods/with_make_animation.cpp
   src/mods/proximity_capturable.cpp
-  src/mods/trait_registry_batch8.cpp)
+  src/mods/trait_registry_batch8.cpp
+  src/mods/sprite_effect.cpp
+  src/mods/with_death_animation.cpp
+  src/mods/with_damage_overlay.cpp
+  src/mods/with_decoration.cpp
+  src/mods/with_decoration_pips.cpp
+  src/mods/selection_decorations.cpp
+  src/mods/production_bar.cpp
+  src/mods/trait_registry_batch9.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats)
 ora_link_std(ora_mods)
 

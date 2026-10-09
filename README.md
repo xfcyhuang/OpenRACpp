@@ -12,7 +12,7 @@
 
 ## 进度总览
 
-**整体完成度约 58%**（按 PORTING_PLAN 各阶段工作量加权估算）。数据/引擎/渲染/平台层（前半程）已完成并经黄金对拍锁定；当前处于 **Phase 5 的 gameplay 大面**——攻击/迷雾/建筑/生产/电力/资源全链（AttackBase+Follow+Turreted/AutoTarget/全部主力弹丸战头/Shroud/FrozenActorLayer/Building/Production/PlayerResources/TechTree/PowerManager/Harvester+ResourceLayer+Dock 子系统/Refinery）已打通，**控制台发 order 造兵→出厂→战斗→采矿→卸货入账的 skirmish 链路已在测试中全程跑通**；Cloak/GainsExperience/Capturable 族/Conditions 34 件/Selectable/SpawnMapActors 已随第七批打通；Render·WithSpriteBody 渲染族 + ProximityCapturable + Settings/FieldSaver + SyncReport/录像录制起步已随第八批打通（渲染批修出子类 upcast 漏接口集真问题）；下一步剩余 With* 渲染族大面 + MapPreview 异步面 + replay 对拍器后，即开启 replay SyncHash 对拍（确定性移植总关卡）。
+**整体完成度约 58%**（按 PORTING_PLAN 各阶段工作量加权估算）。数据/引擎/渲染/平台层（前半程）已完成并经黄金对拍锁定；当前处于 **Phase 5 的 gameplay 大面**——攻击/迷雾/建筑/生产/电力/资源全链（AttackBase+Follow+Turreted/AutoTarget/全部主力弹丸战头/Shroud/FrozenActorLayer/Building/Production/PlayerResources/TechTree/PowerManager/Harvester+ResourceLayer+Dock 子系统/Refinery）已打通，**控制台发 order 造兵→出厂→战斗→采矿→卸货入账的 skirmish 链路已在测试中全程跑通**；Cloak/GainsExperience/Capturable 族/Conditions 34 件/Selectable/SpawnMapActors 已随第七批打通；Render·WithSpriteBody 渲染族 + ProximityCapturable + Settings/FieldSaver + SyncReport/录像录制起步已随第八批打通（渲染批修出子类 upcast 漏接口集真问题）；注释·装饰·死亡·损伤·进度条渲染族（SelectionDecorations/WithDecoration/WithDeathAnimation/WithDamageOverlay/ProductionBar/pips 装饰）已随第九批打通（修出 BitSet 双表分裂与 Selectable 单表继承缺失两真问题）；下一步 MapPreview 异步面 + replay 对拍器后，即开启 replay SyncHash 对拍（确定性移植总关卡）。
 
 | 阶段 | 内容 | 状态 | 完成度 |
 |---|---|---|---|
@@ -21,7 +21,7 @@
 | Phase 2 | 元数据框架 + 数据加载链 | ✅ 完成（2026-10-03） | 100% |
 | Phase 3 | 仿真核心 + Order/锁步 | ✅ 完成（2026-10-03） | 100% |
 | Phase 4 | 平台层 + 渲染 + 文件格式 + 音频 + UI 框架起步 + Game 主循环骨架（15 批） | ✅ 完成（2026-10-06） | 100% |
-| Phase 5 | 主循环整合 + 核心 gameplay（已完成 Map/World/寻路/Mobile+Move/Armament/攻击链+炮塔/迷雾链/弹丸战头全量/建筑生产链/电力链/资源链/条件·隐身·经验·捕获·摆位链/渲染 trait·邻近捕获·Settings·录像起步 8 批） | 🔨 进行中（2026-10-07 起） | ~90% |
+| Phase 5 | 主循环整合 + 核心 gameplay（已完成 Map/World/寻路/Mobile+Move/Armament/攻击链+炮塔/迷雾链/弹丸战头全量/建筑生产链/电力链/资源链/条件·隐身·经验·捕获·摆位链/渲染 trait·邻近捕获·Settings·录像起步/注释·装饰·死亡·损伤·进度条渲染族 9 批） | 🔨 进行中（2026-10-07 起） | ~95% |
 | Phase 6 | UI + 本地化 | 🌱 起步（框架内核已就位） | ~10% |
 | Phase 7 | 网络与服务器 | 🌱 起步（锁步内核已就位） | ~20% |
 | Phase 8 | Lua 脚本 + AI + 战役 + Utility | ⬜ 未开始 | ~0% |
@@ -34,12 +34,14 @@
 - **三 mod 规则深解析**：ra 80,274 / cnc 49,416 / d2k 35,833 行**逐字节快照回归**；上游 `--check-yaml` exit=0 佐证。
 - **资产解码黄金对拍**：mods 全部 .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 资产 + 合成夹具，`tests/golden_formats.txt` **6,737 行逐行一致**；字形 **216 个逐字节一致**（与 C# oracle 加载同一 freetype6.dll）。
 - **锁步确定性**：EchoConnection 单机 **10⁶ tick 双构建（ASan+UBSan/Release）通过，无泄漏无 desync**。
-- **持续门禁**：ctest **26/26** 三构建（ASan+UBSan / Release / **GCC -fhardened 旗级等价硬化**）全绿；`import std;` 严控（**447 文件**）；UPSTREAM 溯源标注（**428 条**）；偏离登记 **D1~D176**。
+- **持续门禁**：ctest **26/26** 三构建（ASan+UBSan / Release / **GCC -fhardened 旗级等价硬化**）全绿；`import std;` 严控（**462 文件**）；UPSTREAM 溯源标注（**443 条**）；偏离登记 **D1~D186**。
 - **双编译排错编排（2026-10-08 起）**：**Clang 23**（llvm-mingw/UCRT，基线工具链）× {ASan+UBSan、Release} + **GCC `-fhardened` 旗级等价第二编排**（`-D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -pie`，CMake `-DORA_HARDENED=ON`；std.pcm 同享 `-fstack-protector-strong` 防配置失配拒载）。实测注记：本机 `gcc.exe` 为 llvm-mingw 的 clang 壳，原旗标 `-fhardened` 不可执行 —— 等价集按 GCC 文档逐项展开；真 GCC 15+ 原旗标验证列为 CI 待办（见 ../cpp26.md 工具链表）。
 
-### 当前焦点（Phase 5 第九批）
+### 当前焦点（Phase 5 第十批）
 
-剩余 With* 渲染族大面（WithDeathAnimation/WithDamageOverlay/WithDecoration/ProductionBar/SelectionDecorations 等注释·覆盖·进度条族）+ MapPreview 异步面 + tools/replaydiff 对拍器。关键里程碑：**C# 录制 replay 逐帧 SyncHash 对拍（确定性移植总关卡）**。
+MapPreview 异步面 + tools/replaydiff 对拍器。关键里程碑：**C# 录制 replay 逐帧 SyncHash 对拍（确定性移植总关卡）**。
+
+第九批（2026-10-09）已落地：SelectionDecorations(+Base+两注释 renderable)/WithDecoration(+Base)/WithDeathAnimation/WithDamageOverlay/SpriteEffect/ProductionBar + 三个 pips 装饰（ControlGroup/ResourceStorage/StoresResources）+ Selectable 恢复 Interactable 单表继承 + BitSet 分配器桥（修出双表分裂真问题）；render_test 批九节（e1 选择注释框+条+控制组 pip → spy 条件装饰 → e1 死亡 SpriteEffect(die1/2/3) → jeep 重损烟雾 → spen 生产条 → harv 存量 pips）。
 
 第八批（2026-10-08）已落地：RenderSprites/WithSpriteBody(+Facing)/WithInfantryBody/WithSpriteTurret/WithMakeAnimation(+Overlay)/RenderSpritesEditorOnly + ProximityCapturable 族 + FieldSaver/Settings 起步 + SyncReport/ReplayRecorder/ReplayConnection 起步；render_test 真 ra 全链（e1 动画状态机 → 2tnk 炮塔钳定 → TENT make 动画 → 邻近捕获换主/还原 → 设置差异往返 → 录像三段包序回读）。
 
@@ -132,7 +134,15 @@ clang `-std=c++26` + `import std;`（std.cppm 预编译 PCM）+ CMake/Ninja + ct
 - meta/game/net:（FieldSaver.cs 全文值袋面）（Save/SaveDifferences/SaveField + FormatValue 的 null/BitSet/bool/枚举/集合分支）+ Settings.cs 起步承载（SettingsModule 的 Commit 差异协议 + PlayerSettings/GameSettings 手写表）；net 增 replay_recorder（**ReplayRecorder/ReplayMetadata 全文内存盘形态** + ReplayConnection 起步面）+ sync_report（**SyncReport.cs 起步面**：环形 7 报告 + 哈希/帧/随机态记账 + DumpSyncReport 文本 + 可选 dumper 注册表）。
 - 验收：新 render_test（真 ra 全链：真 Classic 序列装载 + 合成资产副本 → **e1 动画状态机**（stand 择一 → Horizontal 转 run → 回落）→ RenderSprites 真 sprite 项 + ScreenBounds → **2tnk 炮塔**（turret 序列/facings=32 钳定/零后坐 offset）→ **TENT make→idle** → **ProximityCapturable 真触发器链**（步入 5c 换主 B/离域还原 A）→ **Settings 差异保存往返** → **ReplayRecorder/Connection 三段包序逐字节回读** → **SyncReport 环形记账**）；ctest 25→26 **三构建**（ASan+UBSan / Release / **-fhardened 旗级等价硬化**）全绿；门禁 std_import（**447**）/upstream_check（**428**）PASS。修出四个真问题（**WithFacingSpriteBody 子类 upcast 漏基类接口集**（第五批教训重演，ASan 实证）、ReplayRecorder preStart 缓冲自追加、ctest 并行夹具目录互踩（0xc0000409）、e1 双 WithInfantryBody 为上游合法形态）。偏离 D164~D176 登记。
 
-**剩余（~10%）**：剩余 With* 渲染族大面（WithDeathAnimation/WithDamageOverlay/WithDecoration/ProductionBar/SelectionDecorations 等）；MapPreview 异步面；tools/replaydiff 对拍器。
+**第九批（2026-10-09）：SelectionDecorations 注释族 + WithDecoration 装饰族 + WithDeathAnimation/WithDamageOverlay + ProductionBar + pips 装饰 + BitSet 分配器桥**
+
+- sim/gfx 增量：第九批接口（**ISelectionDecorations/IDecoration**）+ Activity 的 **GetTargets 虚面**（基类默认空）+ World 的 **FogObscures(WPos) 重载**（注入面第三参）+ IViewportSurface 的 Zoom/MinZoom 缺省虚 + DeveloperMode 的 PathDebug 同步面。
+- **core/meta:BitSetAllocator 分配器桥**（InstallBridge 四面 + meta 的 no-alloc/contains 查询;七 tag 桥接）—— 修出 **BitSet 双表分裂真问题**（meta::BitsOf 的解析位与 core::BitSet 查询位两表互不相通,DamageTypes/ArmorTypes 的按名 Contains 恒 false,战头 Versus 装甲过滤自第五批起走空过滤路径）。
+- mods 十件新:**SelectionDecorationsBase/SelectionDecorations 全文**（IDecoration 双集物化/迷雾空枚举/DrawDecorations 三态+rollover+PathDebug 目标线+缩出隐藏）+ **SelectionBox/Bars 两注释 renderable 全文**（四角短线/血条三层底三层值/DisplayHP 差值段/ISelectionBar 附加条）、**WithDecorationBase 全文**（CRTP 双参 + blink 取模 + 关系过滤 + Offsets/BlinkPatterns 变量观察者）+ **WithDecoration 全文**、**WithDeathAnimation 全文**（DeathTypes 首命中键 + SharedRandom 后缀 + 帧末 SpriteEffect）、**WithDamageOverlay 全文**（延迟掷值/start-loop-end 三段链）、**SpriteEffect 全文**、**ProductionBar 全文**（双跳队列绑定 + 最小剩余占比）、三个 pips 装饰全文（ControlGroup 的 PlayFetchIndex/ResourceStorage 的整数交叉乘法/StoresResources 的前缀和桶定位）。
+- 结构修正:**Selectable 恢复承 Interactable**（上游单表继承 —— 第七批拆分使 Selectable-only actor 查不到界;Interactable 补齐 Interactable.cs L56-112 屏幕界全文:AutoBounds/PolygonBounds/Bounds/DecorationBounds 的 WDist→像素换算）。
+- 验收:render_test 批九节（真 ra 全链:**e1 未选中零注释项 → 选中出选择框+血条两 Custom 项 → 编组出控制组 pip → spy 的 disguise 装饰条件禁用 → e1 被 DefaultDeath 击杀帧末出 SpriteEffect(image=e1,序列 die1/2/3) → jeep 60% 重损即时起烟雾链 → spen 生产条绑经典 Ship 队列空队值 0 → harv 存量 pips 的 RequiresSelection 语义**）;ctest 26/26 三构建全绿;门禁 std_import(462)/upstream_check(443)PASS。修出三个真问题（**IRender 空 Render 的共享出参 clear 抹除**、**BitSet 双表分裂**、**Selectable 单表继承缺失**;另 AutoTarget.Damaged 直读 e.Attacker 为上游同形 —— 测试对齐契约）。偏离 D177~D186 登记。
+
+**剩余（~5%）**：MapPreview 异步面；tools/replaydiff 对拍器。
 
 ### Phase 6 — UI + 本地化 🌱（~10%）
 
@@ -157,7 +167,7 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 - **函数级裁剪**：`-ffunction-sections -fdata-sections` + `--gc-sections`。
 - **UPSTREAM 溯源**：每个移植文件带上游 file:line 标注（`tools/upstream_check.py`，406 条 PASS）。
 - **黄金对拍体系**：yaml（759 文件）/定点原语（60,883 行）/规则深解析（三 mod）/资产解码（6,737 行）/字形（216 个），oracle 双跑确定性验证。
-- **双语注释**：全部代码中英双语注释。
+- **双语注释**：文件头 UPSTREAM 溯源标注(工具门禁强制)+ 关键设计意图双语注释;复述性注释不写(第九批起收紧)。
 
 ## 与上游的差异（优化点与偏离登记）
 
@@ -198,7 +208,7 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 - **第六批（D143~D151）**：AttackBaseFace 接入（上游以具体类 AttackBase 充当接口；AutoTarget/attack_activity 换脸）+ AttackFollow 的 `new` Info 隐藏→切片副本 + Rearmable/Aircraft 空集、Turreted 的 TurretFacingInit 族（ORA_INIT_TYPE_SELF_ONLY 按实例名匹配）+ 预览/编辑器面随 Phase 6、PowerManager 的通知注入面缺省 + AffectedByPowerOutage 的 ISelectionBar 随 Phase 6、ResourceLayer 的 FrozenDictionary→声明序 vector + CellChanged 回调、DockClientManager 的游标覆盖表/闭包 targeter + WithDockingOverlay/IDockClientBody 空集直通 + DockClientManager 属性名冲突→GetDockClientManager、Harvester 的 Resources 校验工厂时点 + IResourceRenderer 空集恒 false 域、Refinery 的 Requires<WithSpriteBodyInfo> 注册侧跳过 + FloatingText 随 Phase 6、**Target 的 operator==/!= 补齐**（此前无消费点）、ClassicFacingBodyOrientation 的 facings==32 表域随渲染批。
 - **第七批（D152~D163）**：Conditions 三件（LineBuild/Minelayer 系宿主）延后、声音/Fluent/SpriteEffect/FloatingText/TargetLines/cursor/ISelectionBar 的 UI 消费随 Phase 6（声音数组 LocalRandom 域消耗保留）、GrantConditionOnDeploy 的 notify 空集 = 动画分支即完成分支（UndeployStarted 置 Deploying 的上游 quirk 保真）、ExternalCondition 的 source→const void* 源键 + 按名转发面、Cloak 的渲染物化随渲染批 + DockClient/Host 同签名合并 override、Selectable 的单表继承拆分 + 屏幕换算随渲染批、捕获族的 UI/Transform/ProximityCapturable 随批、Enter 的 MoveToTarget 经 Mobile 具体型、SpawnMapActors 的 IPreventMapSpawn 空集 + InitRegistry 六 init + Replace 面、GrantConditionOnLayer 泛型基类不作注册键（ValidLayerType 恒 0）、GainsExperience 的 FrozenDictionary→插入序 vector（^Infantry multiplier-0 上游怪癖验证）、**变量表达式 Token 悬垂真问题修复**（string_view→深拷贝;第三批起潜伏）。
 - **第八批（D164~D176）**：WithInfantryBody 的 stand 择一移入 LocalRandom 域（上游 not-synced 的 Game.CosmeticRandom）；IActorPreview 面随 Phase 6 + FactionInit/AnimationWithOffset 所有权形态；WithInfantryBody 的帧末 barrel 索引快照；WithMakeAnimation 的闩锁成员；ProximityCapturable 的装配侧前置校验 + RunAfterTick 注入面 + 按 Info 名的 captor 查询；Actor 的 IRenderModifier 空链 + ScreenMap 的 bounds 源注入；Map::SetSequences 后置装配口；FieldSaver 的值袋域；Settings 两段手写表；ReplayRecorder 的 GameInformation 注入载荷 + 内存盘；SyncReport 的可选 dumper 注册表（D30 扩展）；测试夹具的合成资产副本 + SkipMakeAnims 语义；**ORA_HARDENED 旗级等价硬化构建（本机 gcc.exe 为 llvm-mingw 的 clang 壳，原旗标 -fhardened 不可执行 —— 等价集按 GCC 文档逐项展开;真 GCC 验证列 CI 待办）**。
-**尚未移植（Phase 5-8 范围）**：剩余 With* 渲染族大面（WithDeathAnimation/WithDamageOverlay/WithDecoration/ProductionBar/SelectionDecorations 等）、MapPreview 异步面、tools/replaydiff 对拍器、62 个 chrome widget + 131 Logic、Fluent、WorldInteractionController、NetworkConnection 实体、Session 完整协议、Replay 对拍、Server、Lua、AI、战役、Utility 子命令——详见上方各阶段“剩余”节。
+**尚未移植（Phase 5-8 范围）**：MapPreview 异步面、tools/replaydiff 对拍器、62 个 chrome widget + 131 Logic、Fluent、WorldInteractionController、NetworkConnection 实体、Session 完整协议、Replay 对拍、Server、Lua、AI、战役、Utility 子命令——详见上方各阶段“剩余”节。
 
 ## 许可证与归属
 
@@ -225,7 +235,7 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 
 ## Progress at a Glance
 
-**Overall completion ≈ 58%** (weighted by the PORTING_PLAN phase budgets). The data/engine/rendering/platform layers (the first half) are complete and locked in by golden differentials; the project is currently in **Phase 5's gameplay surface** — the attack/fog/building/production/power/resource chains (AttackBase+Follow+Turreted/AutoTarget/all the mainline projectiles & warheads/Shroud/FrozenActorLayer/Building/Production/PlayerResources/TechTree/PowerManager/Harvester+ResourceLayer+the dock subsystem/Refinery) are through end to end, and **the full skirmish chain — issuing build orders by console, units leaving the factory, combat, harvesting, and docked unloading credited — runs through in tests**; Cloak/GainsExperience/the Capturable family/the 34 Conditions traits/Selectable/SpawnMapActors landed with the seventh installment; the Render·WithSpriteBody family + ProximityCapturable + Settings/FieldSaver + the SyncReport/replay-recording start landed with the eighth (the render batch surfacing a real subclass-upcast interface-omission bug); once the remaining With* render family + the MapPreview async face + the replay differ land, the replay SyncHash differential (the determinism capstone) opens.
+**Overall completion ≈ 58%** (weighted by the PORTING_PLAN phase budgets). The data/engine/rendering/platform layers (the first half) are complete and locked in by golden differentials; the project is currently in **Phase 5's gameplay surface** — the attack/fog/building/production/power/resource chains (AttackBase+Follow+Turreted/AutoTarget/all the mainline projectiles & warheads/Shroud/FrozenActorLayer/Building/Production/PlayerResources/TechTree/PowerManager/Harvester+ResourceLayer+the dock subsystem/Refinery) are through end to end, and **the full skirmish chain — issuing build orders by console, units leaving the factory, combat, harvesting, and docked unloading credited — runs through in tests**; Cloak/GainsExperience/the Capturable family/the 34 Conditions traits/Selectable/SpawnMapActors landed with the seventh installment; the Render·WithSpriteBody family + ProximityCapturable + Settings/FieldSaver + the SyncReport/replay-recording start landed with the eighth (the render batch surfacing a real subclass-upcast interface-omission bug); the annotation/decoration/death/damage/progress-bar render family (SelectionDecorations/WithDecoration/WithDeathAnimation/WithDamageOverlay/ProductionBar/the pip decorations) landed with the ninth (surfacing the real BitSet split-table and Selectable-inheritance bugs); once the MapPreview async face + the replay differ land, the replay SyncHash differential (the determinism capstone) opens.
 
 | Phase | Scope | Status | Done |
 |---|---|---|---|
@@ -234,7 +244,7 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 | Phase 2 | Metadata framework + data-loading chain | ✅ complete (2026-10-03) | 100% |
 | Phase 3 | Simulation core + orders/lockstep | ✅ complete (2026-10-03) | 100% |
 | Phase 4 | Platform + rendering + file formats + audio + the UI-framework start + the game main loop (15 batches) | ✅ complete (2026-10-06) | 100% |
-| Phase 5 | Main-loop integration + core gameplay (Map/World/pathfinding/Mobile+move/Armament/the attack+fog+turret chains/the full projectile+warhead set/the building+production+power+resource chains/the conditions+cloak+experience+capture+placement chains/the render-traits+proximity-capture+Settings+replay start, 8 batches) | 🔨 in progress (since 2026-10-07) | ~90% |
+| Phase 5 | Main-loop integration + core gameplay (Map/World/pathfinding/Mobile+move/Armament/the attack+fog+turret chains/the full projectile+warhead set/the building+production+power+resource chains/the conditions+cloak+experience+capture+placement chains/the render-traits+proximity-capture+Settings+replay start/the annotation+decoration+death+damage+progress-bar render family, 9 batches) | 🔨 in progress (since 2026-10-07) | ~95% |
 | Phase 6 | UI + localization | 🌱 started (the framework core is in place) | ~10% |
 | Phase 7 | Network + server | 🌱 started (the lockstep core is in place) | ~20% |
 | Phase 8 | Lua scripting + AI + campaigns + Utility | ⬜ not started | ~0% |
@@ -247,12 +257,14 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 - **The three-mod deep rules parse**: ra 80,274 / cnc 49,416 / d2k 35,833 lines as **byte-for-byte frozen snapshots**; upstream `--check-yaml` exit=0 corroborates.
 - **The asset-decode golden differential**: all mods .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 assets + synthetic fixtures, `tests/golden_formats.txt` **6,737 lines matching line for line**; **216 glyphs byte-identical** (the same freetype6.dll the C# oracle loads).
 - **Lockstep determinism**: EchoConnection **10⁶ ticks on both builds (ASan+UBSan / Release), leak-free and desync-free**.
-- **Standing gates**: ctest **26/26** green on three builds (ASan+UBSan, Release, and the **GCC -fhardened flag-equivalent hardening**); strict `import std;` (**447 files**); UPSTREAM provenance tags (**428 entries**); the deviation registry **D1–D176**.
+- **Standing gates**: ctest **26/26** green on three builds (ASan+UBSan, Release, and the **GCC -fhardened flag-equivalent hardening**); strict `import std;` (**462 files**); UPSTREAM provenance tags (**443 entries**); the deviation registry **D1–D186**.
 - **The dual-compile debugging rig (since 2026-10-08)**: **Clang 23** (llvm-mingw/UCRT, the baseline toolchain) x {ASan+UBSan, Release} plus a **second leg reproducing GCC `-fhardened` at flag level** (`-D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -pie`, CMake `-DORA_HARDENED=ON`; the std.pcm shares `-fstack-protector-strong` to avoid the configuration-mismatch load refusal). Measured note: this machine's gcc.exe is llvm-mingw's clang shim, so the literal -fhardened is unrunnable — the equivalent set expands the GCC docs item by item; validating the literal flag on real GCC 15+ is a CI TODO (see the toolchain table in ../cpp26.md).
 
-### Current focus (Phase 5, ninth installment)
+### Current focus (Phase 5, tenth installment)
 
-The remaining bulk of the With* render family (WithDeathAnimation/WithDamageOverlay/WithDecoration/ProductionBar/SelectionDecorations and the annotation/overlay/progress-bar families) + the MapPreview async face + the tools/replaydiff differ. The milestone after that: **the frame-by-frame replay SyncHash differential against a C#-recorded replay (the determinism capstone)**.
+The MapPreview async face + the tools/replaydiff differ. The milestone after that: **the frame-by-frame replay SyncHash differential against a C#-recorded replay (the determinism capstone)**.
+
+The ninth installment (2026-10-09) landed: SelectionDecorations(+Base+the two annotation renderables)/WithDecoration(+Base)/WithDeathAnimation/WithDamageOverlay/SpriteEffect/ProductionBar + the three pip decorations + Selectable restored onto Interactable (the single-table inheritance) + the BitSet allocator bridge (the real split-table fix); render_test's batch-9 section (e1's selection box+bars+control-group pip → spy's conditional decoration → e1's death SpriteEffect (die1/2/3) → jeep's heavy-damage smoke → spen's production bar → harv's stores pips).
 
 The eighth installment (2026-10-08) landed: RenderSprites/WithSpriteBody(+Facing)/WithInfantryBody/WithSpriteTurret/WithMakeAnimation(+Overlay)/RenderSpritesEditorOnly + the ProximityCapturable family + the FieldSaver/Settings start + the SyncReport/ReplayRecorder/ReplayConnection start; render_test's real ra full chain (e1's animation state machine → the 2tnk turret clamp → TENT's make animation → the proximity capture's owner flip and revert → the settings diff round-trip → the replay's three-part packet read-back).
 
@@ -345,7 +357,15 @@ clang `-std=c++26` + `import std;` (the precompiled std.cppm PCM) + CMake/Ninja 
 - meta/game/net: the value-bag face of the whole of FieldSaver.cs (Save/SaveDifferences/SaveField + FormatValue's null/BitSet/bool/enum/collection branches) + Settings.cs's starter carrier (SettingsModule's Commit diff protocol + the hand-written PlayerSettings/GameSettings tables); net gains replay_recorder (the whole of ReplayRecorder/ReplayMetadata in the in-memory-sink form + ReplayConnection's starter face) + sync_report (SyncReport.cs's starter face: the 7-report ring + the hash/frame/random bookkeeping + the DumpSyncReport text + the optional dumper registry).
 - Acceptance: the new render_test (the real ra full chain: the real Classic sequence loading + synthetic asset copies → **e1's animation state machine** (the stand pick → the Horizontal switch to run → the fallback) → RenderSprites' real sprite items + ScreenBounds → **the 2tnk turret** (the turret sequence/the facings=32 clamp/the zero-recoil offset) → **TENT's make→idle** → **the ProximityCapturable real-trigger chain** (walking into 5c flips the owner to B/leaving reverts to A) → **the Settings save-differences round-trip** → **the ReplayRecorder/Connection three-part packet byte-exact read-back** → **SyncReport's ring bookkeeping**); ctest 25→26 green on **three builds** (ASan+UBSan / Release / the **-fhardened flag-equivalent hardening**); the std_import (**447**) / upstream_check (**428**) gates PASS. Four real problems fixed (the **WithFacingSpriteBody subclass's upcast table omitting the base interface set** (the batch-5 lesson repeating, ASan-proven), ReplayRecorder's pre-start self-append, the parallel-ctest fixture directory race (0xc0000409), and e1's double WithInfantryBody being upstream's legitimate shape). Deviations D164–D176 registered.
 
-**Remaining (~10%)**: the remaining bulk of the With* render family (WithDeathAnimation/WithDamageOverlay/WithDecoration/ProductionBar/SelectionDecorations etc.); the MapPreview async face; the tools/replaydiff differ.
+**The ninth installment (2026-10-09): the SelectionDecorations annotation family + the WithDecoration family + WithDeathAnimation/WithDamageOverlay + ProductionBar + the pip decorations + the BitSet allocator bridge**
+
+- sim/gfx gains: the batch-9 interfaces (**ISelectionDecorations/IDecoration**) + Activity's **GetTargets virtual face** (empty base default) + World's **FogObscures(WPos) overload** + IViewportSurface's Zoom/MinZoom defaults + DeveloperMode's PathDebug.
+- **core/meta: the BitSetAllocator bridge** (InstallBridge's four faces + the meta no-alloc/contains queries; seven bridged tags) — fixing the **real split-table bug** (the parse side's meta::BitsOf bits and the core::BitSet query bits lived in two unconnected tables, so the by-name Contains of DamageTypes/ArmorTypes was constantly false, and the warhead Versus armor filter had run an empty filter since batch 5).
+- Ten new mods files: **the whole of SelectionDecorationsBase/SelectionDecorations** + **the two annotation renderables**, **the whole of WithDecorationBase** (the two-parameter CRTP + the blink modulo + the relationship filter + the Offsets/BlinkPatterns observers) + **WithDecoration**, **the whole of WithDeathAnimation** (the first-hit DeathTypes key + the SharedRandom suffix + the frame-end SpriteEffect), **the whole of WithDamageOverlay** (the delayed roll + the start-loop-end chain), **the whole of SpriteEffect**, **the whole of ProductionBar** (the two-hop queue binding + the least-remaining fraction), and the three pip decorations.
+- Structural fix: **Selectable inherits Interactable again** (upstream's single-table shape — the batch-7 split left Selectable-only actors without a findable bounds face; Interactable gains the whole of Interactable.cs L56-112's screen faces).
+- Acceptance: render_test's batch-9 section (the real ra full chain: **e1's zero unselected annotations → the selected box+bars Custom pair → the grouped control-group pip → spy's disguise decoration disabled → e1's DefaultDeath death spawning the frame-end SpriteEffect (image e1, die1/2/3) → jeep's 60% heavy damage starting the smoke chain at once → spen's bar bound to the classic Ship queue reading 0 → harv's stores pips' RequiresSelection semantics**); ctest 26/26 on three builds; the std_import (462)/upstream_check (443) gates PASS. Three real problems fixed (**the IRender empty-Render shared-out-vector clear**, **the BitSet split tables**, **the missing Selectable single-table inheritance**; AutoTarget.Damaged's unguarded e.Attacker is upstream's own shape — the test aligns with the contract). Deviations D177–D186 registered.
+
+**Remaining (~5%)**: the MapPreview async face; the tools/replaydiff differ.
 
 ### Phase 6 — UI + localization 🌱 (~10%)
 
@@ -370,7 +390,7 @@ Performance tuning, packaging, remaining platform compatibility.
 - **Function-level dead-code elimination**: `-ffunction-sections -fdata-sections` + `--gc-sections`.
 - **UPSTREAM provenance**: every ported file carries upstream file:line tags (`tools/upstream_check.py`; 406 entries PASS).
 - **The golden-differential system**: yaml (759 files) / the fixed-point primitives (60,883 lines) / the deep rules parse (three mods) / asset decoding (6,737 lines) / glyphs (216), with the oracle's cross-run determinism verified.
-- **Bilingual comments** throughout.
+- **Bilingual comments**: the file-header UPSTREAM provenance tag (tool-enforced) + the key design-intent comments; no restatement comments (tightened since batch 9).
 
 ## Differences from upstream (optimizations & registered deviations)
 
@@ -412,7 +432,7 @@ Currently **D1–D176** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by
 
 - **the seventh installment (D152–D163)**: the three Conditions files (LineBuild/Minelayer hosts) deferred; the sound/Fluent/SpriteEffect/FloatingText/TargetLines/cursor/ISelectionBar UI consumptions ride Phase 6 (the sound arrays' LocalRandom-domain consumption kept); GrantConditionOnDeploy's empty notify set = the animation branch is the completion branch (the UndeployStarted-sets-Deploying upstream quirk kept verbatim); ExternalCondition's source → the const void* source key + the by-name forwarding face; Cloak's render materialization rides the render batch + the DockClient/Host same-signature merged override; Selectable's single-table-inheritance split + the screen conversion rides the render batch; the capture family's UI/Transform/ProximityCapturable ride their batches; Enter's MoveToTarget via the Mobile concrete type; SpawnMapActors's empty IPreventMapSpawn + InitRegistry's six inits + the Replace face; GrantConditionOnLayer's generic base serving as no registration key (ValidLayerType constantly 0); GainsExperience's FrozenDictionary → the insertion-ordered vector (the ^Infantry multiplier-0 upstream quirk verified); **the variable-expression Token dangling real-bug fix** (string_view → deep copy; latent since batch 3).
 - **the eighth installment (D164–D176)**: WithInfantryBody's stand pick moves to the LocalRandom domain (upstream's not-synced Game.CosmeticRandom); the IActorPreview faces ride Phase 6 + the FactionInit/AnimationWithOffset ownership shapes; WithInfantryBody's frame-end barrel snapshot; WithMakeAnimation's latch members; ProximityCapturable's assembly-side precondition + the RunAfterTick injection + the by-Info-name captor lookup; Actor's empty IRenderModifier chain + ScreenMap's injected bounds sources; Map::SetSequences as the after-the-fact assembly port; FieldSaver's value-bag domain; Settings' two hand-written tables; ReplayRecorder's injected GameInformation payload + the in-memory sink; SyncReport's optional dumper registry (extending D30); the test fixture's synthetic asset copies + SkipMakeAnims semantics; **the ORA_HARDENED flag-equivalent build (this machine's gcc.exe being llvm-mingw's clang shim, the literal -fhardened is unrunnable — the equivalent set expands the GCC docs; real-GCC validation is a CI TODO)**.
-**Not yet ported (the Phase 5-8 scope)**: the remaining With* render family (WithDeathAnimation/WithDamageOverlay/WithDecoration/ProductionBar/SelectionDecorations etc.), the MapPreview async face, the tools/replaydiff differ, the 62 chrome widgets + 131 Logics, Fluent, WorldInteractionController, the real NetworkConnection, the full Session protocol, the replay differ, the server, Lua, AI, campaigns, and the Utility subcommands — see each phase's remaining section above.
+**Not yet ported (the Phase 5-8 scope)**: the MapPreview async face, the tools/replaydiff differ, the 62 chrome widgets + 131 Logics, Fluent, WorldInteractionController, the real NetworkConnection, the full Session protocol, the replay differ, the server, Lua, AI, campaigns, and the Utility subcommands — see each phase's remaining section above.
 
 ## License & Attribution
 

@@ -176,8 +176,8 @@ class Viewport : public IViewportSurface {
   int2 TopLeft() override;
   int2 BottomRight() override;
   int2 ViewportSize() const { return int2_viewport_size_; }
-  float Zoom() const { return fp4_zoom_; }
-  float MinZoom() const { return fp4_min_zoom_; }
+  float Zoom() const override { return fp4_zoom_; }
+  float MinZoom() const override { return fp4_min_zoom_; }
   float MaxZoom() const { return fp4_max_zoom_; }
 
   /// OverrideDefaultHeight(L95-100)。

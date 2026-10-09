@@ -34,6 +34,8 @@ class BitSetAllocator {
   /// GetBits:缺失字符串即分配新位(BitSet.cs L36-44)
   /// GetBits: missing strings allocate new bits (BitSet.cs L36-44).
   static std::uint64_t GetBits(std::span<const std::string> vec_values) {
+    if (Bridge().fn_get_bits)
+      return Bridge().fn_get_bits(vec_values);
     std::uint64_t uint8_bits{0};
     for (const std::string& str_value : vec_values)
       uint8_bits |= BitFor(str_value);
@@ -44,6 +46,11 @@ class BitSetAllocator {
   /// GetBitsNoAlloc: maps existing bits only; missing strings are ignored
   /// (BitSet.cs L46-57).
   static std::uint64_t GetBitsNoAlloc(std::span<const std::string> vec_values) {
+    if (Bridge().fn_get_bits_noalloc) {
+      if (const auto bits = Bridge().fn_get_bits_noalloc(vec_values))
+        return *bits;
+      return 0;
+    }
     std::uint64_t uint8_bits{0};
     auto& map_index = Index();
     for (const std::string& str_value : vec_values) {
@@ -57,8 +64,10 @@ class BitSetAllocator {
   /// GetStrings: returns the set strings in allocation order (BitSet.cs L59-68;
   /// the Cache iteration order equals insertion order).
   static std::vector<std::string> GetStrings(std::uint64_t uint8_bits) {
+    if (Bridge().fn_get_strings)
+      return Bridge().fn_get_strings(uint8_bits);
     std::vector<std::string> vec_values;
-    const auto& vec_order = Order();
+    const std::vector<std::string>& vec_order = Order();
     for (std::size_t int4_i{}; int4_i < vec_order.size(); int4_i++)
       if ((uint8_bits & (std::uint64_t{1} << int4_i)) != 0)
         vec_values.push_back(vec_order[int4_i]);
@@ -67,13 +76,42 @@ class BitSetAllocator {
 
   /// BitsContainString(BitSet.cs L70-77)
   static bool BitsContainString(std::uint64_t uint8_bits, std::string_view sv_value) {
+    if (Bridge().fn_contains)
+      return Bridge().fn_contains(uint8_bits, sv_value);
     auto& map_index = Index();
     if (const auto it_find = map_index.find(std::string{sv_value}); it_find != map_index.end())
       return (uint8_bits & (std::uint64_t{1} << it_find->second)) != 0;
     return false;
   }
 
+  /// 分配器桥:gen 运行时标签注入后统一走 meta 表(上游单一
+  /// BitSetAllocator<T> 静态的等价 —— 解析/查询同表)。
+  /// The allocator bridge: gen runtime tags uniformly go through the meta
+  /// table (the equivalent of upstream's single static — parse and query
+  /// share one table).
+  static void InstallBridge(
+      std::function<std::uint64_t(std::span<const std::string>)> fn_get_bits,
+      std::function<std::vector<std::string>(std::uint64_t)> fn_get_strings,
+      std::function<bool(std::uint64_t, std::string_view)> fn_contains,
+      std::function<std::optional<std::uint64_t>(std::span<const std::string>)>
+          fn_get_bits_noalloc = {}) {
+    Bridge() = BridgeData{std::move(fn_get_bits), std::move(fn_get_strings),
+                          std::move(fn_contains),
+                          std::move(fn_get_bits_noalloc)};
+  }
+
  private:
+  struct BridgeData {
+    std::function<std::uint64_t(std::span<const std::string>)> fn_get_bits;
+    std::function<std::vector<std::string>(std::uint64_t)> fn_get_strings;
+    std::function<bool(std::uint64_t, std::string_view)> fn_contains;
+    std::function<std::optional<std::uint64_t>(std::span<const std::string>)>
+        fn_get_bits_noalloc;
+  };
+  static BridgeData& Bridge() {
+    static BridgeData data_bridge;
+    return data_bridge;
+  }
   // 分配序表 + 名字→下标(全局状态;首次调用时初始化)
   // Allocation-order table + name→index (global state; initialized on first use).
   static std::vector<std::string>& Order() {

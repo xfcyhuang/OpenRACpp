@@ -93,6 +93,14 @@ class Activity : public IActivityInterface {
   /// OnLastRun).
   virtual void OnActorDispose(Actor& /*self*/) {}
 
+  /// Activity.cs L256-259:GetTargets(基类默认空;Move/Attack 覆写随各活动
+  /// 批;yield 序 = push 序)
+  /// Activity.cs L256-259: GetTargets (the base default is empty; the
+  /// Move/Attack overrides ride their batches).
+  virtual void GetTargets(Actor& /*self*/, std::vector<Target>& vec_out) {
+    (void)vec_out;
+  }
+
   /// Activity.cs L191-196(internal;保证 ChildActivity 链同游)
   /// Activity.cs L191-196 (internal; walks the ChildActivity chain too).
   void OnActorDisposeOuter(Actor& self);

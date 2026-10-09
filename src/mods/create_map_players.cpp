@@ -6,6 +6,8 @@ import std;
 
 #include "mods/create_map_players.hpp"
 
+#include "meta/field_loader.hpp"
+
 #include "game/actor_info.hpp"
 #include "map/map.hpp"
 #include "map/map_players.hpp"
@@ -177,8 +179,48 @@ void CreateMapPlayers::SetupPlayerMasks(Player* p, Player* q) {
   }
 }
 
+/// core::BitSetAllocator 桥装配:gen 运行时标签的 meta 表注入 core 侧
+/// 分配器(上游单一 BitSetAllocator<T> 静态的等价 —— 解析/查询同表;
+/// 第九批修出双表分裂真问题)
+/// The bridge assembly: gen runtime tags' meta tables inject into the
+/// core-side allocators (upstream's single static's equivalent — parse
+/// and query share one table; the batch-9 real-bug fix).
+void InstallBitSetAllocatorBridges() {
+  auto install = []<class TagT>(const char* ptr_tag) {
+    core::BitSetAllocator<TagT>::InstallBridge(
+        [str_tag = std::string{ptr_tag}](
+            std::span<const std::string> vec_values) {
+          return meta::BitsOf(str_tag, vec_values);
+        },
+        [str_tag = std::string{ptr_tag}](std::uint64_t uint8_bits) {
+          return meta::StringsOfBits(str_tag, uint8_bits);
+        },
+        [str_tag = std::string{ptr_tag}](std::uint64_t uint8_bits,
+                                         std::string_view str_value) {
+          return meta::BitSetContainsString(str_tag, uint8_bits,
+                                            str_value);
+        },
+        [str_tag = std::string{ptr_tag}](
+            std::span<const std::string> vec_values) {
+          return meta::BitSetBitsOfNoAlloc(str_tag, vec_values);
+        });
+  };
+  install.operator()<sim::TargetableType>("OpenRA.Traits.TargetableType");
+  install.operator()<sim::DamageType>("OpenRA.Traits.DamageType");
+  install.operator()<sim::CrushClass>("OpenRA.Traits.CrushClass");
+  install.operator()<sim::DockType>(
+      "OpenRA.Mods.Common.Traits.DockType");
+  install.operator()<sim::CaptureType>(
+      "OpenRA.Mods.Common.Traits.CaptureType");
+  install.operator()<ArmorType>(
+      "OpenRA.Mods.Common.Traits.ArmorType");
+  install.operator()<DetectionType>(
+      "OpenRA.Mods.Common.Traits.DetectionType");
+}
+
 // ———— mods trait 注册表装配(与 sim::RegisterWorldTraits 同形)————
 void RegisterCommonTraits() {
+  InstallBitSetAllocatorBridges();
   static const bool b_registered = [] {
     sim::TraitRegistry& registry = sim::TraitRegistry::Instance();
 
@@ -842,6 +884,12 @@ void RegisterCommonTraits() {
     //      ————
 
     RegisterCommonTraitsBatch8();
+
+    // ———— 第九批注册(独立翻译单元;注释·装饰·死亡·损伤·进度条族)————
+    // ———— The batch-9 registration (a separate translation unit; the
+    //      annotation/decoration/death/damage/progress-bar family) ————
+
+    RegisterCommonTraitsBatch9();
 
     return true;
   }();

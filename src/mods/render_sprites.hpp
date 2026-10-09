@@ -227,10 +227,14 @@ class RenderSpritesEditorOnly final : public RenderSprites {
 
   void Render(Actor& self, gfx::WorldRenderer& wr,
               std::vector<gfx::RenderItem>& vec_out) override {
-    // SpriteRenderable.None
+    // SpriteRenderable.None(空枚举 = 追加零项;共享出参不可清空 —— 第九批
+    // 修正:与其它 IRender trait 同 actor 共存时 clear 会抹掉前者)
+    // SpriteRenderable.None (an empty enumeration = appends zero items; the
+    // shared out vector must not be cleared — the batch-9 fix: a clear
+    // wipes the earlier traits when coexisting on one actor).
     (void)self;
     (void)wr;
-    vec_out.clear();
+    (void)vec_out;
   }
 };
 

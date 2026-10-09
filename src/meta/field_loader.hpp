@@ -154,9 +154,12 @@ std::vector<const FieldDesc*> CollectFields(const RecordDesc& desc);
 // Every concrete BitSet<Tag> (TargetableType etc.) registers its string↔bit
 // conversions from the mods layer; all BitSet<Tag> share one layout (a single
 // uint64), so loading/serialization go through the registry by raw bits.
-void RegisterBitSet(std::string_view str_tag,
-                    std::function<std::uint64_t(std::span<const std::string>)> fn_get_bits,
-                    std::function<std::vector<std::string>(std::uint64_t)> fn_get_strings);
+void RegisterBitSet(
+    std::string_view str_tag,
+    std::function<std::uint64_t(std::span<const std::string>)> fn_get_bits,
+    std::function<std::vector<std::string>(std::uint64_t)> fn_get_strings,
+    std::function<std::optional<std::uint64_t>(std::string_view)>
+        fn_bit_noalloc = {});
 
 /// gen/ 源用:注册一个按"字符串首遇序"分配位的运行时标签
 /// (BitSet.cs BitSetAllocator<T> 语义的字符串键形态;位互转经该表)
@@ -171,6 +174,14 @@ std::uint64_t BitsOf(std::string_view str_tag, std::span<const std::string> vec_
 /// 位 → 分配序字符串(BitSet.ToString 的输出序)
 /// Bits → allocation-order strings (the output order of BitSet.ToString).
 std::vector<std::string> StringsOfBits(std::string_view str_tag, std::uint64_t uint8_bits);
+/// no-alloc 位查询(仅已分配名;分配器桥消费)
+/// The no-alloc bit query (allocated names only; the bridge consumes).
+std::optional<std::uint64_t> BitSetBitsOfNoAlloc(
+    std::string_view str_tag, std::span<const std::string> vec_values);
+/// 名→位包含查询(不分配;分配器桥消费)
+/// The name→bit containment query (non-allocating; the bridge consumes).
+bool BitSetContainsString(std::string_view str_tag, std::uint64_t uint8_bits,
+                          std::string_view str_value);
 
 // ———— LoadUsing 加载器注册表 / LoadUsing loader registry ————
 // 加载器实现随各 Info 类的 C++ 源注册(FieldLoader.GetLoader 的委托创建等价);

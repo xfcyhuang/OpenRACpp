@@ -127,6 +127,11 @@ struct IViewportSurface {
   virtual int2 WorldToViewPx(int2 int2_world) = 0;
   virtual int2 WorldToViewPx(const core::Vector3& vec_world) = 0;
 
+  /// Zoom/MinZoom(Viewport.cs L180-181;缺省 1.0 = 桩永不触发缩出隐藏)
+  /// Zoom/MinZoom (Viewport.cs L180-181; 1.0 defaults never hide).
+  virtual float Zoom() const { return 1.0f; }
+  virtual float MinZoom() const { return 1.0f; }
+
   /// 裁剪矩形(Viewport.cs L376-391;insideBounds = VisibleCellsInsideBounds
   /// 否则 AllVisibleCells)。
   /// The scissor rectangle (Viewport.cs L376-391; insideBounds selects

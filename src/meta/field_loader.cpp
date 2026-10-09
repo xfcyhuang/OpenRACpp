@@ -43,6 +43,9 @@ namespace {
 struct BitSetOps {
   std::function<std::uint64_t(std::span<const std::string>)> fn_get_bits;
   std::function<std::vector<std::string>(std::uint64_t)> fn_get_strings;
+  /// 单名 no-alloc 位查询(分配器桥消费)
+  /// The single-name no-alloc bit query (the bridge consumes).
+  std::function<std::optional<std::uint64_t>(std::string_view)> fn_bit_noalloc;
 };
 
 std::unordered_map<std::string, BitSetOps>& BitSetTable() {
@@ -51,12 +54,17 @@ std::unordered_map<std::string, BitSetOps>& BitSetTable() {
 }
 }  // namespace
 
-void RegisterBitSet(std::string_view str_tag,
-                    std::function<std::uint64_t(std::span<const std::string>)> fn_get_bits,
-                    std::function<std::vector<std::string>(std::uint64_t)> fn_get_strings) {
-  BitSetTable().insert_or_assign(std::string{str_tag},
-                                 BitSetOps{.fn_get_bits = std::move(fn_get_bits),
-                                           .fn_get_strings = std::move(fn_get_strings)});
+void RegisterBitSet(
+    std::string_view str_tag,
+    std::function<std::uint64_t(std::span<const std::string>)> fn_get_bits,
+    std::function<std::vector<std::string>(std::uint64_t)> fn_get_strings,
+    std::function<std::optional<std::uint64_t>(std::string_view)>
+        fn_bit_noalloc) {
+  BitSetTable().insert_or_assign(
+      std::string{str_tag},
+      BitSetOps{.fn_get_bits = std::move(fn_get_bits),
+                .fn_get_strings = std::move(fn_get_strings),
+                .fn_bit_noalloc = std::move(fn_bit_noalloc)});
 }
 
 std::uint64_t BitsOf(std::string_view str_tag, std::span<const std::string> vec_values) {
@@ -105,7 +113,35 @@ void RegisterRuntimeBitSet(std::string_view str_tag) {
           if (uint8_bits & (std::uint64_t{1} << int4_i))
             vec_values.push_back((*vec_names)[int4_i]);
         return vec_values;
+      },
+      [map_bits](std::string_view sv_value)
+          -> std::optional<std::uint64_t> {
+        if (const auto it_find = map_bits->find(std::string{sv_value});
+            it_find != map_bits->end())
+          return std::uint64_t{1} << it_find->second;
+        return std::nullopt;
       });
+}
+
+std::optional<std::uint64_t> BitSetBitsOfNoAlloc(
+    std::string_view str_tag, std::span<const std::string> vec_values) {
+  const auto it_find = BitSetTable().find(std::string{str_tag});
+  if (it_find == BitSetTable().end() || !it_find->second.fn_bit_noalloc)
+    return std::nullopt;
+  std::uint64_t uint8_bits{0};
+  for (const std::string& str_value : vec_values)
+    if (const auto bit = it_find->second.fn_bit_noalloc(str_value))
+      uint8_bits |= *bit;
+  return uint8_bits;
+}
+
+bool BitSetContainsString(std::string_view str_tag, std::uint64_t uint8_bits,
+                          std::string_view str_value) {
+  const auto it_find = BitSetTable().find(std::string{str_tag});
+  if (it_find == BitSetTable().end() || !it_find->second.fn_bit_noalloc)
+    return false;
+  const auto bit = it_find->second.fn_bit_noalloc(str_value);
+  return bit.has_value() && (uint8_bits & *bit) != 0;
 }
 
 // ———— 手写类 LoadUsing 注册表 / LoadUsing registry (hand-written classes) ————

@@ -23,10 +23,15 @@
 import std;
 
 #include "core/int2.hpp"
+#include "core/polygon.hpp"
 #include "core/wdist.hpp"
 #include "meta/generic_record.hpp"
 #include "sim/actor.hpp"
 #include "sim/trait_interfaces.hpp"
+
+namespace ora::gfx {
+class WorldRenderer;
+}
 
 namespace ora::mods {
 
@@ -53,11 +58,64 @@ struct SelectableInfoData {
   static SelectableInfoData Parse(const meta::RecordObject& rec);
 };
 
-/// Selectable(L41-54)
-class Selectable final : public sim::TraitBase,
+/// Interactable(L41-105;数据面 + polygon 居中预计算)
+/// Interactable (L41-105; the data face + the polygon centering
+/// precalculation).
+class Interactable : public sim::TraitBase,
+                     public sim::INotifyCreated,
+                     public sim::IMouseBounds {
+ public:
+  ORA_TRAIT_INTERFACES(Interactable, OpenRA_Mods_Common_Traits_Interactable,
+                       sim::INotifyCreated, sim::IMouseBounds)
+
+  explicit Interactable(InteractableInfoData info);
+
+  void Created(sim::Actor& self) override;  // L51-54
+
+  Polygon MouseoverBounds(sim::Actor& self,
+                          gfx::WorldRenderer* wr) override;
+
+  /// DecorationBounds(L109-112):装饰矩形(DecorationBounds 空则回落
+  /// Bounds;再空则 AutoBounds 首非空)
+  /// DecorationBounds (L109-112): the decoration rect (an empty
+  /// DecorationBounds falls back to Bounds; then to AutoBounds's first
+  /// non-empty).
+  Rectangle DecorationBounds(sim::Actor& self, gfx::WorldRenderer& wr);
+
+ private:
+  /// AutoBounds(L56-60):IAutoMouseBounds trait 集的首非空矩形
+  /// AutoBounds (L56-60): the first non-empty rect of the IAutoMouseBounds
+  /// set.
+  Rectangle AutoBounds(sim::Actor& self, gfx::WorldRenderer& wr);
+
+  /// PolygonBounds(L62-76):世界偏移顶点换算屏幕像素
+  /// PolygonBounds (L62-76): the world-offset vertices converted to screen
+  /// pixels.
+  std::vector<int2> PolygonBounds(sim::Actor& self, gfx::WorldRenderer& wr);
+
+  /// Bounds(L78-96):WDist 矩形换算屏幕像素(空 bounds = AutoBounds)
+  /// Bounds (L78-96): the WDist rect converted to screen pixels (empty
+  /// bounds = AutoBounds).
+  Polygon Bounds(sim::Actor& self, gfx::WorldRenderer& wr,
+                 const std::vector<WDist>& vec_bounds);
+
+  InteractableInfoData info_;
+  /// L46-52:polygon 包围盒的居中偏移预计算
+  /// L46-52: the precalculated centering offset of the polygon's bounding
+  /// rect.
+  int2 int2_polygon_center_offset_{};
+  std::vector<sim::IAutoMouseBounds*> vec_auto_bounds_;
+};
+
+/// Selectable(L41-54):承 Interactable —— 上游单表继承(SelectionDecorations
+/// 的 Trait<Interactable> 查询需命中同一对象)
+/// Selectable (L41-54): inherits Interactable — upstream's single-table
+/// inheritance (the Trait<Interactable> query must hit the same object).
+class Selectable final : public Interactable,
                          public sim::ISelectable {
  public:
   ORA_TRAIT_INTERFACES(Selectable, OpenRA_Mods_Common_Traits_Selectable,
+                       Interactable, sim::INotifyCreated, sim::IMouseBounds,
                        sim::ISelectable)
 
   Selectable(sim::Actor& self, SelectableInfoData info);
@@ -71,27 +129,6 @@ class Selectable final : public sim::TraitBase,
   std::string str_selection_class_;  // L43(空/缺省 = actor 名)
                                      // L43 (empty/default = the actor name).
   SelectableInfoData info_;
-};
-
-/// Interactable(L41-105;数据面 + polygon 居中预计算)
-/// Interactable (L41-105; the data face + the polygon centering
-/// precalculation).
-class Interactable final : public sim::TraitBase,
-                           public sim::INotifyCreated {
- public:
-  ORA_TRAIT_INTERFACES(Interactable, OpenRA_Mods_Common_Traits_Interactable,
-                       sim::INotifyCreated)
-
-  explicit Interactable(InteractableInfoData info);
-
-  void Created(sim::Actor& self) override;  // L51-54(autoBounds 缓存面空)
-
- private:
-  InteractableInfoData info_;
-  /// L47-52:polygon 包围盒的居中偏移预计算
-  /// L47-52: the precalculated centering offset of the polygon's
-  /// bounding rect.
-  int2 int2_polygon_center_offset_{};
 };
 
 }  // namespace ora::mods

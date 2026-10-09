@@ -4,8 +4,10 @@
 //          Statement-by-statement; the mechanism mapping lives in
 //          selectable.hpp's header note.
 #include "game/actor_info.hpp"
+#include "gfx/world_renderer.hpp"
 #include "mods/selectable.hpp"
 #include "sim/trait_registry.hpp"
+#include "sim/world.hpp"
 
 
 namespace ora::mods {
@@ -73,7 +75,7 @@ SelectableInfoData SelectableInfoData::Parse(
 }
 
 Selectable::Selectable(sim::Actor& self, SelectableInfoData info)
-    : info_{std::move(info)} {
+    : Interactable{info.interactable}, info_{std::move(info)} {
   // L43-51:selectionClass = 空 Class ? actor 名 : Class
   // L43-51: selectionClass = empty Class ? the actor name : Class.
   str_selection_class_ = info_.str_class.empty()
@@ -100,10 +102,71 @@ Interactable::Interactable(InteractableInfoData info)
   }
 }
 
-void Interactable::Created(sim::Actor&) {
-  // L51-54:IAutoMouseBounds 缓存 = 渲染 trait 集(空 —— WithSpriteBody 批)
-  // L51-54: the IAutoMouseBounds cache = the render-trait set (empty —
-  // the WithSpriteBody batch).
+void Interactable::Created(sim::Actor& self) {
+  vec_auto_bounds_ = self.TraitsImplementing<sim::IAutoMouseBounds>();
+}
+
+Rectangle Interactable::AutoBounds(sim::Actor& self, gfx::WorldRenderer& wr) {
+  for (sim::IAutoMouseBounds* bounds : vec_auto_bounds_) {
+    const Rectangle rect = bounds->AutoMouseoverBounds(self, &wr);
+    if (!rect.IsEmpty())
+      return rect;
+  }
+  return Rectangle{};
+}
+
+std::vector<int2> Interactable::PolygonBounds(sim::Actor& self,
+                                              gfx::WorldRenderer& wr) {
+  std::vector<int2> vec_screen(static_cast<std::size_t>(
+      info_.vec_polygon.size()));
+  const int2 tile_size = wr.TileSize();
+  const std::int32_t int4_tile_scale = wr.TileScale();
+  for (std::size_t i = 0; i < info_.vec_polygon.size(); ++i) {
+    const int2 vertex = info_.vec_polygon[i] + int2_polygon_center_offset_;
+    // C# 整除向零截断 | C# integer division truncates towards zero.
+    const int2 offset{
+        vertex.X * tile_size.X / int4_tile_scale,
+        vertex.Y * tile_size.Y / int4_tile_scale};
+    vec_screen[i] = wr.ScreenPxPosition(self.CenterPosition()) + offset;
+  }
+  return vec_screen;
+}
+
+Polygon Interactable::Bounds(sim::Actor& self, gfx::WorldRenderer& wr,
+                             const std::vector<WDist>& vec_bounds) {
+  if (vec_bounds.empty())
+    return Polygon{AutoBounds(self, wr)};
+
+  const int2 tile_size = wr.TileSize();
+  const std::int32_t int4_tile_scale = wr.TileScale();
+  const int2 size{
+      vec_bounds[0].Length * tile_size.X / int4_tile_scale,
+      vec_bounds[1].Length * tile_size.Y / int4_tile_scale};
+
+  int2 offset{-size.X / 2, -size.Y / 2};
+  if (vec_bounds.size() > 2)
+    offset = offset + int2{
+        vec_bounds[2].Length * tile_size.X / int4_tile_scale,
+        vec_bounds[3].Length * tile_size.Y / int4_tile_scale};
+
+  const int2 xy = wr.ScreenPxPosition(self.CenterPosition()) + offset;
+  return Polygon{Rectangle{xy.X, xy.Y, size.X, size.Y}};
+}
+
+Polygon Interactable::MouseoverBounds(sim::Actor& self,
+                                      gfx::WorldRenderer* wr) {
+  gfx::WorldRenderer& wr_ref = *wr;
+  if (!info_.vec_polygon.empty())
+    return Polygon{PolygonBounds(self, wr_ref)};
+  return Bounds(self, wr_ref, info_.vec_bounds);
+}
+
+Rectangle Interactable::DecorationBounds(sim::Actor& self,
+                                         gfx::WorldRenderer& wr) {
+  return Bounds(self, wr, !info_.vec_decoration_bounds.empty()
+                              ? info_.vec_decoration_bounds
+                              : info_.vec_bounds)
+      .BoundingRect;
 }
 
 }  // namespace ora::mods

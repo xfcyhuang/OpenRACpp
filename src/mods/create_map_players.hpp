@@ -80,4 +80,13 @@ void RegisterCommonTraitsBatch7();
 /// translation unit — called from within RegisterCommonTraits).
 void RegisterCommonTraitsBatch8();
 
+/// 第九批 trait 的注册装配(selection_decorations/with_decoration/
+/// with_death_animation/with_damage_overlay/production_bar/pips 装饰;
+/// 独立翻译单元 —— RegisterCommonTraits 内调用)
+/// The batch-9 trait registry assembly (selection_decorations/
+/// with_decoration/with_death_animation/with_damage_overlay/
+/// production_bar/the pip decorations; a separate translation unit —
+/// called from within RegisterCommonTraits).
+void RegisterCommonTraitsBatch9();
+
 }  // namespace ora::mods
