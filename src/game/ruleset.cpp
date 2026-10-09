@@ -5,7 +5,9 @@
 import std;
 #include "game/ruleset.hpp"
 #include "game/mod_data.hpp"
+#include "meta/field_loader.hpp"
 #include "meta/parse.hpp"
+#include "meta/type_registry.hpp"
 #include "yaml/mini_yaml.hpp"
 
 namespace ora::game {
@@ -329,6 +331,73 @@ std::unique_ptr<Ruleset> Ruleset::Load(
 
   rs->terrain_info_ = &mod_data.GetTerrainInfo(str_tile_set);
   return rs;
+}
+
+bool Ruleset::AnyCustomYaml(const yaml::MiniYaml* yaml) {
+  return yaml != nullptr &&
+         (yaml->Value != nullptr || !yaml->Nodes.empty());
+}
+
+bool Ruleset::AnyFlaggedTraits(ModData& mod_data,
+                               const std::vector<yaml::MiniYamlNode>& vec_actors) {
+  (void)mod_data;
+  for (const yaml::MiniYamlNode& actor_node : vec_actors) {
+    if (actor_node.Value.Nodes.empty())
+      continue;
+    for (const yaml::MiniYamlNode& trait_node : actor_node.Value.Nodes) {
+      std::string_view sv_key =
+          trait_node.Key != nullptr ? std::string_view{*trait_node.Key}
+                                    : std::string_view{};
+      const std::size_t n_at = sv_key.find('@');
+      if (n_at != std::string_view::npos)
+        sv_key = sv_key.substr(0, n_at);
+      const std::string str_trait_name{sv_key};
+      const meta::RecordDesc* desc = meta::TypeRegistry::FindType(
+          str_trait_name + "Info");
+      if (desc != nullptr) {
+        bool b_whitelisted = false;
+        for (std::string_view str_iface : desc->interfaces)
+          if (str_iface == "OpenRA.Traits.ILobbyCustomRulesIgnore") {
+            b_whitelisted = true;
+            break;
+          }
+        if (!b_whitelisted)
+          return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool Ruleset::DefinesUnsafeCustomRules(
+    ModData& mod_data, const MapFileSystemFace& map_files,
+    const yaml::MiniYaml* map_rules, const yaml::MiniYaml* map_weapons,
+    const yaml::MiniYaml* map_voices, const yaml::MiniYaml* map_notifications,
+    const yaml::MiniYaml* map_sequences) {
+  if (AnyCustomYaml(map_weapons) || AnyCustomYaml(map_voices) ||
+      AnyCustomYaml(map_notifications) || AnyCustomYaml(map_sequences))
+    return true;
+
+  if (map_rules == nullptr)
+    return false;
+
+  if (AnyFlaggedTraits(mod_data, map_rules->Nodes))
+    return true;
+
+  if (map_rules->Value != nullptr) {
+    const std::vector<std::string> vec_map_files =
+        meta::GetStringArrayValue("value", *map_rules->Value);
+    for (const std::string& str_file : vec_map_files) {
+      const std::vector<char> bytes = map_files.fn_open(str_file);
+      const std::vector<yaml::MiniYamlNode> vec_nodes = yaml::MiniYaml::FromStream(
+          std::string_view{bytes.data(), bytes.size()}, str_file, false,
+          yaml::MiniYaml::GlobalPool());
+      if (AnyFlaggedTraits(mod_data, vec_nodes))
+        return true;
+    }
+  }
+
+  return false;
 }
 
 }  // namespace ora::game

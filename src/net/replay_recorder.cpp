@@ -78,10 +78,11 @@ std::unique_ptr<ReplayMetadata> ReplayMetadata::Read(
     // version + the start marker).
     const std::int64_t int8_back =
         4 + 4 + static_cast<std::int64_t>(int4_data_length) + 4 + 4;
-    if (static_cast<std::int64_t>(sz_tail) < int8_back)
+    if (static_cast<std::int64_t>(vec_bytes.size()) < int8_back)
       return nullptr;
 
-    ByteReader reader{vec_bytes.data() + (sz_tail - int8_back),
+    ByteReader reader{vec_bytes.data() + (vec_bytes.size() -
+                                          static_cast<std::size_t>(int8_back)),
                       static_cast<std::size_t>(int8_back)};
     if (reader.ReadInt32() != kMetaStartMarker)
       throw std::runtime_error(
@@ -201,7 +202,8 @@ ReplayConnection::ReplayConnection(std::vector<std::uint8_t> vec_replay_bytes)
     const std::int32_t int4_data_length = tail.ReadInt32();
     const std::int64_t int8_back =
         4 + 4 + static_cast<std::int64_t>(int4_data_length) + 4 + 4;
-    vec_bytes_.resize(static_cast<std::size_t>(sz_tail - int8_back));
+    vec_bytes_.resize(vec_bytes_.size() -
+                      static_cast<std::size_t>(int8_back));
   }
 }
 

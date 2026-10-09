@@ -87,6 +87,8 @@ class ModData final {
   /// default is an empty table).
   GameSpeeds& GetOrCreateGameSpeeds();
 
+  std::vector<std::vector<yaml::MiniYamlNode>> GetRulesYaml();
+
  private:
   std::unique_ptr<Manifest> manifest_;
   fs::FileSystem fs_modFiles_;

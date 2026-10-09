@@ -184,8 +184,9 @@ ora_link_std(ora_game)
 add_library(ora_map STATIC
   src/map/map.cpp
   src/map/map_players.cpp
-  src/map/map_cache.cpp)
-target_link_libraries(ora_map PUBLIC ora_game)
+  src/map/map_cache.cpp
+  src/map/map_directory_tracker.cpp)
+target_link_libraries(ora_map PUBLIC ora_game ora_fs PRIVATE ora_formats)
 ora_link_std(ora_map)
 
 add_library(ora_sim STATIC
@@ -228,7 +229,8 @@ add_library(ora_net STATIC
   src/net/order_manager.cpp
   src/net/unit_orders.cpp
   src/net/replay_recorder.cpp
-  src/net/sync_report.cpp)
+  src/net/sync_report.cpp
+  src/net/replay_diff.cpp)
 target_link_libraries(ora_net PUBLIC ora_sim)
 ora_link_std(ora_net)
 
@@ -630,6 +632,24 @@ ora_link_std(condition_test)
 add_test(NAME condition_test COMMAND condition_test ${ORA_UPSTREAM_ROOT})
 set_tests_properties(condition_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
 endif()
+
+if(EXISTS ${CMAKE_SOURCE_DIR}/tools/replaydiff/replaydiff.cpp)
+  add_executable(replaydiff tools/replaydiff/replaydiff.cpp)
+  target_link_libraries(replaydiff PRIVATE
+    ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
+    ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
+    ora_miniz ora_sdl2 ora_openal ora_freetype)
+  ora_link_std(replaydiff)
+endif()
+
+add_executable(replaydiff_test tests/replaydiff_test.cpp)
+ora_link_std(replaydiff_test)
+target_link_libraries(replaydiff_test PRIVATE
+  ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
+  ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
+  ora_miniz ora_sdl2 ora_openal ora_freetype)
+ora_link_std(replaydiff_test)
+add_test(NAME replaydiff_test COMMAND replaydiff_test)
 
 if(EXISTS ${CMAKE_SOURCE_DIR}/tests/render_test.cpp)
 add_executable(render_test tests/render_test.cpp)

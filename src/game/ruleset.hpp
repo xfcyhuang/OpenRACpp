@@ -121,11 +121,19 @@ class Ruleset final {
       const yaml::MiniYaml* map_notifications, const yaml::MiniYaml* map_music,
       const yaml::MiniYaml* map_model_sequences);
 
-  /// LoadDefaultsForTileSet(L167-173):默认规则 + 指定 tileset 的地形
-  /// LoadDefaultsForTileSet (L167-173): the default rules plus the named
-  /// tileset's terrain.
   static std::unique_ptr<Ruleset> LoadDefaultsForTileSet(
       ModData& mod_data, std::string_view str_tile_set);
+
+  static bool AnyCustomYaml(const yaml::MiniYaml* yaml);
+
+  static bool AnyFlaggedTraits(ModData& mod_data,
+                               const std::vector<yaml::MiniYamlNode>& vec_actors);
+
+  static bool DefinesUnsafeCustomRules(
+      ModData& mod_data, const MapFileSystemFace& map_files,
+      const yaml::MiniYaml* map_rules, const yaml::MiniYaml* map_weapons,
+      const yaml::MiniYaml* map_voices, const yaml::MiniYaml* map_notifications,
+      const yaml::MiniYaml* map_sequences);
 
  private:
   std::vector<std::pair<std::string, std::unique_ptr<ActorInfo>>> vec_actors_;

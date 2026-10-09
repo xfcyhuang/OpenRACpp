@@ -359,6 +359,43 @@ int main(int argc, char** argv) {
     }
   Check(!str_uid.empty(), "an available ra map exists");
 
+  // ———— 第十批:MapPreview 异步面 + 自定义规则面 ————
+  if (!str_uid.empty()) {
+    map::MapPreview& preview = cache.At(str_uid);
+    Check(preview.MapFormat() >= Map::kSupportedMapFormat,
+          "preview MapFormat supported");
+    Check(preview.ModifiedDate() > 0, "preview ModifiedDate stamped");
+    Check(preview.WorldActorInfo() != nullptr, "preview WorldActorInfo set");
+    Check(preview.PlayerActorInfo() != nullptr,
+          "preview PlayerActorInfo set");
+    Check(preview.WorldActorInfo()->Name() == "world",
+          "preview WorldActorInfo name");
+    Check(!preview.DefinesUnsafeCustomRules(),
+          "stock ra map defines no unsafe custom rules");
+    Check(preview.LoadRuleset() != nullptr, "preview LoadRuleset constructs");
+    Check(preview.ExistsFile("map.yaml"), "preview ExistsFile map.yaml");
+    Check(!preview.OpenFile("map.yaml").empty(), "preview OpenFile map.yaml");
+    std::string str_message;
+    Check(!preview.TryGetMessage("nomatch", str_message),
+          "preview TryGetMessage fluent fallback");
+    Check(preview.GetMessage("nomatch") == "nomatch",
+          "preview GetMessage returns key");
+
+    cache.SetMinimapMaterializer(
+        [](map::MapPreview& p_mini) { p_mini.SetMinimap(0x1234); });
+    if (preview.Preview() != nullptr) {
+      preview.GetMinimap();
+      for (int i = 0; i < 200 && preview.GetMinimap() == 0; ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+      Check(preview.GetMinimap() == 0x1234,
+            "minimap materialized by loader thread");
+    }
+    preview.SetMinimap(0);
+    cache.UpdateMaps();
+    cache.UpdateMaps();
+    Check(cache.Previews().size() > 0, "UpdateMaps no-op keeps previews");
+  }
+
   // ———— World 全量构造(world actor 规则 + TraitRegistry + arena)————
   if (!str_uid.empty()) {
     map::MapPreview& preview = cache.At(str_uid);

@@ -238,4 +238,16 @@ const map::ITerrainInfo& ModData::GetTerrainInfo(std::string_view str_id) {
   throw std::runtime_error("The given key was not present in the dictionary.");
 }
 
+std::vector<std::vector<yaml::MiniYamlNode>> ModData::GetRulesYaml() {
+  yaml::StringPool& pool_rules = yaml::MiniYaml::GlobalPool();
+  std::vector<std::vector<yaml::MiniYamlNode>> vec_out;
+  for (const std::string& str_file : manifest_->Rules()) {
+    const std::vector<char> bytes = fs_modFiles_.Open(str_file);
+    vec_out.push_back(yaml::MiniYaml::FromStream(
+        std::string_view{bytes.data(), bytes.size()}, str_file, false,
+        pool_rules));
+  }
+  return vec_out;
+}
+
 }  // namespace ora::game
