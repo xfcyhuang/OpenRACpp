@@ -7,6 +7,7 @@
 
 #include "net/order.hpp"
 #include "net/order_io.hpp"
+#include "net/order_manager.hpp"
 
 namespace ora::net {
 
@@ -185,49 +186,172 @@ void ReplayRecorder::Dispose() {
     Metadata->Write(vec_bytes_);
 }
 
-// ———— ReplayConnection(起步面)————
-// ———— ReplayConnection (the starter face) ————
+// ———— ReplayConnection ————
 
-ReplayConnection::ReplayConnection(std::vector<std::uint8_t> vec_replay_bytes)
-    : vec_bytes_{std::move(vec_replay_bytes)} {
-  // 上游 ctor:metadata 尾解析(录像主体 = 标记前的字节流)
-  // The upstream ctor: the metadata tail parse (the replay body = the
-  // bytes before the marker block).
-  if (auto up_metadata = ReplayMetadata::Read(vec_bytes_); up_metadata) {
+namespace {
+
+std::optional<int> ExtractFinalGameTick(const std::string& str_game_info) {
+  const std::string_view sv{str_game_info};
+  const std::size_t pos = sv.find("FinalGameTick:");
+  if (pos == std::string_view::npos)
+    return std::nullopt;
+  std::size_t cursor = pos + std::string_view{"FinalGameTick:"}.size();
+  while (cursor < sv.size() && (sv[cursor] == ' ' || sv[cursor] == '\t'))
+    ++cursor;
+  std::size_t end = cursor;
+  while (end < sv.size() && sv[end] >= '0' && sv[end] <= '9')
+    ++end;
+  if (end == cursor)
+    return std::nullopt;
+  int out = 0;
+  const auto [ptr, ec] =
+      std::from_chars(sv.data() + cursor, sv.data() + end, out, 10);
+  if (ec != std::errc{})
+    return std::nullopt;
+  return out;
+}
+
+}  // namespace
+
+ReplayConnection::ReplayConnection(
+    std::vector<std::uint8_t> vec_replay_bytes, int int4_order_latency)
+    : vec_replay_bytes_{std::move(vec_replay_bytes)},
+      int4_order_latency_{int4_order_latency} {
+  if (auto up_metadata = ReplayMetadata::Read(vec_replay_bytes_); up_metadata) {
     up_metadata_ = std::move(up_metadata);
-    // 主体截到 start 标记前(Read 的同式回退)
-    // The body truncates ahead of the start marker (Read's back-step).
-    const std::size_t sz_tail = vec_bytes_.size() - 8;
-    ByteReader tail{vec_bytes_.data() + sz_tail, 8};
+    const std::size_t sz_tail = vec_replay_bytes_.size() - 8;
+    ByteReader tail{vec_replay_bytes_.data() + sz_tail, 8};
     const std::int32_t int4_data_length = tail.ReadInt32();
     const std::int64_t int8_back =
         4 + 4 + static_cast<std::int64_t>(int4_data_length) + 4 + 4;
-    vec_bytes_.resize(vec_bytes_.size() -
-                      static_cast<std::size_t>(int8_back));
+    sz_body_end_ =
+        vec_replay_bytes_.size() - static_cast<std::size_t>(int8_back);
+    if (const auto final_tick =
+            ExtractFinalGameTick(up_metadata_->GameInfoData());
+        final_tick)
+      int4_final_game_tick_ = *final_tick;
+  } else {
+    sz_body_end_ = vec_replay_bytes_.size();
+  }
+
+  // Parse replay data into a struct that can be fed to the game in chunks
+  // to avoid issues with all immediate orders being resolved on the first
+  // tick. (上游注释 / upstream comment)
+  std::vector<std::pair<int, std::vector<std::uint8_t>>> vec_packets;
+  std::size_t pos = 0;
+  while (pos < sz_body_end_) {
+    if (pos + 8 > sz_body_end_)
+      break;
+    ByteReader head{vec_replay_bytes_.data() + pos, sz_body_end_ - pos};
+    const std::int32_t int4_client = head.ReadInt32();
+    if (int4_client == ReplayMetadata::kMetaStartMarker)
+      break;
+
+    const std::int32_t int4_packet_len = head.ReadInt32();
+    pos += 8;
+    if (int4_packet_len < 0 ||
+        static_cast<std::uint64_t>(pos + static_cast<std::uint64_t>(
+                                             int4_packet_len)) >
+            sz_body_end_)
+      break;
+    std::vector<std::uint8_t> vec_packet(
+        vec_replay_bytes_.begin() + static_cast<std::ptrdiff_t>(pos),
+        vec_replay_bytes_.begin() +
+            static_cast<std::ptrdiff_t>(pos + int4_packet_len));
+    pos += static_cast<std::size_t>(int4_packet_len);
+
+    std::int32_t int4_frame = 0;
+    if (vec_packet.size() >= 4) {
+      ByteReader frame_reader{vec_packet.data(), 4};
+      int4_frame = frame_reader.ReadInt32();
+    }
+    vec_packets.emplace_back(int4_client, std::move(vec_packet));
+
+    const std::vector<std::uint8_t>& vec_packet_kept = vec_packets.back().second;
+    if (vec_packet_kept.size() > 4 &&
+        (vec_packet_kept[4] ==
+             static_cast<std::uint8_t>(OrderType::Disconnect) ||
+         vec_packet_kept[4] ==
+             static_cast<std::uint8_t>(OrderType::SyncHash)))
+      continue;
+
+    if (int4_frame == 0) {
+      int int4_frame_parsed = 0;
+      OrderPacket packet_orders;
+      if (OrderIO::TryParseOrderPacket(vec_packet_kept, int4_frame_parsed,
+                                       packet_orders)) {
+        for (const auto& up_order :
+             packet_orders.GetOrders(nullptr)) {
+          if (up_order->str_order_string == "StartGame")
+            b_valid_ = true;
+          else if (up_order->str_order_string == "SyncInfo" && !b_valid_) {
+            lobby_info_ = Session::Deserialize(
+                up_order->str_target_string.value_or(""),
+                up_order->str_order_string);
+            b_has_lobby_info_ = true;
+          }
+        }
+      }
+    } else {
+      Chunk chunk_next;
+      chunk_next.frame = int4_frame;
+      chunk_next.vec_packets = vec_packets;
+      vec_packets.clear();
+      queue_chunks_.push(std::move(chunk_next));
+
+      int4_tick_count_ = std::max(int4_tick_count_, int4_frame);
+    }
   }
 }
 
-bool ReplayConnection::TryReadNext(
-    int& out_client_id, std::vector<std::uint8_t>& out_data) {
-  // 上游 ctor 的逐包读循环:clientID + length + data
-  // Upstream's per-packet read loop: clientID + length + data.
-  if (int8_cursor_ + 8 > vec_bytes_.size())
-    return false;
+int ReplayConnection::LocalClientId() { return -1; }
 
-  ByteReader reader{vec_bytes_.data() + int8_cursor_,
-                    vec_bytes_.size() - int8_cursor_};
-  try {
-    out_client_id = reader.ReadInt32();
-    const std::int32_t int4_length = reader.ReadInt32();
-    if (static_cast<std::uint64_t>(int4_length) >
-        static_cast<std::uint64_t>(reader.Remaining()))
-      return false;
-    out_data.clear();
-    reader.ReadBytes(static_cast<std::size_t>(int4_length), out_data);
-    int8_cursor_ += 8 + static_cast<std::size_t>(int4_length);
-    return true;
-  } catch (const std::exception&) {
-    return false;
+void ReplayConnection::StartGame() {}
+
+void ReplayConnection::Send(int frame,
+                            const std::vector<const Order*>& orders) {}
+
+void ReplayConnection::SendImmediate(
+    const std::vector<const Order*>& orders) {}
+
+void ReplayConnection::SendSync(int frame, int sync_hash,
+                                std::uint64_t uint8_defeat_state) {
+  queue_sync_.push(SyncPacketData{frame, sync_hash, uint8_defeat_state});
+}
+
+void ReplayConnection::Receive(OrderManager& order_manager) {
+  while (!queue_sync_.empty()) {
+    order_manager.ReceiveSync(queue_sync_.front());
+    queue_sync_.pop();
+  }
+
+  while (!queue_chunks_.empty() &&
+         queue_chunks_.front().frame <=
+             order_manager.NetFrameNumber() + int4_order_latency_) {
+    Chunk chunk = std::move(queue_chunks_.front());
+    queue_chunks_.pop();
+    for (auto& [client_id, vec_packet] : chunk.vec_packets) {
+      Packet packet{client_id, vec_packet};
+      DisconnectData disconnect;
+      SyncPacketData sync;
+      int int4_frame = 0;
+      OrderPacket packet_orders;
+      if (OrderIO::TryParseDisconnect(packet, disconnect))
+        order_manager.ReceiveDisconnect(disconnect.client_id, disconnect.frame);
+      else if (OrderIO::TryParseSync(vec_packet, sync))
+        order_manager.ReceiveSync(sync);
+      else if (OrderIO::TryParseOrderPacket(vec_packet, int4_frame,
+                                            packet_orders)) {
+        if (int4_frame == 0)
+          order_manager.ReceiveImmediateOrders(client_id, packet_orders);
+        else
+          order_manager.ReceiveOrders(client_id, int4_frame,
+                                      std::move(packet_orders));
+      } else
+        throw std::runtime_error(
+            "Received unknown packet from client " + std::to_string(client_id) +
+            " with length " + std::to_string(vec_packet.size()));
+    }
   }
 }
 

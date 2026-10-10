@@ -117,13 +117,10 @@ int main() {
             "drop divergent frame");
 
     net::ReplayConnection connection{vec_a};
-    int int4_client = 0;
-    std::vector<std::uint8_t> vec_data;
-    std::size_t n_read = 0;
-    while (connection.TryReadNext(int4_client, vec_data))
-      ++n_read;
-    CheckEq(n_read, replay_a->vec_packets.size(),
-            "ReplayConnection packet parity");
+    Check(connection.IsValid(), "ReplayConnection StartGame valid");
+    Check(!connection.HasLobbyInfo(), "ReplayConnection no SyncInfo");
+    CheckEq(connection.TickCount(), replay_a->int4_tick_count,
+            "ReplayConnection tick count parity");
   }
 
   if (g_failures == 0)

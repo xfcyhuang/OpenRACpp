@@ -12,7 +12,7 @@
 
 ## 进度总览
 
-**整体完成度约 58%**（按 PORTING_PLAN 各阶段工作量加权估算）。数据/引擎/渲染/平台层（前半程）已完成并经黄金对拍锁定；当前处于 **Phase 5 的 gameplay 大面**——攻击/迷雾/建筑/生产/电力/资源全链（AttackBase+Follow+Turreted/AutoTarget/全部主力弹丸战头/Shroud/FrozenActorLayer/Building/Production/PlayerResources/TechTree/PowerManager/Harvester+ResourceLayer+Dock 子系统/Refinery）已打通，**控制台发 order 造兵→出厂→战斗→采矿→卸货入账的 skirmish 链路已在测试中全程跑通**；Cloak/GainsExperience/Capturable 族/Conditions 34 件/Selectable/SpawnMapActors 已随第七批打通；Render·WithSpriteBody 渲染族 + ProximityCapturable + Settings/FieldSaver + SyncReport/录像录制起步已随第八批打通（渲染批修出子类 upcast 漏接口集真问题）；注释·装饰·死亡·损伤·进度条渲染族（SelectionDecorations/WithDecoration/WithDeathAnimation/WithDamageOverlay/ProductionBar/pips 装饰）已随第九批打通（修出 BitSet 双表分裂与 Selectable 单表继承缺失两真问题）；**Phase 5 十批全部完成**——MapPreview 异步面（InnerData 原子替换/自定义规则面/minimap 后台线程/MapDirectoryTracker 轮询等价）与 tools/replaydiff 对拍器已随第十批落地（修出 ReplayMetadata 回退少 8 字节与 GetRulesYaml 局部池悬垂两真问题）。下一步：**C# 录制 replay 逐帧 SyncHash 对拍（确定性移植总关卡）**。
+**整体完成度约 60%**(按 PORTING_PLAN 各阶段工作量加权估算)。数据/引擎/渲染/平台层(前半程)已完成并经黄金对拍锁定;Phase 5 的 gameplay 大面(攻击/迷雾/建筑/生产/电力/资源/条件·隐身·经验·捕获·摆位/渲染 trait 全族/MapPreview 异步面 + replaydiff 对拍器)十批全部完成;**第十一批(2026-10-10)已打通回放驱动链** —— Session 全字段双向序列化 + ReplayConnection 全文化(chunk 切段/orderLatency 节流/内建 desync 检测)+ SyncInfo/StartGame 大厅装配 + Game::JoinReplay,replay_test 以真 ra 全链**自录自放:逐帧 SyncHash 自洽 + 篡改帧 desync 检测**全绿。下一步:**golden_gen 宿主 C# 世界产真 replay 的逐帧 SyncHash 对拍(确定性移植总关卡 G2 第二编)**。
 
 | 阶段 | 内容 | 状态 | 完成度 |
 |---|---|---|---|
@@ -23,7 +23,7 @@
 | Phase 4 | 平台层 + 渲染 + 文件格式 + 音频 + UI 框架起步 + Game 主循环骨架（15 批） | ✅ 完成（2026-10-06） | 100% |
 | Phase 5 | 主循环整合 + 核心 gameplay（Map/World/寻路/Mobile+Move/Armament/攻击链+炮塔/迷雾链/弹丸战头全量/建筑生产链/电力链/资源链/条件·隐身·经验·捕获·摆位链/渲染 trait·邻近捕获·Settings·录像起步/注释·装饰·死亡·损伤·进度条渲染族/MapPreview 异步面 + replaydiff 对拍器，10 批） | ✅ 完成（2026-10-07 ~ 2026-10-10） | 100% |
 | Phase 6 | UI + 本地化 | 🌱 起步（框架内核已就位） | ~10% |
-| Phase 7 | 网络与服务器 | 🌱 起步（锁步内核已就位） | ~20% |
+| Phase 7 | 网络与服务器 | 🌱 推进（锁步内核 + 回放驱动链已就位） | ~30% |
 | Phase 8 | Lua 脚本 + AI + 战役 + Utility | ⬜ 未开始 | ~0% |
 | Phase 9 | 打磨与发布 | ⬜ 未开始 | 0% |
 
@@ -34,12 +34,14 @@
 - **三 mod 规则深解析**：ra 80,274 / cnc 49,416 / d2k 35,833 行**逐字节快照回归**；上游 `--check-yaml` exit=0 佐证。
 - **资产解码黄金对拍**：mods 全部 .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 资产 + 合成夹具，`tests/golden_formats.txt` **6,737 行逐行一致**；字形 **216 个逐字节一致**（与 C# oracle 加载同一 freetype6.dll）。
 - **锁步确定性**：EchoConnection 单机 **10⁶ tick 双构建（ASan+UBSan/Release）通过，无泄漏无 desync**。
-- **持续门禁**：ctest **27/27** 三构建（ASan+UBSan / Release / **GCC -fhardened 旗级等价硬化**）全绿；`import std;` 严控（**467 文件**）；偏离登记 **D1~D194**。
+- **持续门禁**：ctest **28/28** 三构建（ASan+UBSan / Release / **GCC -fhardened 旗级等价硬化**）全绿；`import std;` 严控（**469 文件**）；偏离登记 **D1~D200**。
 - **双编译排错编排（2026-10-08 起）**：**Clang 23**（llvm-mingw/UCRT，基线工具链）× {ASan+UBSan、Release} + **GCC `-fhardened` 旗级等价第二编排**（`-D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -pie`，CMake `-DORA_HARDENED=ON`；std.pcm 同享 `-fstack-protector-strong` 防配置失配拒载）。实测注记：本机 `gcc.exe` 为 llvm-mingw 的 clang 壳，原旗标 `-fhardened` 不可执行 —— 等价集按 GCC 文档逐项展开；真 GCC 15+ 原旗标验证列为 CI 待办（见 ../cpp26.md 工具链表）。
 
-### 当前焦点（replay SyncHash 对拍关卡）
+### 当前焦点（replay SyncHash 对拍关卡,G2 两编）
 
-**C# 录制 replay 逐帧 SyncHash 对拍（确定性移植总关卡）**：以 C# 侧录制的 skirmish 回放为基线，C++ 回放驱动世界逐帧对 SyncHash，tools/replaydiff 输出首个不一致帧。
+**C# 侧 replay 逐帧 SyncHash 对拍（确定性移植总关卡）**：以 C# 侧产出的 skirmish 回放为基线，C++ 回放驱动世界逐帧对 SyncHash，tools/replaydiff 输出首个不一致帧。第一编（C++ 侧回放驱动链）已随第十一批打通；第二编 = golden_gen 宿主 C# 世界产真 .orarep + 逐帧黄金表。
+
+第十一批（2026-10-10,G2 第一编）已落地：回放驱动链全通 —— **Session 全字段双向序列化**（ClientState 枚举值对齐上游、Client/Slot/Global/LobbyOptionState 按名双向表）+ **ReplayConnection 全文化**（chunk 切段、帧 0 LobbyInfo/StartGame 扫描、Receive 的 orderLatency 节流投递、本地 SyncHash 经 SendSync 与录像包在 ReceiveSync 汇流比对 —— desync 检测内建）+ **SyncInfo/StartGame 大厅装配**（UnitOrders 分支 + Game::StartGameHandler）+ **Game::JoinReplay** 与 World 的 IsReplay/OutOfSync 注入 + SuggestedTimestep 全分支;replay_test 真 ra 全链**自录自放：逐帧 SyncHash 自洽 + 篡改帧 desync 检测**全绿。修出三个真问题（Session.ClientState 枚举值错误、Shroud 的 bool 选项宽松比较、Game::StartGame 缺 PrepareMap 序列装载面）。
 
 第十批（2026-10-10）已落地：MapPreview 异步面（InnerData 原子替换 + SetCustomRules 的 world/player 最小装载 + map.png 预览/ModifiedDate + GetMinimap/SetMinimap 与 MapCache 后台装载线程 + 远程搜索/生成状态机面）+ MapDirectoryTracker 轮询等价 + ModData::GetRulesYaml/Ruleset::DefinesUnsafeCustomRules + tools/replaydiff 对拍器（ParseReplayFile/DiffReplays + CLI）；新 replaydiff_test 与 map_test 第十批节；修出三个真问题（ReplayMetadata::Read 回退起点少 8 字节致 metadata 恒解析失败、GetRulesYaml 局部字符串池悬垂、MapPreview 构造缺初始 InnerData）。
 
@@ -152,13 +154,22 @@ clang `-std=c++26` + `import std;`（std.cppm 预编译 PCM）+ CMake/Ninja + ct
 - `src/net/` replay_diff 新件：**ParseReplayFile**（ReplayConnection ctor 的包解析语义 + SyncHash 序列抽取 + StartGame 有效位）+ **DiffReplays**（包序/逐字节/序号帧号/SyncHash/metadata/valid 六面对比 + 首个不一致帧 + hexdump）+ `tools/replaydiff` CLI（exit 0/1/2；本地工具不入库）。
 - 验收：新 replaydiff_test（往返解析 + 自对拍 + 篡改定位 + 丢包 + ReplayConnection 包序一致性）；map_test 第十批节（MapFormat/ModifiedDate/WorldActorInfo/LoadRuleset/文件系统查询/minimap 后台物化/UpdateMaps）。ctest 26→27 三构建全绿；门禁 std_import（467）/upstream_check（441 标注 + 6 新文件可选未标注）PASS。修出三个真问题（**ReplayMetadata::Read 与 ReplayConnection ctor 回退起点少 8 字节** —— metadata 恒解析失败，第八批起潜伏；**GetRulesYaml 局部字符串池悬垂** —— ASan 实证；**MapPreview 构造缺初始 InnerData**）。偏离 D187~D194 登记。
 
+**第十一批（2026-10-10）：回放驱动链 —— ReplayConnection 全文 + Session 双向 + Game::JoinReplay（G2 第一编）**
+
+- `src/net/` session 重写：**Session/Client/Slot/Global/LobbyOptionState 全字段面**（ClientState 枚举值对齐上游 {NotReady=0, Invalid=1, Ready=2, Disconnected=1000}；Client 17 字段 + PreferredColor/ConnectionQuality/BotControllerClientIndex 等补齐；Slot 补 LockHandicap；Global 补 MapStatus 位/AllowSpectators/GameUid/Enable*/Dedicated/GameTimestep 与 LobbyOptions 的双 OptionOrDefault 重载；DisabledSpawnPoints）+ **Deserialize**（FieldLoader.Load 的按名装载手写面）/ **Serialize**（FieldSaver.Save 反射 → 按名字段表 + Options 追加）。
+- `src/net/` replay_recorder：**ReplayConnection 全文化**（IConnection 子类：ctor 的 chunk 切段 + 帧 0 的 LobbyInfo/StartGame 扫描 + metadata 尾解析;Receive 的本地 sync 队列排空 + chunk 按 NetFrameNumber+orderLatency 节流投递 + Disconnect/Sync/OrderPacket 三分派;本地 SyncHash 经 SendSync 入队与录像包在 OrderManager.ReceiveSync 汇流比对 —— **desync 检测内建**）;order_manager 的 **SuggestedTimestep 全分支**（loading/replay/tickScale）与 generateSyncReport 保真。
+- `src/net/` unit_orders：**SyncInfo/StartGame 分支**（Session 装载 + 存档帧装载 + SetStartGameHandler 注入面）。
+- `src/sim/` world：**OutOfSync**（EndGame + ReplayTimestep 永久暂停）。
+- `src/game/` game：**JoinReplay** + JoinInner 的 ProcessOrder/StartGameHandler 双装配 + StartGame 的 World IsReplay resolver/OutOfSync handler 注入 + **Deps.fn_prepare_map**（ModData.PrepareMap 的序列装载面）。
+- 验收：新 replay_test（真 ra 全链自录自放：RecordingEchoConnection 的 ReplayRecorder 语义录制 → 帧 0 真 Session 序列化往返 → 脚本 order 驱动 40 帧 → ReplayConnection ctor 断言 → **Game::JoinReplay 回放驱动世界全装配 → 逐帧 SyncHash 自洽（末帧 hash 相等 + 全程 IsOutOfSync=false）→ 篡改帧 desync 检测**）;ctest 27→28。修出三个真问题（**Session.ClientState 枚举值错误**（旧最小面 Invalid=0 起步,上游 NotReady=0/Invalid=1/Ready=2/Disconnected=1000 —— 序列化数值面全错）、**Shroud 的 bool 选项宽松比较**、**Game::StartGame 缺 PrepareMap 面**）。偏离 D195~D200 登记。
+
 ### Phase 6 — UI + 本地化 🌱（~10%）
 
 已完成：Widget 框架内核（树/焦点/冒泡/注册表）、Ui 门面、ChromeMetrics、WidgetLoader、光标管理器、声音门面。**未完成**：62 个 chrome widget + 131 个 Logic、Fluent 本地化（FluentProvider/FluentMessage）、WorldInteractionController/DefaultInputHandler 输入装配、chrome.yaml 资产接线。里程碑：主菜单 → 大厅 → skirmish 全 UI 流程可玩。
 
-### Phase 7 — 网络与服务器 🌱（~20%）
+### Phase 7 — 网络与服务器 🌱（~30%）
 
-已完成：Order 线协议/OrderManager 锁步/UnitOrders 分发/EchoConnection、Session 最小面。**未完成**：NetworkConnection 实体（读线程/Ack/TickScale）、Session 完整序列化与大厅协议、ReplayRecorder/ReplayConnection、SyncReport、Server（单线程事件循环/LobbyCommands 20 命令/Pinger 族）。验收：C++ 回放 C# 联机 replay；力争 C++ 客户端连 C# 服务器完成一局。
+已完成：Order 线协议/OrderManager 锁步/UnitOrders 分发（含 SyncInfo/StartGame）/EchoConnection、**Session 全字段双向序列化**、**ReplayConnection/ReplayRecorder 全文与回放驱动链（Game::JoinReplay,内建 desync 检测）**、SyncReport 起步。**未完成**：NetworkConnection 实体（读线程/Ack/TickScale）、Session 完整序列化与大厅协议、ReplayRecorder/ReplayConnection、SyncReport、Server（单线程事件循环/LobbyCommands 20 命令/Pinger 族）。验收：C++ 回放 C# 联机 replay；力争 C++ 客户端连 C# 服务器完成一局。
 
 ### Phase 8 — Lua 脚本、AI、战役、Utility ⬜
 
@@ -170,8 +181,8 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 
 ## 工程门禁
 
-- **三构建**：ASan+UBSan / Release / -fhardened 旗级等价硬化，ctest 27/27 全绿。
-- **`import std;` 严控**：禁传统 std 头引入（`tools/std_import_check.py`，467 文件 PASS；白名单仅第三方 C 头）。
+- **三构建**：ASan+UBSan / Release / -fhardened 旗级等价硬化，ctest 28/28 全绿。
+- **`import std;` 严控**：禁传统 std 头引入（`tools/std_import_check.py`，469 文件 PASS；白名单仅第三方 C 头）。
 - **函数级裁剪**：`-ffunction-sections -fdata-sections` + `--gc-sections`。
 - **黄金对拍体系**：yaml（759 文件）/定点原语（60,883 行）/规则深解析（三 mod）/资产解码（6,737 行）/字形（216 个），oracle 双跑确定性验证。
 ## 与上游的差异（优化点与偏离登记）
@@ -195,7 +206,7 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 
 ### 与上游不同步处（偏离登记摘要）
 
-当前登记 **D1~D194**（全文见 [docs/COVERAGE.md](docs/COVERAGE.md)），按模块：
+当前登记 **D1~D200**（全文见 [docs/COVERAGE.md](docs/COVERAGE.md)），按模块：
 
 - **yaml/fs（D1~D9）**：异常类型统一 YamlException（消息逐字）、惰性枚举物化 vector、null/"" 键合流——合法输入下行为等价或不可观测；
 - **meta/加载链（D10~D24）**：TypeConverter 兜底未实现（字段类型已全覆盖）、字典字段插入序 vector、三 mod 解析快照 C++ 侧固化（D24，工具恢复后可再对拍）；
@@ -215,6 +226,8 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 - **第八批（D164~D176）**：WithInfantryBody 的 stand 择一移入 LocalRandom 域（上游 not-synced 的 Game.CosmeticRandom）；IActorPreview 面随 Phase 6 + FactionInit/AnimationWithOffset 所有权形态；WithInfantryBody 的帧末 barrel 索引快照；WithMakeAnimation 的闩锁成员；ProximityCapturable 的装配侧前置校验 + RunAfterTick 注入面 + 按 Info 名的 captor 查询；Actor 的 IRenderModifier 空链 + ScreenMap 的 bounds 源注入；Map::SetSequences 后置装配口；FieldSaver 的值袋域；Settings 两段手写表；ReplayRecorder 的 GameInformation 注入载荷 + 内存盘；SyncReport 的可选 dumper 注册表（D30 扩展）；测试夹具的合成资产副本 + SkipMakeAnims 语义；**ORA_HARDENED 旗级等价硬化构建（本机 gcc.exe 为 llvm-mingw 的 clang 壳，原旗标 -fhardened 不可执行 —— 等价集按 GCC 文档逐项展开;真 GCC 验证列 CI 待办）**。
 
 - **第十批（D187~D194）**：MapPreview 的 volatile InnerData → shared_ptr 快照 + mutex；minimap 的 Sprite 类型面 → 不透明句柄 + 物化注入（gfx 类型不入 ora_map）；RunAfterTick/sheet 释放为注入面；Fluent 面/HTTP 远程查询/Install/地图生成器集随其批（CompleteRemoteSearch 的 yaml 解析面已落地）；UpdateFromMap 的缺失/过旧格式从上游 throw → bool 返回 + OpenFile 空 vector（严禁 try/catch/throw 规则下的可观察等价）；MapDirectoryTracker 的 FileSystemWatcher → 轮询 diff；GetRulesYaml 的字符串池 → GlobalPool（修出局域池悬垂真问题）；AnyFlaggedTraits 的 FindType → gen 描述表；replaydiff 为自研工具的形态登记；ReplayMetadata::Read 的回退修正（真问题修复）。
+- **第十一批（D195~D200）**：Session 的 FieldLoader.Load/FieldSaver.Save 反射 → 按名字段双向手写表（错误路径文本合并为统一 YamlException）；`is ReplayConnection` 类型判/TickCount 强转读 → IConnection::IsReplay/ReplayTickCount 虚面；ReplayConnection 的 GameSpeeds 查询与 GameInformation.FinalGameTick 字段 → 构造注入 + 载荷串行提取（GameInformation 序列化随 Phase 7 大厅批）；StartGame 分支的 Game 静态调用 → SetStartGameHandler 注入（地图不可用 = Disconnect 的 no-op 等价）；Game.StartGame 的 ModData.PrepareMap → Deps.fn_prepare_map 注入（测试接合成序列集,Phase 6 资产链换真装载）；UnitOrders 分发/World.IsReplay/World.OutOfSync 的静态直调 → 逐 OM/Resolver/Handler 注入装配。
+
 **尚未移植（Phase 6-8 范围）**：62 个 chrome widget + 131 Logic、Fluent、WorldInteractionController、NetworkConnection 实体、Session 完整协议、Replay 对拍（SyncHash 对拍关卡本体）、Server、Lua、AI、战役、Utility 子命令——详见上方各阶段“剩余”节。
 
 ## 许可证与归属
@@ -242,7 +255,7 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 
 ## Progress at a Glance
 
-**Overall completion ≈ 58%** (weighted by the PORTING_PLAN phase budgets). The data/engine/rendering/platform layers (the first half) are complete and locked in by golden differentials; the project is currently in **Phase 5's gameplay surface** — the attack/fog/building/production/power/resource chains (AttackBase+Follow+Turreted/AutoTarget/all the mainline projectiles & warheads/Shroud/FrozenActorLayer/Building/Production/PlayerResources/TechTree/PowerManager/Harvester+ResourceLayer+the dock subsystem/Refinery) are through end to end, and **the full skirmish chain — issuing build orders by console, units leaving the factory, combat, harvesting, and docked unloading credited — runs through in tests**; Cloak/GainsExperience/the Capturable family/the 34 Conditions traits/Selectable/SpawnMapActors landed with the seventh installment; the Render·WithSpriteBody family + ProximityCapturable + Settings/FieldSaver + the SyncReport/replay-recording start landed with the eighth (the render batch surfacing a real subclass-upcast interface-omission bug); the annotation/decoration/death/damage/progress-bar render family (SelectionDecorations/WithDecoration/WithDeathAnimation/WithDamageOverlay/ProductionBar/the pip decorations) landed with the ninth (surfacing the real BitSet split-table and Selectable-inheritance bugs); **all ten Phase 5 installments are complete** — the MapPreview async face (the InnerData atomic swap/the custom-rules face/the minimap loader thread/the MapDirectoryTracker polling equivalent) and the tools/replaydiff differ landed with the tenth (surfacing the real ReplayMetadata 8-byte back-step and GetRulesYaml local-pool dangling bugs). Next: **the frame-by-frame replay SyncHash differential against a C#-recorded replay (the determinism capstone)**.
+**Overall completion ≈ 60%** (weighted by the PORTING_PLAN phase budgets). The data/engine/rendering/platform layers (the first half) are complete and locked in by golden differentials; Phase 5's gameplay surface (the attack/fog/building/production/power/resource chains, the conditions+cloak+experience+capture+placement chains, the full render-trait family, the MapPreview async face + the replaydiff differ) is complete across its ten installments; **the eleventh installment (2026-10-10) put the replay-driver chain through** — the full-field two-way Session serialization + the full ReplayConnection (chunking/orderLatency throttling/the built-in desync detection) + the SyncInfo/StartGame lobby assembly + Game::JoinReplay, with replay_test's real-ra full chain **self-record/self-playback: the frame-by-frame SyncHash parity + the tampered-frame desync detection** all green. Next: **the frame-by-frame SyncHash differential against a true C#-produced replay via a golden_gen-hosted C# world (the determinism capstone G2, installment two)**.
 
 | Phase | Scope | Status | Done |
 |---|---|---|---|
@@ -253,7 +266,7 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 | Phase 4 | Platform + rendering + file formats + audio + the UI-framework start + the game main loop (15 batches) | ✅ complete (2026-10-06) | 100% |
 | Phase 5 | Main-loop integration + core gameplay (Map/World/pathfinding/Mobile+move/Armament/the attack+fog+turret chains/the full projectile+warhead set/the building+production+power+resource chains/the conditions+cloak+experience+capture+placement chains/the render-traits+proximity-capture+Settings+replay start/the annotation+decoration+death+damage+progress-bar render family/the MapPreview async face + the replaydiff differ, 10 batches) | ✅ complete (2026-10-07 ~ 2026-10-10) | 100% |
 | Phase 6 | UI + localization | 🌱 started (the framework core is in place) | ~10% |
-| Phase 7 | Network + server | 🌱 started (the lockstep core is in place) | ~20% |
+| Phase 7 | Network + server | 🌱 underway (the lockstep core + the replay-driver chain are in place) | ~30% |
 | Phase 8 | Lua scripting + AI + campaigns + Utility | ⬜ not started | ~0% |
 | Phase 9 | Polish + release | ⬜ not started | 0% |
 
@@ -264,12 +277,14 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 - **The three-mod deep rules parse**: ra 80,274 / cnc 49,416 / d2k 35,833 lines as **byte-for-byte frozen snapshots**; upstream `--check-yaml` exit=0 corroborates.
 - **The asset-decode golden differential**: all mods .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 assets + synthetic fixtures, `tests/golden_formats.txt` **6,737 lines matching line for line**; **216 glyphs byte-identical** (the same freetype6.dll the C# oracle loads).
 - **Lockstep determinism**: EchoConnection **10⁶ ticks on both builds (ASan+UBSan / Release), leak-free and desync-free**.
-- **Standing gates**: ctest **27/27** green on three builds (ASan+UBSan, Release, and the **GCC -fhardened flag-equivalent hardening**); strict `import std;` (**467 files**); the deviation registry **D1–D194**.
+- **Standing gates**: ctest **28/28** green on three builds (ASan+UBSan, Release, and the **GCC -fhardened flag-equivalent hardening**); strict `import std;` (**469 files**); the deviation registry **D1–D200**.
 - **The dual-compile debugging rig (since 2026-10-08)**: **Clang 23** (llvm-mingw/UCRT, the baseline toolchain) x {ASan+UBSan, Release} plus a **second leg reproducing GCC `-fhardened` at flag level** (`-D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -pie`, CMake `-DORA_HARDENED=ON`; the std.pcm shares `-fstack-protector-strong` to avoid the configuration-mismatch load refusal). Measured note: this machine's gcc.exe is llvm-mingw's clang shim, so the literal -fhardened is unrunnable — the equivalent set expands the GCC docs item by item; validating the literal flag on real GCC 15+ is a CI TODO (see the toolchain table in ../cpp26.md).
 
 ### Current focus (the replay SyncHash differential)
 
-**The frame-by-frame replay SyncHash differential against a C#-recorded replay (the determinism capstone)**: a C#-recorded skirmish replay as the baseline, the C++ replay driving the world frame by frame against the SyncHash, with tools/replaydiff reporting the first divergent frame.
+**The frame-by-frame replay SyncHash differential against a C#-produced replay (the determinism capstone)**: a C#-produced skirmish replay as the baseline, the C++ replay driving the world frame by frame against the SyncHash, with tools/replaydiff reporting the first divergent frame. Installment one (the C++ replay-driver chain) landed with the eleventh batch; installment two = the golden_gen-hosted C# world producing a true .orarep + the per-frame golden table.
+
+The eleventh installment (2026-10-10, capstone installment one) landed: the replay-driver chain — the **full-field two-way Session serialization** (the ClientState enum values aligned upstream, the by-name two-way tables for Client/Slot/Global/LobbyOptionState) + the **full ReplayConnection** (the chunk splitting, the frame-0 LobbyInfo/StartGame scan, Receive's orderLatency throttling, and the local SyncHash meeting the recorded packets at OrderManager.ReceiveSync — **the desync detection built in**) + the **SyncInfo/StartGame lobby assembly** (the UnitOrders branches + Game::StartGameHandler) + **Game::JoinReplay** with the World's IsReplay/OutOfSync injections and SuggestedTimestep's every branch; replay_test's real-ra full chain **self-record/self-playback: the frame-by-frame SyncHash parity + the tampered-frame desync detection** all green. Three real problems fixed (the Session.ClientState enum values, Shroud's loose bool-option comparison, Game::StartGame's missing PrepareMap sequence-loading face).
 
 The tenth installment (2026-10-10) landed: the MapPreview async face (the InnerData atomic swap + SetCustomRules' minimal world/player ActorInfo loading + the map.png preview/ModifiedDate + GetMinimap/SetMinimap and MapCache's background loader thread + the remote-search/generation state-machine faces) + the MapDirectoryTracker polling equivalent + ModData::GetRulesYaml/Ruleset::DefinesUnsafeCustomRules + the tools/replaydiff differ (ParseReplayFile/DiffReplays + the CLI); the new replaydiff_test and map_test's batch-10 section; three real problems fixed (ReplayMetadata::Read's back-step short by 8 bytes leaving the metadata permanently unparsed, GetRulesYaml's local string-pool dangling, MapPreview's construction missing the initial InnerData).
 
@@ -386,9 +401,9 @@ clang `-std=c++26` + `import std;` (the precompiled std.cppm PCM) + CMake/Ninja 
 
 Done: the Widget-framework core (tree/focus/bubbling/registries), the Ui facade, ChromeMetrics, WidgetLoader, the cursor manager, the sound facade. **Remaining**: the 62 chrome widgets + 131 Logics, Fluent localization (FluentProvider/FluentMessage), WorldInteractionController/the input assembly, the chrome.yaml asset wiring. Milestone: main menu → lobby → a playable skirmish UI flow.
 
-### Phase 7 — network + server 🌱 (~20%)
+### Phase 7 — network + server 🌱 (~30%)
 
-Done: the Order wire protocol / the OrderManager lockstep / the UnitOrders dispatch / EchoConnection / the minimal Session face. **Remaining**: the real NetworkConnection (the read thread / Acks / TickScale), full Session serialization + the lobby protocol, ReplayRecorder/ReplayConnection, SyncReport, the Server (a single-threaded event loop / the 20 LobbyCommands / the pinger family). Acceptance: a C++ replay of a C# multiplayer game; the stretch goal — a C++ client finishing a match on a C# server.
+Done: the Order wire protocol / the OrderManager lockstep / the UnitOrders dispatch (with SyncInfo/StartGame) / EchoConnection, the **full-field two-way Session serialization**, the **full ReplayConnection/ReplayRecorder + the replay-driver chain (Game::JoinReplay, the built-in desync detection)**, the SyncReport start. **Remaining**: the real NetworkConnection (the read thread / Acks / TickScale), full Session serialization + the lobby protocol, ReplayRecorder/ReplayConnection, SyncReport, the Server (a single-threaded event loop / the 20 LobbyCommands / the pinger family). Acceptance: a C++ replay of a C# multiplayer game; the stretch goal — a C++ client finishing a match on a C# server.
 
 ### Phase 8 — Lua scripting, AI, campaigns, Utility ⬜
 
@@ -400,8 +415,8 @@ Performance tuning, packaging, remaining platform compatibility.
 
 ## Project Gates
 
-- **Three builds**: ASan+UBSan / Release / the -fhardened flag-equivalent hardening; ctest 27/27 green.
-- **Strict `import std;`**: no classic std-header includes (`tools/std_import_check.py`; 467 files PASS; the whitelist covers only third-party C headers).
+- **Three builds**: ASan+UBSan / Release / the -fhardened flag-equivalent hardening; ctest 28/28 green.
+- **Strict `import std;`**: no classic std-header includes (`tools/std_import_check.py`; 469 files PASS; the whitelist covers only third-party C headers).
 - **Function-level dead-code elimination**: `-ffunction-sections -fdata-sections` + `--gc-sections`.
 - **The golden-differential system**: yaml (759 files) / the fixed-point primitives (60,883 lines) / the deep rules parse (three mods) / asset decoding (6,737 lines) / glyphs (216), with the oracle's cross-run determinism verified.
 ## Differences from upstream (optimizations & registered deviations)
@@ -425,7 +440,7 @@ The full review evidence (upstream file:line anchors, 40+ items) lives in [docs/
 
 ### Not-yet-synced with upstream (the registered-deviation summary)
 
-Currently **D1–D194** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
+Currently **D1–D200** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by module:
 
 - **yaml/fs (D1–D9)**: exceptions unified into YamlException (texts verbatim), lazy enumerations materialized, null/"" key coalescing — behavior-equivalent for valid inputs;
 - **meta/loading chain (D10–D24)**: the TypeConverter fallback not implemented (field types fully covered), insertion-ordered dictionary fields, the three-mod parse snapshots frozen on the C++ side (D24; re-differential once the tool is restored);
@@ -446,7 +461,9 @@ Currently **D1–D194** (full texts in [docs/COVERAGE.md](docs/COVERAGE.md)), by
 - **the eighth installment (D164–D176)**: WithInfantryBody's stand pick moves to the LocalRandom domain (upstream's not-synced Game.CosmeticRandom); the IActorPreview faces ride Phase 6 + the FactionInit/AnimationWithOffset ownership shapes; WithInfantryBody's frame-end barrel snapshot; WithMakeAnimation's latch members; ProximityCapturable's assembly-side precondition + the RunAfterTick injection + the by-Info-name captor lookup; Actor's empty IRenderModifier chain + ScreenMap's injected bounds sources; Map::SetSequences as the after-the-fact assembly port; FieldSaver's value-bag domain; Settings' two hand-written tables; ReplayRecorder's injected GameInformation payload + the in-memory sink; SyncReport's optional dumper registry (extending D30); the test fixture's synthetic asset copies + SkipMakeAnims semantics; **the ORA_HARDENED flag-equivalent build (this machine's gcc.exe being llvm-mingw's clang shim, the literal -fhardened is unrunnable — the equivalent set expands the GCC docs; real-GCC validation is a CI TODO)**.
 
 - **the tenth installment (D187-D194)**: MapPreview's volatile InnerData becomes the shared_ptr snapshot + mutex; the minimap's Sprite-typed face becomes an opaque handle + the materialization injection (gfx types stay out of ora_map); RunAfterTick/sheet release as injected faces; the Fluent face/the HTTP remote query/Install/the map-generator set ride their batches (CompleteRemoteSearch's yaml parse landed); UpdateFromMap's missing/obsolete-format throws become bool returns + OpenFile's empty vector (the observably equivalent shape under the no-try/catch/throw rule); MapDirectoryTracker's FileSystemWatcher becomes the polling diff; GetRulesYaml's string pool becomes GlobalPool (fixing the real local-pool dangling); AnyFlaggedTraits' FindType becomes the gen descriptor tables; replaydiff registered as the self-built tool's shape; ReplayMetadata::Read's back-step fix (the real-problem repair).
-**Not yet ported (the Phase 6-8 scope)**: the 62 chrome widgets + 131 Logics, Fluent, WorldInteractionController, the real NetworkConnection, the full Session protocol, the replay differential itself (the SyncHash capstone), the server, Lua, AI, campaigns, and the Utility subcommands — see each phase's remaining section above.
+- **the eleventh installment (D195–D200)**: Session's reflected FieldLoader.Load/FieldSaver.Save become the by-name hand-written two-way field tables (the error-path texts merge into the unified YamlException); the `is ReplayConnection` test / the TickCount downcast read become the IConnection::IsReplay/ReplayTickCount virtual faces; ReplayConnection's GameSpeeds lookup and the GameInformation.FinalGameTick field become constructor injection + a payload-string extraction (the GameInformation serialization rides the Phase 7 lobby batch); the StartGame branch's static Game call becomes the SetStartGameHandler injection (an unavailable map = the no-op equivalent of Disconnect); Game.StartGame's ModData.PrepareMap becomes the Deps.fn_prepare_map injection (tests wire the synthetic sequence set; the Phase 6 asset chain swaps in the real load); the UnitOrders dispatch / World.IsReplay / World.OutOfSync static calls become the per-OM/resolver/handler injected assembly.
+
+**Not yet ported (the Phase 6-8 scope)**: the 62 chrome widgets + 131 Logics, Fluent, WorldInteractionController, the real NetworkConnection, the server, the golden_gen true-replay differential (capstone installment two), Lua, AI, campaigns, and the Utility subcommands — see each phase's remaining section above.
 
 ## License & Attribution
 

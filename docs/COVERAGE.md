@@ -709,3 +709,25 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D192 | src/game/ ruleset | AnyFlaggedTraits 的 ObjectCreator.FindType → meta::TypeRegistry::FindType(gen 描述表;interfaces 全名含 OpenRA.Traits.ILobbyCustomRulesIgnore = 白名单;未注册类型不标记 = 上游 traitType null 分支);上游 try/catch(Log 面)删除 —— C++ 段无抛点 | 静态表等价;无抛面 |
 | D193 | src/net/ replay_diff | 自研对拍器(上游无对应物;PORTING_PLAN §9.5 的 desync 排查工具):ParseReplayFile 复用 ReplayConnection ctor 的包解析语义 + SyncHash 抽取;DiffReplays 的差异输出 = 帧/客户端/字节 hexdump/sync hash 行(actor/字段级 diff 的深形态依赖 SyncReport dump 面的录像侧序列化,随 replay SyncHash 对拍关卡);tools/replaydiff CLI 不入库(tools/ 惯例) | 自研工具;形态登记 |
 | D194 | src/net/ replay_recorder | ReplayMetadata::Read/ReplayConnection ctor 的回退起点修正(修出真问题①:少 8 字节致 metadata 恒失败;上游 Seek 语义逐字复刻) | 真问题修复 |
+
+### Phase 5/7 第十一批(2026-10-10):回放驱动链(ReplayConnection 全文 + Session 双向 + Game::JoinReplay;G2 关卡第一编)
+
+- `src/net/` session 重写:**Session/Client/Slot/Global/LobbyOptionState 全字段面**(ClientState 枚举值对齐上游 {NotReady=0, Invalid=1, Ready=2, Disconnected=1000};Client 17 字段 + PreferredColor/ConnectionQuality/BotControllerClientIndex 等补齐;Slot 补 LockHandicap;Global 补 MapStatus 位/AllowSpectators/GameUid/Enable*/Dedicated/GameTimestep;DisabledSpawnPoints;map_options → map_lobby_options 双 OptionOrDefault 重载)+ **Deserialize**(FieldLoader.Load 按名装载手写面)/ **Serialize**(FieldSaver.Save 反射 → 按名字段表 + Options 追加;池化静态串)。
+- `src/net/` replay_recorder:**ReplayConnection 全文化**(IConnection 子类:ctor 的 chunk 切段 + 帧 0 的 LobbyInfo/StartGame 扫描 + metadata 尾解析;Receive 的本地 sync 队列排空 + chunk 按 NetFrameNumber+orderLatency 节流投递 + Disconnect/Sync/OrderPacket 三分派;Send/SendImmediate 静默;本地 SyncHash 经 SendSync 入队与录像包在 OrderManager.ReceiveSync 汇流比对 —— desync 检测内建)。
+- `src/net/` unit_orders:**SyncInfo 分支**(Session::Deserialize 装载 LobbyInfo;Game.SyncLobbyInfo 的 UI 面 no-op)+ **StartGame 分支**(TargetString 的 SaveLastOrdersFrame/SaveSyncFrame 装载 + SetStartGameHandler 注入面调用)。
+- `src/net/` order_manager:**SuggestedTimestep 补齐全分支**(IsLoadingGameSave→1 / IsReplay && !IsOutOfSync && NetFrame<TickCount→ReplayTimestep / tickScale 折算 / World.Timestep)+ **StartGame 的 generateSyncReport 保真**(!IsReplay && EnableSyncReports)。
+- `src/sim/` world:**OutOfSync**(EndGame + ReplayTimestep 永久暂停,上游同形)。
+- `src/game/` game:**JoinReplay**(OrderManager(ReplayConnection) 装配;orderLatency 注入)+ **JoinInner 的 ProcessOrder/StartGameHandler 双装配**(UnitOrders 分发 + Game.StartGame 的 MapCache 状态门槛)+ **StartGame 的 World IsReplay resolver/OutOfSync handler 注入** + **Deps.fn_prepare_map**(ModData.PrepareMap 的序列装载面,上游 L206;Phase 6 资产链前测试接合成序列集)。
+- 测试:replay_test 新增(真 ra 全链自录自放:RecordingEchoConnection(Echo + ReplayRecorder 语义录制,StartGame 空包 + order 帧 +1 投影 + sync 包)→ 帧 0 SyncInfo(真 Session 序列化往返)/StartGame → 40 帧脚本 order 驱动 → ReplayConnection ctor 的 LobbyInfo/seed/map/TickCount/FinalGameTick 断言 → Game::JoinReplay 回放驱动 world 全装配 → **逐帧 SyncHash 自洽(末帧 hash 相等 + 全程 IsOutOfSync=false)** → 篡改帧 hash 的 **desync 检测(IsOutOfSync=true)**);replaydiff_test/render_test 的旧 TryReadNext 面迁至 ctor 断言。ctest 27→28。
+- 实现过程修出的真问题:**①Session.ClientState 枚举值错误**(旧最小面 Invalid=0/Ready=4/Disconnected=5,上游 NotReady=0/Invalid=1/Ready=2/Disconnected=1000 —— 序列化数值面全错;随 Deserialize 落地一并修正);**②Shroud 的 bool 选项读取**("True"/"true" 宽松比较 → bool OptionOrDefault 直连 IsEnabled 语义);**③Game::StartGame 缺 PrepareMap 面**(地图 SequenceSet 缺失 → world 构造期 Animation 空序列解引)。
+
+### 已登记偏离(PORTING_PLAN §7.5,第十一批新增)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D195 | src/net/ session | FieldLoader.Load<Client/Slot/Global/LobbyOptionState> 与 FieldSaver.Save 的反射 → 按名字段双向手写表(字段序 = C# 声明序;Color 的 RRGGBB(A) hex 双向;枚举按名;null 字符串 = 空串承载);Session::Deserialize 的任一字段失败统一抛 YamlException("Session deserialized invalid MiniYaml:\n…")(上游 InvalidValueAction 的 "FieldLoader: Cannot parse…" 文本仅错误路径差异,合法流不可达) | 无反射;错误路径文本合并 |
+| D196 | src/net/ connection | 上游 `Connection is ReplayConnection` 类型判与 `(ReplayConnection)Connection).TickCount` 强转读 → IConnection::IsReplay()/ReplayTickCount() 虚面(缺省 false/-1;ReplayConnection 覆写)—— World.IsReplay 与 OrderManager.SuggestedTimestep 两消费点 | 无 RTTI 判式;虚面零开销 |
+| D197 | src/net/ replay_recorder | ReplayConnection ctor 的 GameSpeeds 查询(OptionOrDefault("gamespeed") → Speeds[name].OrderLatency)→ 构造注入参数(装配侧 = World ctor 的同源 GameSpeeds);FinalGameTick 从 GameInformation 序列化字段 → metadata 载荷串内 "FinalGameTick: N" 行提取(GameInformation 完整序列化随 Phase 7 大厅批) | 分层注入;面随批 |
+| D198 | src/net/ unit_orders | StartGame 分支的 Game.StartGame/MapCache 状态门槛/Disconnect+LoadShellMap → SetStartGameHandler 全局注入面(Game::JoinInner 注册;进程级单 Game 假设 = 上游 Game 静态单例的等价);地图不可用路径 = no-op(order 流继续;上游 Disconnect 的可观察面在 UI 侧) | 分层约束;注入面惯例 |
+| D199 | src/game/ game | Game.StartGame 的 ModData.PrepareMap(L206:InitializeLoaders + Sequences.LoadSprites + 音乐装载)→ Deps.fn_prepare_map 注入面(缺省跳过;测试接 render_sequences_fixture 的合成序列集;Phase 6 资产链换真装载) | 面随批;注入面惯例 |
+| D200 | src/game/ game + src/net/ order_manager | UnitOrders.ProcessOrder 的静态直调 → OrderManager::SetOrderProcessor 逐 OM 装配(Game::JoinInner 注册);World.IsReplay 的 Connection is-cast → SetIsReplayResolver 注入(Game::StartGame 注册);OrderManager.OutOfSync 的 World.OutOfSync() 直调 → SetOutOfSyncHandler 注入 | 分层约束;C++ 静态面缺位的等价装配 |

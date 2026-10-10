@@ -37,10 +37,8 @@ void Shroud::Created(Actor& self) {
   // (D-series), so the "True"/"False" value carries the same semantics.
   const auto bool_option_or_default =
       [](const World& world, std::string_view key, bool def) {
-        const std::string value =
-            const_cast<World&>(world).LobbyInfo().global_settings
-                .OptionOrDefault(key, def ? "True" : "False");
-        return value == "True" || value == "true";
+        return const_cast<World&>(world).LobbyInfo().global_settings
+            .OptionOrDefault(key, def);
       };
 
   b_fog_enabled_ = bool_option_or_default(

@@ -1,8 +1,10 @@
 // UPSTREAM: OpenRA.Game/Network/ReplayRecorder.cs @b6fc03f L19-118 全文 +
 //           OpenRA.Game/FileFormats/ReplayMetadata.cs L17-108 全文 +
-//           OpenRA.Game/Network/ReplayConnection.cs L19-135 的起步承载面
+//           OpenRA.Game/Network/ReplayConnection.cs L19-135 全文(第十一批:
+//           回放驱动世界 = OrderManager 装配;orderLatency/FinalGameTick 为
+//           装配注入面)
 //           The whole of ReplayRecorder.cs L19-118 + ReplayMetadata.cs
-//           L17-108 + the starter face of ReplayConnection.cs L19-135.
+//           L17-108 + the whole of ReplayConnection.cs L19-135 (batch 11).
 //
 // 机制对照 / Mechanism mapping:
 //  - GameInformation 的完整序列化(ReplayMetadata 载荷)随 Phase 7 大厅
@@ -24,6 +26,8 @@
 import std;
 
 #include "net/byte_io.hpp"
+#include "net/connection.hpp"
+#include "net/session.hpp"
 
 namespace ora::net {
 
@@ -112,27 +116,67 @@ class ReplayRecorder {
   bool b_disposed_ = false;
 };
 
-/// ReplayConnection(ReplayConnection.cs L21-134)的起步面:回放文件 →
-/// 逐包 (clientID, data) 重放(录像驱动世界 = OrderManager 装配)
-/// The starter face of ReplayConnection (ReplayConnection.cs L21-134):
-/// the replay file → the per-packet (clientID, data) replay (driving the
-/// world = the OrderManager assembly).
-class ReplayConnection {
+/// ReplayConnection(ReplayConnection.cs L21-134)全文:回放文件 → 逐帧
+/// chunk 驱动 OrderManager;本地 SyncHash 经 SendSync 入队与录像包在
+/// OrderManager.ReceiveSync 处汇流比对(desync 检测内建)
+/// The whole of ReplayConnection (L21-134): the replay file drives the
+/// OrderManager chunk by chunk; the locally computed SyncHash enters via
+/// SendSync and meets the recorded packets at OrderManager.ReceiveSync
+/// (the desync detection is built in).
+class ReplayConnection final : public IConnection {
  public:
-  /// ctor(metadata 解析 + 录像流装载)
-  /// The ctor (the metadata parse + the replay stream load).
-  explicit ReplayConnection(std::vector<std::uint8_t> vec_replay_bytes);
+  struct Chunk {
+    int frame = 0;
+    std::vector<std::pair<int, std::vector<std::uint8_t>>> vec_packets;
+  };
 
-  /// 下一包;耗尽 → false
-  /// The next packet; false when drained.
-  bool TryReadNext(int& out_client_id, std::vector<std::uint8_t>& out_data);
+  /// ctor(metadata 尾解析 + 录像流装载 + 帧 0 的 LobbyInfo/StartGame 扫描;
+  /// orderLatency = 上游 GameSpeeds 注入面)
+  /// The ctor (the metadata tail parse + the replay-stream load + the
+  /// frame-0 LobbyInfo/StartGame scan; orderLatency = the GameSpeeds
+  /// injection face).
+  explicit ReplayConnection(std::vector<std::uint8_t> vec_replay_bytes,
+                            int int4_order_latency = 3);
 
+  int LocalClientId() override;
+  void StartGame() override;
+  void Send(int frame, const std::vector<const Order*>& orders) override;
+  void SendImmediate(const std::vector<const Order*>& orders) override;
+  void SendSync(int frame, int sync_hash,
+                std::uint64_t uint8_defeat_state) override;
+  void Receive(OrderManager& order_manager) override;
+  bool IsReplay() const override { return true; }
+  int ReplayTickCount() const override { return int4_tick_count_; }
+
+  /// IsValid(L33):帧 0 流含 StartGame
+  /// IsValid (L33): the frame-0 stream contains StartGame.
+  bool IsValid() const { return b_valid_; }
+
+  /// LobbyInfo(L34):帧 0 SyncInfo 载荷(HasLobbyInfo = 上游 null 判)
+  /// LobbyInfo (L34): the frame-0 SyncInfo payload.
+  bool HasLobbyInfo() const { return b_has_lobby_info_; }
+  const Session& LobbyInfo() const { return lobby_info_; }
+
+  int TickCount() const { return int4_tick_count_; }
+  int FinalGameTick() const { return int4_final_game_tick_; }
   const ReplayMetadata* Metadata() const { return up_metadata_.get(); }
 
+  const std::vector<std::uint8_t>& ReplayBytes() const {
+    return vec_replay_bytes_;
+  }
+
  private:
-  std::vector<std::uint8_t> vec_bytes_;
-  std::size_t int8_cursor_ = 0;
+  std::vector<std::uint8_t> vec_replay_bytes_;
+  std::size_t sz_body_end_ = 0;
   std::unique_ptr<ReplayMetadata> up_metadata_;
+  std::queue<Chunk> queue_chunks_;
+  std::queue<SyncPacketData> queue_sync_;
+  int int4_order_latency_ = 3;
+  int int4_tick_count_ = 0;
+  int int4_final_game_tick_ = 0;
+  bool b_valid_ = false;
+  bool b_has_lobby_info_ = false;
+  Session lobby_info_{};
 };
 
 }  // namespace ora::net

@@ -544,26 +544,18 @@ int main(int argc, char** argv) {
     recorder.Receive(1, vec_start);
     const std::vector<std::uint8_t> vec_post{0xAA, 0xBB};
     recorder.ReceiveFrame(1, 3, vec_post);
+    net::ReplayMetadata meta_render{"FinalGameTick: 3"};
+    recorder.Metadata = &meta_render;
     recorder.Dispose();
 
-    // 读回:包序 client/length/data 逐字节一致
-    // The read-back: the client/length/data order byte-for-byte.
+    // 读回:ctor 的 chunk/有效性面(包序逐字节回读随 replay_test 第十一批)
+    // The read-back: the ctor's chunk/validity faces (the byte-exact
+    // packet read-back rides batch 11's replay_test).
     net::ReplayConnection connection{recorder.Bytes()};
-    int client = 0;
-    std::vector<std::uint8_t> vec_data;
-    Check(connection.TryReadNext(client, vec_data) && client == 7 &&
-              vec_data == vec_pre,
-          "packet 1 = the pre-start payload");
-    Check(connection.TryReadNext(client, vec_data) && client == 1 &&
-              vec_data == vec_start,
-          "packet 2 = the game-start payload");
-    Check(connection.TryReadNext(client, vec_data) && client == 1,
-          "packet 3 client");
-    Check(vec_data.size() == 4 + vec_post.size() &&
-              std::equal(vec_post.begin(), vec_post.end(),
-                         vec_data.begin() + 4),
-          "packet 3 = frame(3) + payload");
-    Check(!connection.TryReadNext(client, vec_data), "stream drained");
+    Check(connection.IsValid(), "game-start packet marks replay valid");
+    Check(!connection.HasLobbyInfo(), "no SyncInfo in stream");
+    CheckEq(connection.TickCount(), 3, "tick count = frame 3");
+    Check(connection.Metadata() != nullptr, "metadata tail parsed");
   }
 
   // ———— 7. SyncReport:环形记账 ————

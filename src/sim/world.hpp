@@ -359,12 +359,14 @@ class World final {
   }
   void IssueOrder(net::Order* o);  // L151
 
-  // ———— 战局/存档面(L74-88/114-118/260-310/393-397/539-563)————
+  // ———— 战局/存档面(L74-88/114-118/201-207/260-310/393-397/539-563)————
   bool IsGameOver() const { return b_is_game_over_; }
   void EndGame();  // L75-88
+  void OutOfSync();  // L201-207(EndGame + ReplayTimestep 永久暂停)
   void SetWorldOwner(Player* p);  // L312-315
 
-  /// IsReplay(World.cs L114)的注入面(ReplayConnection 随 Phase 7)
+  /// IsReplay(World.cs L114)的注入面(上游 = Connection is ReplayConnection;
+  /// 第十一批起由 Game 装配解析)
   void SetIsReplayResolver(std::function<bool()> fn) {
     fn_is_replay_ = std::move(fn);
   }

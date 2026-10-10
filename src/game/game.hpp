@@ -115,6 +115,13 @@ class Game {
     /// render face is the test injection — no hook = headless).
     std::function<std::unique_ptr<gfx::WorldRenderer>(sim::World&)>
         fn_create_world_renderer;
+
+    /// ModData.PrepareMap(L206)的序列装载面(上游 Sequences.LoadSprites;
+    /// Phase 6 资产链前的注入面 —— 无钩子 = 跳过)
+    /// ModData.PrepareMap's (L206) sequence-loading face (upstream's
+    /// Sequences.LoadSprites; an injection face until the Phase 6 asset
+    /// chain — no hook = skipped).
+    std::function<void(map::Map&)> fn_prepare_map;
   };
 
   explicit Game(Deps deps_args);
@@ -162,6 +169,14 @@ class Game {
   /// JoinLocal (L111-128): the EchoConnection + the spectator client (the
   /// color faces land with Phase 5).
   void JoinLocal();
+
+  /// JoinReplay(L106-109):OrderManager(ReplayConnection);orderLatency =
+  /// GameSpeeds 注入面(上游 ctor 内查;第十一批)
+  /// JoinReplay (L106-109): the OrderManager over the ReplayConnection;
+  /// orderLatency = the GameSpeeds injection face (upstream reads it in
+  /// the ctor; batch 11).
+  void JoinReplay(std::vector<std::uint8_t> vec_replay_bytes,
+                  int int4_order_latency = 3);
 
   // ———— 主循环(L598/625-932)————
   RunStatus State() const { return state_; }

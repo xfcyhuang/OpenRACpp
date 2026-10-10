@@ -31,13 +31,14 @@ void OrderManager::StartGame() {
     return;
 
   for (auto& client : lobby_info_.vec_clients)
-    if (!client.IsBot)
+    if (!client.IsBot())
       map_pending_orders_.emplace(client.Index,
                                   std::deque<FramePacket>{});
 
   // Generating sync reports is expensive, so only do it if we have
   // other players to compare against if a desync did occur
-  b_generate_sync_report_ = false;  // ReplayConnection 面 Phase 7;默认关
+  b_generate_sync_report_ =
+      !connection_->IsReplay() && lobby_info_.global_settings.EnableSyncReports;
 
   int4_net_frame_number_ = 1;
   int4_local_frame_number_ = 0;
@@ -160,6 +161,16 @@ int OrderManager::SuggestedTimestep() const {
   // 其余以 World.Timestep 兜底)
   if (p_world_ == nullptr)
     return 40;  // Ui.Timestep 默认(Phase 6 接线)
+
+  if (p_world_->IsLoadingGameSave())
+    return 1;
+
+  if (p_world_->IsReplay() && !b_is_out_of_sync_ &&
+      int4_net_frame_number_ < connection_->ReplayTickCount())
+    return p_world_->ReplayTimestep();
+
+  if (fp4_tick_scale_ != 1.0f)
+    return std::max(static_cast<int>(fp4_tick_scale_ * p_world_->Timestep()), 1);
 
   return p_world_->Timestep();
 }

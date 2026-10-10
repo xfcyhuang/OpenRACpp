@@ -1,9 +1,14 @@
 // UPSTREAM: OpenRA.Game/Network/Connection.cs @b6fc03f L24-97(IConnection +
-//          EchoConnection 逐语义重写;NetworkConnection/ReplayConnection 随
-//          Phase 7 网络/回放落地)
+//          EchoConnection 逐语义重写;NetworkConnection 随 Phase 7 网络批;
+//          IsReplay/ReplayTickCount = 上游 `is ReplayConnection` 类型判与
+//          TickCount 取值的虚面 —— World.IsReplay 与 OrderManager
+//          .SuggestedTimestep 的消费点,第十一批随 ReplayConnection 全文化)
 //          IConnection + EchoConnection, verbatim-semantics; Network
-//          Connection/ReplayConnection land with the Phase 7 network/replay
-//          work.
+//          Connection rides the Phase 7 network batch; IsReplay/
+//          ReplayTickCount are the virtual face of upstream's `is
+//          ReplayConnection` test + TickCount read (consumed by
+//          World.IsReplay and OrderManager.SuggestedTimestep, wired with
+//          batch 11's full ReplayConnection).
 #pragma once
 import std;
 
@@ -27,6 +32,9 @@ class IConnection {
   virtual void SendSync(int frame, int sync_hash,
                         std::uint64_t uint8_defeat_state) = 0;
   virtual void Receive(OrderManager& order_manager) = 0;
+
+  virtual bool IsReplay() const { return false; }
+  virtual int ReplayTickCount() const { return -1; }
 };
 
 /// EchoConnection(Connection.cs L42-97):单机回环 —— 本地客户端即服务器

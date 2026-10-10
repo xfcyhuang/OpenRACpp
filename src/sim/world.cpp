@@ -571,6 +571,16 @@ void World::EndGame() {
   // GameOver() 事件(L86;FinishBenchmark 随嵌入侧)
 }
 
+void World::OutOfSync() {
+  // L201-207
+  EndGame();
+
+  // In the event the replay goes out of sync, it becomes no longer
+  // usable. For polish we permanently pause the world. (上游注释 / the
+  // upstream comment)
+  int4_replay_timestep_ = 0;
+}
+
 void World::SetWorldOwner(Player* p) {
   // L312-315
   p_world_actor_->SetOwnerInternal(p);

@@ -11,6 +11,7 @@ import std;
 #include "gfx/world_renderer.hpp"
 #include "game/mod_data.hpp"
 #include "map/map_cache.hpp"
+#include "net/replay_recorder.hpp"
 #include "net/session.hpp"
 #include "net/unit_orders.hpp"
 #include "sim/trait_registry.hpp"
@@ -67,6 +68,30 @@ void Game::JoinInner(std::unique_ptr<net::OrderManager> up_om) {
   }
 
   up_order_manager_ = std::move(up_om);
+
+  // UnitOrders.ProcessOrder 分发面(上游静态直调;C++ 分层下逐 OM 装配)
+  net::OrderManager* om = up_order_manager_.get();
+  om->SetOrderProcessor(
+      [](net::OrderManager& om_target, sim::World* world_target,
+         int client_id, const net::Order& order) {
+        net::ProcessOrder(om_target, world_target, client_id, order);
+      });
+
+  // StartGame 分支的 Game.StartGame 装配面(上游静态直调 + MapCache 状态
+  // 门槛;不可用地图走上游 Disconnect+LoadShellMap 的 no-op 等价)
+  net::SetStartGameHandler(
+      [this](net::OrderManager&, const std::string& str_uid) {
+        if (MapCacheFace().At(str_uid).Status() != map::MapStatus::Available)
+          return;
+        StartGame(str_uid, sim::WorldType::Regular);
+      });
+}
+
+void Game::JoinReplay(std::vector<std::uint8_t> vec_replay_bytes,
+                      int int4_order_latency) {
+  JoinInner(std::make_unique<net::OrderManager>(
+      std::make_unique<net::ReplayConnection>(std::move(vec_replay_bytes),
+                                              int4_order_latency)));
 }
 
 map::MapCache& Game::MapCacheFace() {
@@ -105,7 +130,9 @@ void Game::StartGame(map::Map& map_world, sim::WorldType type) {
   // BeforeGameStart()(L202;事件面空)
 
   // ModData.PrepareMap(map)(L206):InitializeLoaders + Sequences.LoadSprites
-  // + 音乐装载 —— 随 Phase 6 加载屏批(Sequences 构造在 Map 的工厂面)
+  // + 音乐装载 —— 序列装载面经 Deps.fn_prepare_map 注入(Phase 6 资产链)
+  if (deps_.fn_prepare_map != nullptr)
+    deps_.fn_prepare_map(map_world);
   sim::RegisterWorldTraits();
 
   // Renderer.SetDepthMargin(L219;深度边距面随渲染装配批)
@@ -113,6 +140,11 @@ void Game::StartGame(map::Map& map_world, sim::WorldType type) {
                                             *up_order_manager_, type);
   net::OrderManager* om = up_order_manager_.get();
   world->SetOrderIssueSink([om](net::Order* o) { om->IssueOrder(*o); });
+  sim::World* ptr_world = world.get();
+  world->SetIsReplayResolver(
+      [om] { return om->Connection().IsReplay(); });
+  om->SetOutOfSyncHandler(
+      [ptr_world](int) { ptr_world->OutOfSync(); });
   up_world_ = std::move(world);
   om->SetWorld(up_world_.get());
 
