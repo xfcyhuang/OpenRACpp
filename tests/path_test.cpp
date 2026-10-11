@@ -24,6 +24,7 @@ import std;
 #include "sim/control_groups.hpp"
 #include "sim/player.hpp"
 #include "sim/world.hpp"
+#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 using namespace ora;
 
@@ -572,6 +573,7 @@ void TestResolveFaction() {
 }  // namespace
 
 int main(int argc, char** argv) {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   gen::RegisterGeneratedAll();  // 生成注册表(枚举/BitSet/类型工厂)
                                 // (the generated registries.)
   game::RegisterGameLoaders();  // LoadUsing 加载器(HitShape/LocomotorInfo)

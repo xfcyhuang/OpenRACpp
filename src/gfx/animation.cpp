@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/Animation.cs @b6fc03f L21-261 +
-//           OpenRA.Game/Graphics/AnimationWithOffset.cs @b6fc03f L17-60
+// UPSTREAM: OpenRA.Game/Graphics/Animation.cs @4f7930b5 L21-261 +
+//           OpenRA.Game/Graphics/AnimationWithOffset.cs @4f7930b5 L17-60
 //          (animation.hpp 的实现;头注的形态适配说明适用)
 //          Implementation of animation.hpp; the shape-adaptation notes of
 //          the hpp header apply.

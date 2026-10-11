@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/XccLocalDatabase.cs @b6fc03f L19-69
-//          OpenRA.Mods.Cnc/FileFormats/XccGlobalDatabase.cs @b6fc03f L18-60
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/XccLocalDatabase.cs @4f7930b5 L19-69
+//          OpenRA.Mods.Cnc/FileFormats/XccGlobalDatabase.cs @4f7930b5 L18-60
 #include "formats/xcc_database.hpp"
 
 namespace ora::fmt {

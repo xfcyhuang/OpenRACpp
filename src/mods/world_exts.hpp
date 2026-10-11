@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/WorldExtensions.cs @b6fc03f L~185-320
+// UPSTREAM: OpenRA.Mods.Common/WorldExtensions.cs @4f7930b5 L~185-320
 //          (FindActorsOnLine/FindBlockingActorsOnLine/FindActorsOnCircle/
 //          MinimumPointLineProjection;逐语义重写)
 //          FindActorsOnLine/FindBlockingActorsOnLine/FindActorsOnCircle/

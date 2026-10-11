@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Pathfinder/DensePathGraph.cs @b6fc03f +
+// UPSTREAM: OpenRA.Mods.Common/Pathfinder/DensePathGraph.cs @4f7930b5 +
 //          MapPathGraph.cs + GridPathGraph.cs + SparsePathGraph.cs
 //          (逐语义重写 + OPT-A2)
 //          Verbatim-semantics rewrites + OPT-A2.

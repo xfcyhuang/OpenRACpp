@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/Sheet.cs @b6fc03f L19-196 +
-//           OpenRA.Game/Graphics/SheetBuilder.cs @b6fc03f L34-175(实现)
+// UPSTREAM: OpenRA.Game/Graphics/Sheet.cs @4f7930b5 L19-196 +
+//           OpenRA.Game/Graphics/SheetBuilder.cs @4f7930b5 L34-175(实现)
 // Implementations of Sheet/SheetBuilder (headers in sheet.hpp carry the
 // full UPSTREAM anchors and deviation notes).
 #include "gfx/sheet.hpp"

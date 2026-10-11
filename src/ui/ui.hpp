@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @b6fc03f L24-194(Ui 静态门面逐语义:
+// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @4f7930b5 L24-194(Ui 静态门面逐语义:
 // 窗口栈/焦点三指针/输入分发/ResetAll/Tick/Draw/Mediator 转发)。C# static
 // → 进程级单例;窗口栈条目在 widget 被 HideChild 摘出 Root 时接管所有权
 // (可见栈顶由 Root 持有);WidgetLoader/Renderer.Resolution/Game.RunTime/

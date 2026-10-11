@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/Graphics/ClassicTilesetSpecificSpriteSequence.cs @b6fc03f L21-95
+// UPSTREAM: OpenRA.Mods.Cnc/Graphics/ClassicTilesetSpecificSpriteSequence.cs @4f7930b5 L21-95
 //          (classic_tileset_specific_sprite_sequence.hpp 的实现)
 //          Implementation of classic_tileset_specific_sprite_sequence.hpp.
 // 上游在 Classic 变体里重复了 TilesetSpecific 的解析体(非继承);此处同形

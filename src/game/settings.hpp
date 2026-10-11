@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Settings.cs @b6fc03f L52-340 的起步承载面(
+// UPSTREAM: OpenRA.Game/Settings.cs @4f7930b5 L52-340 的起步承载面(
 //          SettingsModule 的 Commit 差异保存协议 + PlayerSettings/
 //          GameSettings 两段手写字段表;其余段与 UI 绑定面随 Phase 6/7)
 //          The starter face of Settings.cs L52-340 (SettingsModule's

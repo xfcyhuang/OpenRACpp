@@ -670,6 +670,12 @@ target_link_libraries(replay_test PRIVATE
 ora_link_std(replay_test)
 add_test(NAME replay_test COMMAND replay_test ${ORA_UPSTREAM_ROOT})
 set_tests_properties(replay_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
+add_test(NAME replay_record_test COMMAND replay_test ${ORA_UPSTREAM_ROOT} record)
+set_tests_properties(replay_record_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
+add_test(NAME replay_playback_test COMMAND replay_test ${ORA_UPSTREAM_ROOT} playback)
+set_tests_properties(replay_playback_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
+add_test(NAME replay_tamper_test COMMAND replay_test ${ORA_UPSTREAM_ROOT} tamper)
+set_tests_properties(replay_tamper_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
 
 add_executable(golden_replay_test tests/golden_replay_test.cpp)
 ora_link_std(golden_replay_test)
@@ -709,6 +715,13 @@ target_link_libraries(resource_test PRIVATE
 ora_link_std(resource_test)
 
 add_test(NAME resource_test COMMAND resource_test ${ORA_UPSTREAM_ROOT})
+# 模块化拆跑:三段独立 ctest 面(并行/失败隔离;stage 选择见测试头注)
+# The modular split: the three stages as independent ctest faces
+# (parallel/failure-isolated; the stage selection is documented in the
+# test's header comment).
+add_test(NAME resource_power_test COMMAND resource_test ${ORA_UPSTREAM_ROOT} power)
+add_test(NAME resource_turret_test COMMAND resource_test ${ORA_UPSTREAM_ROOT} turret)
+add_test(NAME resource_harvest_test COMMAND resource_test ${ORA_UPSTREAM_ROOT} harvest)
 add_test(NAME production_test COMMAND production_test ${ORA_UPSTREAM_ROOT})
 set_tests_properties(production_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
 add_test(NAME attack_test COMMAND attack_test ${ORA_UPSTREAM_ROOT})

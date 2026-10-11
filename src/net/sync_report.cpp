@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/SyncReport.cs @b6fc03f L23-344(实现部分;
+// UPSTREAM: OpenRA.Game/Network/SyncReport.cs @4f7930b5 L23-344(实现部分;
 //          头注见 sync_report.hpp)
 //          The implementation half of SyncReport.cs L23-344 (the header
 //          note lives in sync_report.hpp).

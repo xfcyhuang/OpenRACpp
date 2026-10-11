@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/SmudgeLayer.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/SmudgeLayer.cs @4f7930b5
 //          L26-121(Info + LoadInitialSmudges)+ L123-133/163-186/188-196
 //          (SmudgeLayer 的同步记账面:AddSmudge/RemoveSmudge/tiles·dirty)
 //          The Info + LoadInitialSmudges of L26-121 + the synchronous

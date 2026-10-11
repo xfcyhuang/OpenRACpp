@@ -41,6 +41,17 @@ import std;
 #include "sim/sync_hash.hpp"
 #include "sim/target.hpp"
 #include "sim/world.hpp"
+#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
+
+namespace {
+std::string_view TestMapFilter() {
+  const char* str_env = std::getenv("ORA_TEST_MAP_FILTER");
+  if (str_env != nullptr)
+    return std::string_view{str_env};
+  return "Siberian-Pass";
+}
+}  // namespace
+
 
 namespace ora::gen {
 void RegisterGeneratedAll();
@@ -77,11 +88,12 @@ void TestRealRaProductionChain(const char* str_upstream_root) {
   game_.JoinLocal();
 
   map::MapCache cache{mod_data.ManifestRef(), mod_data.ModFiles()};
-  cache.LoadMaps(mod_data);
+  cache.LoadMaps(mod_data, TestMapFilter());
   std::string str_uid;
   for (map::MapPreview* p : cache.Previews())
     if (p->Status() == map::MapStatus::Available) {
       str_uid = p->Uid();
+      std::println("map: {} ({})", p->Title(), p->Path());
       break;
     }
   Check(!str_uid.empty(), "an available ra map exists");
@@ -316,11 +328,12 @@ void TestMissileChain(const char* str_upstream_root) {
   game_.JoinLocal();
 
   map::MapCache cache{mod_data.ManifestRef(), mod_data.ModFiles()};
-  cache.LoadMaps(mod_data);
+  cache.LoadMaps(mod_data, TestMapFilter());
   std::string str_uid;
   for (map::MapPreview* p : cache.Previews())
     if (p->Status() == map::MapStatus::Available) {
       str_uid = p->Uid();
+      std::println("map: {} ({})", p->Title(), p->Path());
       break;
     }
   if (str_uid.empty())
@@ -429,6 +442,8 @@ void TestMissileChain(const char* str_upstream_root) {
 }
 
 int main(int argc, char** argv) {
+  setvbuf(stdout, nullptr, _IONBF, 0);
+  std::println("[production] assembly");
   if (argc < 2) {
     std::println("usage: production_test <upstream-root>");
     return 1;

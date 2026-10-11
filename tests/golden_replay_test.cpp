@@ -71,7 +71,7 @@ struct GoldenReplayFixture {
                       map_world, mod_data.ManifestRef(), mod_data,
                       str_root.c_str());
                 }}}, str_root{str_upstream_root} {
-    game_.MapCacheFace().LoadMaps(mod_data);
+    game_.MapCacheFace().LoadMaps(mod_data, "great-sahara-2");
   }
 };
 
@@ -142,7 +142,9 @@ int main(int argc, char** argv) {
     std::println("usage: golden_replay_test <upstream-root> <replay> <table>");
     return 1;
   }
-  setvbuf(stdout, nullptr, _IOLBF, 0);
+  // 无缓冲:管道下也逐行实时可见(ctest/重定向不丢进度)
+  // Unbuffered: lines stream live even under pipes (ctest/redirect).
+  setvbuf(stdout, nullptr, _IONBF, 0);
   const char* str_root = argv[1];
   const char* str_replay_path = argv[2];
   const char* str_table_path = argv[3];
@@ -208,6 +210,7 @@ int main(int argc, char** argv) {
   }
 
   {
+    std::println("[golden-replay] fixture + JoinReplay");
     GoldenReplayFixture fx{str_root};
     fx.game_.JoinReplay(vec_replay,
                         table.int4_net_frame_interval > 0
@@ -234,6 +237,7 @@ int main(int argc, char** argv) {
       int int4_diverge_frame = 0;
       int int4_diverge_local = 0;
       int int4_diverge_recorded = 0;
+      std::println("[golden-replay] frame-by-frame sync compare");
       int int4_guard = 0;
       while (p_om->NetFrameNumber() <= table.int4_frames &&
              int4_guard++ < 10000) {
@@ -246,6 +250,10 @@ int main(int argc, char** argv) {
         // Compare against the table only right after ProcessOrders ran
         // (a net-frame advance) — the world state at that instant is the
         // same sampling point as the replay's Sync packets.
+        if (p_om->NetFrameNumber() != int4_frame_before &&
+            p_om->NetFrameNumber() % 25 == 1)
+          std::println("[golden-replay] net frame {}/{}",
+                       p_om->NetFrameNumber() - 1, table.int4_frames);
         if (p_om->NetFrameNumber() != int4_frame_before) {
           const int int4_frame_just_processed =
               p_om->NetFrameNumber() - 1;

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/GainsExperience.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/GainsExperience.cs @4f7930b5
 //          L21-172 + GivesExperience.cs L15-79 +
 //          Multipliers/GainsExperienceMultiplier.cs L11-29 +
 //          Player/PlayerExperience.cs L14-35(逐语句重写;机制对照见

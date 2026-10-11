@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Harvester.cs @b6fc03f L20-330 全文
+// UPSTREAM: OpenRA.Mods.Common/Traits/Harvester.cs @4f7930b5 L20-330 全文
 //          (逐语义重写;IResourceRenderer 的游标面 = 未移植空集:CanTarget
 //          恒 false —— 上游无渲染器时同域;COVERAGE 登记)
 //          The whole of Harvester.cs L20-330 (a verbatim-semantics rewrite;

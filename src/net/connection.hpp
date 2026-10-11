@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Connection.cs @b6fc03f L24-97(IConnection +
+// UPSTREAM: OpenRA.Game/Network/Connection.cs @4f7930b5 L24-97(IConnection +
 //          EchoConnection 逐语义重写;NetworkConnection 随 Phase 7 网络批;
 //          IsReplay/ReplayTickCount = 上游 `is ReplayConnection` 类型判与
 //          TickCount 取值的虚面 —— World.IsReplay 与 OrderManager

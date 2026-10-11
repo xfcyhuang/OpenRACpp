@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/PathFinder.cs @b6fc03f(实现部分)
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/PathFinder.cs @4f7930b5(实现部分)
 //          The implementation half of PathFinder.cs.
 import std;
 

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/ChangesHealth.cs @b6fc03f L21-64(Info
+// UPSTREAM: OpenRA.Mods.Common/Traits/ChangesHealth.cs @4f7930b5 L21-64(Info
 //          字段面 + 运行时类的 ISync 面;第十二批 G2 黄金对拍补面 —
 //          ^Infantry 的两实例 ChangesHealth 条目缺失平移 SyncHash 的 n
 //          计数。血量增减的 Tick 面随医疗 UI 批)

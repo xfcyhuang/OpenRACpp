@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/ActorMap.cs @b6fc03f L21-688
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/ActorMap.cs @4f7930b5 L21-688
 //          (逐语义重写)
 //          Verbatim-semantics rewrite.
 //

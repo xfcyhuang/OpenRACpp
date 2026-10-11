@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Mobile.cs @b6fc03f L25-1091 实现部分
+// UPSTREAM: OpenRA.Mods.Common/Traits/Mobile.cs @4f7930b5 L25-1091 实现部分
 //          (the implementation half)。
 #include "mods/mobile.hpp"
 

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @b6fc03f(Widget 树逐语义:Ui 门面
+// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @4f7930b5(Widget 树逐语义:Ui 门面
 // /ChromeLogic/WidgetBounds/Widget/ContainerWidget/InputWidget/WidgetArgs/
 // Mediator)。C# static Ui → 进程级单例(Widget 的 Outer 族经其取焦点态);
 // 子 widget 所有权归父 unique_ptr,RemoveChild/HideChild 转移出树;Mediator

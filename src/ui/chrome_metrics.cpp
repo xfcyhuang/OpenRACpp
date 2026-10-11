@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Widgets/ChromeMetrics.cs @b6fc03f(chrome_metrics.hpp
+// UPSTREAM: OpenRA.Game/Widgets/ChromeMetrics.cs @4f7930b5(chrome_metrics.hpp
 // 的实现)
 // The implementation of chrome_metrics.hpp.
 import std;

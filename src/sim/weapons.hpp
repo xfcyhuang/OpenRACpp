@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/GameRules/WeaponInfo.cs @b6fc03f L21-72(ProjectileArgs/
+// UPSTREAM: OpenRA.Game/GameRules/WeaponInfo.cs @4f7930b5 L21-72(ProjectileArgs/
 //          WarheadArgs/IProjectile/IProjectileInfo 的承载面)+
 //          L178-268 的仿真面方法(IsValidTarget/IsValidAgainst/Impact)+
 //          OpenRA.Mods.Common/Warheads/Warhead.cs L22-106(Warhead 基类)+

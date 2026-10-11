@@ -214,6 +214,7 @@ int RunDump(const std::string& str_mod, const std::string& str_upstreamRoot,
 }  // namespace
 
 int main(int argc, char** argv) {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   if (argc < 3) {
     std::println("usage: golden_rules <mod-id> <upstream-root> [golden-file]");
     std::println("       golden-file 提供时进入对拍模式,否则 dump 到 stdout");

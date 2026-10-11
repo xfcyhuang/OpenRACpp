@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @b6fc03f(widget.hpp 的实现,方法体
+// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @4f7930b5(widget.hpp 的实现,方法体
 // 逐行对照)
 // The implementation of widget.hpp (method bodies line-checked).
 import std;

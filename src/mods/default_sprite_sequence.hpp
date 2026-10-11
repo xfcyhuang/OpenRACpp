@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Graphics/DefaultSpriteSequence.cs @b6fc03f L24-605
+// UPSTREAM: OpenRA.Mods.Common/Graphics/DefaultSpriteSequence.cs @4f7930b5 L24-605
 // 通用精灵序列:两段流水(ReserveSprites 预留记账 → ResolveSprites 物化重
 // 索引),字段全走 FieldLoader.GetValue&lt;T&gt; 的 LoadField 查找(data 缺键
 // 回退 defaults)。mods 侧 Classic/Tileset/D2k 变体继承此类。

@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/CursorManager.cs @b6fc03f L20-317(逐方法)+
-//           OpenRA.Game/ModData.cs @b6fc03f L135-149(ParseCursors 的装载面)
+// UPSTREAM: OpenRA.Game/Graphics/CursorManager.cs @4f7930b5 L20-317(逐方法)+
+//           OpenRA.Game/ModData.cs @4f7930b5 L135-149(ParseCursors 的装载面)
 // 光标管理:cursors.yaml 的序列 → 帧切取(Start/Length 两上界检查,YamlException
 // 文本逐字)→ 热点居中换算(hotspot = FromVector(f.Offset) - Hotspot -
 // size/2)→ Indexed8 经 ConvertIndexedToBgra 解色 → SheetBuilder.Add(热点为

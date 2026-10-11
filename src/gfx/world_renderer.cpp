@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/WorldRenderer.cs @b6fc03f L23-483(实现)+
-//           OpenRA.Game/Map/MapGrid.cs @b6fc03f L48-57(方格默认 Ramp 角)
+// UPSTREAM: OpenRA.Game/Graphics/WorldRenderer.cs @4f7930b5 L23-483(实现)+
+//           OpenRA.Game/Map/MapGrid.cs @4f7930b5 L48-57(方格默认 Ramp 角)
 // 头文件携带完整 UPSTREAM 锚点、OPT-A7 收集流论证与注入面清单。
 // Implementations of WorldRenderer.cs; the header carries the full UPSTREAM
 // anchors, the OPT-A7 collection-flow arguments, and the injection list.

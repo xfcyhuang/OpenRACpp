@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Infantry/ScaredyCat.cs @b6fc03f L21-40(Info
+// UPSTREAM: OpenRA.Mods.Common/Traits/Infantry/ScaredyCat.cs @4f7930b5 L21-40(Info
 //          字段面)+ L42-58(运行时类的 ISync 面;第十二批 G2 黄金对拍
 //          补面 — ^CivInfantry 的 ScaredyCat 条目缺失平移 SyncHash 的 n
 //          计数。恐慌移动/序列前缀面随行为批)

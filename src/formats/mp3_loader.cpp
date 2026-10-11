@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/AudioLoaders/Mp3Loader.cs @b6fc03f L19-120
+// UPSTREAM: OpenRA.Mods.Common/AudioLoaders/Mp3Loader.cs @4f7930b5 L19-120
 //          (mp3_loader.hpp 的实现;后端偏离 D95 见头注)
 //          Implementation of mp3_loader.hpp; the backend deviation D95 is
 //          documented in the hpp header.

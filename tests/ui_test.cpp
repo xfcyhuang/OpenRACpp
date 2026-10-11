@@ -16,6 +16,7 @@ import std;
 #include "ui/chrome_metrics.hpp"
 #include "ui/ui.hpp"
 #include "ui/widget_loader.hpp"
+#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 namespace {
 
@@ -542,6 +543,7 @@ void TestWidgetLoader() {
 }  // namespace
 
 int main() {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   TestActionQueue();
   TestWidgetArgs();
   TestMediator();

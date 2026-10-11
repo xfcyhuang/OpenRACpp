@@ -758,3 +758,17 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D206 | src/mods/ seeds_resource | RandomWalk 的惰性枚举(Take/SkipWhile/FirstOrDefault)→ 手写等步循环(步进/跳过/首取逐语义;CanAddResource/AddResource 缺省 amount=1);ISeedableResource 接口就地声明(TraitsInterfaces.cs L188;TypeId 权威在 gen) | 惰性→循环等价 |
 | D207 | src/sim/ sync_hash + src/mods/ production_support | ClassicProductionQueue 子类的 [VerifySync] 哈希 = 基类名函数的别名注册(上游 GenerateHashFunc 按运行时类型现生成,继承成员同形;C++ 注册表键 = 记录全名);DeveloperMode 的七个 cheat bool = ISync 面(cheat 命令族随 Phase 6/7) | 生成→注册表等价 |
 | D208 | tests/ render_sequences_fixture | golden 对拍的 qboi facings 解析钩子(ResolveGoldenFacings:qboi 记录的 Sequence 名 → RenderSpritesInfoData.GetImage → Map.Sequences 的 Facings)= 上游 QuantizeFacingsFromSequence.QuantizedBodyFacings 的测试侧等价(trait 本体的注册随渲染行为批) | 面随批;测试设施 |
+
+### 测试工程提速与模块化(2026-10-11,随第十二批后)
+
+- **性能真问题(引擎级,全体测试受益)**:`src/gfx/sprite_cache.cpp` 的 LoadReservations 去重缓存在 C++ 侧误做**线性扫描 vector**(上游为 Dictionary 哈希)——去重键含 AdjustFrame 闭包指针(上游 C# 委托等值 = 方法+目标,闭包各异时上游同样不命中),合成序列场景 23 万次查找 × 16 万条目 = O(n²) ≈ 105s/次装配。修正为 unordered_map(键 = 四元组指针恒等,判定与上游字典键等值同义;精灵量面不变,golden_replay 逐字节复验)。**逐测试装备耗时 165s→13s(golden_replay_test)**。
+- `src/map/map_cache` 的 **LoadMaps 增可选过滤参**(D209):测试/嵌入侧仅装载所需地图(逐图处理面不变);七测试(Siberian Pass)+ golden(great-sahara-2)接入,装图 ~10s→~0.5s。
+- **测试模块化**:resource_test/replay_test 增 stage 选择(argv[2];power/turret/harvest、record/playback/tamper,缺省 all)→ ctest 拆注册 resource_power/resource_turret/resource_harvest、replay_record/replay_playback/replay_tamper 六个独立面(并行/失败隔离;replay 的录制段确定性产出同字节,playback/tamper 面各自重跑取自用副本)。
+- **实时进度**:全部测试 main 无缓冲(setvbuf _IONBF——Windows 管道下行缓冲不生效)+ 长测试段落级进度输出([resource]/[replay]/[golden-replay] 段标 + tick/net-frame 每 25-100 步)+ 选图即打印 map 名。
+- 全量 ctest 实测:Release 35/35 @ 68s(原 750s)、ASan 35/35 @ 275s(原 1992s)——改写主线不再被测试阻塞。
+
+### 已登记偏离(测试工程批)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D209 | src/map/ map_cache | LoadMaps 增第二参 str_filter_contains(非空时仅装载包名含子串的地图;逐图 LoadMapInternal 处理面不变)—— 上游无此参;测试以 ORA_TEST_MAP_FILTER 环境变量可覆写、缺省 Siberian-Pass | 测试/嵌入侧提速面;运行时全量装载不受影响 |

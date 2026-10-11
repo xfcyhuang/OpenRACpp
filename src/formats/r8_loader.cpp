@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.D2k/SpriteLoaders/R8Loader.cs @b6fc03f L24-229
+// UPSTREAM: OpenRA.Mods.D2k/SpriteLoaders/R8Loader.cs @4f7930b5 L24-229
 //          (r8_loader.hpp 的实现;头注的形态适配说明适用)
 //          Implementation of r8_loader.hpp; the shape-adaptation notes of
 //          the hpp header apply.

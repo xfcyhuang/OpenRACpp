@@ -4,6 +4,7 @@ import std;
 #include "net/order_io.hpp"
 #include "net/replay_diff.hpp"
 #include "net/replay_recorder.hpp"
+#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 namespace net = ora::net;
 
@@ -75,6 +76,7 @@ std::vector<std::uint8_t> MakeReplay(const std::vector<std::int32_t>& vec_hashes
 }  // namespace
 
 int main() {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   const std::vector<std::int32_t> vec_hashes{100, 200, 300, 400};
   const std::vector<std::uint8_t> vec_a = MakeReplay(vec_hashes, false);
 

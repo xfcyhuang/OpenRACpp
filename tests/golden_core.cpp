@@ -86,6 +86,7 @@ std::int32_t Rand() {
 }  // namespace
 
 int main(int argc, char** argv_argv) {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   if (argc != 2) {
     std::println(stderr, "用法: golden_core <golden_core.txt>");
     return 2;

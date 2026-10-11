@@ -23,6 +23,7 @@ void RegisterGeneratedAll();
 #include "sim/spatially_partitioned.hpp"
 #include "mods/create_map_players.hpp"
 #include "sim/world.hpp"
+#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 using namespace ora;
 using namespace ora::map;
@@ -237,6 +238,7 @@ void TestSpatialPartition() {
 }
 
 int main(int argc, char** argv) {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   if (argc < 2) {
     std::println("usage: map_test <upstream-root>");
     return 1;

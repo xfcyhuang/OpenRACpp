@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Immobile.cs @b6fc03f L21-76 全文
+// UPSTREAM: OpenRA.Mods.Common/Traits/Immobile.cs @4f7930b5 L21-76 全文
 //          (第十二批 G2 黄金对拍补面:mpspawn 等编辑器摆位 actor 的
 //          ISync 条目 {TopLeft, CenterPosition} 缺失平移 SyncHash 的 n
 //          计数)

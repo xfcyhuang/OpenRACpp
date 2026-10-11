@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/Traits/GpsWatcher.cs @b6fc03f L21-30(Info 面)
+// UPSTREAM: OpenRA.Mods.Cnc/Traits/GpsWatcher.cs @4f7930b5 L21-30(Info 面)
 //          + L41-70(运行时类的 ISync 字段面;第十二批 G2 黄金对拍补面 —
 //          player actor 的 ISync 条目缺失平移 SyncHash 的 n 计数;
 //          GpsAdd/GpsRemove/ReachedOrbit 的刷新分发面随 support-power 批)

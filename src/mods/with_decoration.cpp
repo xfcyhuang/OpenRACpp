@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDecorationBase.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDecorationBase.cs @4f7930b5
 //          L18-146 + WithDecoration.cs L18-71
 #include "game/actor_info.hpp"
 #include "gfx/world_renderer.hpp"

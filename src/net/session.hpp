@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Session.cs @b6fc03f L1-286(锁步/大厅面;
+// UPSTREAM: OpenRA.Game/Network/Session.cs @4f7930b5 L1-286(锁步/大厅面;
 //          反序列化随第十一批回放驱动链落地 —— FieldLoader.Load 的
 //          Client/Slot/Global/LobbyOptionState 按名装载手写面,序列化面
 //          对称承载)

@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/Animation.cs @b6fc03f L21-261(全文逐语义)+
-//           OpenRA.Game/Graphics/AnimationWithOffset.cs @b6fc03f L17-60(全文)
+// UPSTREAM: OpenRA.Game/Graphics/Animation.cs @4f7930b5 L21-261(全文逐语义)+
+//           OpenRA.Game/Graphics/AnimationWithOffset.cs @4f7930b5 L17-60(全文)
 // 动画状态机:Play*(五族 — Repeating/Then/BackwardsThen/FetchIndex/FetchDirection)
 // 装配 tickFunc 委托,Tick(t) 的 timeUntilNextFrame 负债循环(while <= 0 追帧)
 // 与 tickAlways 旁路逐句照抄;CurrentFrame 的 backwards 反转索引;Render 家

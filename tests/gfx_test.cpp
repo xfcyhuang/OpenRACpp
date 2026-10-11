@@ -2646,6 +2646,7 @@ void TestFastCopyIntoSpriteAndSheetPng() {  // 2×1 RGBA png → 4×2 sheet 的 
 }
 
 int main() {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   TestSheetBuilderGeometry();
   TestSheetBuilderChannelRotation();
   TestSheetDirtyRegion();

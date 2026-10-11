@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/Attack.cs @b6fc03f L22-283 全文
+// UPSTREAM: OpenRA.Mods.Common/Activities/Attack.cs @4f7930b5 L22-283 全文
 //          (逐语义重写;TargetLineNodes 渲染面随 Phase 6 —— 活动基类未引入)
 //          The whole of Attack.cs L22-283 (verbatim-semantics rewrite;
 //          TargetLineNodes' render face lands with Phase 6 — not carried

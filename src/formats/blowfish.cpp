@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/Blowfish.cs @b6fc03f L14-409(全文逐语义)
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/Blowfish.cs @4f7930b5 L14-409(全文逐语义)
 #include "formats/blowfish.hpp"
 
 namespace ora::fmt {

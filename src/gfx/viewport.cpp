@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/Viewport.cs @b6fc03f L21-447
+// UPSTREAM: OpenRA.Game/Graphics/Viewport.cs @4f7930b5 L21-447
 // 视口:缩放/居中/滚动、世界-屏幕像素换算、可见投影格区的惰性缓存。
 // 注入面(Map/Settings/Renderer,见 viewport.hpp 头注)随 Phase 5 接线。
 // The viewport: zoom/centering/scrolling, world-screen pixel conversion,

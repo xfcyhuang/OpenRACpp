@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Game.cs @b6fc03f + OpenRA.Game/Support/Program.cs
+// UPSTREAM: OpenRA.Game/Game.cs @4f7930b5 + OpenRA.Game/Support/Program.cs
 // L14-19(主循环骨架逐语义:RunTime 时钟/延迟动作队列/JoinInner·JoinLocal/
 // InnerLogicTick 的双 TickTime 节拍/LogicTick 的连接态事件/RenderTick 的
 // prepare→world→UI→flip 全序/Loop 的逻辑-渲染双时间表与追帧截断/Run 的

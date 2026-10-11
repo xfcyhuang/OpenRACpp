@@ -35,6 +35,7 @@ import std;
 #include "game/game_records.hpp"
 #include "meta/field_loader.hpp"
 #include "meta/generic_record.hpp"
+#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 namespace ora::gen {
 void RegisterGeneratedAll();
@@ -93,6 +94,7 @@ const std::string& AsString(const meta::GenericValue& val) {
 }  // namespace
 
 int main(int argc, char** argv) {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   if (argc < 2) {
     std::println("usage: game_test <upstream-root>");
     return 1;

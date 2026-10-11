@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/StoresResources.cs @b6fc03f L18-107
+// UPSTREAM: OpenRA.Mods.Common/Traits/StoresResources.cs @4f7930b5 L18-107
 //          全文 + StoresPlayerResources.cs L14-67 全文(逐语义重写)
 //          The whole of StoresResources.cs L18-107 + the whole of
 //          StoresPlayerResources.cs L14-67 (verbatim-semantics rewrites).

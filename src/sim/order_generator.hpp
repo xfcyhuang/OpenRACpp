@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Orders/IOrderGenerator.cs @b6fc03f L17-34 +
+// UPSTREAM: OpenRA.Game/Orders/IOrderGenerator.cs @4f7930b5 L17-34 +
 //          OpenRA.Mods.Common/Orders/OrderGenerator.cs L18-60(逐语义重写;
 //          GameSettings/MouseActionType 面随 Settings 批)
 //          Verbatim-semantics rewrite; the GameSettings/MouseActionType faces

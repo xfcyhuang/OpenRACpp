@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/SyncReport.cs @b6fc03f L23-344(起步承载
+// UPSTREAM: OpenRA.Game/Network/SyncReport.cs @4f7930b5 L23-344(起步承载
 //           面:环形 7 报告 + UpdateSyncReport 的哈希/帧/随机态记账 +
 //           DumpSyncReport 的文本面)
 //           The starter face of SyncReport.cs L23-344 (the 7-report ring +

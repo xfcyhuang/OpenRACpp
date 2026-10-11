@@ -183,6 +183,7 @@ void TestWorldArena() {
 }  // namespace
 
 int main() {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   TestPercentModifiers();
   TestFrameArena();
   TestWorldArena();

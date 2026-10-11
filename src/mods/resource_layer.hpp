@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/ResourceLayer.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/ResourceLayer.cs @4f7930b5
 //          L20-302 全文 + World/ResourceClaimLayer.cs L17-74 全文(逐语义
 //          重写;CellChanged 事件 → 回调表)
 //          The whole of World/ResourceLayer.cs L20-302 + the whole of

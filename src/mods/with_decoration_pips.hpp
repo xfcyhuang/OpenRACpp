@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithSpriteControlGroupDecoration.cs
-//          @b6fc03f L18-69 + WithResourceStoragePipsDecoration.cs L18-79 +
+//          @4f7930b5 L18-69 + WithResourceStoragePipsDecoration.cs L18-79 +
 //          WithStoresResourcesPipsDecoration.cs L18-101 pip/控制组装饰
 //          (AmmoPips/CargoPips 随宿主 trait 批)。
 //          The pip/control-group decorations (AmmoPips/CargoPips ride their

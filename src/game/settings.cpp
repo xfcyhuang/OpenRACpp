@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Settings.cs @b6fc03f L52-340(实现部分;头注见
+// UPSTREAM: OpenRA.Game/Settings.cs @4f7930b5 L52-340(实现部分;头注见
 //          settings.hpp)
 //          The implementation half of Settings.cs L52-340 (the header note
 //          lives in settings.hpp).

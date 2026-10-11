@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Player.cs @b6fc03f L27-337(逐语义重写;Shroud/
+// UPSTREAM: OpenRA.Game/Player.cs @4f7930b5 L27-337(逐语义重写;Shroud/
 //          FrozenActorLayer 面随该批、Fluent 本地化随 Phase 6、Lua 随 Phase 8)
 //          Verbatim-semantics rewrite (the Shroud/FrozenActorLayer faces land
 //          with those batches, Fluent localization with Phase 6, Lua with

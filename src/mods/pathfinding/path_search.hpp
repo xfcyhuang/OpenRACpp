@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Pathfinder/PathSearch.cs @b6fc03f(逐语义重写)
+// UPSTREAM: OpenRA.Mods.Common/Pathfinder/PathSearch.cs @4f7930b5(逐语义重写)
 //          Verbatim-semantics rewrite.
 //
 // 机制对照 / Mechanism mapping:

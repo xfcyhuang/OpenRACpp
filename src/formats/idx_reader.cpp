@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Cnc/FileFormats/IdxReader.cs + IdxEntry.cs
-// @b6fc03f —— 逐句照抄(Stream → SpanReader)。
+// @4f7930b5 —— 逐句照抄(Stream → SpanReader)。
 // [UPSTREAM continued] IdxReader.cs + IdxEntry.cs copied statement by
 // statement (Stream → SpanReader).
 #include "formats/idx_reader.hpp"

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/Player/FrozenActorLayer.cs @b6fc03f L19-386
+// UPSTREAM: OpenRA.Game/Traits/Player/FrozenActorLayer.cs @4f7930b5 L19-386
 //          全文逐语义重写(FrozenActor + FrozenActorLayer)
 //          The whole of FrozenActorLayer.cs L19-386 (FrozenActor +
 //          FrozenActorLayer).

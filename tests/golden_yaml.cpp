@@ -10,6 +10,7 @@
 // All standard-library entities come via import std; in mini_yaml.hpp
 // (project gate: no #include <std headers>).
 #include "yaml/mini_yaml.hpp"
+#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 namespace {
 
@@ -126,6 +127,7 @@ void CompareMode(const fs::path& repoRoot, const GoldenEntry& entry, bool keep,
 }  // namespace
 
 int main(int argc, char** argv) {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   if (argc != 3) {
     std::println(std::cerr, "用法: {} <golden_yaml.txt> <OpenRA 仓库根>", argv[0]);
     return 2;

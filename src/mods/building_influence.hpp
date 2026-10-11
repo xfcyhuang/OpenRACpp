@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/BuildingInfluence.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/BuildingInfluence.cs @4f7930b5
 //          L20-92 全文(世界 actor 的建筑影响层链表)
 //          The whole of L20-92 (the world actor's building-influence
 //          linked layer).

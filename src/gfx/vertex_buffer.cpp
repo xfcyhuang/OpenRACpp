@@ -1,6 +1,6 @@
-// UPSTREAM: OpenRA.Game/Graphics/PlatformInterfaces.cs @b6fc03f(IVertexBuffer/IIndexBuffer 接口族)+
-//           OpenRA.Platforms.Default/VertexBuffer.cs @b6fc03f L17-125 +
-//           OpenRA.Platforms.Default/StaticIndexBuffer.cs @b6fc03f
+// UPSTREAM: OpenRA.Game/Graphics/PlatformInterfaces.cs @4f7930b5(IVertexBuffer/IIndexBuffer 接口族)+
+//           OpenRA.Platforms.Default/VertexBuffer.cs @4f7930b5 L17-125 +
+//           OpenRA.Platforms.Default/StaticIndexBuffer.cs @4f7930b5
 // 实现(头文件携带完整 UPSTREAM 锚点与 OPT-A5/A6 论证)。
 // Implementations (the headers carry the full UPSTREAM anchors and the
 // OPT-A5/A6 arguments).

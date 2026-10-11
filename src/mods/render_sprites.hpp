@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/RenderSprites.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/RenderSprites.cs @4f7930b5
 //          L24-302 全文(RenderSprites 的仿真/装配语义面;RenderPreview 的
 //          IActorPreview 面随 Phase 6 预览装配 —— IRenderActorPreviewSpritesInfo
 //          的接口位保留空实现)

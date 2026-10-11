@@ -1347,6 +1347,7 @@ void TestHardwareCursorLive() {
 #endif  // ORA_HAS_DESKTOP_GL
 
 int main(int int4_argc, char** argv) {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   TestSpscSingleThread();
   TestSpscTwoThreads();
 

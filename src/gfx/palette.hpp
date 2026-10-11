@@ -1,6 +1,6 @@
-// UPSTREAM: OpenRA.Game/Graphics/Palette.cs @b6fc03f L20-160 +
-//           OpenRA.Game/Graphics/PaletteReference.cs @b6fc03f L14-31 +
-//           OpenRA.Game/Graphics/PlayerColorRemap.cs @b6fc03f L18-53
+// UPSTREAM: OpenRA.Game/Graphics/Palette.cs @4f7930b5 L20-160 +
+//           OpenRA.Game/Graphics/PaletteReference.cs @4f7930b5 L14-31 +
+//           OpenRA.Game/Graphics/PlayerColorRemap.cs @4f7930b5 L18-53
 // 调色板值族:IPalette(uint32 ARGB × 256)、ImmutablePalette(不可变;
 // 流构造的字节形态 = r<<2 | r>>6 高位复制 + remapTransparent→0 +
 // remapShadow→140<<24)、MutablePalette(可变 + ApplyRemap)、IPaletteRemap。

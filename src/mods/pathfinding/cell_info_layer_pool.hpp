@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Pathfinder/CellInfoLayerPool.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Pathfinder/CellInfoLayerPool.cs @4f7930b5
 //          (逐语义重写 + OPT-A2)
 //          Verbatim-semantics rewrite + OPT-A2.
 //

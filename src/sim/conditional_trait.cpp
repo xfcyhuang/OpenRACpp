@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/ConditionalTrait.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/ConditionalTrait.cs @4f7930b5
 //          L19-39(ConditionalTraitInfo.RulesetLoaded 的 NoVariables 求值面)
 //          The NoVariables-evaluation face of
 //          ConditionalTraitInfo.RulesetLoaded (L19-39).

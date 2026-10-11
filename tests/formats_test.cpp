@@ -4303,6 +4303,7 @@ void TestGoldenDifferential(const std::string& str_upstream_root, const std::str
 }  // namespace
 
 int main(int argc, char** argv) {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   if (argc < 3) {
     std::println(stderr, "usage: formats_test <upstream-root> <golden-formats.txt>");
     return 2;

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Game.cs @b6fc03f(game.hpp 的实现)
+// UPSTREAM: OpenRA.Game/Game.cs @4f7930b5(game.hpp 的实现)
 // The implementation of game.hpp.
 import std;
 

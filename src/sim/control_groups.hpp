@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/ControlGroups.cs @b6fc03f L19-150
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/ControlGroups.cs @4f7930b5 L19-150
 //          (逐语义重写)
 //          Verbatim-semantics rewrite.
 //

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/Util.cs @b6fc03f L23-320(渲染域子集;头文件已注记范围)
+// UPSTREAM: OpenRA.Game/Graphics/Util.cs @4f7930b5 L23-320(渲染域子集;头文件已注记范围)
 // The rendering-domain subset of Util.cs (scope noted in the header).
 #include "gfx/gfx_util.hpp"
 

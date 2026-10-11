@@ -50,6 +50,17 @@ import std;
 #include "sim/sync_hash.hpp"
 #include "sim/target.hpp"
 #include "sim/world.hpp"
+#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
+
+namespace {
+std::string_view TestMapFilter() {
+  const char* str_env = std::getenv("ORA_TEST_MAP_FILTER");
+  if (str_env != nullptr)
+    return std::string_view{str_env};
+  return "Siberian-Pass";
+}
+}  // namespace
+
 
 namespace ora::gen {
 void RegisterGeneratedAll();
@@ -98,7 +109,7 @@ struct TestWorld {
             .ptr_mod_data = &mod_data}},
         cache{mod_data.ManifestRef(), mod_data.ModFiles()} {
     game_.JoinLocal();
-    cache.LoadMaps(mod_data);
+    cache.LoadMaps(mod_data, TestMapFilter());
     // 首个满足战斗员数要求的可用地图(turret 链需敌我两方)
     // The first available map meeting the combatant count (the turret
     // chain needs both sides).
@@ -111,6 +122,8 @@ struct TestWorld {
           count++;
       if (count >= combatants) {
         str_uid = p->Uid();
+        std::println("map: {} ({})", p->Title(), p->Path());
+      std::println("map: {} ({})", p->Title(), p->Path());
         break;
       }
     }
@@ -145,6 +158,7 @@ struct TestWorld {
 
 void TestPowerChain(const char* str_upstream_root) {
   using namespace ora;
+  std::println("[resource] power-chain");
   TestWorld tw{str_upstream_root};
   Check(tw.Build(), "power test world built");
   if (tw.world == nullptr)
@@ -269,6 +283,7 @@ void TestPowerChain(const char* str_upstream_root) {
 
 void TestTurretChain(const char* str_upstream_root) {
   using namespace ora;
+  std::println("[resource] turret-chain");
   TestWorld tw{str_upstream_root};
   Check(tw.Build(), "turret test world built");
   if (tw.world == nullptr)
@@ -348,6 +363,8 @@ void TestTurretChain(const char* str_upstream_root) {
   bool aiming_seen = false;
   bool killed = false;
   for (int tick = 0; tick < 400; tick++) {
+    if (tick % 100 == 0)
+      std::println("[resource] turret-chain tick {}", tick);
     world.Tick();
     if (attack->IsAiming())
       aiming_seen = true;
@@ -379,6 +396,7 @@ void TestTurretChain(const char* str_upstream_root) {
 
 void TestResourceChain(const char* str_upstream_root) {
   using namespace ora;
+  std::println("[resource] harvest-chain");
   TestWorld tw{str_upstream_root};
   Check(tw.Build(), "resource test world built");
   if (tw.world == nullptr)
@@ -593,6 +611,7 @@ void TestResourceChain(const char* str_upstream_root) {
 }
 
 int main(int argc, char** argv) {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   const char* str_upstream_root = argc > 1 ? argv[1] : ".";
 
   ora::gen::RegisterGeneratedAll();
@@ -608,9 +627,20 @@ int main(int argc, char** argv) {
   ora::mods::SetBodyOrientationFacingsResolver(
       [](const ora::game::ActorInfo&, const std::string&) { return 8; });
 
-  TestPowerChain(str_upstream_root);
-  TestTurretChain(str_upstream_root);
-  TestResourceChain(str_upstream_root);
+  // stage 选择(argv[2]):power/turret/harvest 缺省 all —— ctest 以
+  // resource_power_test/resource_turret_test/resource_harvest_test 三面
+  // 并行拆跑(逐段独立模块)
+  // The stage selection (argv[2]): power/turret/harvest, all by default —
+  // ctest runs the three faces as parallel independent modules
+  // (resource_power_test/resource_turret_test/resource_harvest_test).
+  const std::string_view str_stage = argc > 2 ? std::string_view{argv[2]}
+                                              : std::string_view{"all"};
+  if (str_stage == "all" || str_stage == "power")
+    TestPowerChain(str_upstream_root);
+  if (str_stage == "all" || str_stage == "turret")
+    TestTurretChain(str_upstream_root);
+  if (str_stage == "all" || str_stage == "harvest")
+    TestResourceChain(str_upstream_root);
 
   if (g_failures == 0)
     std::println("resource_test: all checks passed");

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/HitShapes/IHitShape.cs @b6fc03f L17-28 +
+// UPSTREAM: OpenRA.Mods.Common/HitShapes/IHitShape.cs @4f7930b5 L17-28 +
 //          Circle.cs L17-67 + Capsule.cs L17-121 + Polygon.cs L21-130 +
 //          Rectangle.cs L20-146(逐语义重写;RenderDebugOverlay 渲染面随
 //          Phase 6)

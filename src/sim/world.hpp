@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/World.cs @b6fc03f L28-650(逐语义重写;gameInfo/
+// UPSTREAM: OpenRA.Game/World.cs @4f7930b5 L28-650(逐语义重写;gameInfo/
 // ReplayMetadata/存档包面随 Phase 7 批)
 //          Verbatim-semantics rewrite (gameInfo/ReplayMetadata/the save
 //          package faces land with the Phase 7 batches).

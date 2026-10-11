@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Sound/Sound.cs @b6fc03f L36-481(sound.hpp 的实现)
+// UPSTREAM: OpenRA.Game/Sound/Sound.cs @4f7930b5 L36-481(sound.hpp 的实现)
 //          Implementation of sound.hpp.
 // 形态偏离(COVERAGE 登记):文件缺失日志(Log.Write "sound")不落地(同
 // D70 的日志面);sounds[name] 为 null 源时上游 Play2D(null) 即 NRE,此处

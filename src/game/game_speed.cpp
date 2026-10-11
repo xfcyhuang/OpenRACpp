@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/GameSpeed.cs @b6fc03f(game_speed.hpp 的实现)
+// UPSTREAM: OpenRA.Game/GameSpeed.cs @4f7930b5(game_speed.hpp 的实现)
 //          The implementation of game_speed.hpp.
 import std;
 

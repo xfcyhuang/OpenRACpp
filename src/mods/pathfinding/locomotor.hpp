@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/Locomotor.cs @b6fc03f L24-526
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/Locomotor.cs @4f7930b5 L24-526
 //          (逐语义重写 + Mobile 挂点的部分覆盖面)
 //          Verbatim-semantics rewrite + the partial-coverage Mobile hooks.
 //

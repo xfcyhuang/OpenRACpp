@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Modifiers/FrozenUnderFog.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/Modifiers/FrozenUnderFog.cs @4f7930b5
 //          L17-190 全文 + HiddenUnderShroud.cs L15-72 全文 + FrozenUnderFog.cs
 //          L189-190 的 HiddenUnderFogInit(SpawnedByMapInit 随标记面入
 //          actor_init.hpp)

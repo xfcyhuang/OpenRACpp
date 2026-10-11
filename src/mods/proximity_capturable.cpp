@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/ProximityCapturableBase.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/ProximityCapturableBase.cs @4f7930b5
 //          L21-211 + ProximityCapturable.cs L18-57 + ProximityCaptor.cs
 //          L17-28(实现部分;头注见 proximity_capturable.hpp)
 //          The implementation halves (the header note lives in

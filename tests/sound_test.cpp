@@ -328,6 +328,7 @@ void TestSoundPoolDraw() {
 }  // namespace
 
 int main(int argc, char** argv) {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   if (argc < 2) {
     std::println(stderr, "用法 | usage: sound_test <upstream-root>");
     return 2;

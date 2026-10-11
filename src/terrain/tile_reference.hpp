@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Map/TileReference.cs @b6fc03f L18-51(逐语义重写)
+// UPSTREAM: OpenRA.Game/Map/TileReference.cs @4f7930b5 L18-51(逐语义重写)
 //          Verbatim-semantics rewrite.
 #pragma once
 import std;

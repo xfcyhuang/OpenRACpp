@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.D2k/SpriteLoaders/R8Loader.cs @b6fc03f L24-229(全文逐语义)
+// UPSTREAM: OpenRA.Mods.D2k/SpriteLoaders/R8Loader.cs @4f7930b5 L24-229(全文逐语义)
 // Dune 2000 的 R8/R16 图像:帧头(1 字节 type,前导 0 跳过)+ w/h/x/y 四
 // i32 + imageHandle u32 + paletteHandle i32 + bpp u8(8/16)+ frameW/frameH
 // 两 u8 + 对齐 u8。bpp16 数据为 RGB555,展开成 BGRA32(0xFF alpha,通道

@@ -12,6 +12,7 @@
 #include "fs/file_system.hpp"
 #include "fs/folder.hpp"
 #include "yaml/mini_yaml.hpp"
+#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 namespace {
 
@@ -258,6 +259,7 @@ void TestYamlLoad() {
 }  // namespace
 
 int main() {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   TestFolder();
   TestMountOrder();
   TestExplicitMount();

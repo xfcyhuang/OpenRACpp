@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/LCWCompression.cs @b6fc03f L16-167
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/LCWCompression.cs @4f7930b5 L16-167
 // 实现文件:解码五 case / ReplicatePrevious / CountSame / WriteCopyBlocks /
 // Encode 逐句照抄;byte[] → span。
 // Implementation file: the five decoder cases / ReplicatePrevious /

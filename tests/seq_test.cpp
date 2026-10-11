@@ -601,6 +601,7 @@ fallback:
 }  // namespace
 
 int main() {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   const std::pair<std::string_view, void (*)()> arr_tests[] = {
       {"FacingAndPolygon", &TestFacingAndPolygon},
       {"DefaultSequenceMatrix", &TestDefaultSequenceMatrix},

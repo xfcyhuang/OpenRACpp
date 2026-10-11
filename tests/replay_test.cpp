@@ -22,6 +22,16 @@ import std;
 
 #include <cstdio>
 
+namespace {
+std::string_view TestMapFilter() {
+  const char* str_env = std::getenv("ORA_TEST_MAP_FILTER");
+  if (str_env != nullptr)
+    return std::string_view{str_env};
+  return "Siberian-Pass";
+}
+}  // namespace
+
+
 namespace ora::gen {
 void RegisterGeneratedAll();
 }
@@ -125,10 +135,12 @@ struct ReplayFixture {
                       map_world, mod_data.ManifestRef(), mod_data,
                       str_root.c_str());
                 }}}, str_root{str_upstream_root} {
-    game_.MapCacheFace().LoadMaps(mod_data);
+    game_.MapCacheFace().LoadMaps(mod_data, TestMapFilter());
     for (map::MapPreview* p : game_.MapCacheFace().Previews()) {
       if (p->Status() == map::MapStatus::Available) {
         str_uid = p->Uid();
+        std::println("map: {} ({})", p->Title(), p->Path());
+      std::println("map: {} ({})", p->Title(), p->Path());
         break;
       }
     }
@@ -176,8 +188,24 @@ int main(int argc, char** argv) {
     std::println("usage: replay_test <upstream-root>");
     return 1;
   }
-  setvbuf(stdout, nullptr, _IOLBF, 0);
+  // 无缓冲:管道下也逐行实时可见(ctest/重定向不丢进度)
+  // Unbuffered: lines stream live even under pipes (ctest/redirect).
+  setvbuf(stdout, nullptr, _IONBF, 0);
   const char* str_root = argv[1];
+  // stage 选择(argv[2]):record/playback/tamper 缺省 all —— ctest 以
+  // 三面拆跑(逐段独立模块;record 段确定性产出同字节,playback/tamper
+  // 面各自重跑录制段取自用副本)
+  // The stage selection (argv[2]): record/playback/tamper, all by
+  // default — ctest runs the three faces (independent modules; the
+  // record stage deterministically produces the same bytes, and the
+  // playback/tamper faces re-run the recording stage for their own
+  // copy).
+  const std::string_view str_stage = argc > 2 ? std::string_view{argv[2]}
+                                              : std::string_view{"all"};
+  const bool b_stage = str_stage != "all";
+  const bool b_do_record = !b_stage || str_stage == "record";
+  const bool b_do_playback = !b_stage || str_stage == "playback";
+  const bool b_do_tamper = !b_stage || str_stage == "tamper";
   gen::RegisterGeneratedAll();
   game::RegisterGameLoaders();
   sim::RegisterWorldTraits();
@@ -191,7 +219,9 @@ int main(int argc, char** argv) {
   int int4_tick_count_recorded = 0;
   std::string str_recorded_uid;
 
-  {
+  {  // 录制段恒跑:playback/tamper 面的消费源
+     // The recording stage always runs: the playback/tamper faces consume it.
+    std::println("[replay] record phase");
     ReplayFixture fx{str_root};
     Check(!fx.str_uid.empty(), "map found");
     if (!fx.str_uid.empty()) {
@@ -266,7 +296,7 @@ int main(int argc, char** argv) {
   }
 
   Check(!vec_replay.empty(), "replay bytes produced");
-  if (!vec_replay.empty()) {
+  if (b_do_playback && !vec_replay.empty()) {
     net::ReplayConnection connection_probe{vec_replay};
     Check(connection_probe.IsValid(), "ctor StartGame scan");
     Check(connection_probe.HasLobbyInfo(), "ctor SyncInfo scan");
@@ -280,7 +310,8 @@ int main(int argc, char** argv) {
             "ctor final game tick");
   }
 
-  if (!vec_replay.empty()) {
+  if (b_do_playback && !vec_replay.empty()) {
+    std::println("[replay] playback phase");
     ReplayFixture fx{str_root};
     fx.game_.JoinReplay(vec_replay, kNetFrameInterval);
     net::OrderManager* p_om = fx.game_.OrderManagerFace();
@@ -316,7 +347,8 @@ int main(int argc, char** argv) {
     }
   }
 
-  if (!vec_replay.empty()) {
+  if (b_do_tamper && !vec_replay.empty()) {
+    std::println("[replay] tamper phase");
     std::size_t sz_tampered = 0;
     const int int4_tamper_frame = kFinalTick - 5;
     Check(TamperSyncHash(vec_replay, int4_tamper_frame, sz_tampered),

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/OpenAlSoundEngine.cs @b6fc03f(加载面 =
+// UPSTREAM: OpenRA.Platforms.Default/OpenAlSoundEngine.cs @4f7930b5(加载面 =
 // OpenRA-OpenAL-CS 的 DllImport 表;此处为其 C++ 直连等价物)
 // 加载器实现:Windows LoadLibraryA + GetProcAddress 表驱动(gl_loader 同款;
 // DLL 句柄进程级常驻,与上下文生命周期解耦 —— OpenAL 规范允许 alcShutdown 后

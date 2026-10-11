@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteCache.cs @b6fc03f L21-183
+// UPSTREAM: OpenRA.Game/Graphics/SpriteCache.cs @4f7930b5 L21-183
 //          (sprite_cache.hpp 的实现;头注的形态适配说明适用)
 //          Implementation of sprite_cache.hpp; the shape-adaptation notes of
 //          the hpp header apply.
@@ -145,27 +145,54 @@ void SpriteCache::LoadReservations() {
                    });
 
   // (文件名, 帧索引, 预乘, AdjustFrame) 去重 —— 同图的预乘/非预乘两版本
-  // 需各持一份(L145-146 上游注释)
+  // 需各持一份(L145-146 上游注释)。上游为 Dictionary(哈希);C++ 以
+  // unordered_map 承载,键 = 四元组的指针恒等(判定与语义均同上游字典的
+  // 键等值:AdjustFrame 的 C# 委托等值 = 方法+目标,闭包各异时上游同样
+  // 不命中 —— 精灵量面两者一致;复杂度 O(n²) 线性扫描 → O(1))
   // Deduplicated by (filename, frame index, premultiplied, AdjustFrame) —
   // the same image in both premultiply flavors needs its own copy (the
-  // L145-146 upstream comment).
-  std::vector<std::tuple<const std::string*, std::int32_t, bool, const AdjustFrameFn*,
-                         std::optional<Sprite>>>
-      vec_sprite_cache;
+  // L145-146 upstream comment). Upstream is a Dictionary (hashed); C++
+  // carries it in an unordered_map keyed on the four-tuple's pointer
+  // identity (the same key-equality semantics as upstream's dictionary:
+  // AdjustFrame's C# delegate equality is method+target — distinct
+  // closures miss upstream too, so the sprite counts agree; the old linear
+  // scan's O(n²) becomes O(1)).
+  struct SpriteCacheKey {
+    const std::string* ptr_filename;
+    std::int32_t int4_frame_index;
+    bool b_premultiplied;
+    const AdjustFrameFn* ptr_adjust;
+  };
+  struct SpriteCacheKeyHash {
+    std::size_t operator()(const SpriteCacheKey& key) const {
+      return std::hash<const void*>{}(key.ptr_filename) ^
+             (std::hash<std::int32_t>{}(key.int4_frame_index) << 1) ^
+             (std::hash<bool>{}(key.b_premultiplied) << 2) ^
+             (std::hash<const void*>{}(key.ptr_adjust) << 3);
+    }
+  };
+  struct SpriteCacheKeyEq {
+    bool operator()(const SpriteCacheKey& a, const SpriteCacheKey& b) const {
+      return a.ptr_filename == b.ptr_filename &&
+             a.int4_frame_index == b.int4_frame_index &&
+             a.b_premultiplied == b.b_premultiplied &&
+             a.ptr_adjust == b.ptr_adjust;
+    }
+  };
+  std::unordered_map<SpriteCacheKey, Sprite, SpriteCacheKeyHash, SpriteCacheKeyEq>
+      map_sprite_cache;
+  map_sprite_cache.reserve(vec_pending_resolve.size());
   const auto sprite_cache_get_or_add = [&](const std::string* ptr_filename,
                                            std::int32_t int4_frame_index, bool b_premultiplied,
                                            const AdjustFrameFn* ptr_adjust,
                                            const ISpriteFrame& frame_input) -> Sprite {
-    for (auto& tuple_entry : vec_sprite_cache) {
-      if (std::get<0>(tuple_entry) == ptr_filename &&
-          std::get<1>(tuple_entry) == int4_frame_index &&
-          std::get<2>(tuple_entry) == b_premultiplied && std::get<3>(tuple_entry) == ptr_adjust)
-        return *std::get<4>(tuple_entry);
-    }
+    SpriteCacheKey key{ptr_filename, int4_frame_index, b_premultiplied,
+                       ptr_adjust};
+    if (const auto it = map_sprite_cache.find(key); it != map_sprite_cache.end())
+      return it->second;
     SheetBuilder& builder = BuilderOf(SheetBuilder::FrameTypeToSheetType(frame_input.Type()));
     const Sprite sprite_added = builder.Add(frame_input, b_premultiplied);
-    vec_sprite_cache.emplace_back(ptr_filename, int4_frame_index, b_premultiplied, ptr_adjust,
-                                  sprite_added);
+    map_sprite_cache.emplace(key, sprite_added);
     return sprite_added;
   };
 

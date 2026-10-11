@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/GameRules/Ruleset.cs @b6fc03f(ruleset.hpp 的实现;
+// UPSTREAM: OpenRA.Game/GameRules/Ruleset.cs @4f7930b5(ruleset.hpp 的实现;
 //          MergeOrDefault/SystemActors 补齐逐语义,见 hpp 头注)
 //          Implementation of ruleset.hpp — MergeOrDefault and the
 //          SystemActors backfill verbatim; see the hpp header notes.

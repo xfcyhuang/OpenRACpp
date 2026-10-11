@@ -35,6 +35,7 @@ import std;
 #include "sim/target.hpp"
 #include "sim/trait_dictionary.hpp"
 #include "sim/world.hpp"
+#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 int int4_failures = 0;
 
@@ -607,6 +608,7 @@ void TestWorldSim() {
 }
 
 int main() {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   TestSyncHashPrimitives();
   TestOrderSerialization();
   TestOrderIO();

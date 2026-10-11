@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/CreateMapPlayers.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/CreateMapPlayers.cs @4f7930b5
 //          (实现部分)+ 本批 mods trait 的注册表装配
 //          The implementation half of CreateMapPlayers.cs + this batch's
 //          mods-trait registry assembly.

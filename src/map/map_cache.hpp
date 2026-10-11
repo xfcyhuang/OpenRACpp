@@ -219,7 +219,14 @@ class MapCache final {
 
   static MapPreview& UnknownMap();
 
-  void LoadMaps(game::ModData& mod_data);
+  /// LoadMaps()(L84-124);filter_contains 非空时仅装载包名含该子串的地图
+  /// (逐图处理面不变;测试/嵌入侧的提速面 —— 上游无此参,登记 D209)
+  /// LoadMaps() (L84-124); a non-empty filter_contains loads only the maps
+  /// whose package name contains the substring (the per-map processing is
+  /// unchanged; a test/embedding-side speedup face — upstream has no such
+  /// parameter, registered as D209).
+  void LoadMaps(game::ModData& mod_data,
+                std::string_view str_filter_contains = {});
   void UpdateMaps();
   void LoadMap(const std::string& str_map, const fs::IReadOnlyPackage& package,
                MapClassification classification, const std::string& str_old_map);

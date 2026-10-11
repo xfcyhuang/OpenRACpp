@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Map/MapGrid.cs @b6fc03f(map_grid.hpp 的实现)
+// UPSTREAM: OpenRA.Game/Map/MapGrid.cs @4f7930b5(map_grid.hpp 的实现)
 //          The implementation of map_grid.hpp.
 import std;
 

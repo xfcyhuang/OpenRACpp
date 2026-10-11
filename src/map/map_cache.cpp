@@ -889,7 +889,8 @@ MapPreview& MapCache::UnknownMap() {
   return preview;
 }
 
-void MapCache::LoadMaps(game::ModData& mod_data) {
+void MapCache::LoadMaps(game::ModData& mod_data,
+                        std::string_view str_filter_contains) {
   ptr_mod_data_ = &mod_data;
   grid_type_ = mod_data.GetOrCreateMapGrid().Type;
 
@@ -937,10 +938,14 @@ void MapCache::LoadMaps(game::ModData& mod_data) {
     opt_mod_data_rules = mod_data.GetRulesYaml();
 
   for (const auto& [package, classification] : vec_map_locations_)
-    for (const std::string& map_path : package->Contents())
+    for (const std::string& map_path : package->Contents()) {
+      if (!str_filter_contains.empty() &&
+          map_path.find(str_filter_contains) == std::string::npos)
+        continue;
       LoadMapInternal(map_path, *package, classification, "", grid_type_,
                       opt_mod_data_rules.has_value() ? &*opt_mod_data_rules
                                                      : nullptr);
+    }
 
   str_last_modified_map_.clear();
 }

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/DockClientBase.cs @b6fc03f L15-56
+// UPSTREAM: OpenRA.Mods.Common/Traits/DockClientBase.cs @4f7930b5 L15-56
 //          全文 + DockClientManager.cs L22-438 全文(逐语义重写;游标/声音
 //          的 UI 参照面与 BooleanExpression 观察者链保留)
 //          The whole of DockClientBase.cs L15-56 + the whole of

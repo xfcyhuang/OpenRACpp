@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/ChromeProvider.cs @b6fc03f L22-305(全文逐语义)
+// UPSTREAM: OpenRA.Game/Graphics/ChromeProvider.cs @4f7930b5 L22-305(全文逐语义)
 // UI 皮肤(chrome.yaml):Collection(Image/Image2x/Image3x + PanelRegion 八元 +
 // PanelSides 标志 + Regions 名→矩形表)。HiDPI 三档(dpiScale > 2 → 3x,> 1 →
 // 2x,缺省原图);sheet 按图片名共享缓存,Sprite 按 density 缩放(1/density 的

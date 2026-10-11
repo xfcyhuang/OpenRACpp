@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/CursorManager.cs @b6fc03f L20-317
+// UPSTREAM: OpenRA.Game/Graphics/CursorManager.cs @4f7930b5 L20-317
 //          (cursor_manager.hpp 的实现;头注的形态适配说明适用)
 //          Implementation of cursor_manager.hpp; the shape-adaptation notes
 //          of the hpp header apply.

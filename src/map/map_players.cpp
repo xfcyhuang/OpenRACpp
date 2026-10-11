@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Map/PlayerReference.cs @b6fc03f + MapPlayers.cs
+// UPSTREAM: OpenRA.Game/Map/PlayerReference.cs @4f7930b5 + MapPlayers.cs
 //          (map_players.hpp 的实现) | The implementation of map_players.hpp.
 import std;
 

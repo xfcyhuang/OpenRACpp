@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/Player/Shroud.cs @b6fc03f L19-514 实现部分
+// UPSTREAM: OpenRA.Game/Traits/Player/Shroud.cs @4f7930b5 L19-514 实现部分
 //          (the implementation half)。
 #include "sim/shroud.hpp"
 

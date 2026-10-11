@@ -15,6 +15,7 @@ import std;
 #include "core/wdist.hpp"
 #include "core/wvec.hpp"
 #include "yaml/mini_yaml.hpp"
+#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 using namespace ora;
 using namespace ora::meta;
@@ -418,6 +419,7 @@ void TestColorAndBitSet() {
 }
 
 int main() {
+  setvbuf(stdout, nullptr, _IONBF, 0);
   TestNumericParse();
   TestEnums();
   TestExpressions();

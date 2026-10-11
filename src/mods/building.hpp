@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/Building.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/Building.cs @4f7930b5
 //          L22-355 全文(LoadFootprint 的 yaml 面已由 game/loaders.cpp 的
 //          RegisterLoadFootprint 前批落地 —— 本文件消费值袋槽)
 //          The whole of Building.cs L22-355 (LoadFootprint's yaml face

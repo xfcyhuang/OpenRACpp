@@ -34,7 +34,7 @@
 - **三 mod 规则深解析**：ra 80,274 / cnc 49,416 / d2k 35,833 行**逐字节快照回归**；上游 `--check-yaml` exit=0 佐证。
 - **资产解码黄金对拍**：mods 全部 .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 资产 + 合成夹具，`tests/golden_formats.txt` **6,737 行逐行一致**；字形 **216 个逐字节一致**（与 C# oracle 加载同一 freetype6.dll）。
 - **锁步确定性**：EchoConnection 单机 **10⁶ tick 双构建（ASan+UBSan/Release）通过，无泄漏无 desync**。
-- **持续门禁**：ctest **29/29** 三构建（ASan+UBSan / Release / **GCC -fhardened 旗级等价硬化**）全绿；`import std;` 严控（**469 文件**）；偏离登记 **D1~D200**。
+- **持续门禁**：ctest **35/35** 三构建（ASan+UBSan / Release / **GCC -fhardened 旗级等价硬化**）全绿，且已**模块化 + 提速**（2026-10-11：SpriteCache 去重 O(n²)→哈希的真问题修复、MapCache 可选过滤装载（D209）、resource/replay 按 stage 拆独立 ctest 面、全测试无缓冲实时进度 —— Release 全量 68s / ASan 275s，改写主线不被测试阻塞）；`import std;` 严控（**488 文件**）；偏离登记 **D1~D209**。
 - **双编译排错编排（2026-10-08 起）**：**Clang 23**（llvm-mingw/UCRT，基线工具链）× {ASan+UBSan、Release} + **GCC `-fhardened` 旗级等价第二编排**（`-D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -pie`，CMake `-DORA_HARDENED=ON`；std.pcm 同享 `-fstack-protector-strong` 防配置失配拒载）。实测注记：本机 `gcc.exe` 为 llvm-mingw 的 clang 壳，原旗标 `-fhardened` 不可执行 —— 等价集按 GCC 文档逐项展开；真 GCC 15+ 原旗标验证列为 CI 待办（见 ../cpp26.md 工具链表）。
 
 ### 当前焦点（replay SyncHash 对拍关卡,G2 两编）
@@ -279,7 +279,7 @@ Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and sta
 - **The three-mod deep rules parse**: ra 80,274 / cnc 49,416 / d2k 35,833 lines as **byte-for-byte frozen snapshots**; upstream `--check-yaml` exit=0 corroborates.
 - **The asset-decode golden differential**: all mods .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 assets + synthetic fixtures, `tests/golden_formats.txt` **6,737 lines matching line for line**; **216 glyphs byte-identical** (the same freetype6.dll the C# oracle loads).
 - **Lockstep determinism**: EchoConnection **10⁶ ticks on both builds (ASan+UBSan / Release), leak-free and desync-free**.
-- **Standing gates**: ctest **29/29** green on three builds (ASan+UBSan, Release, and the **GCC -fhardened flag-equivalent hardening**); strict `import std;` (**488 files**); the deviation registry **D1–D208**.
+- **Standing gates**: ctest **35/35** green on three builds (ASan+UBSan, Release, and the **GCC -fhardened flag-equivalent hardening**) — **modularized and accelerated** (2026-10-11: the SpriteCache dedup's real O(n²)→hash fix, the MapCache optional filtered load (D209), resource/replay split into per-stage independent ctest faces, unbuffered real-time progress in every test — the full Release suite in 68s and ASan in 275s, keeping the porting mainline unblocked); strict `import std;` (**488 files**); the deviation registry **D1–D209**.
 - **The dual-compile debugging rig (since 2026-10-08)**: **Clang 23** (llvm-mingw/UCRT, the baseline toolchain) x {ASan+UBSan, Release} plus a **second leg reproducing GCC `-fhardened` at flag level** (`-D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -pie`, CMake `-DORA_HARDENED=ON`; the std.pcm shares `-fstack-protector-strong` to avoid the configuration-mismatch load refusal). Measured note: this machine's gcc.exe is llvm-mingw's clang shim, so the literal -fhardened is unrunnable — the equivalent set expands the GCC docs item by item; validating the literal flag on real GCC 15+ is a CI TODO (see the toolchain table in ../cpp26.md).
 
 ### Current focus (the replay SyncHash differential)

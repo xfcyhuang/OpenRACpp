@@ -1,6 +1,6 @@
-// UPSTREAM: OpenRA.Game/ModData.cs @b6fc03f L111(ObjectCreator.GetLoader&lt;
+// UPSTREAM: OpenRA.Game/ModData.cs @4f7930b5 L111(ObjectCreator.GetLoader&lt;
 //          ISpriteSequenceLoader&gt;(Manifest.SpriteSequenceFormat, "sequence"))+
-//           OpenRA.Game/ObjectCreator.cs @b6fc03f L149-156
+//           OpenRA.Game/ObjectCreator.cs @4f7930b5 L149-156
 // SpriteSequenceFormat 名 → 序列加载器实例(Manifest 名分派;未知名抛
 // InvalidOperationException 文本逐字)。
 // The SpriteSequenceFormat name → the sequence-loader instance (Manifest

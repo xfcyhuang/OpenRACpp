@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/ConditionalTrait.cs @b6fc03f
+// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/ConditionalTrait.cs @4f7930b5
 //          L19-92 全文 + PausableConditionalTrait.cs L19-77 全文
 //          The whole of Conditions/ConditionalTrait.cs L19-92 + the whole of
 //          PausableConditionalTrait.cs L19-77.
