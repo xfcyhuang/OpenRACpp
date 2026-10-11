@@ -244,11 +244,14 @@ void WithInfantryBody::TickIdle(Actor& self) {
     // IdleSequences.Random(SharedRandom)—— 同步域消耗(上游 SharedRandom)
     // IdleSequences.Random (SharedRandom) — a synced consumption
     // (upstream's SharedRandom).
-    str_idle_sequence_ =
-        info.vec_idle_sequences[static_cast<std::size_t>(
-                                    static_cast<std::uint32_t>(
-                                        self.world().SharedRandom().Next()) %
-                                    info.vec_idle_sequences.size())];
+    // IdleSequences.Random(SharedRandom):Next(count)——count == 1 时
+    // diff<=1 不抽数(上游同形;第十二批 G2 修出)
+    // IdleSequences.Random (SharedRandom): Next(count) — count == 1
+    // draws nothing (diff <= 1; the upstream shape; the batch-12 G2 fix).
+    str_idle_sequence_ = info.vec_idle_sequences[
+        static_cast<std::size_t>(self.world().SharedRandom().Next(
+            static_cast<std::int32_t>(
+                info.vec_idle_sequences.size())))];
     int4_idle_delay_ = self.world().SharedRandom().Next(
         info.int4_min_idle_delay, info.int4_max_idle_delay);
   } else if (state_animation_ == AnimationState::Idle &&

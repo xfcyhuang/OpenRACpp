@@ -1457,6 +1457,16 @@ class IResourceLayerInfo {
 /// TraitsInterfaces.cs L822-835: IResourceLayer (the CellChanged event →
 /// a callback list, the same device as the World event faces; no
 /// subscribers this batch).
+/// TraitsInterfaces.cs L188:ISeedableResource
+/// TraitsInterfaces.cs L188: ISeedableResource.
+class ISeedableResource {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ISeedableResource;
+  virtual ~ISeedableResource() = default;
+  virtual void Seed(Actor& self) = 0;
+};
+
 class IResourceLayer {
  public:
   static constexpr gen::TypeId kTypeId =

@@ -208,6 +208,7 @@ add_library(ora_sim STATIC
   src/sim/control_groups.cpp
   src/sim/player.cpp
   src/sim/trait_registry.cpp
+  src/sim/debug_pause_state.cpp
   src/sim/conditional_trait.cpp
   src/sim/weapons.cpp
   src/sim/world.cpp)
@@ -393,7 +394,15 @@ add_library(ora_mods STATIC
   src/mods/with_decoration_pips.cpp
   src/mods/selection_decorations.cpp
   src/mods/production_bar.cpp
-  src/mods/trait_registry_batch9.cpp)
+  src/mods/trait_registry_batch9.cpp
+  src/mods/wands.cpp
+  src/mods/gps_watcher.cpp
+  src/mods/mission_objectives.cpp
+  src/mods/cash_trickler.cpp
+  src/mods/changes_health.cpp
+  src/mods/scaredy_cat.cpp
+  src/mods/immobile.cpp
+  src/mods/seeds_resource.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats)
 ora_link_std(ora_mods)
 
@@ -661,6 +670,18 @@ target_link_libraries(replay_test PRIVATE
 ora_link_std(replay_test)
 add_test(NAME replay_test COMMAND replay_test ${ORA_UPSTREAM_ROOT})
 set_tests_properties(replay_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
+
+add_executable(golden_replay_test tests/golden_replay_test.cpp)
+ora_link_std(golden_replay_test)
+target_link_libraries(golden_replay_test PRIVATE
+  ora_engine ora_ui ora_sound ora_mods ora_formats ora_net ora_sim ora_map
+  ora_game ora_terrain ora_gen ora_gfx ora_platform ora_meta ora_fs ora_yaml
+  ora_miniz ora_sdl2 ora_openal ora_freetype)
+ora_link_std(golden_replay_test)
+add_test(NAME golden_replay_test COMMAND golden_replay_test ${ORA_UPSTREAM_ROOT}
+  ${CMAKE_SOURCE_DIR}/tests/golden_replay.ra.orarep
+  ${CMAKE_SOURCE_DIR}/tests/golden_replay.txt)
+set_tests_properties(golden_replay_test PROPERTIES ENVIRONMENT "ORA_UPSTREAM_ROOT=${ORA_UPSTREAM_ROOT}")
 
 if(EXISTS ${CMAKE_SOURCE_DIR}/tests/render_test.cpp)
 add_executable(render_test tests/render_test.cpp)

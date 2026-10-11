@@ -98,14 +98,27 @@ RenderSpritesInfoData RenderSpritesInfoData::Parse(
   return data;
 }
 
+namespace {
+/// ToLowerInvariant(ASCII 面;上游 GetImage 的恒小写面)
+/// ToLowerInvariant (the ASCII face; upstream GetImage's always-lowercase
+/// face).
+std::string ToLowerInvariant(std::string str_value) {
+  for (char& c : str_value)
+    if (c >= 'A' && c <= 'Z')
+      c = static_cast<char>(c - 'A' + 'a');
+  return str_value;
+}
+}  // namespace
+
 std::string RenderSpritesInfoData::GetImage(
     const game::ActorInfo& actor, std::string_view str_faction) const {
   if (!vec_faction_images.empty() && !str_faction.empty())
     for (const auto& [faction, image] : vec_faction_images)
       if (faction == str_faction)
-        return image;  // 上游已小写(schema 域约定)| already lowercase.
+        return ToLowerInvariant(image);
 
-  return (str_image.empty() ? actor.Name() : str_image);
+  return ToLowerInvariant(str_image.empty() ? std::string{actor.Name()}
+                                            : str_image);
 }
 
 // ———— RenderSprites(L160-301)————

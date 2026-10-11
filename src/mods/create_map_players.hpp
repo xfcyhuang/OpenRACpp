@@ -88,5 +88,8 @@ void RegisterCommonTraitsBatch8();
 /// production_bar/the pip decorations; a separate translation unit —
 /// called from within RegisterCommonTraits).
 void RegisterCommonTraitsBatch9();
+void RegisterCommonTraitsBatch12();
+void RegisterCommonTraitsBatch12Objectives();
+void RegisterCommonTraitsBatch12Seeds();
 
 }  // namespace ora::mods

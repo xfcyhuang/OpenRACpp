@@ -890,6 +890,9 @@ void RegisterCommonTraits() {
     //      annotation/decoration/death/damage/progress-bar family) ————
 
     RegisterCommonTraitsBatch9();
+    RegisterCommonTraitsBatch12();
+    RegisterCommonTraitsBatch12Objectives();
+    RegisterCommonTraitsBatch12Seeds();
 
     return true;
   }();
@@ -983,6 +986,14 @@ const bool b_registered_batch5_sync_hash = [] {
       &PlayerResourcesSyncHash);
   sim::RegisterSyncHashFunction(
       "OpenRA.Mods.Common.Traits.ProductionQueue",
+      &ProductionQueueSyncHash);
+  // ClassicProductionQueue 子类经继承成员走同一哈希(上游按运行时类型
+  // 生成,继承 [VerifySync] 成员)
+  // The ClassicProductionQueue subclass hashes the same via its
+  // inherited members (upstream generates per runtime type; the
+  // [VerifySync] members are inherited).
+  sim::RegisterSyncHashFunction(
+      "OpenRA.Mods.Common.Traits.ClassicProductionQueue",
       &ProductionQueueSyncHash);
   return true;
 }();

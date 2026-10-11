@@ -14,11 +14,15 @@
 //    C++ CombineSyncHash XOR chain seeded with 0; member sets are anchored
 //    by the gen/sync_gen.cpp registry (Phase 5 hand-written traits wire up
 //    against the table).
-//  - bool 字段哈希(EmitSyncOpcodes L63-71):IL 恒真跳转使 Pop/0x555 分支
-//    不可达,实际语义 = (b ? 1 : 0) ^ 0xAAA → HashBool
-//    bool member hash (EmitSyncOpcodes L63-71): the IL branch is
-//    unconditionally taken, leaving Pop/0x555 unreachable; the live
-//    semantics are (b ? 1 : 0) ^ 0xAAA → HashBool.
+//  - bool 字段哈希(EmitSyncOpcodes L63-71):Ldc_I4 0xAAA 是死常量 ——
+//    Brtrue 弹掉的是刚压入的非零常量(恒跳转),Pop/0x555 不可达;活语义
+//    = (b ? 1 : 0) → HashBool(第十二批 G2 黄金对拍修正:旧 ^0xAAA 读法
+//    把死常量当成了活操作数)
+//    bool member hash (EmitSyncOpcodes L63-71): the Ldc_I4 0xAAA is a dead
+//    constant — Brtrue pops the just-pushed non-zero constant (the branch
+//    is unconditional), leaving Pop/0x555 unreachable; the live semantics
+//    are (b ? 1 : 0) → HashBool (the batch-12 G2 golden differential fix:
+//    the old ^0xAAA reading mistook the dead constant for a live operand).
 //  - HashUsingHashCode(WDist/WPos/WVec/WAngle/WRot):C# GetHashCode 为值
 //    XOR 组合(int.GetHashCode = 原值)→ 下方 HashUsingHashCode 家族
 //    HashUsingHashCode (WDist/WPos/WVec/WAngle/WRot): the C# GetHashCode
@@ -122,7 +126,7 @@ inline int HashWRot(const WRot& r) {
 /// bool member hash (the reachable semantics of EmitSyncOpcodes:
 /// the 0/1 value XOR 0xAAA).
 inline int HashBool(bool b) {
-  return (b ? 1 : 0) ^ 0xAAA;
+  return b ? 1 : 0;
 }
 
 /// GenerateHashFunc 的组合协议:acc 从 0 起,逐成员 XOR(调用方按

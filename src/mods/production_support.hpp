@@ -417,28 +417,25 @@ class TechTree final : public sim::TraitBase {
 /// The synchronous cheat-field face of DeveloperMode (FastBuild/AllTech;
 /// the all-false default = upstream's CheckboxEnabled=false). The cheat
 /// command family and the lobby face ride Phase 6/7.
-class DeveloperMode final : public sim::TraitBase {
+class DeveloperMode final : public sim::TraitBase, public sim::ISync {
  public:
-  static constexpr gen::TypeId kTypeId =
-      gen::TypeId::OpenRA_Mods_Common_Traits_DeveloperMode;
-  gen::TypeId GetTraitTypeId() const override { return kTypeId; }
-  static constexpr auto kTraitUpcasts =
-      ora::sim::MakeTraitUpcasts<DeveloperMode>();
-  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
-    return kTraitUpcasts;
-  }
+  ORA_TRAIT_INTERFACES(DeveloperMode,
+                       OpenRA_Mods_Common_Traits_DeveloperMode, sim::ISync)
 
   bool Enabled = false;         // L44(cheat 总开关;第六批 PowerManager 消费)
                                 // L44 (the cheat master switch; consumed by
                                 // batch 6's PowerManager).
-  bool FastBuild = false;       // L53
+  bool FastCharge = false;      // L48
   bool AllTech = false;         // L59(cheat 开关的同步面)
+  bool FastBuild = false;       // L53
+  bool DisableShroud = false;   // L56
   bool UnlimitedPower = false;  // L62(第六批 PowerManager 消费)
                                 // L62 (consumed by batch 6's PowerManager).
   bool PathDebug = false;       // L66 的同步面(第九批 SelectionDecorations
                                 // 的 TargetLine 消费)
                                 // L66's synced face (consumed by batch 9's
                                 // SelectionDecorations TargetLine).
+  bool BuildAnywhere = false;   // L71
 };
 
 }  // namespace ora::mods

@@ -731,3 +731,30 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D198 | src/net/ unit_orders | StartGame 分支的 Game.StartGame/MapCache 状态门槛/Disconnect+LoadShellMap → SetStartGameHandler 全局注入面(Game::JoinInner 注册;进程级单 Game 假设 = 上游 Game 静态单例的等价);地图不可用路径 = no-op(order 流继续;上游 Disconnect 的可观察面在 UI 侧) | 分层约束;注入面惯例 |
 | D199 | src/game/ game | Game.StartGame 的 ModData.PrepareMap(L206:InitializeLoaders + Sequences.LoadSprites + 音乐装载)→ Deps.fn_prepare_map 注入面(缺省跳过;测试接 render_sequences_fixture 的合成序列集;Phase 6 资产链换真装载) | 面随批;注入面惯例 |
 | D200 | src/game/ game + src/net/ order_manager | UnitOrders.ProcessOrder 的静态直调 → OrderManager::SetOrderProcessor 逐 OM 装配(Game::JoinInner 注册);World.IsReplay 的 Connection is-cast → SetIsReplayResolver 注入(Game::StartGame 注册);OrderManager.OutOfSync 的 World.OutOfSync() 直调 → SetOutOfSyncHandler 注入 | 分层约束;C++ 静态面缺位的等价装配 |
+
+### Phase 5/7 第十二批(2026-10-11):G2 第二编 —— golden_gen 宿主 C# 世界产真 replay + 逐帧 SyncHash 对拍(确定性移植总关卡)
+
+- `tools/golden_gen/` Program.cs 增 **replay 模式**:C# 无头宿主世界 —— Game.Settings/ModData/Renderer/Sound 以桩平台构造(HeadlessPlatform/Window/Context/SoundEngine/Shader… 全空实现;CreateFont 走真 FreeTypeFont),**ResolvedAssemblies 反射预注册**修复外部进程宿主的装配同一性(ObjectCreator 的 AssemblyLoader 会从 BinDir 再装载一份 Mods dll,与默认上下文已引用的副本分裂成两个 Assembly,跨程序集 typeof 身份比对随之恒 false —— 上游单副本语义),World/WorldRenderer 走 internal ctor 反射,Game.worldRenderer/OrderManager 静态面反射注入;LobbyInfo 单客户端 + 帧 0 单包 SyncInfo+StartGame 录制(与 C++ replay_test 的 RecordingEchoConnection 字节同形);**metadata 时间戳钉死**(剥 ReplayRecorder.Dispose 覆写的 EndTimeUtc 尾部重写)→ 全文件跨运行逐字节确定。产物:tests/golden_replay.ra.orarep(great-sahara-2,150 net 帧,121 actors)+ golden_replay.txt 逐帧 SyncHash 表;oracle 双跑逐字节恒等验证。
+- `tests/golden_replay_test.cpp` 新增:**C++ 引擎回放 C# 真录像** —— Game::JoinReplay 全装配 → 逐 net 帧(取样点 = ProcessOrders 后、该帧 3 个本地 tick 前,与录像 Sync 包同拍)本地 SyncHash 对表 → 150 帧全对 + 全程 IsOutOfSync=false + actor 数/seed/interval/末帧 hash 全等。G2 总关卡达成。
+- 为过 G2 修出的 C++ 侧缺失/真问题:
+  - **src/mods/ wands**(Wanders.cs L21-118 全文):闲逛状态机 —— 构造的 SharedRandom.Next(Min,Max) 与 TickIdle 的择格/入队;^CivInfantry 的 7 平民每帧消耗。
+  - **src/mods/ seeds_resource**(SeedsResource.cs L21-81 全文):mine 的首 Tick 播种 RandomWalk(每步两抽,(0,0) 步抽而不产;SkipWhile/FirstOrDefault 惰性语义手写等价)—— SharedRandom 的大宗消费者。
+  - **src/mods/ cash_trickler / changes_health / scaredy_cat / immobile / gps_watcher / mission_objectives + src/sim/ debug_pause_state**:七个 ISync trait 的承载面(CashTrickler 含 Tick 的禁用态 Interval 回填与入账;Immobile 含 IOccupySpace 的占位/入图;其余为同步字段面,行为面随其批)—— 条目缺失会平移 SyncHash 的 n 计数。
+  - **sim/sync_hash.hpp HashBool 修正**:(b?1:0) —— 上游 IL 的 0xAAA 是 Brtrue 恒弹的死常量,旧 ^0xAAA 读法把死常量当活操作数(Phase 3 起潜伏;sim_test 旧断言一并修正)。
+  - **mods/render_sprites.cpp GetImage 补 ToLowerInvariant**:上游恒小写,ra 的 `Image: C2` 大写值原样返回致序列查名失败。
+  - **mods/with_infantry_body.cpp IdleSequences.Random 修为 Next(count)**:count==1 时上游 diff≤1 不抽数,旧 Next()%size 恒抽 —— RNG 消耗序错位。
+  - **mods/production_support DeveloperMode 补 ISync 面**(fastCharge…buildAnywhere 七 bool)+ **ClassicProductionQueue 子类的哈希别名注册**(上游按运行时类型生成,继承成员同哈希)。
+  - tests/render_sequences_fixture.hpp 增 **ResolveGoldenFacings**(qboi 的 Sequence 名 + RenderSprites.GetImage → Map.Sequences Facings;g_ptr_golden_sequences 由 InstallSyntheticSequences 后注)。
+
+### 已登记偏离(PORTING_PLAN §7.5,第十二批新增)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D201 | tools/golden_gen replay 模式 | C# 无头宿主形态:桩平台(IPlatform/IPlatformWindow/IGraphicsContext/ISoundEngine 等空实现,仅承载 Viewport 构造与 palette 查询;CreateFont 真字体)/ World/WorldRenderer 的 internal ctor 反射 / Game.worldRenderer·OrderManager 静态面反射注入 / Game.StartGame 的 UI 面(Cursor/LoadScreen/Ui/PostLoadComplete)剥除 / Log 通道文件 sink 自备;录制连接 = RecordingEchoConnection(帧 0 单包 + StartGame 空包 + order 帧 +1 投影 + sync 包 = C++ replay_test 字节同形);metadata 尾部剥除重写(时间钉死) | 工具侧形态登记;上游 Game.StartGame 的 UI 面不可无头复用 |
+| D202 | tools/golden_gen replay 模式 | ResolvedAssemblies 反射预注册:默认上下文已引用的 Mods 程序集按文件 SHA1 预注入 ObjectCreator.ResolvedAssemblies —— 消除 AssemblyLoader 第二副本的跨程序集 typeof 分裂(上游真实进程 = 单副本;外部宿主 artifact 的修复,非上游行为偏离) | 宿主环境等价性 |
+| D203 | src/mods/ wands | WandersInfo.Requires<IMoveInfo> 的装载期校验未设(C++ 宿主全挂 Mobile;与 D151 Refinery 的注册侧跳过同形);FrozenSet<string> 的 AvoidTerrainTypes → vector<string>(resource_layer 同形) | 面等价;D151 同形 |
+| D204 | src/mods/ cash_trickler / changes_health / scaredy_cat / gps_watcher / mission_objectives + src/sim/ debug_pause_state | 六件为 **ISync 同步字段的承载面**(G2 对拍所需的哈希/消耗面全保真):CashTrickler 的 ModifyCash 浮字/FloatingText 面随 Phase 6、UseResourceStorage 的 GiveResources 路径未接(经 ReplayConnection 的对拍面不可达);ChangesHealth 的血量增减 Tick 面随医疗批;ScaredyCat 的恐慌移动/序列前缀随行为批;GpsWatcher 的 GpsAdd/Remove/ReachedOrbit 刷新分发随 support-power 批;MissionObjectives 的目标增删/胜负分发随战役批;DebugPauseState 仅 IsWorldPaused 同步面 | 面随批;同步面优先 |
+| D205 | src/mods/ immobile | Immobile 全文移植(占位/入图/同步);编辑器摆位 actor 的 RenderDebug 面随 Phase 6 | — |
+| D206 | src/mods/ seeds_resource | RandomWalk 的惰性枚举(Take/SkipWhile/FirstOrDefault)→ 手写等步循环(步进/跳过/首取逐语义;CanAddResource/AddResource 缺省 amount=1);ISeedableResource 接口就地声明(TraitsInterfaces.cs L188;TypeId 权威在 gen) | 惰性→循环等价 |
+| D207 | src/sim/ sync_hash + src/mods/ production_support | ClassicProductionQueue 子类的 [VerifySync] 哈希 = 基类名函数的别名注册(上游 GenerateHashFunc 按运行时类型现生成,继承成员同形;C++ 注册表键 = 记录全名);DeveloperMode 的七个 cheat bool = ISync 面(cheat 命令族随 Phase 6/7) | 生成→注册表等价 |
+| D208 | tests/ render_sequences_fixture | golden 对拍的 qboi facings 解析钩子(ResolveGoldenFacings:qboi 记录的 Sequence 名 → RenderSpritesInfoData.GetImage → Map.Sequences 的 Facings)= 上游 QuantizeFacingsFromSequence.QuantizedBodyFacings 的测试侧等价(trait 本体的注册随渲染行为批) | 面随批;测试设施 |

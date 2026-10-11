@@ -602,4 +602,32 @@ void TechTree::Watcher::Update(
   b_has_prerequisites = now_has_prerequisites;
 }
 
+// ———— DeveloperMode 的 [VerifySync] 哈希注册(gen/sync_gen.cpp 表序:
+//      fastCharge^allTech^fastBuild^disableShroud^pathDebug^
+//      unlimitedPower^buildAnywhere;第十二批 G2 黄金对拍补面)————
+// ———— DeveloperMode's [VerifySync] hash registration (the
+//      gen/sync_gen.cpp table order: fastCharge^allTech^fastBuild^
+//      disableShroud^pathDebug^unlimitedPower^buildAnywhere; the batch-12
+//      G2 golden differential's missing face) ————
+int DeveloperModeSyncHash(const sim::ISync* s) {
+  const auto* dev = static_cast<const DeveloperMode*>(s);
+  int acc = 0;
+  acc = sim::sync::CombineSyncHash(acc, sim::sync::HashBool(dev->FastCharge));
+  acc = sim::sync::CombineSyncHash(acc, sim::sync::HashBool(dev->AllTech));
+  acc = sim::sync::CombineSyncHash(acc, sim::sync::HashBool(dev->FastBuild));
+  acc = sim::sync::CombineSyncHash(acc, sim::sync::HashBool(dev->DisableShroud));
+  acc = sim::sync::CombineSyncHash(acc, sim::sync::HashBool(dev->PathDebug));
+  acc = sim::sync::CombineSyncHash(acc, sim::sync::HashBool(dev->UnlimitedPower));
+  acc = sim::sync::CombineSyncHash(acc, sim::sync::HashBool(dev->BuildAnywhere));
+  return acc;
+}
+
+const bool b_developer_mode_sync_registered = [] {
+  sim::RegisterSyncHashFunction("OpenRA.Mods.Common.Traits.DeveloperMode",
+                                &DeveloperModeSyncHash);
+  return true;
+}();
+[[maybe_unused]] const bool* b_developer_mode_sync_registered_anchor =
+    &b_developer_mode_sync_registered;
+
 }  // namespace ora::mods

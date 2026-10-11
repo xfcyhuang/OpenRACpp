@@ -7,10 +7,13 @@
 //          10⁶ ticks, ASan-clean).
 //
 // 断言期望值对照 / Expected values verified against:
-//  - 哈希函数族:Sync.cs L109-164 公式手算(含 bool 的 IL 可达语义
-//    (b?1:0)^0xAAA)
-//    The hash family: hand-computed from Sync.cs L109-164 (including the
-//    bool IL-reachable semantics (b?1:0)^0xAAA).
+//  - 哈希函数族:Sync.cs L109-164 公式手算(bool 的 EmitSyncOpcodes
+//    L63-71:0xAAA 为死常量,Brtrue 恒跳转,活语义 = (b?1:0);第十二批
+//    G2 黄金对拍修正了旧的 ^0xAAA 误读)
+//    The hash family: hand-computed from Sync.cs L109-164 (bool's
+//    EmitSyncOpcodes L63-71: the 0xAAA is a dead constant, the Brtrue
+//    branch is unconditional, the live semantics are (b?1:0); the
+//    batch-12 G2 golden differential fixed the old ^0xAAA misreading).
 //  - Order 字节:Order.cs L345-487 序列化序逐字段人工推导(flags 位值/
 //    7-bit 前缀/小端)
 //    Order bytes: hand-derived field-by-field from the Order.cs L345-487
@@ -153,10 +156,13 @@ void TestSyncHashPrimitives() {
   // HashActor:ActorID<<16(null → 0);HashPlayer:((ID<<16)*0x567) 回绕
   CheckEq(sim::sync::HashActor(nullptr), 0, "HashActor(null)==0");
 
-  // bool 字段哈希:IL 可达语义 (b?1:0)^0xAAA(EmitSyncOpcodes L63-71;
-  // 0x555 分支恒不可达)
-  CheckEq(sim::sync::HashBool(true), 1 ^ 0xAAA, "HashBool(true)==0xAAB");
-  CheckEq(sim::sync::HashBool(false), 0 ^ 0xAAA, "HashBool(false)==0xAAA");
+  // bool 字段哈希:EmitSyncOpcodes L63-71 的活语义 (b?1:0) —— 0xAAA 是
+  // Brtrue 恒弹的死常量(第十二批 G2 修正)
+  // The bool member hash: EmitSyncOpcodes L63-71's live semantics
+  // (b?1:0) — the 0xAAA is a dead constant popped by the unconditional
+  // Brtrue (the batch-12 G2 fix).
+  CheckEq(sim::sync::HashBool(true), 1, "HashBool(true)==1");
+  CheckEq(sim::sync::HashBool(false), 0, "HashBool(false)==0");
 
   // 组合协议:0 XOR 链(GenerateHashFunc)
   CheckEq(CombineSyncHash(CombineSyncHash(0, 5), 3), 5 ^ 3,

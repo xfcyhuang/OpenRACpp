@@ -17,7 +17,9 @@ import std;
 #include "gfx/sequence_set.hpp"
 #include "gfx/sprite_loader.hpp"
 #include "map/map.hpp"
+#include "mods/render_sprites.hpp"
 #include "mods/sequence_loader_factory.hpp"
+#include "sim/trait_registry.hpp"
 #include "yaml/mini_yaml.hpp"
 
 namespace ora::testfx {
@@ -107,6 +109,51 @@ std::string ModFilesReadAll(ora::fs::FileSystem& fs_files,
 /// content-less environment generates a synthetic shpTD copy per
 /// referenced Filename while the Classic loader chain stays real; the
 /// real-asset materialization rides Phase 6's content assembly.
+/// golden 对拍的 qboi facings 解析(QuantizeFacingsFromSequence.
+/// QuantizedBodyFacings 同语义):qboi 记录的 Sequence 名(缺省 idle)
+/// + RenderSprites 的 GetImage → Map.Sequences 的 Facings。序列集指针
+/// 由 InstallSyntheticSequences 装载后注入。
+/// The golden differential's qboi facings resolution (the same semantics
+/// as QuantizeFacingsFromSequence.QuantizedBodyFacings): the qboi
+/// record's Sequence name (idle by default) + RenderSprites' GetImage →
+/// the Map.Sequences' Facings. The sequence-set pointer is injected after
+/// InstallSyntheticSequences loads it.
+inline gfx::SequenceSet* g_ptr_golden_sequences = nullptr;
+
+inline int ResolveGoldenFacings(const ora::game::ActorInfo& actor,
+                                const std::string& str_faction) {
+  if (g_ptr_golden_sequences == nullptr)
+    return 8;
+
+
+  std::string str_sequence = "idle";
+  const meta::RecordObject* rec_render_sprites = nullptr;
+  for (const auto* rec : actor.TraitsInConstructOrder()) {
+    const std::string_view str_full =
+        rec->record_desc().str_full_name;
+    if (str_full ==
+        std::string_view{
+            "OpenRA.Mods.Common.Traits.QuantizeFacingsFromSequenceInfo"}) {
+      if (const auto v = ora::sim::RecordFieldString(*rec, "Sequence"))
+        if (!v->empty())
+          str_sequence = std::string{*v};
+    } else if (str_full ==
+               std::string_view{
+                   "OpenRA.Mods.Common.Traits.Render.RenderSpritesInfo"}) {
+      rec_render_sprites = rec;
+    }
+  }
+
+  if (rec_render_sprites == nullptr)
+    return 8;
+
+  const std::string str_image =
+      ora::mods::RenderSpritesInfoData::Parse(*rec_render_sprites)
+          .GetImage(actor, str_faction);
+  return g_ptr_golden_sequences->GetSequence(str_image, str_sequence)
+      .Facings();
+}
+
 inline void InstallSyntheticSequences(map::Map& map_world,
                                       const game::Manifest& manifest,
                                       game::ModData& mod_data,
@@ -232,6 +279,7 @@ inline void InstallSyntheticSequences(map::Map& map_world,
       seq_deps, *up_sequence_loader, map_world.Tileset());
   up_sequences->LoadSprites();
   map_world.SetSequences(std::move(up_sequences));
+  g_ptr_golden_sequences = map_world.Sequences();
   std::println("sequences loaded (tileset {})", map_world.Tileset());
 }
 

@@ -5,6 +5,8 @@ import std;
 
 #include "sim/trait_registry.hpp"
 
+#include "sim/debug_pause_state.hpp"
+
 #include "game/actor_info.hpp"
 #include "meta/field_loader.hpp"
 #include "sim/actor_init.hpp"
@@ -118,6 +120,16 @@ void RegisterWorldTraits() {
               RecordFieldInt(rec_info, "BinSize").value_or(250);
           return arena.Create<ScreenMap>(init.Self().world(),
                                          static_cast<int>(bin_size));
+        });
+
+    // DebugPauseStateInfo.Create(init) → new DebugPauseState(init.World)
+    // (第十二批 G2 黄金对拍补面)
+    // (the batch-12 G2 golden differential's missing face)
+    TraitRegistry::Instance().Register(
+        "DebugPauseStateInfo",
+        [](const meta::RecordObject&, ActorInitializer& init,
+           ora::WorldArena& arena) -> TraitBase* {
+          return arena.Create<DebugPauseState>(init.Self().world());
         });
 
     // SelectionInfo.Create(init) → new Selection()
