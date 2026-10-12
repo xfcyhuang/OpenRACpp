@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/int2.cs @4f7930b5 L20-94(全类型)
+// UPSTREAM: OpenRA.Game/Primitives/int2.cs @e180e3225 L20-94(全类型)
 // 二维整数向量。字段/方法名保留 C# 原名(X/Y/Sign/Abs/…)以保持逐行审计对照,
 // 2D integer vector. Field/method names keep the C# originals (X/Y/Sign/Abs/...) for line-by-line audit cross-reference;
 // 因此公有字段不适用 cpp26.md 的变量前缀规范;局部变量仍按规范带类型前缀。

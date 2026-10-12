@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithInfantryBody.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithInfantryBody.cs @e180e3225
 //          L21-225 全文
 //          The whole of WithInfantryBody.cs L21-225.
 //

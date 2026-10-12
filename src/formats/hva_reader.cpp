@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/HvaReader.cs @4f7930b5 + Util.cs
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/HvaReader.cs @e180e3225 + Util.cs
 // L131-255(MatrixInverse 子集)—— 逐句照抄(Stream → SpanReader)。
 // [UPSTREAM continued] HvaReader.cs + the Util.cs L131-255 MatrixInverse
 // subset, copied statement by statement (Stream → SpanReader).

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/SpriteLoaders/PngSheetLoader.cs @4f7930b5 L36-164(全文逐语义)
+// UPSTREAM: OpenRA.Mods.Common/SpriteLoaders/PngSheetLoader.cs @e180e3225 L36-164(全文逐语义)
 // PNG 精灵表:整图或切片。帧区来源两路 —— 手工 Frame[i] 嵌入元数据
 // ("x,y,w,h;offsetX,offsetY",tEXt 键)优先;否则按 FrameSize/FrameAmount/
 // Offset 切片(默认整图单帧,FrameAmount 单独出现时水平等分)。逐帧自源

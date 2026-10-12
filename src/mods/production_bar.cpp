@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/ProductionBar.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/ProductionBar.cs @e180e3225
 //          L18-105
 #include "mods/production_bar.hpp"
 #include "sim/trait_registry.hpp"

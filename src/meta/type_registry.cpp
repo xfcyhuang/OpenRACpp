@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/ObjectCreator.cs @4f7930b5 L21-168(type_registry.hpp 的实现)
+// UPSTREAM: OpenRA.Game/ObjectCreator.cs @e180e3225 L21-168(type_registry.hpp 的实现)
 //          Implementation of type_registry.hpp.
 //
 // 双键注册 / Dual-key registration:

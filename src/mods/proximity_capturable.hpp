@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/ProximityCapturableBase.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/ProximityCapturableBase.cs @e180e3225
 //          L21-211 全文 + ProximityCapturable.cs L18-57 全文 +
 //          ProximityCaptor.cs L17-28 全文
 //          The whole of ProximityCapturableBase.cs L21-211 +

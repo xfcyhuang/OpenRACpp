@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteCache.cs @4f7930b5 L21-183
+// UPSTREAM: OpenRA.Game/Graphics/SpriteCache.cs @e180e3225 L21-183
 //          (sprite_cache.hpp 的实现;头注的形态适配说明适用)
 //          Implementation of sprite_cache.hpp; the shape-adaptation notes of
 //          the hpp header apply.

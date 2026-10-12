@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Pathfinder/HierarchicalPathFinder.cs
-//          @4f7930b5(实现部分)
+//          @e180e3225(实现部分)
 //          The implementation half of HierarchicalPathFinder.cs.
 import std;
 

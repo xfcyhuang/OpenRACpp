@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/Graphics/ClassicTilesetSpecificSpriteSequence.cs @4f7930b5 L21-95
+// UPSTREAM: OpenRA.Mods.Cnc/Graphics/ClassicTilesetSpecificSpriteSequence.cs @e180e3225 L21-95
 // Classic + TilesetSpecific 的组合:Classic 的面向怪癖叠加地形集文件名变体。
 // The Classic + TilesetSpecific combination: Classic's facing quirks stacked
 // with the tileset filename variants.

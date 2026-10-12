@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Turreted.cs @4f7930b5 L19-333(全文逐语
+// UPSTREAM: OpenRA.Mods.Common/Traits/Turreted.cs @e180e3225 L19-333(全文逐语
 //          义重写;IActorPreviewInitInfo 的预览面/IEditorActorOptions 的编辑
 //          器 UI 面随 Phase 6 —— ValueActorInit/TurretFacingInit 的 init 面
 //          本批全承载)

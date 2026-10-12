@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/PlatformInterfaces.cs @4f7930b5 L192-203(IFont/
-// FontGlyph)+ OpenRA.Platforms.Default/FreeTypeFont.cs @4f7930b5 L20-143(全文)
+// UPSTREAM: OpenRA.Game/Graphics/PlatformInterfaces.cs @e180e3225 L192-203(IFont/
+// FontGlyph)+ OpenRA.Platforms.Default/FreeTypeFont.cs @e180e3225 L20-143(全文)
 // OPT-B2(docs/OPTIMIZATION_TRACKER.md):上游 FreeTypeFont.cs L27-36 的手算
 // 结构体偏移 HACK(FaceRecGlyphOffset 152/GlyphSlotMetricsOffset 48/…)全部
 // 删除 —— 直接 #include <ft2build.h> 用真结构体(FT_FaceRec/FT_GlyphSlotRec/

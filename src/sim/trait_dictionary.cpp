@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/TraitDictionary.cs @4f7930b5(实现部分:容器算术与注册)
+// UPSTREAM: OpenRA.Game/TraitDictionary.cs @e180e3225(实现部分:容器算术与注册)
 //          The implementation half (container arithmetic + registration).
 #include "sim/actor.hpp"
 #include "sim/trait_dictionary.hpp"

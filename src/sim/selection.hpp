@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/Selection.cs @4f7930b5 L18-198
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/Selection.cs @e180e3225 L18-198
 //          (逐语义重写)
 //          Verbatim-semantics rewrite.
 //

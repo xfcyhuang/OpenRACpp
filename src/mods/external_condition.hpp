@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/ExternalCondition.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/ExternalCondition.cs @e180e3225
 //          L14-190 全文 + Traits/Conditions/ProximityExternalCondition.cs
 //          L18-194 全文
 //          The whole of ExternalCondition.cs L14-190 + the whole of

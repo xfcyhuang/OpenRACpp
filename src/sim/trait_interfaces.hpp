@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/TraitsInterfaces.cs @4f7930b5 L29-666
+// UPSTREAM: OpenRA.Game/Traits/TraitsInterfaces.cs @e180e3225 L29-666
 //          (仿真核心接口子集逐语义重写;渲染/调色板/UI 接口随 Phase 4/6 落地)
 //          Verbatim-semantics rewrite of the sim-core interface subset;
 //          render/palette/UI interfaces land with Phase 4/6.

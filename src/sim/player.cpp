@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Player.cs @4f7930b5 实现部分+ Faction.cs 的解析面
+// UPSTREAM: OpenRA.Game/Player.cs @e180e3225 实现部分+ Faction.cs 的解析面
 //          The implementation half of Player.cs + the Faction.cs parse face.
 import std;
 

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/DummySoundEngine.cs @4f7930b5 L16-105(全文:
+// UPSTREAM: OpenRA.Platforms.Default/DummySoundEngine.cs @e180e3225 L16-105(全文:
 // DummySoundEngine/NullSoundSource/NullSound;DefaultPlatform.CreateSound 的
 // OpenAL 初始化失败回落目标)
 // 空实现逐语义移植(NullSound.Complete 恒假、Play2DStream 返回 null 照抄)。

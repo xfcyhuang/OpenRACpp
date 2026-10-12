@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Power/Player/PowerManager.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/Power/Player/PowerManager.cs @e180e3225
 //          L17-233 全文 + Power.cs L17-57 全文 + Power/AffectedByPowerOutage.cs
 //          L17-83 全文(逐语义重写;声音/文本通知面与 FluentReference 随
 //          Phase 6/7 注入面)

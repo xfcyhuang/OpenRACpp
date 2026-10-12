@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/FrameBuffer.cs @4f7930b5 L19-157(实现)
+// UPSTREAM: OpenRA.Platforms.Default/FrameBuffer.cs @e180e3225 L19-157(实现)
 // 头文件携带完整 UPSTREAM 锚点与偏离登记。
 // Implementation of FrameBuffer.cs; the header carries the full UPSTREAM
 // anchors and deviation registrations.

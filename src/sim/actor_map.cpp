@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/ActorMap.cs @4f7930b5(实现部分)
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/ActorMap.cs @e180e3225(实现部分)
 //          The implementation half of ActorMap.cs.
 import std;
 

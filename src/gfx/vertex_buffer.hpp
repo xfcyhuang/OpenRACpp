@@ -1,6 +1,6 @@
-// UPSTREAM: OpenRA.Game/Graphics/PlatformInterfaces.cs @4f7930b5(IVertexBuffer/IIndexBuffer 接口族)+
-//           OpenRA.Platforms.Default/VertexBuffer.cs @4f7930b5 L17-125 +
-//           OpenRA.Platforms.Default/StaticIndexBuffer.cs @4f7930b5
+// UPSTREAM: OpenRA.Game/Graphics/PlatformInterfaces.cs @e180e3225(IVertexBuffer/IIndexBuffer 接口族)+
+//           OpenRA.Platforms.Default/VertexBuffer.cs @e180e3225 L17-125 +
+//           OpenRA.Platforms.Default/StaticIndexBuffer.cs @e180e3225
 // 顶点/索引缓冲封装(主线程侧命令发射器)。两种 VB 形态:
 //   - 持久映射(OPT-A5):glBufferStorage + MapBufferRange(PERSISTENT|WRITE|
 //     COHERENT)整块映射,N 槽轮换 + 槽级 fence;写入 = 命令 payload → 渲染

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithSpriteBody.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithSpriteBody.cs @e180e3225
 //          L21-151 + WithFacingSpriteBody.cs L19-39(实现部分)
 //          The implementation halves of WithSpriteBody.cs L21-151 +
 //          WithFacingSpriteBody.cs L19-39.

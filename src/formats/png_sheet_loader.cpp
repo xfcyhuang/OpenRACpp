@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/SpriteLoaders/PngSheetLoader.cs @4f7930b5 L36-164
+// UPSTREAM: OpenRA.Mods.Common/SpriteLoaders/PngSheetLoader.cs @e180e3225 L36-164
 //          (png_sheet_loader.hpp 的实现;头注的形态适配说明适用)
 //          Implementation of png_sheet_loader.hpp; the shape-adaptation
 //          notes of the hpp header apply.

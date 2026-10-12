@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Platforms.Default/Sdl2HardwareCursor.cs @4f7930b5 L20-73(全文)
-// + Sdl2PlatformWindow.cs @4f7930b5 L364-377(DoublePixelData)、L379-405
+// UPSTREAM: OpenRA.Platforms.Default/Sdl2HardwareCursor.cs @e180e3225 L20-73(全文)
+// + Sdl2PlatformWindow.cs @e180e3225 L364-377(DoublePixelData)、L379-405
 // (CreateHardwareCursor)、L412-421(SetHardwareCursor)
 // 形态映射(D87,docs/COVERAGE.md):
 //  - IHardwareCursor 接口面由具体类型承担(单平台;上游接口为跨实现门面);

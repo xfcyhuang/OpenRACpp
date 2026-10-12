@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/ModData.cs @4f7930b5 L111 + OpenRA.Game/ObjectCreator.cs
-//          @4f7930b5 L149-156(sequence_loader_factory.hpp 的实现)
+// UPSTREAM: OpenRA.Game/ModData.cs @e180e3225 L111 + OpenRA.Game/ObjectCreator.cs
+//          @e180e3225 L149-156(sequence_loader_factory.hpp 的实现)
 //          Implementation of sequence_loader_factory.hpp.
 import std;
 #include "mods/sequence_loader_factory.hpp"

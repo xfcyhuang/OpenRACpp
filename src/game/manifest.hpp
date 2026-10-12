@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Manifest.cs @4f7930b5 L21-206(逐语义重写)
+// UPSTREAM: OpenRA.Game/Manifest.cs @e180e3225 L21-206(逐语义重写)
 //          Full statement-by-statement rewrite of upstream Manifest.cs.
 //
 // 机制对照 / Mechanism mapping:

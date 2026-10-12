@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDamageOverlay.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDamageOverlay.cs @e180e3225
 //          L18-165
 #include "mods/render_sprites.hpp"
 #include "mods/render_utils.hpp"

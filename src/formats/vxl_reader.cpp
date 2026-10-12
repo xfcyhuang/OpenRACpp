@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/VxlReader.cs @4f7930b5 —— 逐句照抄
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/VxlReader.cs @e180e3225 —— 逐句照抄
 // (Stream → SpanReader;两遍列扫描保留:先计数后建图)。
 // [UPSTREAM continued] VxlReader.cs copied statement by statement (Stream →
 // SpanReader; the two column passes kept: count first, then build the map).

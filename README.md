@@ -6,7 +6,7 @@
 
 [OpenRA](https://github.com/OpenRA/OpenRA) 游戏引擎的 **C++26 语义重写**。
 
-按 OpenRA 上游源码（基线 commit `b6fc03fcfa`）的代码语义逐行重写，数据、地图与回放格式兼容上游。以**语义等价**为第一原则（黄金对拍验证），在此基础上做 C++ 侧有意优化；无法逐语义等价处登记于 [docs/COVERAGE.md](docs/COVERAGE.md)（未登记的偏离视为 bug）。
+按 OpenRA 上游源码（基线 commit `e180e3225f`）的代码语义逐行重写，数据、地图与回放格式兼容上游。以**语义等价**为第一原则（黄金对拍验证），在此基础上做 C++ 侧有意优化；无法逐语义等价处登记于 [docs/COVERAGE.md](docs/COVERAGE.md)（未登记的偏离视为 bug）。
 
 配套文档:[PORTING_PLAN.md](PORTING_PLAN.md)（分阶段移植计划与状态）、[docs/COVERAGE.md](docs/COVERAGE.md)（偏离登记全文）、[docs/UPSTREAM_CPP_REVIEW.md](docs/UPSTREAM_CPP_REVIEW.md)（优化点审阅证据）、[UPSTREAM.baseline](UPSTREAM.baseline)（上游基线与同步流程）。
 
@@ -251,7 +251,7 @@ OpenRA、Command & Conquer、Red Alert 及 Dune 2000 相关商标归各自权利
 
 A **C++26 semantic rewrite** of the [OpenRA](https://github.com/OpenRA/OpenRA) game engine.
 
-The engine is rewritten line-by-line to match the exact semantics of the upstream OpenRA source code (baseline commit `b6fc03fcfa`), keeping data, map, and replay formats compatible with upstream. **Semantic equivalence is the first principle** (verified by golden differentials); deliberate C++-side optimizations are made on top, and every non-equivalence is registered in [docs/COVERAGE.md](docs/COVERAGE.md) (an unregistered deviation is treated as a bug).
+The engine is rewritten line-by-line to match the exact semantics of the upstream OpenRA source code (baseline commit `e180e3225f`), keeping data, map, and replay formats compatible with upstream. **Semantic equivalence is the first principle** (verified by golden differentials); deliberate C++-side optimizations are made on top, and every non-equivalence is registered in [docs/COVERAGE.md](docs/COVERAGE.md) (an unregistered deviation is treated as a bug).
 
 Companion documents: [PORTING_PLAN.md](PORTING_PLAN.md) (the phased plan and status), [docs/COVERAGE.md](docs/COVERAGE.md) (the full deviation registry), [docs/UPSTREAM_CPP_REVIEW.md](docs/UPSTREAM_CPP_REVIEW.md) (the optimization-review evidence), [UPSTREAM.baseline](UPSTREAM.baseline) (the upstream baseline and sync procedure).
 

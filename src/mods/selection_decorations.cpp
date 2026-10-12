@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Render/SelectionDecorationsBase.cs
-//          @4f7930b5
+//          @e180e3225
 #include "gfx/renderer.hpp"
 #include "gfx/sprite_renderer.hpp"
 #include "gfx/world_renderer.hpp"

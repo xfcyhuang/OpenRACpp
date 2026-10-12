@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/WDist.cs @4f7930b5 L24-115(除 Lua 脚本绑定接口)
+// UPSTREAM: OpenRA.Game/WDist.cs @e180e3225 L24-115(除 Lua 脚本绑定接口)
 // 一维世界距离:1024 单位 = 1 cell。字段/方法名保留 C# 原名以保持审计对照。
 // FromPDF 依赖 MersenneTwister,故本文件 include mersenne_twister.hpp。
 // ToString/TryParse 供数据加载链(FieldLoader)使用,数字转换走 std::from/to_chars。

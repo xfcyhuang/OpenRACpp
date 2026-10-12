@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Activities/Activity.cs @4f7930b5 L21-295(逐行重写)
+// UPSTREAM: OpenRA.Game/Activities/Activity.cs @e180e3225 L21-295(逐行重写)
 //          + OpenRA.Game/Traits/ActivityUtils.cs L17-38
 //          Line-by-line rewrite of Activity.cs + ActivityUtils.cs.
 //

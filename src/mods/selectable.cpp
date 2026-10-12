@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Selectable.cs @4f7930b5 L15-55 +
+// UPSTREAM: OpenRA.Mods.Common/Traits/Selectable.cs @e180e3225 L15-55 +
 //          Interactable.cs L15-105(逐语句重写;机制对照见 selectable.hpp
 //          头注)
 //          Statement-by-statement; the mechanism mapping lives in

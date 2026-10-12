@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/GameRules/WeaponInfo.cs @4f7930b5 L178-268(仿真面)+
+// UPSTREAM: OpenRA.Game/GameRules/WeaponInfo.cs @e180e3225 L178-268(仿真面)+
 //          OpenRA.Game/Effects/DelayedImpact.cs L15-43 +
 //          OpenRA.Mods.Common/Warheads/Warhead.cs L59-96(IsValidAgainst 面)
 //          The sim face of WeaponInfo.cs L178-268 + DelayedImpact.cs

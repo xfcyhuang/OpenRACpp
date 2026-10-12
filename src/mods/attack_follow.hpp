@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Attack/AttackFollow.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/Attack/AttackFollow.cs @e180e3225
 //          L22-466 全文 + AttackTurreted.cs L18-51 全文(逐语义重写;
 //          嵌套 AttackActivity 以 activities::AttackFollowActivity 承载)
 //          The whole of AttackFollow.cs L22-466 + the whole of

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Effects/SpriteEffect.cs @4f7930b5 L18-86
+// UPSTREAM: OpenRA.Mods.Common/Effects/SpriteEffect.cs @e180e3225 L18-86
 //          一次性序列特效:delay 帧后播完自移除(WithDeathAnimation 的
 //          效果载体)。posFunc/facingFunc 构造形态随消费批。
 //          The one-shot sequence effect: plays out after the delay frames

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Graphics/DefaultSpriteSequence.cs @4f7930b5 L24-605
+// UPSTREAM: OpenRA.Mods.Common/Graphics/DefaultSpriteSequence.cs @e180e3225 L24-605
 //          (default_sprite_sequence.hpp 的实现)
 //          Implementation of default_sprite_sequence.hpp.
 // 形态偏离(COVERAGE 登记):resolved[f] 的越界 = 上游数组

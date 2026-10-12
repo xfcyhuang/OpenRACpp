@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/SpatiallyPartitioned.cs @4f7930b5 L19-168
+// UPSTREAM: OpenRA.Game/Primitives/SpatiallyPartitioned.cs @e180e3225 L19-168
 //          (逐语义重写 + OPT-A8 数组化)
 //          Verbatim-semantics rewrite + the OPT-A8 array-ization.
 //

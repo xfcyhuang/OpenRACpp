@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Pathfinder/CellInfoLayerPool.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Pathfinder/CellInfoLayerPool.cs @e180e3225
 //          (实现部分 + PathSearch.cs 的 LayerPoolForWorld 表)
 //          The implementation half of CellInfoLayerPool.cs + PathSearch.cs's
 //          LayerPoolForWorld table.

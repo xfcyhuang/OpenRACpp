@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/AudioLoaders/OggLoader.cs @4f7930b5 L19-150
+// UPSTREAM: OpenRA.Mods.Common/AudioLoaders/OggLoader.cs @e180e3225 L19-150
 //          (ogg_loader.hpp 的实现;后端偏离 D94 见头注)
 //          Implementation of ogg_loader.hpp; the backend deviation D94 is
 //          documented in the hpp header.

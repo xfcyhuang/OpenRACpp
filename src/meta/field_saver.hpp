@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FieldSaver.cs @4f7930b5 L26-166 全文(值袋承载形
+// UPSTREAM: OpenRA.Game/FieldSaver.cs @e180e3225 L26-166 全文(值袋承载形
 //          态:反射面 → RecordDesc 描述表;Settings 只存差异的序列化面)
 //          The whole of FieldSaver.cs L26-166 (the value-bag form: the
 //          reflection faces → the RecordDesc tables; the save-differences

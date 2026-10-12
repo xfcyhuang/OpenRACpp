@@ -1,6 +1,6 @@
-// UPSTREAM: OpenRA.Game/Primitives/Size.cs @4f7930b5 L17-58(值类型逐语义;
+// UPSTREAM: OpenRA.Game/Primitives/Size.cs @e180e3225 L17-58(值类型逐语义;
 //ToInt2/LatticeToInt2/ToRectangle 等图形面消费点暂无 —— 随消费批扩展)
-// UPSTREAM: OpenRA.Game/Primitives/Size.cs @4f7930b5 L17-58 (the value-type
+// UPSTREAM: OpenRA.Game/Primitives/Size.cs @e180e3225 L17-58 (the value-type
 // semantics; the graphics-side consumers ToInt2/LatticeToInt2/ToRectangle
 // have no call sites yet — extended with their consuming batches).
 #pragma once

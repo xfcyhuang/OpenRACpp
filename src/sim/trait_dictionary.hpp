@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/TraitDictionary.cs @4f7930b5 L21-329(逐语义重写)
+// UPSTREAM: OpenRA.Game/TraitDictionary.cs @e180e3225 L21-329(逐语义重写)
 //          Verbatim-semantics rewrite.
 //
 // 机制对照 / Mechanism mapping:

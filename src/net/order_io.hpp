@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/OrderIO.cs @4f7930b5 L18-212(逐字节重写)
+// UPSTREAM: OpenRA.Game/Network/OrderIO.cs @e180e3225 L18-212(逐字节重写)
 //          Byte-exact rewrite.
 //
 // 机制对照 / Mechanism mapping:

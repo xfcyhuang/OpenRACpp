@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/MoveToDock.cs @4f7930b5 L19-150
+// UPSTREAM: OpenRA.Mods.Common/Activities/MoveToDock.cs @e180e3225 L19-150
 //          全文 + GenericDockSequence.cs L22-216 全文(逐语义重写;
 //          WithDockingOverlay/IDockClientBody 的动画面 = 未移植空集:
 //          PlayThen 回调即置 Loop 态 —— 上游无该 trait 时的等价路径)

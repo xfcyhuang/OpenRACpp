@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDecorationBase.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDecorationBase.cs @e180e3225
 //          L18-146 + WithDecoration.cs L18-71 装饰族基座:泛型基 → CRTP
 //          双参(DerivedT + InfoT);FrozenDictionary<BooleanExpression,…>
 //          → 插入序对(键序 = 首命中序)。

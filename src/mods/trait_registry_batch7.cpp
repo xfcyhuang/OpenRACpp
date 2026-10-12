@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/GrantCondition.cs @4f7930b5(第七批 mods trait 的
+// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/GrantCondition.cs @e180e3225(第七批 mods trait 的
 //          注册表装配:Conditions 31 件 + ExternalCondition/Proximity +
 //          Cloak/DetectCloaked/IgnoresCloak + GainsExperience/GivesExperience/
 //          GainsExperienceMultiplier/PlayerExperience + CaptureManager/

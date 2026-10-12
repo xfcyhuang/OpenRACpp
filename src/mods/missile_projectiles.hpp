@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Projectiles/Missile.cs @4f7930b5 L26-982 +
+// UPSTREAM: OpenRA.Mods.Common/Projectiles/Missile.cs @e180e3225 L26-982 +
 //          GravityBomb.cs L20-147 + OpenRA.Mods.Cnc/Projectiles/TeslaZap.cs
 //          L20-99(全文逐语义重写;Render/TeslaZapRenderable/Contrail 的
 //          视觉面随渲染批 —— RNG 消耗序保持)

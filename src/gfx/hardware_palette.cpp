@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/HardwarePalette.cs @4f7930b5 L18-161(实现)
+// UPSTREAM: OpenRA.Game/Graphics/HardwarePalette.cs @e180e3225 L18-161(实现)
 // Implementations of HardwarePalette (the header carries the full UPSTREAM
 // anchors, the OPT-A7 dirty-row design, and the OPT-C5 equivalence notes).
 #include "gfx/hardware_palette.hpp"

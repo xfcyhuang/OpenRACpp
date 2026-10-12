@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Map/CellLayerBase.cs @4f7930b5 L19-78(逐语义重写)+
+// UPSTREAM: OpenRA.Game/Map/CellLayerBase.cs @e180e3225 L19-78(逐语义重写)+
 //          OpenRA.Game/Map/CellLayer.cs L18-174 +
 //          OpenRA.Game/Map/ProjectedCellLayer.cs L106-151
 //          C# CellLayer<T> 事件(CellEntryChanged)→ 回调表(construct 序

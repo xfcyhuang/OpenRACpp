@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/LongBitSet.cs @4f7930b5(逐语义重写)
+// UPSTREAM: OpenRA.Game/Primitives/LongBitSet.cs @e180e3225(逐语义重写)
 //          Verbatim-semantics rewrite.
 //
 // 机制对照 / Mechanism mapping:

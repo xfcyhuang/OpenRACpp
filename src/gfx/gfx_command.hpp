@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/ThreadedGraphicsContext.cs @4f7930b5 L188-505(命令封送段)
+// UPSTREAM: OpenRA.Platforms.Default/ThreadedGraphicsContext.cs @e180e3225 L188-505(命令封送段)
 // OPT-A5(docs/OPTIMIZATION_TRACKER.md)重设计:上游以 Post(Action<object>, object) 把每个
 // GL 调用装箱成消息 + 全局锁 + Monitor.Pulse(每帧几十到几百次堆分配),本实现改为
 // **定长值类型命令 + 内联载荷 blob** 的字节流,SPSC(Lamport)无锁环形缓冲传递:

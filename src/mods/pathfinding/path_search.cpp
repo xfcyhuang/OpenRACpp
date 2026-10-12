@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Pathfinder/PathSearch.cs @4f7930b5(实现部分)
+// UPSTREAM: OpenRA.Mods.Common/Pathfinder/PathSearch.cs @e180e3225(实现部分)
 //          The implementation half of PathSearch.cs.
 import std;
 

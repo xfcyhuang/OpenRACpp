@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Map/TerrainInfo.cs @4f7930b5 L22-198(逐语义重写)+
+// UPSTREAM: OpenRA.Game/Map/TerrainInfo.cs @e180e3225 L22-198(逐语义重写)+
 //          OpenRA.Mods.Common/Terrain/TerrainInfo.cs L31-120(TerrainTemplateInfo)
 //          + OpenRA.Mods.Common/Terrain/DefaultTerrain.cs L26-262(DefaultTerrain)
 //          Verbatim-semantics rewrite.

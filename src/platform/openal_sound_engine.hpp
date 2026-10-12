@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/OpenAlSoundEngine.cs @4f7930b5 L20-669(全文:
+// UPSTREAM: OpenRA.Platforms.Default/OpenAlSoundEngine.cs @e180e3225 L20-669(全文:
 // OpenAlSoundEngine/OpenAlSoundSource/OpenAlSound/OpenAlAsyncLoadSound)
 // 形态映射(偏离登记 D83~D85,docs/COVERAGE.md):
 //  - OpenRA-OpenAL-CS 包装层消失,al_loader 直连(OPT-A6 形态);

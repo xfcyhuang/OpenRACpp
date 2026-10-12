@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpTDLoader.cs @4f7930b5 L17-331(全文)
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpTDLoader.cs @e180e3225 L17-331(全文)
 // Command & Conquer TD/RA 的 SHP 图像:帧头表(偏移低 24 位 + 格式高
 // 8 位)+ 三压缩格式(XORPrev/XORLCW/LCW)+ 引用解压链(XOR 帧引用
 // 兄弟帧数据)+ TrimmedFrame 收边(非零像素包围盒裁剪,偶数行列对齐,

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/ModData.cs @4f7930b5 L29-233(Phase 2 最小集)+
+// UPSTREAM: OpenRA.Game/ModData.cs @e180e3225 L29-233(Phase 2 最小集)+
 //          OpenRA.Mods.Common/FileSystem/{Default,ContentInstallerFileSystem}Loader.cs
 //          (FileSystem 节点的挂载语义)
 //          The Phase 2 minimal ModData + the mount semantics of the

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Support/VariableExpression.cs @4f7930b5 L22-983
+// UPSTREAM: OpenRA.Game/Support/VariableExpression.cs @e180e3225 L22-983
 //          (variable_expression.hpp 的实现;tokenizer/校验/后缀化/求值逐行对照)
 //          Implementation of variable_expression.hpp (tokenizer/validation/
 //          postfix/evaluation line-checked against upstream).

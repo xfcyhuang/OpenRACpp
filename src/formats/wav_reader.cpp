@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/FileFormats/WavReader.cs @4f7930b5 +
+// UPSTREAM: OpenRA.Mods.Common/FileFormats/WavReader.cs @e180e3225 +
 // WavLoader.cs 的嗅探/try 面:逐句照抄;两个 ReadOnlyAdapterStream
 // (WavStreamImaAdpcm/WavStreamMsAdpcm)的 BufferData 循环物化为整段
 // 输出(Queue<byte> 逐字节 Enqueue 改 vector 追加,return true 改循环

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.D2k/Graphics/D2kSpriteSequence.cs @4f7930b5 L19-116
+// UPSTREAM: OpenRA.Mods.D2k/Graphics/D2kSpriteSequence.cs @e180e3225 L19-116
 // D2k 色重映射序列:Remap/UseShadow/ConvertShroudToFog 经 AdjustFrame 把
 // R8RemappableFrame 按序列标志重建。
 // The D2k color-remap sequence: Remap/UseShadow/ConvertShroudToFog rebuild

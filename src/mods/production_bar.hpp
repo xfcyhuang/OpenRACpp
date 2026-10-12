@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/ProductionBar.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/ProductionBar.cs @e180e3225
 //          L18-105 生产进度条(ISelectionBar 的首个真消费面)。
 //          The production progress bar (ISelectionBar's first real
 //          consumer).

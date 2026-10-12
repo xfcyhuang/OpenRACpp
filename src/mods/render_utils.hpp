@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/RenderUtils.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/RenderUtils.cs @e180e3225
 //          L14-21 全文(ZOffsetFromCenter 单函数)
 //          The whole of RenderUtils.cs L14-21 (the single ZOffsetFromCenter).
 #pragma once

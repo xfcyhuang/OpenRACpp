@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/Color.cs @4f7930b5 L20-232,374(值类型核心 + TryParse/ToString
+// UPSTREAM: OpenRA.Game/Primitives/Color.cs @e180e3225 L20-232,374(值类型核心 + TryParse/ToString
 //          + L84-160 的 HSV/线性 gamma 转换,随 Phase 4 第十三批移植)
 //          Value-type core + TryParse/ToString + the L84-160 HSV/linear-gamma
 //          conversions (ported with the Phase 4 thirteenth batch).

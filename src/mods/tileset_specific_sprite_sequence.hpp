@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Graphics/TilesetSpecificSpriteSequence.cs @4f7930b5 L20-93
+// UPSTREAM: OpenRA.Mods.Common/Graphics/TilesetSpecificSpriteSequence.cs @e180e3225 L20-93
 // 带地形集变体的序列:TilesetFilenames/TilesetFilenamesPattern 命中当前
 // tileset 时覆盖 Filename/FilenamePattern,未命中回退 Default 的解析。
 // A sequence with tileset-specific variants: a TilesetFilenames/

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/SpawnMapActors.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/SpawnMapActors.cs @e180e3225
 //          L17-75 全文 + Game/Map/ActorReference.cs L17-113 的装载面
 //          (InitRegistry 的 from-yaml 工厂 = LoadInit 的 C++ 承载)
 //          The whole of SpawnMapActors.cs L17-75 + the loading face of

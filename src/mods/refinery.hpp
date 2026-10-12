@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/Refinery.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/Refinery.cs @e180e3225
 //          L19-110 全文(逐语义重写;Requires<WithSpriteBodyInfo> 的
 //          约束面 = WithSpriteBody 未移植的注册侧跳过 —— COVERAGE 登记;
 //          FloatingText 的 ShowTicks 显示面随 Phase 6)

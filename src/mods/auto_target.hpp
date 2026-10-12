@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/AutoTarget.cs @4f7930b5 L21-487 +
+// UPSTREAM: OpenRA.Mods.Common/Traits/AutoTarget.cs @e180e3225 L21-487 +
 //          AutoTargetPriority.cs L16-40(全文逐语义重写;IEditorActorOptions
 //          的编辑器 UI 面随 Phase 6)
 //          The whole of AutoTarget.cs L21-487 + AutoTargetPriority.cs

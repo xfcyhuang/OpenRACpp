@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/GameRules/WeaponInfo.cs @4f7930b5(game_records.hpp
+// UPSTREAM: OpenRA.Game/GameRules/WeaponInfo.cs @e180e3225(game_records.hpp
 //          的实现;WeaponInfo/SoundInfo/MusicInfo,见 hpp 头注)
 //          Implementation of game_records.hpp — WeaponInfo/SoundInfo/
 //          MusicInfo; see the hpp header notes.

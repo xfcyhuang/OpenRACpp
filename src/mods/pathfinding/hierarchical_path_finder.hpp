@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Pathfinder/HierarchicalPathFinder.cs
-//          @4f7930b5 L97-1284(逐语义重写 + OPT-A2/A10 面)
+//          @e180e3225 L97-1284(逐语义重写 + OPT-A2/A10 面)
 //          Verbatim-semantics rewrite + the OPT-A2/A10 faces.
 //
 // 机制对照 / Mechanism mapping:

@@ -1,34 +1,26 @@
 # 上游语义基线(PORTING_PLAN §7.1)——所有移植与黄金数据以此为锚
 repo=Z:/source_code/OpenRA
-commit=4f7930b56c75b0d2f9d86a44174b9518cbee5c5f
-short=4f7930b56
-# 2026-10-11 自 b6fc03fcfa 前进四提交:
-#   4f7930b56c MapPlayers 保序化(Dictionary → OrderedDictionary;编辑器
-#               的 Remove+重加场景序稳定)+ 新增 MapPlayersTest;
-#   e7e9e4ad27 / 153fd9b406 地图预览的队伍号 UI(Phase 6 面);
-#   0cbd48f501 SpawnActorPower 的迷雾校验改用 owner(support-power 批
-#               移植时对齐此修正)。
-# 语义影响评估:MapPlayers 保序 —— C++ 侧本即插入序 vector
-# (map_players.hpp 的 Players),新上游与 C++ 现形收敛,无需改动;
-# 其余三提交均为未移植面(UI/support power/fluent)。
-# 五黄金影响判定(按提交说明 + 变更文件逐面推导,实证补强):
-#   yaml   —— 输入 = mods/**/*.yaml,本次 mods 仅动 common.ftl(非 yaml)
-#            → 不可能变;已实证重生(LF 归一)逐字节一致。
-#   core   —— 由本工具内嵌的原语逐字副本生成,未引用上游 DLL;原语
-#            代码零变更 → 不可能变;已实证重生一致。
-#   fmt    —— 输入 = mods 二进制资产(.shp/.pal/.aud/…,按扩展名枚举,
-#            .ftl 非输入),解码走上游 DLL 的 loader 代码 —— 七个变更
-#            文件无一在格式/加载器/文件系统路径 → 不可能变;按证据跳过
-#            重生(单次重生 ~30min),C++ formats_test 对已提交黄金复验绿。
-#   fonts  —— FreeType 解码路径与字体资产零变更 → 不可能变;已实证重生
-#            一致。
-#   replay —— 引擎语义面:MapPlayers 保序仅影响「删除+重加」场景(地图
-#            编辑器路径);地图装载为纯插入序,新旧两形(旧 Dictionary/
-#            新 OrderedDictionary)下序相同;SpawnActorPower/UI/fluent
-#            不入黄金场景 → 已实证重生 .orarep 二进制逐字节恒等(最强
-#            证明:玩家创建序/ActorID/SyncHash 链全程未变)。
-# C++ 侧复验:golden_core/golden_yaml/golden_fonts/meta_test/formats_test
-# 与 replay 链(replay_test/golden_replay_test)于 Release 构建全绿。
+commit=e180e3225f3930272dd451917467631618f8976f
+short=e180e3225
+# 2026-10-12 自 4f7930b56c 前进一提交:
+#   e180e3225f packaging.yml 的 Windows 安装器上传条件由仓库名判断
+#               改为 SignPath 签名结果判断(纯 CI/打包面,1 增 1 删)。
+# 语义影响评估:唯一变更文件 .github/workflows/packaging.yml 为
+# GitHub Actions 工作流配置,不属任何 C# 工程文件,不进入任何移植面
+# → C++ 侧零改动;459 条溯源标注对应的全部上游文件在两提交间
+# 逐字节恒等(git diff --name-only 证实唯一变更文件无对应标注)。
+# 五黄金影响判定(按变更文件证据,全部证据豁免):
+#   yaml   —— 输入 = mods/**/*.yaml,唯一变更文件非输入 → 不可能变;
+#            证据豁免。
+#   core   —— 由本工具内嵌的原语逐字副本生成,原语代码零变更 →
+#            不可能变;证据豁免。
+#   fmt    —— 输入 = mods 二进制资产(.shp/.pal/.aud/…),解码走上游
+#            DLL loader 代码 —— 唯一变更文件不在格式/加载器/文件系统
+#            路径 → 不可能变;证据豁免。
+#   fonts  —— FreeType 解码路径与字体资产零变更 → 不可能变;证据豁免。
+#   replay —— 引擎语义面,CI 工作流不入黄金场景 → 不可能变;证据豁免。
+# C++ 侧复验:Release 全量 ctest(35 项)绿 + std_import/upstream_check
+# 门禁 PASS(标注随基线前进全量改写 @4f7930b5→@e180e3225,411 文件)。
 # 黄金数据 tests/golden_core.txt 由该 commit 的 C# 实现
 # (tools/golden_gen/Program.cs 内嵌的 OpenRA 原语逐字副本)生成,与被测语言无关。
 # 上游更新流程:checkout 新 commit → 依变更文件判定各黄金受扰面 →

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Widgets/WidgetLoader.cs @4f7930b5(chrome layout 加载
+// UPSTREAM: OpenRA.Game/Widgets/WidgetLoader.cs @e180e3225(chrome layout 加载
 // 逐语义:首 '@' 后键索引/重复键抛/Id 取 Split('@')[1]/字段加载/Initialize/
 // Children 递归/logicArgs 出入参/PostInit)。ObjectCreator.CreateObject →
 // WidgetTypeRegistry 名字分派(键 = "{Type}Widget";未知名 "Cannot locate

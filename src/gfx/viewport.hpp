@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/Viewport.cs @4f7930b5 L21-447(全文逐语义)
+// UPSTREAM: OpenRA.Game/Graphics/Viewport.cs @e180e3225 L21-447(全文逐语义)
 // 视口:缩放/居中/滚动/世界-屏幕坐标换算 + 可见投影格区(惰性缓存)。
 // 形态适配(注入面,D89~D92 同族;完整 Map/Settings/Renderer 随 Phase 5):
 //   - Game.Renderer.NativeResolution / SetMaximumViewportSize →

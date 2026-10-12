@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Actor.cs @4f7930b5 L27-651(逐语义重写;渲染/Lua 面
+// UPSTREAM: OpenRA.Game/Actor.cs @e180e3225 L27-651(逐语义重写;渲染/Lua 面
 //          随 Phase 4/8)
 //          Verbatim-semantics rewrite; the render/Lua surfaces land with
 //          Phase 4/8.

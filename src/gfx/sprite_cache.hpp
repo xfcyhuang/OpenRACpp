@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteCache.cs @4f7930b5 L21-183(全文逐语义)
+// UPSTREAM: OpenRA.Game/Graphics/SpriteCache.cs @e180e3225 L21-183(全文逐语义)
 // 精灵预留/物化两段流水:ReserveSprites 记账(token 制,同文件聚合),Load
 // Reservations 按文件加载帧 → (帧索引越界检查,消息逐字含 SourceLocation
 // 的 "Name:Line" 形态)→ pendingResolve 按 **帧高稳定排序**(sheet 行高打包

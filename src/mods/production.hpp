@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Production.cs @4f7930b5 L15-156 +
+// UPSTREAM: OpenRA.Mods.Common/Traits/Production.cs @e180e3225 L15-156 +
 //          Traits/Player/ProductionQueue.cs L20-813(同步面全文;
 //          PowerManager 的电源判定/声音与文本通知/UI 只读查询面随
 //          各自批次)

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Projectiles/Bullet.cs @4f7930b5 L26-399 +
+// UPSTREAM: OpenRA.Mods.Common/Projectiles/Bullet.cs @e180e3225 L26-399 +
 //          InstantHit.cs L20-96(全文逐语义重写;Render/ContrailRenderable/
 //          SpriteEffect 的视觉面随渲染批 —— RNG 消耗序保持)
 //          The whole of Bullet.cs L26-399 + InstantHit.cs L20-96

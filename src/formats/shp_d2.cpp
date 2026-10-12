@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpD2Loader.cs @4f7930b5 L17-172
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpD2Loader.cs @e180e3225 L17-172
 // 实现文件:ShpD2Frame 头解析/查表/LCW 预解压/RLE0、IsShpD2、ParseFrames
 // 逐句照抄;Stream → SpanReader。
 // Implementation file: the ShpD2Frame header parse / lookup table / LCW

@@ -1,8 +1,8 @@
-// UPSTREAM: OpenRA.Game/Graphics/Util.cs @4f7930b5 L23-320(渲染域子集)+
-//           OpenRA.Game/Exts.cs @4f7930b5 L270-273(NextPowerOf2)+
-//           OpenRA.Mods.Common/Util.cs @4f7930b5 L79-104(面向索引族,
+// UPSTREAM: OpenRA.Game/Graphics/Util.cs @e180e3225 L23-320(渲染域子集)+
+//           OpenRA.Game/Exts.cs @e180e3225 L270-273(NextPowerOf2)+
+//           OpenRA.Mods.Common/Util.cs @e180e3225 L79-104(面向索引族,
 //           第十四批随 mods 序列移植)+
-//           OpenRA.Game/Exts.cs @4f7930b5 L77-99(WindingDirectionTest/
+//           OpenRA.Game/Exts.cs @e180e3225 L77-99(WindingDirectionTest/
 //           PolygonContains,第十四批随 Viewport 移植)
 // 渲染域工具:四边形索引表、FastCreateQuad(顶点生成 + combined.vert 的
 // aVertexAttributes 位域打包)、FastCopyIntoChannel(Indexed8→单通道 /

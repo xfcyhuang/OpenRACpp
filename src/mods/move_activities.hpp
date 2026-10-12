@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/Wait.cs @4f7930b5
+// UPSTREAM: OpenRA.Mods.Common/Activities/Wait.cs @e180e3225
 //          全族逐语义重写:Activities/Wait.cs L17-30 | Activities/Turn.cs
 //          L17-41 | Move/Drag.cs L17-71 | Move/Nudge.cs L17-56 |
 //          Move/AttackMoveActivity.cs L17-106 | Move/MoveCooldownHelper.cs

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/WsaVideo.cs @4f7930b5 L18-156(全文)
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/WsaVideo.cs @e180e3225 L18-156(全文)
 // + OpenRA.Mods.Cnc/VideoLoaders/WsaLoader.cs L18-70(IsWsa 嗅探与
 // TryParseVideo 面)。
 // Westwood WSA 动画:10 字节头(frames/x/y/width/height/delta/flags)+

@@ -1,7 +1,7 @@
-// UPSTREAM: OpenRA.Game/Graphics/WorldRenderer.cs @4f7930b5 L23-483(逐方法)+
-//           OpenRA.Game/Traits/TraitsInterfaces.cs @4f7930b5 L435-476(IRenderTerrain/
+// UPSTREAM: OpenRA.Game/Graphics/WorldRenderer.cs @e180e3225 L23-483(逐方法)+
+//           OpenRA.Game/Traits/TraitsInterfaces.cs @e180e3225 L435-476(IRenderTerrain/
 //           ITerrainLighting/IRenderPostProcessPass/PostProcessPassType)+
-//           OpenRA.Game/Map/MapGrid.cs @4f7930b5 L20-57(默认 Ramp 角的方格形态)
+//           OpenRA.Game/Map/MapGrid.cs @e180e3225 L20-57(默认 Ramp 角的方格形态)
 // 世界渲染器:调色板管理 + 世界坐标到屏幕坐标换算 + 渲染收集/排序/绘制序。
 // OPT-A7(docs/OPTIMIZATION_TRACKER.md)本批落地的"渲染收集 SOA + 帧 arena":
 //   - 上游 GenerateRenderables(L141-175)每帧向 renderablesBuffer 装入 IRenderable

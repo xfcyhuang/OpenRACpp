@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/TerrainSpriteLayer.cs @4f7930b5 L21-269(实现)
+// UPSTREAM: OpenRA.Game/Graphics/TerrainSpriteLayer.cs @e180e3225 L21-269(实现)
 // 头文件携带完整 UPSTREAM 锚点与 OPT-A7 分离数组论证。
 // Implementations of TerrainSpriteLayer.cs; the header carries the full
 // UPSTREAM anchors and the OPT-A7 split-array arguments.
