@@ -12,7 +12,7 @@
 
 ## 进度总览
 
-**整体完成度约 62%**(按 PORTING_PLAN 各阶段工作量加权估算)。数据/引擎/渲染/平台层(前半程)已完成并经黄金对拍锁定;Phase 5 的 gameplay 大面(攻击/迷雾/建筑/生产/电力/资源/条件·隐身·经验·捕获·摆位/渲染 trait 全族/MapPreview 异步面 + replaydiff 对拍器)十一批全部完成;**第十一批(2026-10-10)已打通回放驱动链** —— Session 全字段双向序列化 + ReplayConnection 全文化(chunk 切段/orderLatency 节流/内建 desync 检测)+ SyncInfo/StartGame 大厅装配 + Game::JoinReplay,replay_test 以真 ra 全链**自录自放:逐帧 SyncHash 自洽 + 篡改帧 desync 检测**全绿。**第十二批(2026-10-11)G2 第二编达成 —— 确定性移植总关卡通过**:golden_gen 以 C# 无头宿主世界产出真 .orarep(great-sahara-2,150 帧,oracle 双跑逐字节恒等),C++ 引擎回放该真录像**逐帧 SyncHash 150/150 全对、全程无 desync**;过关卡修出十处真缺失/真问题(Wanders/SeedsResource 全文、七个 ISync 承载面、HashBool 死常量误读、GetImage 小写面、IdleSequences.Random 抽数语义)。下一步:更丰富的脚本 order 对拍面 + NetworkConnection 实体 + Server。
+**整体完成度约 63%**(按 PORTING_PLAN 各阶段工作量加权估算)。数据/引擎/渲染/平台层(前半程)已完成并经黄金对拍锁定;Phase 5 的 gameplay 大面(攻击/迷雾/建筑/生产/电力/资源/条件·隐身·经验·捕获·摆位/渲染 trait 全族/MapPreview 异步面 + replaydiff 对拍器)十一批全部完成;**第十一批(2026-10-10)已打通回放驱动链** —— Session 全字段双向序列化 + ReplayConnection 全文化(chunk 切段/orderLatency 节流/内建 desync 检测)+ SyncInfo/StartGame 大厅装配 + Game::JoinReplay,replay_test 以真 ra 全链**自录自放:逐帧 SyncHash 自洽 + 篡改帧 desync 检测**全绿。**第十二批(2026-10-11)G2 第二编达成 —— 确定性移植总关卡通过**:golden_gen 以 C# 无头宿主世界产出真 .orarep(great-sahara-2,150 帧,oracle 双跑逐字节恒等),C++ 引擎回放该真录像**逐帧 SyncHash 150/150 全对、全程无 desync**;过关卡修出十处真缺失/真问题。**第十三批(2026-10-12)NetworkConnection 实体落地**:Connection.cs L99-386 全文(端点竞赛连接/读线程/queuedSync 冲刷/Ack·Ping·TickScale 六路分发)+ ConnectionTarget + WinSock2 平台层,network_test 以 127.0.0.1 回环伪服务器全链验收(握手/Ack 占位回环/sync 回声 desync/ping 往返/Ack 溢出异常文本逐字/断线态迁移)。下一步:更丰富的脚本 order 对拍面 + Server(单线程事件循环/LobbyCommands)+ 大厅协议。
 
 | 阶段 | 内容 | 状态 | 完成度 |
 |---|---|---|---|
@@ -23,7 +23,7 @@
 | Phase 4 | 平台层 + 渲染 + 文件格式 + 音频 + UI 框架起步 + Game 主循环骨架（15 批） | ✅ 完成（2026-10-06） | 100% |
 | Phase 5 | 主循环整合 + 核心 gameplay（Map/World/寻路/Mobile+Move/Armament/攻击链+炮塔/迷雾链/弹丸战头全量/建筑生产链/电力链/资源链/条件·隐身·经验·捕获·摆位链/渲染 trait·邻近捕获·Settings·录像起步/注释·装饰·死亡·损伤·进度条渲染族/MapPreview 异步面 + replaydiff 对拍器，10 批;+ 第十二批 G2 第二编:golden replay 逐帧 SyncHash 对拍） | ✅ 完成（2026-10-07 ~ 2026-10-11） | 100% |
 | Phase 6 | UI + 本地化 | 🌱 起步（框架内核已就位） | ~10% |
-| Phase 7 | 网络与服务器 | 🌱 推进（锁步内核 + 回放驱动链已就位） | ~30% |
+| Phase 7 | 网络与服务器 | 🌱 推进（锁步内核 + 回放驱动链 + NetworkConnection 实体已就位） | ~40% |
 | Phase 8 | Lua 脚本 + AI + 战役 + Utility | ⬜ 未开始 | ~0% |
 | Phase 9 | 打磨与发布 | ⬜ 未开始 | 0% |
 
@@ -34,7 +34,7 @@
 - **三 mod 规则深解析**：ra 80,274 / cnc 49,416 / d2k 35,833 行**逐字节快照回归**；上游 `--check-yaml` exit=0 佐证。
 - **资产解码黄金对拍**：mods 全部 .shp/.pal/.aud/.wav/.vqa/.wsa/.vxl/.hva/.idx/.voc/.r8 资产 + 合成夹具，`tests/golden_formats.txt` **6,737 行逐行一致**；字形 **216 个逐字节一致**（与 C# oracle 加载同一 freetype6.dll）。
 - **锁步确定性**：EchoConnection 单机 **10⁶ tick 双构建（ASan+UBSan/Release）通过，无泄漏无 desync**。
-- **持续门禁**：ctest **35/35** 三构建（ASan+UBSan / Release / **GCC -fhardened 旗级等价硬化**）全绿，且已**模块化 + 提速**（2026-10-11：SpriteCache 去重 O(n²)→哈希的真问题修复、MapCache 可选过滤装载（D209）、resource/replay 按 stage 拆独立 ctest 面、全测试无缓冲实时进度 —— Release 全量 68s / ASan 275s，改写主线不被测试阻塞）；`import std;` 严控（**488 文件**）；偏离登记 **D1~D209**。
+- **持续门禁**：ctest **36/36** 三构建（ASan+UBSan / Release / **GCC -fhardened 旗级等价硬化**）全绿，且已**模块化 + 提速**（2026-10-11：SpriteCache 去重 O(n²)→哈希的真问题修复、MapCache 可选过滤装载（D209）、resource/replay 按 stage 拆独立 ctest 面、全测试无缓冲实时进度 —— Release 全量 68s / ASan 275s，改写主线不被测试阻塞）；`import std;` 严控（**495 文件**）；偏离登记 **D1~D215**。
 - **双编译排错编排（2026-10-08 起）**：**Clang 23**（llvm-mingw/UCRT，基线工具链）× {ASan+UBSan、Release} + **GCC `-fhardened` 旗级等价第二编排**（`-D_FORTIFY_SOURCE=3 -fstack-protector-strong -fPIE -pie`，CMake `-DORA_HARDENED=ON`；std.pcm 同享 `-fstack-protector-strong` 防配置失配拒载）。实测注记：本机 `gcc.exe` 为 llvm-mingw 的 clang 壳，原旗标 `-fhardened` 不可执行 —— 等价集按 GCC 文档逐项展开；真 GCC 15+ 原旗标验证列为 CI 待办（见 ../cpp26.md 工具链表）。
 
 ### 当前焦点（replay SyncHash 对拍关卡,G2 两编）
@@ -171,7 +171,7 @@ clang `-std=c++26` + `import std;`（std.cppm 预编译 PCM）+ CMake/Ninja + ct
 
 ### Phase 7 — 网络与服务器 🌱（~30%）
 
-已完成：Order 线协议/OrderManager 锁步/UnitOrders 分发（含 SyncInfo/StartGame）/EchoConnection、**Session 全字段双向序列化**、**ReplayConnection/ReplayRecorder 全文与回放驱动链（Game::JoinReplay,内建 desync 检测）**、SyncReport 起步。**未完成**：NetworkConnection 实体（读线程/Ack/TickScale）、Session 完整序列化与大厅协议、ReplayRecorder/ReplayConnection、SyncReport、Server（单线程事件循环/LobbyCommands 20 命令/Pinger 族）。验收：C++ 回放 C# 联机 replay；力争 C++ 客户端连 C# 服务器完成一局。
+已完成：Order 线协议/OrderManager 锁步/UnitOrders 分发（含 SyncInfo/StartGame）/EchoConnection、**Session 全字段双向序列化**、**ReplayConnection/ReplayRecorder 全文与回放驱动链（Game::JoinReplay,内建 desync 检测）**、SyncReport 起步、**NetworkConnection 实体（Connection.cs L99-386:端点竞赛连接/读线程/queuedSync 冲刷/Ack·Ping·TickScale 六路分发）+ ConnectionTarget + WinSock2 平台层（D210~D215）**。**未完成**：Server（单线程事件循环/LobbyCommands 20 命令/Pinger 族）、Session 大厅协议接线、HandshakeRequest/Response 面板协议。验收：C++ 回放 C# 联机 replay；力争 C++ 客户端连 C# 服务器完成一局。
 
 ### Phase 8 — Lua 脚本、AI、战役、Utility ⬜
 
@@ -183,8 +183,8 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 
 ## 工程门禁
 
-- **三构建**：ASan+UBSan / Release / -fhardened 旗级等价硬化，ctest 28/28 全绿。
-- **`import std;` 严控**：禁传统 std 头引入（`tools/std_import_check.py`，469 文件 PASS；白名单仅第三方 C 头）。
+- **三构建**：ASan+UBSan / Release / -fhardened 旗级等价硬化，ctest 36/36 全绿。
+- **`import std;` 严控**：禁传统 std 头引入（`tools/std_import_check.py`，495 文件 PASS；白名单仅第三方 C 头与系统头）。
 - **函数级裁剪**：`-ffunction-sections -fdata-sections` + `--gc-sections`。
 - **黄金对拍体系**：yaml（759 文件）/定点原语（60,883 行）/规则深解析（三 mod）/资产解码（6,737 行）/字形（216 个），oracle 双跑确定性验证。
 ## 与上游的差异（优化点与偏离登记）
@@ -208,7 +208,7 @@ Lua 宿主 + 沙箱（内存/指令上限）+ gen/ 编译期绑定表；AI（Mod
 
 ### 与上游不同步处（偏离登记摘要）
 
-当前登记 **D1~D200**（全文见 [docs/COVERAGE.md](docs/COVERAGE.md)），按模块：
+当前登记 **D1~D215**（全文见 [docs/COVERAGE.md](docs/COVERAGE.md)），按模块：
 
 - **yaml/fs（D1~D9）**：异常类型统一 YamlException（消息逐字）、惰性枚举物化 vector、null/"" 键合流——合法输入下行为等价或不可观测；
 - **meta/加载链（D10~D24）**：TypeConverter 兜底未实现（字段类型已全覆盖）、字典字段插入序 vector、三 mod 解析快照 C++ 侧固化（D24，工具恢复后可再对拍）；

@@ -227,6 +227,8 @@ add_library(ora_net STATIC
   src/net/order.cpp
   src/net/order_io.cpp
   src/net/connection.cpp
+  src/net/connection_target.cpp
+  src/net/network_connection.cpp
   src/net/order_manager.cpp
   src/net/session.cpp
   src/net/unit_orders.cpp
@@ -272,8 +274,12 @@ add_library(ora_platform STATIC
   src/platform/al_loader.cpp
   src/platform/openal_sound_engine.cpp
   src/platform/freetype_font.cpp
-  src/platform/sdl2_hardware_cursor.cpp)
+  src/platform/sdl2_hardware_cursor.cpp
+  src/platform/tcp_socket.cpp)
 target_link_libraries(ora_platform PUBLIC ora_core ora_sdl2 ora_openal ora_freetype)
+# WinSock2(NetworkConnection/ConnectionTarget 与测试伪服务器;Phase 7 第十三批)
+# WinSock2 (NetworkConnection/ConnectionTarget and the test fake server; Phase 7 batch 13).
+target_link_libraries(ora_platform PUBLIC ws2_32)
 ora_link_std(ora_platform)
 
 # 渲染核心:值类型命令 + SPSC 无锁队列(OPT-A5)+ 渲染线程(状态 diff,O6)
@@ -660,6 +666,16 @@ target_link_libraries(replaydiff_test PRIVATE
   ora_miniz ora_sdl2 ora_openal ora_freetype)
 ora_link_std(replaydiff_test)
 add_test(NAME replaydiff_test COMMAND replaydiff_test)
+
+# ———— Phase 7 第十三批:NetworkConnection 实体 ————
+# Phase 7 batch 13: the NetworkConnection entity.
+add_executable(network_test tests/network_test.cpp)
+ora_link_std(network_test)
+target_link_libraries(network_test PRIVATE
+  ora_net ora_sim ora_yaml ora_platform ora_core)
+ora_link_std(network_test)
+add_test(NAME network_test COMMAND network_test)
+set_tests_properties(network_test PROPERTIES TIMEOUT 120)
 
 add_executable(replay_test tests/replay_test.cpp)
 ora_link_std(replay_test)

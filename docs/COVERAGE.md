@@ -772,3 +772,20 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | # | 位置 | 偏离内容 | 理由 |
 |---|---|---|---|
 | D209 | src/map/ map_cache | LoadMaps 增第二参 str_filter_contains(非空时仅装载包名含子串的地图;逐图 LoadMapInternal 处理面不变)—— 上游无此参;测试以 ORA_TEST_MAP_FILTER 环境变量可覆写、缺省 Siberian-Pass | 测试/嵌入侧提速面;运行时全量装载不受影响 |
+
+## Phase 7 第十三批:NetworkConnection 实体(2026-10-12)
+
+- **移植面**:`src/net/` network_connection(Connection.cs L99-386 全文:端点竞赛连接/读线程/发送链的 queuedSync 冲刷/Receive 的 Disconnect·Sync·TickScale·PingRequest·Ack·OrderPacket 六路分发 + StartRecording/Dispose)+ connection_target(ConnectionTarget.cs 全文);`src/platform/` tcp_socket(WinSock2 直连基础设施,NONE 标注)。
+- **验收**:新 network_test —— 127.0.0.1 回环伪服务器全链:握手(clientId 分配/Connected 态/EndPoint 物化)→ order+Ack 占位回环(sentOrders 出队/合并路径)→ SendSync 的 queuedSyncPackets 随下次 Send 冲刷(线协议逐字节)→ sync 回声(等哈希同步/异哈希 desync)→ TickScale/PingRequest-PingResponse(ts 往返 + queueLen 尾字节)→ 远端 order/immediate 分发 → Disconnect → Ack 溢出异常(文本逐字 "Received Ack for 3 > 2 frames.")→ 服务端关闭驱动 NotConnected + ErrorMessage;Recorder 内存盘四类条目验证。ConnectionTarget:ToString 连接/空集 ctor 异常文本逐字/回环解析/不可解析主机空集。
+- 修出两个真问题:FormatAddress 漏 ntohs(端口字节序反);测试初版漏上游装配语义(StartGame 把大厅非 bot 客户端登记进 pendingOrders —— 否则 ReceiveOrders 视 disconnected client 抛)。
+
+### 已登记偏离(第十三批)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D210 | src/net/ network_connection | 线程与并发原语形态:background Thread → std::thread(Dispose 确定性 join,连接线程在 5s 竞赛等待中被 CompleteAdding 提前唤醒);BlockingCollection<TcpClient> → mutex/cv 集合(Add 失败 = 落选者自关);ConcurrentQueue → mutex deque(生产 = 读线程,消费 = 主线程,非热路径);volatile → atomic<ConnectionState>/atomic<int> | 可观察行为等价(状态机/包序/胜者语义不变);确定性收尾换 daemon 弃置 |
+| D211 | src/net/ network_connection + src/platform/ tcp_socket | 异常面收缩:上游 try/catch(IOException/SocketException 等 → ErrorMessage + Log.Write)→ 错误返回 + ErrorMessage("Failed to connect"/"Failed to resolve address"/"Connection failed" 三串逐字);len==0 的 NotImplementedException 并入通用失败路径;Log.Write 诊断面缺省(上游写 client 日志) | 无 try/catch/throw 规范下的可观察等价;日志面非协议可观察行为 |
+| D212 | src/platform/ tcp_socket | .NET TcpClient/Dns/IPEndPoint → WinSock2 直连(getaddrinfo AF_UNSPEC 全族解析镜像 GetHostAddresses;TCP_NODELAY;shutdown+ closesocket 唤醒阻塞读 = .NET "关流使读抛错" 直连形;句柄 atomic 持有防 Close/recv 值竞争);Listen/Accept/BoundPort 为测试伪服务器的最小服务端面(上游 Server 随其批) | 平台绑定层自有基础设施;解析器实现差异属宿主域 |
+| D213 | src/net/ network_connection | Ack 溢出与未知包两处 throw std::runtime_error(文本逐字对齐 InvalidOperationException/InvalidDataException 插值串);Ack 合并的 LINQ Range/Select → 显式出队循环(出队序 = 上游 Dequeue 序) | 上游异常文本等价抛(沿 D96-100 先例);组合面保序 |
+| D214 | src/net/ connection_target | Dns.GetHostAddresses 的 try/catch → getaddrinfo 返回码判空(逐端点失败跳过,整体 = 解析成功全集);ArgumentException → std::invalid_argument(文本逐字) | 同 D211 规范;解析失败不可区分聚合形态 |
+| D215 | src/net/ network_connection | EndPoint/ErrorMessage 属性 → mutex 守护取值(上游属性直读 volatile/只写);Recorder 属性 → unique_ptr + 裸访问器(所有权同上游:StartRecording 换新、Dispose 释放) | 跨线程字符串读取的安全化;所有权不变 |
