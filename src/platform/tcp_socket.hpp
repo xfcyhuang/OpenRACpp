@@ -74,6 +74,52 @@ class TcpSocket {
   /// stream.ReadInt32(): little-endian.
   bool ReadInt32(std::int32_t& int4_out);
 
+  // ———— 服务器侧 socket 面(上游 Server 族批;Poll/非阻塞收发/任意端
+  //      点监听/本端端点查询)————
+  // ———— The server-side socket face (the upstream Server-family batch;
+  //      poll/non-blocking send-receive/listen on an arbitrary endpoint/
+  //      the local-endpoint query) ————
+
+  /// TcpListener(endpoint)+Start 的任意端点形态(host 空/0.0.0.0 = IPv4
+  /// 通配,"::" = IPv6 通配;失败 = 无效 socket)
+  /// The arbitrary-endpoint form of TcpListener(endpoint)+Start (an
+  /// empty host/0.0.0.0 = the IPv4 wildcard, "::" = the IPv6 wildcard;
+  /// failure = an invalid socket).
+  static TcpSocket ListenEndpoint(std::string_view str_host, int int4_port);
+
+  /// Socket.Poll(timeout, SelectRead)(timeout_us = 微秒;false = 超时/
+  /// 无效)
+  /// Socket.Poll(timeout, SelectRead) (timeout_us in microseconds; false =
+  /// timeout/invalid).
+  bool PollReadable(int int4_timeout_us);
+
+  /// 非阻塞 recv(调用方先 PollReadable);返回 >0 = 字节数,0 = 对端关
+  /// 闭,-1 = 错误
+  /// The non-blocking recv (the caller polls first); >0 = the byte count,
+  /// 0 = peer closed, -1 = error.
+  int ReceiveUpTo(std::uint8_t* p_buf, std::size_t sz_cap);
+
+  /// ioctlsocket FIONBIO(非阻塞开关)
+  /// ioctlsocket FIONBIO (the non-blocking switch).
+  bool SetNonBlocking(bool b_non_blocking);
+
+  /// TCP_NODELAY 置位
+  /// Sets TCP_NODELAY.
+  bool SetNoDelay();
+
+  /// 非阻塞 send;返回 >0 = 字节数,0 + would_block = WSAEWOULDBLOCK,
+  /// -1 = 其它错误
+  /// The non-blocking send; >0 = the byte count, 0 + would_block =
+  /// WSAEWOULDBLOCK, -1 = any other error.
+  int SendNonBlocking(const std::uint8_t* p_buf, std::size_t sz_count,
+                      bool& b_would_block_out);
+
+  /// 监听 socket 的本端端点(服务器 GetEndpointForLocalConnection 的
+  /// 通配地址判别面)
+  /// The listening socket's local endpoint (the wildcard-address
+  /// discrimination face of the server's GetEndpointForLocalConnection).
+  SocketAddress LocalEndpoint();
+
   /// (IPEndPoint)tcp.Client.RemoteEndPoint 的显示串(连接成功后有效)
   /// The display string of (IPEndPoint)tcp.Client.RemoteEndPoint (valid
   /// after a successful connect).

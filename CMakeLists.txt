@@ -238,6 +238,24 @@ add_library(ora_net STATIC
 target_link_libraries(ora_net PUBLIC ora_sim ora_yaml)
 ora_link_std(ora_net)
 
+# ———— Phase 7 第十四批:服务器实体(Server/Connection/OrderBuffer/
+# PlayerMessageTracker/Handshake/FluentMessage/GameInformation/
+# ServerSettings)————
+# Phase 7 batch 14: the server entity (Server/Connection/OrderBuffer/
+# PlayerMessageTracker/Handshake/FluentMessage/GameInformation/
+# ServerSettings).
+add_library(ora_server STATIC
+  src/server/fluent_message.cpp
+  src/server/handshake.cpp
+  src/server/game_information.cpp
+  src/server/server_settings.cpp
+  src/server/order_buffer.cpp
+  src/server/server_traits.cpp
+  src/server/server_connection.cpp
+  src/server/server.cpp)
+target_link_libraries(ora_server PUBLIC ora_net ora_game PRIVATE ora_map ora_platform)
+ora_link_std(ora_server)
+
 # ———— Phase 4 第一批:平台层 + 渲染命令缓冲 ————
 # Phase 4 first batch: the platform layer + the render command buffer.
 
@@ -676,6 +694,16 @@ target_link_libraries(network_test PRIVATE
 ora_link_std(network_test)
 add_test(NAME network_test COMMAND network_test)
 set_tests_properties(network_test PROPERTIES TIMEOUT 120)
+
+# ———— Phase 7 第十四批:服务器实体测试 ————
+# Phase 7 batch 14: the server-entity test.
+add_executable(server_test tests/server_test.cpp)
+ora_link_std(server_test)
+target_link_libraries(server_test PRIVATE
+  ora_server ora_net ora_game ora_sim ora_map ora_yaml ora_platform ora_core)
+ora_link_std(server_test)
+add_test(NAME server_test COMMAND server_test)
+set_tests_properties(server_test PROPERTIES TIMEOUT 180)
 
 add_executable(replay_test tests/replay_test.cpp)
 ora_link_std(replay_test)

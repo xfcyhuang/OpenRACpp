@@ -431,4 +431,61 @@ std::string Session::Serialize() const {
   return yaml::WriteToString(vec_nodes);
 }
 
+std::string Session::FirstEmptySlot() const {
+  for (const auto& [name, slot] : vec_slots) {
+    if (slot.Closed)
+      continue;
+    bool occupied = false;
+    for (const auto& c : vec_clients)
+      if (c.Slot == name) {
+        occupied = true;
+        break;
+      }
+    if (!occupied)
+      return name;
+  }
+  return {};
+}
+
+std::string Session::FirstEmptyBotSlot() const {
+  for (const auto& [name, slot] : vec_slots) {
+    if (slot.Closed || !slot.AllowBots)
+      continue;
+    bool occupied = false;
+    for (const auto& c : vec_clients)
+      if (c.Slot == name) {
+        occupied = true;
+        break;
+      }
+    if (!occupied)
+      return name;
+  }
+  return {};
+}
+
+bool LoadSessionClient(const yaml::MiniYaml& yaml_v, SessionClient& out) {
+  return LoadClient(yaml_v, out);
+}
+
+yaml::MiniYamlNode SerializeSessionClientFields(yaml::StringPool& pool,
+                                                const SessionClient& c) {
+  auto node = SerializeClient(pool, c);
+  return yaml::MiniYamlNode{pool.Intern("Client"), std::move(node.Value)};
+}
+
+yaml::MiniYamlNode SerializeSessionClient(yaml::StringPool& pool,
+                                          const SessionClient& c) {
+  return SerializeClient(pool, c);
+}
+
+yaml::MiniYamlNode SerializeSessionSlot(yaml::StringPool& pool,
+                                        const SessionSlot& s) {
+  return SerializeSlot(pool, s);
+}
+
+yaml::MiniYamlNode SerializeSessionGlobalSettings(
+    yaml::StringPool& pool, const SessionGlobalSettings& g) {
+  return SerializeGlobal(pool, g);
+}
+
 }  // namespace ora::net

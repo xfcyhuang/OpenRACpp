@@ -221,4 +221,118 @@ TcpSocket TcpSocket::Accept() {
   return tcp;
 }
 
+TcpSocket TcpSocket::ListenEndpoint(std::string_view str_host,
+                                    int int4_port) {
+  if (!InitWinSockOnce())
+    return TcpSocket{};
+
+  const auto str_trimmed = std::string{str_host};
+  const bool b_v6 = str_trimmed == "::" || str_trimmed == "::0";
+
+  const SOCKET sock =
+      socket(b_v6 ? AF_INET6 : AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (sock == INVALID_SOCKET)
+    return TcpSocket{};
+
+  sockaddr_storage addr{};
+  socklen_t len_addr = 0;
+  if (b_v6) {
+    auto* p_addr6 = reinterpret_cast<sockaddr_in6*>(&addr);
+    p_addr6->sin6_family = AF_INET6;
+    p_addr6->sin6_addr = in6addr_any;
+    p_addr6->sin6_port = htons(static_cast<std::uint16_t>(int4_port));
+    len_addr = sizeof(sockaddr_in6);
+  } else {
+    auto* p_addr4 = reinterpret_cast<sockaddr_in*>(&addr);
+    p_addr4->sin_family = AF_INET;
+    p_addr4->sin_addr.s_addr =
+        str_trimmed.empty() || str_trimmed == "0.0.0.0"
+            ? htonl(INADDR_ANY)
+            : inet_addr(str_trimmed.c_str());
+    p_addr4->sin_port = htons(static_cast<std::uint16_t>(int4_port));
+    len_addr = sizeof(sockaddr_in);
+  }
+
+  if (bind(sock, reinterpret_cast<const sockaddr*>(&addr), len_addr) != 0 ||
+      listen(sock, SOMAXCONN) != 0) {
+    closesocket(sock);
+    return TcpSocket{};
+  }
+  return TcpSocket{sock};
+}
+
+bool TcpSocket::PollReadable(int int4_timeout_us) {
+  const SOCKET sock = h_socket_.load(std::memory_order_acquire);
+  if (sock == INVALID_SOCKET)
+    return false;
+
+  fd_set read_fds;
+  FD_ZERO(&read_fds);
+  FD_SET(sock, &read_fds);
+
+  timeval timeout{};
+  timeout.tv_sec = int4_timeout_us / 1000000;
+  timeout.tv_usec = int4_timeout_us % 1000000;
+
+  return select(static_cast<int>(sock) + 1, &read_fds, nullptr, nullptr,
+                &timeout) > 0 &&
+         FD_ISSET(sock, &read_fds);
+}
+
+int TcpSocket::ReceiveUpTo(std::uint8_t* p_buf, std::size_t sz_cap) {
+  const int int4_n =
+      recv(h_socket_.load(std::memory_order_acquire),
+           reinterpret_cast<char*>(p_buf), static_cast<int>(sz_cap), 0);
+  return int4_n;
+}
+
+bool TcpSocket::SetNonBlocking(bool b_non_blocking) {
+  const SOCKET sock = h_socket_.load(std::memory_order_acquire);
+  if (sock == INVALID_SOCKET)
+    return false;
+
+  u_long mode = b_non_blocking ? 1 : 0;
+  return ioctlsocket(sock, FIONBIO, &mode) == 0;
+}
+
+bool TcpSocket::SetNoDelay() {
+  const SOCKET sock = h_socket_.load(std::memory_order_acquire);
+  if (sock == INVALID_SOCKET)
+    return false;
+
+  const int int4_no_delay = 1;
+  return setsockopt(sock, IPPROTO_TCP, TCP_NODELAY,
+                    reinterpret_cast<const char*>(&int4_no_delay),
+                    sizeof(int4_no_delay)) == 0;
+}
+
+int TcpSocket::SendNonBlocking(const std::uint8_t* p_buf, std::size_t sz_count,
+                               bool& b_would_block_out) {
+  b_would_block_out = false;
+  const int int4_n =
+      send(h_socket_.load(std::memory_order_acquire),
+           reinterpret_cast<const char*>(p_buf),
+           static_cast<int>(sz_count), 0);
+  if (int4_n != SOCKET_ERROR)
+    return int4_n;
+
+  if (WSAGetLastError() == WSAEWOULDBLOCK) {
+    b_would_block_out = true;
+    return 0;
+  }
+  return -1;
+}
+
+SocketAddress TcpSocket::LocalEndpoint() {
+  SocketAddress ep;
+  socklen_t len_addr = sizeof(ep.addr_storage);
+  if (getsockname(h_socket_.load(std::memory_order_acquire),
+                  reinterpret_cast<sockaddr*>(&ep.addr_storage),
+                  &len_addr) != 0)
+    return ep;
+  ep.len_addr = len_addr;
+  ep.str_display = FormatAddress(ep.addr_storage, len_addr);
+  return ep;
+}
+
 }  // namespace ora::platform

@@ -31,6 +31,8 @@ import std;
 
 namespace ora::yaml {
 struct MiniYamlNode;
+class MiniYaml;
+class StringPool;
 }
 
 namespace ora::net {
@@ -148,9 +150,49 @@ struct Session {
     return out;
   }
 
+  /// FirstEmptySlot(Session.cs L97-100):首个未关闭且无人占用的槽键
+  /// FirstEmptySlot (Session.cs L97-100): the first open, unoccupied slot
+  /// key (empty string when none — upstream FirstOrDefault().Key on null).
+  std::string FirstEmptySlot() const;
+
+  /// FirstEmptyBotSlot(Session.cs L102-105)
+  /// FirstEmptyBotSlot (Session.cs L102-105).
+  std::string FirstEmptyBotSlot() const;
+
   static Session Deserialize(std::string_view str_data, std::string_view str_name);
 
   std::string Serialize() const;
 };
+
+/// Client 的字段节点面(HandshakeResponse 的 "Client" 节 =
+/// FieldSaver.Save(Client),即包装节点去掉 Client@N 头)
+/// The Client field-node face (HandshakeResponse's "Client" node =
+/// FieldSaver.Save(Client) — the wrapped node without the Client@N head).
+yaml::MiniYamlNode SerializeSessionClientFields(yaml::StringPool& pool,
+                                                const SessionClient& c);
+
+/// Client@N 包装节点(Client.Serialize,Session.Serialize 与服务器
+/// SyncLobbyClients 消费)
+/// The Client@N wrapped node (Client.Serialize, consumed by Session.
+/// Serialize and the server's SyncLobbyClients).
+yaml::MiniYamlNode SerializeSessionClient(yaml::StringPool& pool,
+                                          const SessionClient& c);
+
+/// Slot@PlayerReference 包装节点(Slot.Serialize,SyncLobbySlots 消费)
+/// The Slot@PlayerReference wrapped node (Slot.Serialize, consumed by
+/// SyncLobbySlots).
+yaml::MiniYamlNode SerializeSessionSlot(yaml::StringPool& pool,
+                                        const SessionSlot& s);
+
+/// GlobalSettings 包装节点(Global.Serialize,SyncLobbyGlobalSettings
+/// 消费)
+/// The GlobalSettings wrapped node (Global.Serialize, consumed by
+/// SyncLobbyGlobalSettings).
+yaml::MiniYamlNode SerializeSessionGlobalSettings(
+    yaml::StringPool& pool, const SessionGlobalSettings& g);
+
+/// Client 的按名装载(HandshakeResponse.Deserialize 的 Client 分支)
+/// The by-name Client load (HandshakeResponse.Deserialize's Client branch).
+bool LoadSessionClient(const yaml::MiniYaml& yaml_v, SessionClient& out);
 
 }  // namespace ora::net

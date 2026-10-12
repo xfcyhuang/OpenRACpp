@@ -82,7 +82,7 @@ Order::Order(std::string str_order, sim::Actor* subject,
 // ———— The named constructors (Order.cs L281-327) ————
 
 Order Order::Chat(std::string_view text, std::uint32_t team_number) {
-  Order o{std::string(text), nullptr, false};
+  Order o{"Chat", nullptr, false};
   o.b_is_immediate = true;
   o.str_target_string = std::string(text);
   o.uint4_extra_data = team_number;
@@ -152,7 +152,11 @@ Order Order::CancelProduction(sim::Actor* subject, std::string_view item,
 
 std::unique_ptr<Order> Order::Deserialize(sim::World* world, ByteReader& r) {
   try {
-    const auto type = static_cast<OrderType>(r.ReadByte());
+    const auto first_byte = r.ReadByte();
+    if (std::getenv("ORA_ORDER_DEBUG") != nullptr)
+      std::fprintf(stderr, "[order-dbg] entry len=%zu first=%02X\n", r.Length(),
+                   static_cast<unsigned>(first_byte));
+    const auto type = static_cast<OrderType>(first_byte);
     switch (type) {
       case OrderType::Fields: {
         auto order = r.ReadString();
@@ -298,6 +302,11 @@ std::unique_ptr<Order> Order::Deserialize(sim::World* world, ByteReader& r) {
       case OrderType::Handshake: {
         auto name = r.ReadString();
         auto target_string = r.ReadString();
+        if (std::getenv("ORA_ORDER_DEBUG") != nullptr)
+          std::fprintf(stderr,
+                       "[order-dbg] handshake case: name=%s target_len=%zu pos=%zu len=%zu\n",
+                       name.c_str(), target_string.size(), r.Position(),
+                       r.Length());
 
         auto o = std::make_unique<Order>(std::move(name), nullptr, false);
         o->type = OrderType::Handshake;
