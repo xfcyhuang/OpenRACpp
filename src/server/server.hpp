@@ -31,14 +31,18 @@ import std;
 #include "net/order_io.hpp"
 #include "net/replay_recorder.hpp"
 #include "net/session.hpp"
+#include "server/color_picker_manager.hpp"
 #include "server/fluent_message.hpp"
 #include "server/game_information.hpp"
 #include "server/handshake.hpp"
+#include "server/lobby_option.hpp"
+#include "server/map_status_cache.hpp"
 #include "server/order_buffer.hpp"
 #include "server/protocol_version.hpp"
 #include "server/server_connection.hpp"
 #include "server/server_settings.hpp"
 #include "server/server_traits.hpp"
+#include "server/vote_kick_tracker.hpp"
 
 namespace ora::server {
 
@@ -119,6 +123,82 @@ struct ServerDeps {
                      std::string_view str_auth_token,
                      std::string& str_profile_id_out)>
       fn_verify_auth;
+
+  // ———— 第十五批:ModData 大厅面(ModData.MapCache/DefaultRules 色
+  //      管理器/DefaultTerrainInfo/ILobbyOptions·IBotInfo 汇流/
+  //      QueryRemoteMapDetails/ILintServerMapPass)的注入族 ————
+  // ———— Batch 15: the injection family of the ModData lobby faces
+  //      (ModData.MapCache / the DefaultRules color manager /
+  //      DefaultTerrainInfo / the ILobbyOptions·IBotInfo fan-in /
+  //      QueryRemoteMapDetails / ILintServerMapPass) ————
+
+  /// ModData.MapCache[uid](null = UnknownMap 语义)
+  /// ModData.MapCache[uid] (null = the UnknownMap semantics).
+  std::function<map::MapPreview*(const std::string&)> fn_map_cache_at;
+
+  /// MapCache.Where(Available && Visibility 含 Lobby).Select(Uid)
+  /// (InitializeMapPool 的空 MapPool 池面)
+  /// MapCache.Where(Available && Lobby-visible).Select(Uid) (the empty-
+  /// MapPool pool face of InitializeMapPool).
+  std::function<std::vector<std::string>()> fn_available_lobby_maps;
+
+  /// PlayerActorInfo+WorldActorInfo 的 ILobbyOptions 汇流(逐 trait 装配
+  /// 面随其宿主 trait 批;缺省 = 空集)
+  /// The PlayerActorInfo+WorldActorInfo ILobbyOptions fan-in (the per-trait
+  /// assembly rides the hosts' batches; default = the empty set).
+  std::function<std::vector<LobbyOptionData>(const map::MapPreview&)>
+      fn_lobby_options;
+
+  /// PlayerActorInfo.TraitInfos<IBotInfo>() 的 {Type, Name} 汇流(AI 面
+  /// 随 Phase 8;缺省 = 空集)
+  /// The {Type, Name} fan-in of PlayerActorInfo.TraitInfos<IBotInfo>()
+  /// (the AI face rides Phase 8; default = the empty set).
+  std::function<std::vector<std::pair<std::string, std::string>>(
+      const map::MapPreview&)>
+      fn_bot_infos;
+
+  /// DefaultRules.Actors[World].TraitInfo<IColorPickerManagerInfo>()
+  /// (缺省 = ColorPickerManagerInfo 默认值面)
+  /// DefaultRules.Actors[World].TraitInfo<IColorPickerManagerInfo>()
+  /// (default = the ColorPickerManagerInfo default-value face).
+  std::function<const ColorPickerManagerData*()> fn_color_manager;
+
+  /// DefaultTerrainInfo[tileset].RestrictedPlayerColors(缺省 = 空集)
+  /// DefaultTerrainInfo[tileset].RestrictedPlayerColors (default = the
+  /// empty set).
+  std::function<std::vector<core::Color>(std::string_view)>
+      fn_terrain_restricted_colors;
+
+  /// MapCache.QueryRemoteMapDetails(repo, uids, success(uid), failure)
+  /// (缺省 = 立即 failure —— 无资源中心同 observable)
+  /// MapCache.QueryRemoteMapDetails(repo, uids, success(uid), failure)
+  /// (default = an immediate failure — the same observable as no
+  /// repository).
+  std::function<void(std::span<const std::string>,
+                     std::function<void(const std::string&)>,
+                     std::function<void()>)>
+      fn_query_remote_map;
+
+  /// MapCache.ChooseInitialMap(initial, MersenneTwister)(缺省 = 直返
+  /// initial —— 无缓存同 observable 的回落面)
+  /// MapCache.ChooseInitialMap(initial, MersenneTwister) (default = the
+  /// initial returned as-is — the no-cache observable fallback).
+  std::function<std::string(const std::string&)> fn_choose_initial_map;
+
+  /// Manifest.Metadata 的 Title/Website/WebIcon32(GameServer 装配)
+  /// Manifest.Metadata's Title/Website/WebIcon32 (the GameServer assembly).
+  std::string str_mod_title;
+  std::string str_mod_website;
+  std::string str_mod_icon32;
+
+  /// Platform.SessionGUID.ToString()(LAN 广告的 Id 字段)
+  /// Platform.SessionGUID.ToString() (the LAN advertisement's Id field).
+  std::string str_session_guid;
+
+  /// ILintServerMapPass 类型表(MapStatusCache;缺省 = 空集)
+  /// The ILintServerMapPass type table (MapStatusCache; default = the
+  /// empty set).
+  std::vector<LintServerMapPassFn> vec_lint_passes;
 };
 
 /// Server(Server.cs L49-1601)
@@ -147,6 +227,26 @@ class Server final {
   /// Uid/Title for GameInformation).
   std::string str_map_uid;
   std::string str_map_title;
+
+  /// Map(L131 的 C++ 承载:MapCache 所有的 MapPreview 借用指针;
+  /// LobbyCommands.ServerStarted/Map 命令装配;null = 未装配地图)
+  /// Map (L131's C++ carrier: a borrowed MapPreview pointer owned by the
+  /// MapCache; assembled by LobbyCommands.ServerStarted/the Map command;
+  /// null = no map assembled).
+  const map::MapPreview* Map = nullptr;
+
+  /// MapPool(L134 的 FrozenSet 承载;nullopt = 无池)
+  /// MapPool (L134's FrozenSet carrier; nullopt = no pool).
+  std::optional<std::vector<std::string>> opt_map_pool;
+
+  /// SetMap:LobbyCommands 的装配面(uid/title 同步供 GameInformation)
+  /// SetMap: LobbyCommands' assembly face (uid/title kept in sync for
+  /// GameInformation).
+  void SetMap(const map::MapPreview* p_map) {
+    Map = p_map;
+    str_map_uid = p_map ? p_map->Uid() : std::string{};
+    str_map_title = p_map ? p_map->Title() : std::string{};
+  }
 
   int OrderLatency = 1;  // L137
 
@@ -291,6 +391,46 @@ class Server final {
   }
   GameInformation* GameInfo() { return up_game_info_ ? &*up_game_info_ : nullptr; }
 
+  /// ———— 第十五批的 trait 消费面 ————
+  /// ———— Batch 15's trait-consumption faces ————
+
+  /// MapStatusCache(L132;null = 未装配 —— Dedicated+lint 或测试注入)
+  /// MapStatusCache (L132; null = unassembled — Dedicated+lint or a test
+  /// injection).
+  MapStatusCache& MapStatusCacheInstance() {
+    return *up_map_status_cache_;
+  }
+
+  /// VoteKickTracker(L155)
+  VoteKickTracker& GetVoteKickTracker() { return *up_vote_kick_tracker_; }
+
+  /// Game.RunTime(trait 消费;deps.fn_clock 同源)
+  /// Game.RunTime (the trait consumption; the same source as deps.
+  /// fn_clock).
+  std::int64_t RunTimeMs() const { return deps_.fn_clock ? deps_.fn_clock() : 0; }
+
+  /// Log.Write("server", line)(trait 消费)
+  /// Log.Write("server", line) (the trait consumption).
+  void ServerLog(std::string_view str_line) const;
+
+  /// Deps 只读面(trait 的注入族消费)
+  /// The deps' read-only face (the traits' injection-family consumption).
+  const ServerDeps& Deps() const { return deps_; }
+
+  /// GameServer 装配的 Manifest.Metadata/SessionGUID 面
+  /// The Manifest.Metadata/SessionGUID faces of the GameServer assembly.
+  const std::string& MapUid() const { return str_map_uid; }
+  const std::string& ModId() const { return deps_.str_mod_id; }
+  const std::string& ModVersion() const { return deps_.str_mod_version; }
+  const std::string& ModTitle() const { return deps_.str_mod_title; }
+  const std::string& ModWebsite() const { return deps_.str_mod_website; }
+  const std::string& ModIcon32() const { return deps_.str_mod_icon32; }
+  const std::string& SessionGuid() const { return deps_.str_session_guid; }
+
+  /// MapIsUnknown/MapIsKnown(L1494-1512)
+  bool MapIsUnknown(const std::string& str_uid) const;
+  bool MapIsKnown(const std::string& str_uid) const;
+
  private:
   /// AcceptConnection(L426-465)
   void AcceptConnection(platform::TcpSocket socket);
@@ -342,8 +482,6 @@ class Server final {
   /// 事件线程体(L348-402)
   /// The event-thread body (L348-402).
   void ServerThreadBody();
-
-  void ServerLog(std::string_view str_line) const;
 
   ServerDeps deps_;
   int int4_next_player_index_ = 0;  // L405
@@ -401,6 +539,9 @@ class Server final {
 
   friend class PlayerMessageTracker;
   std::unique_ptr<class PlayerMessageTracker> up_player_message_tracker_;
+
+  std::unique_ptr<MapStatusCache> up_map_status_cache_;  // L132
+  std::unique_ptr<VoteKickTracker> up_vote_kick_tracker_;  // L155
 };
 
 /// PlayerMessageTracker(PlayerMessageTracker.cs L17-85):加入冷却与洪水

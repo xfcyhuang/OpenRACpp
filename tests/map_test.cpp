@@ -15,6 +15,7 @@ void RegisterGeneratedAll();
 #include "game/game.hpp"
 #include "game/mod_data.hpp"
 #include "map/map_cache.hpp"
+#include "server/map_status_cache.hpp"
 #include "map/cell_layer.hpp"
 #include "map/cell_region.hpp"
 #include "map/map.hpp"
@@ -396,6 +397,39 @@ int main(int argc, char** argv) {
     cache.UpdateMaps();
     cache.UpdateMaps();
     Check(cache.Previews().size() > 0, "UpdateMaps no-op keeps previews");
+
+    // ———— 第十五批:MapStatusCache(真图定级 + 缓存 + lint 注入)————
+    // Batch 15: MapStatusCache (the real-map grading + the cache + the
+    // lint injection).
+    {
+      auto vec_status_log = std::vector<std::string>{};
+      auto deps_cache = ora::server::MapStatusCacheDeps{};
+      deps_cache.fn_server_log = [&vec_status_log](std::string_view l) {
+        vec_status_log.emplace_back(l);
+      };
+      auto str_changed_uid = std::string{};
+      auto int4_changed_status = -1;
+      auto changed_count = 0;
+      auto cache_status = ora::server::MapStatusCache{
+          std::move(deps_cache),
+          [&](std::string_view u, int st) {
+            str_changed_uid = std::string{u};
+            int4_changed_status = st;
+            changed_count++;
+          },
+          false};
+      const auto int4_status =
+          cache_status.StatusOf(preview);
+      Check((int4_status &
+             static_cast<int>(ora::net::SessionMapStatus::Playable)) != 0,
+            "stock map grades Playable");
+      Check(!ora::net::HasMapStatusFlag(
+                int4_status, ora::net::SessionMapStatus::UnsafeCustomRules),
+            "stock map carries no unsafe-rules bit");
+      Check(cache_status.StatusOf(preview) == int4_status,
+            "status cached across queries");
+      Check(changed_count == 0, "no lint callback without remote linting");
+    }
   }
 
   // ———— World 全量构造(world actor 规则 + TraitRegistry + arena)————

@@ -19,13 +19,18 @@ import std;
 #include "net/session.hpp"
 #include "server/fluent_message.hpp"
 #include "server/game_information.hpp"
+#include "server/game_server.hpp"
 #include "server/handshake.hpp"
+#include "server/lobby_commands.hpp"
+#include "server/master_server_pinger.hpp"
 #include "server/order_buffer.hpp"
+#include "server/player_pinger.hpp"
 #include "server/protocol_version.hpp"
 #include "server/server.hpp"
 #include "server/server_settings.hpp"
 
 #include "platform/tcp_socket.hpp"
+#include "platform/udp_socket.hpp"
 
 #include <cstdio>
 
@@ -246,7 +251,7 @@ srv::ServerDeps MakeDeps(std::vector<std::string>* p_vec_log = nullptr) {
       multi0.Color = ora::core::Color::FromArgb(255, 255, 0, 0);
       multi0.LockTeam = true;
       multi0.Team = 1;
-      auto& multi1 = refs["Multi1"];
+      refs["Multi1"];
       return refs;
     }();
     const auto it = kRefs.find(std::string{str_slot});
@@ -715,6 +720,22 @@ void TestDropClient() {
                b.FindOrderFrame("SyncInfo") != nullptr;
       },
       5000);
+  {
+    // accept 次序竞态防护:显式钉住 a 为管理员
+    // An accept-order race guard: pin a as the admin explicitly.
+    std::lock_guard lock{server->mutex_lobby};
+    auto* p_a = server->LobbyInfo.ClientWithIndex(0);
+    auto* p_b = server->LobbyInfo.ClientWithIndex(1);
+    const auto int4_a = a.int4_client_id;
+    const auto int4_b = b.int4_client_id;
+    if (p_a != nullptr && p_b != nullptr && int4_a != 0) {
+      p_a->Index = int4_b;
+      p_b->Index = int4_a;
+      std::swap(p_a->Slot, p_b->Slot);
+    }
+    for (auto& c : server->LobbyInfo.vec_clients)
+      c.IsAdmin = c.Index == int4_a;
+  }
 
   a.tcp.Close();
 
@@ -911,6 +932,574 @@ void TestPureLogic() {
 
 }  // namespace
 
+// ———— 15. 第十五批:LobbyCommands/Pinger 族/LanBeacon/GameServer ————
+// 15. Batch 15: LobbyCommands / the Pingers / LanBeacon / GameServer.
+namespace {
+
+/// 倒序找 (order, target) 命中帧 | The reverse scan for an (order, target)
+/// hit frame.
+const FramePacket* FindOrderWithTarget(const TestClient& client,
+                                       std::string_view str_order,
+                                       std::string_view str_target_contains) {
+  for (auto it = client.vec_frames.rbegin(); it != client.vec_frames.rend();
+       ++it) {
+    if (it->vec_data.empty())
+      continue;
+    const auto first = it->vec_data[0];
+    if (first == static_cast<std::uint8_t>(net::OrderType::Ack) ||
+        first == static_cast<std::uint8_t>(net::OrderType::Ping) ||
+        first == static_cast<std::uint8_t>(net::OrderType::SyncHash) ||
+        first == static_cast<std::uint8_t>(net::OrderType::TickScale) ||
+        first == static_cast<std::uint8_t>(net::OrderType::Disconnect))
+      continue;
+    auto reader = net::ByteReader{it->vec_data};
+    auto o = net::Order::Deserialize(nullptr, reader);
+    if (o && o->str_order_string == str_order && o->str_target_string &&
+        o->str_target_string->find(str_target_contains) !=
+            std::string::npos)
+      return &*it;
+  }
+  return nullptr;
+}
+
+void SendCommand(TestClient& client, std::string_view str_cmd) {
+  auto order = net::Order{"Command", nullptr, false};
+  order.str_target_string = std::string{str_cmd};
+  client.SendOrderPacket(0, order);
+}
+
+std::unique_ptr<srv::Server> MakeLobbyServer(
+    int int4_port, srv::ServerSettings settings,
+    std::vector<std::string>* p_vec_log) {
+  auto server = MakeServer(int4_port, srv::ServerType::Local, settings,
+                           p_vec_log);
+  server->AddServerTrait(std::make_unique<srv::LobbyCommands>());
+  return server;
+}
+
+bool JoinLobby(TestClient& client, int int4_port, std::string_view str_name) {
+  if (!client.Connect(int4_port))
+    return false;
+  client.Pump(300);
+  client.Handshake(MakeResponse(str_name));
+  return WaitUntil(
+      [&] {
+        client.Pump(150);
+        return client.FindOrderFrame("SyncInfo") != nullptr;
+      },
+      5000);
+}
+
+void TestLobbyCommandsBatch() {
+  std::println("[server] lobby commands batch");
+  auto vec_log = std::vector<std::string>{};
+  const auto int4_port = FreePort();
+  auto settings = srv::ServerSettings{};
+  settings.EnableSingleplayer = true;
+  settings.Name = "Test#Server";
+  auto server = MakeLobbyServer(int4_port, settings, &vec_log);
+
+  auto alice = TestClient{};
+  Check(JoinLobby(alice, int4_port, "Alice"), "alice joins");
+  auto bob = TestClient{};
+  Check(JoinLobby(bob, int4_port, "Bob"), "bob joins");
+
+  // ———— state 命令(Ready 物化 + SyncLobbyClients 广播)————
+  // The state command (Ready materialized + the SyncLobbyClients broadcast).
+  alice.vec_frames.clear();
+  SendCommand(alice, "state Ready");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "SyncLobbyClients",
+                                         "State: Ready") != nullptr;
+            },
+            1500),
+        "state Ready reflected in SyncLobbyClients");
+
+  // Ready 后非 state 命令被拒
+  // A non-state command is rejected once Ready.
+  alice.vec_frames.clear();
+  SendCommand(alice, "name Alice2");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(
+                         alice, "FluentMessage",
+                         "notification-state-unchanged-ready") != nullptr;
+            },
+            1500),
+        "ready-state command gate");
+
+  SendCommand(alice, "state NotReady");
+
+  // ———— name 命令(通知 + SyncLobbyClients)————
+  // The name command (the notification + SyncLobbyClients).
+  alice.vec_frames.clear();
+  SendCommand(alice, "name  Alice#2 ");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "FluentMessage",
+                                         "notification-nick-changed") !=
+                     nullptr;
+            },
+            1500),
+        "nick-changed notification");
+
+  // ———— allow_spectators 畸形(上游 allow_spectate 文本)————
+  // allow_spectators' malformed branch (upstream's allow_spectate text).
+  alice.vec_frames.clear();
+  SendCommand(alice, "allow_spectators maybe");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "FluentMessage",
+                                         "notification-malformed-command") !=
+                     nullptr;
+            },
+            1500),
+        "allow_spectators malformed");
+
+  // ———— faction:无 map = 一切非法
+  // faction: without a map everything is invalid.
+  alice.vec_frames.clear();
+  SendCommand(alice, "faction 0 allies");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(
+                         alice, "FluentMessage",
+                         "notification-invalid-faction-selected") != nullptr;
+            },
+            1500),
+        "invalid faction rejected");
+
+  // ———— assignteams 畸形数字
+  // assignteams' malformed number.
+  alice.vec_frames.clear();
+  SendCommand(alice, "assignteams two");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "FluentMessage",
+                                         "notification-error-number-teams") !=
+                     nullptr;
+            },
+            1500),
+        "assignteams malformed");
+
+  // ———— slot_bot:占位人类 = invalid-bot-slot;空槽 + IBotInfo 空集 =
+  //      invalid-bot-type
+  // slot_bot: a human occupant = invalid-bot-slot; an empty slot + the
+  // empty IBotInfo set = invalid-bot-type.
+  alice.vec_frames.clear();
+  SendCommand(alice, "slot_bot Multi0 0 NullBot");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "FluentMessage",
+                                         "notification-invalid-bot-slot") !=
+                     nullptr;
+            },
+            1500),
+        "slot_bot occupied slot rejected");
+  {
+    std::lock_guard lock{server->mutex_lobby};
+    net::SessionSlot slot_extra{};
+    slot_extra.PlayerReference = "Multi2";
+    server->LobbyInfo.vec_slots.push_back({"Multi2", slot_extra});
+  }
+  alice.vec_frames.clear();
+  SendCommand(alice, "slot_bot Multi2 0 NullBot");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "FluentMessage",
+                                         "notification-invalid-bot-type") !=
+                     nullptr;
+            },
+            1500),
+        "slot_bot invalid type");
+
+  // ———— map:缓存空 = unknown-map(池外同样)
+  // map: the empty cache = unknown-map (the out-of-pool the same).
+  alice.vec_frames.clear();
+  SendCommand(alice, "map " + std::string(40, 'a'));
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "FluentMessage",
+                                         "notification-unknown-map") !=
+                     nullptr;
+            },
+            1500),
+        "map unknown uid rejected");
+
+  // ———— clear_spawn:空点点名禁用 → SyncInfo;再点恢复
+  // clear_spawn: an empty spawn toggles to disabled → SyncInfo; toggling
+  // again restores it.
+  alice.vec_frames.clear();
+  SendCommand(alice, "clear_spawn 2");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "SyncInfo",
+                                         "DisabledSpawnPoints: 2") != nullptr;
+            },
+            1500),
+        "clear_spawn disables empty spawn");
+  alice.vec_frames.clear();
+  SendCommand(alice, "clear_spawn 2");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              const auto* p_frame =
+                  FindOrderWithTarget(alice, "SyncInfo", "DisabledSpawnPoints");
+              return p_frame != nullptr &&
+                     FindOrderWithTarget(alice, "SyncInfo",
+                                         "DisabledSpawnPoints: 2") ==
+                         nullptr;
+            },
+            1500),
+        "clear_spawn toggles back");
+
+  // ———— make_admin:转交 + 广播
+  // make_admin: the handover + the broadcast.
+  alice.vec_frames.clear();
+  SendCommand(alice, "make_admin 1");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "FluentMessage",
+                                         "notification-new-admin") != nullptr;
+            },
+            1500),
+        "make_admin broadcast");
+  {
+    std::lock_guard lock{server->mutex_lobby};
+    const auto* p_alice = server->LobbyInfo.ClientWithIndex(0);
+    const auto* p_bob = server->LobbyInfo.ClientWithIndex(1);
+    Check(p_alice != nullptr && !p_alice->IsAdmin, "alice no longer admin");
+    Check(p_bob != nullptr && p_bob->IsAdmin, "bob is admin");
+  }
+
+  // ———— kick:temp ban 快照 + ServerError 回执
+  // kick: the temp-ban snapshot + the ServerError receipt.
+  {
+    std::lock_guard lock{server->mutex_lobby};
+    if (auto* p_alice = server->LobbyInfo.ClientWithIndex(0))
+      p_alice->IsAdmin = true;
+    if (auto* p_bob = server->LobbyInfo.ClientWithIndex(1))
+      p_bob->IsAdmin = false;
+  }
+  bob.vec_frames.clear();
+  alice.vec_frames.clear();
+  SendCommand(alice, "kick 1 True");
+  Check(WaitUntil(
+            [&] {
+              bob.Pump(150);
+              return FindOrderWithTarget(bob, "ServerError",
+                                         "notification-you-were-kicked") !=
+                     nullptr;
+            },
+            1500),
+        "kick delivers you-were-kicked");
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "FluentMessage",
+                                         "notification-temp-ban") != nullptr;
+            },
+            1500),
+        "kick temp-ban notification");
+  {
+    std::lock_guard lock{server->mutex_lobby};
+    Check(server->vec_temp_bans.size() == 1 &&
+              !server->vec_temp_bans.front().empty(),
+          "temp ban recorded from IPAddress snapshot");
+    Check(server->LobbyInfo.ClientWithIndex(1) == nullptr,
+          "kicked client removed from lobby");
+  }
+
+  // ———— sync_lobby:管理员装载合法 Session(往返)————
+  // sync_lobby: the admin loads a valid Session (the round-trip).
+  std::string str_session;
+  {
+    std::lock_guard lock{server->mutex_lobby};
+    str_session = server->LobbyInfo.Serialize();
+  }
+  alice.vec_frames.clear();
+  SendCommand(alice, "sync_lobby " + str_session);
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "SyncInfo",
+                                         "Name: Alice2") != nullptr;
+            },
+            1500),
+        "sync_lobby valid reload");
+  {
+    std::lock_guard lock{server->mutex_lobby};
+    Check(server->LobbyInfo.ClientWithIndex(0) != nullptr,
+          "reload keeps clients");
+  }
+
+  // ———— sync_lobby:字段装载失败 → invalid-lobby-info(装载保持原状)
+  // sync_lobby: a field-load failure → invalid-lobby-info (the load is
+  // abandoned).
+  alice.vec_frames.clear();
+  SendCommand(alice, std::string{"sync_lobby Client@0:\n\tIndex: NaN"});
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "FluentMessage",
+                                         "notification-invalid-lobby-info") !=
+                     nullptr;
+            },
+            1500),
+        "sync_lobby invalid rejected");
+  {
+    std::lock_guard lock{server->mutex_lobby};
+    Check(server->LobbyInfo.ClientWithIndex(0) != nullptr,
+          "invalid load leaves lobby intact");
+  }
+
+  alice.tcp.Close();
+  bob.tcp.Close();
+  server->Shutdown();
+
+  // ———— vote_kick:无战况面(HasClientWonOrLost 恒 true)→ 管理员一票
+  //      即踢
+  // vote_kick: without a game-info face (HasClientWonOrLost constantly
+  // true) an admin's single vote kicks at once.
+  const auto int4_vk_port = FreePort();
+  auto settings_vk = srv::ServerSettings{};
+  settings_vk.EnableSingleplayer = true;
+  auto server_vk = MakeLobbyServer(int4_vk_port, settings_vk, &vec_log);
+
+  auto voter = TestClient{};
+  Check(JoinLobby(voter, int4_vk_port, "Voter"), "voter joins");
+  auto target = TestClient{};
+  Check(JoinLobby(target, int4_vk_port, "Target"), "target joins");
+  {
+    std::lock_guard lock{server_vk->mutex_lobby};
+    if (auto* p_voter = server_vk->LobbyInfo.ClientWithIndex(0))
+      p_voter->IsAdmin = true;
+  }
+  server_vk->SetState(srv::ServerState::GameStarted);
+
+  voter.vec_frames.clear();
+  target.vec_frames.clear();
+  SendCommand(voter, "vote_kick 1 True");
+  Check(WaitUntil(
+            [&] {
+              target.Pump(150);
+              return FindOrderWithTarget(target, "ServerError",
+                                         "notification-you-were-kicked") !=
+                     nullptr;
+            },
+            1500),
+        "vote kick drops target");
+  Check(WaitUntil(
+            [&] {
+              voter.Pump(150);
+              return FindOrderWithTarget(voter, "FluentMessage",
+                                         "notification-kicked") != nullptr;
+            },
+            1500),
+        "vote kick kicked notification (dead-kickee shortcut)");
+  {
+    std::lock_guard lock{server_vk->mutex_lobby};
+    Check(server_vk->LobbyInfo.ClientWithIndex(1) == nullptr,
+          "vote-kicked client gone");
+  }
+  voter.tcp.Close();
+  server_vk->Shutdown();
+}
+
+void TestPlayerPingerDrop() {
+  std::println("[server] player pinger drop");
+  auto vec_log = std::vector<std::string>{};
+  const auto int4_port = FreePort();
+  auto settings = srv::ServerSettings{};
+  settings.EnableSingleplayer = true;
+  settings.Name = "Test#Server";
+  auto server = MakeLobbyServer(int4_port, settings, &vec_log);
+
+  auto alice = TestClient{};
+  Check(JoinLobby(alice, int4_port, "Alice"), "alice joins");
+  auto bob = TestClient{};
+  Check(JoinLobby(bob, int4_port, "Bob"), "bob joins");
+  auto claire = TestClient{};
+  Check(JoinLobby(claire, int4_port, "Claire"), "claire joins");
+
+  // 中位 client 的 LobbyInfo 条目移除 → PlayerPinger.Tick 踢无主连接
+  // (alice+claire 保持 ≥2 非_bot 计数门开)
+  // The middle client's LobbyInfo entry removed → PlayerPinger.Tick drops
+  // the client-less connection (alice+claire keep the >=2 non-bot count
+  // gate open).
+  {
+    std::lock_guard lock{server->mutex_lobby};
+    const auto int4_bob = bob.int4_client_id;
+    auto& vec = server->LobbyInfo.vec_clients;
+    for (auto it = vec.begin(); it != vec.end(); ++it)
+      if (it->Index == int4_bob) {
+        vec.erase(it);
+        break;
+      }
+  }
+
+  alice.vec_frames.clear();
+  auto pinger = srv::PlayerPinger{};
+  pinger.Tick(*server);
+  Check(WaitUntil(
+            [&] {
+              alice.Pump(150);
+              return FindOrderWithTarget(alice, "FluentMessage",
+                                         "notification-player-dropped") !=
+                     nullptr;
+            },
+            5000),
+        "player-dropped notification after client-less kick");
+  {
+    std::lock_guard lock{server->mutex_lobby};
+    Check(server->LobbyInfo.ClientWithIndex(bob.int4_client_id) ==
+                  nullptr &&
+              server->LobbyInfo.ClientWithIndex(0) != nullptr,
+          "only the client-less connection dropped");
+  }
+  alice.tcp.Close();
+  claire.tcp.Close();
+  server->Shutdown();
+}
+
+void TestMasterServerPingerAndGameServer() {
+  std::println("[server] master pinger + game server");
+  auto vec_posted = std::vector<std::pair<std::string, std::string>>{};
+  auto str_response = std::string{"[0]Welcome"};
+  auto b_online = true;
+
+  auto deps = srv::MasterServerPingerDeps{};
+  deps.fn_advertise_endpoint = [] { return std::string{"http://master/test"}; };
+  deps.fn_post = [&](std::string str_endpoint, std::string str_data,
+                     std::function<void(bool, std::string)> fn_done) {
+    vec_posted.emplace_back(str_endpoint, str_data);
+    fn_done(b_online, str_response);
+  };
+
+  const auto int4_port = FreePort();
+  auto settings = srv::ServerSettings{};
+  settings.AdvertiseOnLocalNetwork = false;
+  auto server = MakeServer(int4_port, srv::ServerType::Multiplayer, settings,
+                           nullptr);
+  server->AddServerTrait(std::make_unique<srv::MasterServerPinger>(
+      std::move(deps)));
+
+  auto alice = TestClient{};
+  Check(JoinLobby(alice, int4_port, "Alice"), "alice joins");
+
+  server->Shutdown();
+  Check(WaitUntil([&] { return vec_posted.size() >= 2; }, 5000),
+        "initial + shutdown advertisements posted");
+  bool b_protocol2 = false;
+  for (const auto& [str_endpoint, str_data] : vec_posted)
+    if (str_data.find("Protocol: 2") != std::string::npos)
+      b_protocol2 = true;
+  Check(b_protocol2, "GameServer POST carries Protocol 2");
+  Check(vec_posted.back().second.find("Client@0") != std::string::npos,
+        "shutdown advertisement carries the Client@0 node");
+
+  // ———— ToPOSTData 的 LAN 附加面(直构)————
+  // ToPOSTData's LAN extras (constructed directly).
+  {
+    std::lock_guard lock{server->mutex_lobby};
+    auto gs = srv::GameServerData{*server};
+    CheckEq(gs.Address, std::format("0.0.0.0:{}", server->Settings.ListenPort),
+            "game server address");
+    Check(gs.State == static_cast<int>(srv::ServerState::ShuttingDown),
+          "state field captured");
+    const auto str_online = gs.ToPOSTData(false);
+    const auto str_lan = gs.ToPOSTData(true);
+    Check(str_online.find("\nMods: ra@test") == std::string::npos,
+          "online POST omits the legacy Mods field");
+    Check(str_lan.find("Mods: ra@test") != std::string::npos,
+          "LAN POST carries the legacy Mods field");
+    Check(str_lan.find("Players: 1") != std::string::npos,
+          "LAN POST players count");
+    Check(str_lan.find("Protected: False") != std::string::npos,
+          "LAN POST protected flag");
+    Check(str_online.find("Protected: False") != std::string::npos,
+          "online POST protected flag");
+  }
+}
+
+void TestLanBeacon() {
+  std::println("[server] lan beacon");
+  auto beacon = srv::LanBeacon{"OpenRALANGame", 43210, nullptr};
+  Check(beacon.IsValid(), "beacon binds discovery port");
+  if (!beacon.IsValid())
+    return;
+  beacon.SetBeaconData("Game\n\tName: LanTest");
+  beacon.Start();
+
+  // 探测包:beaconType 编码前缀 → 应答 [type][port 大端 2B][data 编码]
+  // The probe packet: the encoded beaconType prefix → the reply
+  // [type][advertisedPort, 2B big-endian][the encoded data].
+  auto udp = platform::UdpSocket::BindAny(0);
+  Check(udp.IsValid(), "probe socket binds");
+  if (!udp.IsValid())
+    return;
+
+  const auto vec_probe = [&] {
+    auto vec = std::vector<std::uint8_t>{};
+    const std::string str_type = "OpenRALANGame";
+    const auto u2_len = static_cast<std::uint16_t>(str_type.size());
+    vec.push_back(static_cast<std::uint8_t>(u2_len & 0xFF));
+    vec.push_back(static_cast<std::uint8_t>((u2_len >> 8) & 0xFF));
+    vec.insert(vec.end(), str_type.begin(), str_type.end());
+    return vec;
+  }();
+
+  // 定向到 35891(回环) | Directed at 35891 (loopback).
+  {
+    const auto vec_eps = platform::ResolveDns("127.0.0.1", 35891);
+    Check(!vec_eps.empty() && udp.SendTo(vec_eps.front(), vec_probe),
+          "probe sent");
+  }
+
+  auto addr_peer = platform::SocketAddress{};
+  auto arr_buf = std::array<std::uint8_t, 4096>{};
+  int int4_n = -1;
+  for (int i = 0; i < 100; ++i) {
+    if (!udp.PollReadable(100000))
+      continue;
+    int4_n = udp.ReceiveFrom(arr_buf.data(), arr_buf.size(), addr_peer);
+    if (int4_n > 0)
+      break;
+  }
+  Check(int4_n > static_cast<int>(vec_probe.size()), "beacon replied");
+  if (int4_n > static_cast<int>(vec_probe.size())) {
+    const auto u2_port =
+        static_cast<std::uint16_t>((arr_buf[vec_probe.size()] << 8) |
+                                   arr_buf[vec_probe.size() + 1]);
+    CheckEq(std::to_string(u2_port), "43210", "beacon advertised port");
+    // data 编码:2 字节小端长度 + UTF-8
+    // The encoded data: a 2-byte little-endian length + UTF-8.
+    const auto sz_data_begin = vec_probe.size() + 2;
+    const auto u2_data_len =
+        static_cast<std::uint16_t>(arr_buf[sz_data_begin] |
+                                   (arr_buf[sz_data_begin + 1] << 8));
+    const auto str_data = std::string{
+        reinterpret_cast<const char*>(arr_buf.data() + sz_data_begin + 2),
+        u2_data_len};
+    Check(str_data.find("Name: LanTest") != std::string::npos,
+          "beacon data round-trip");
+  }
+}
+
+}  // namespace
+
 int main() {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
@@ -922,6 +1511,10 @@ int main() {
   TestServerDesync();
   TestDropClient();
   TestPingAndOrderBuffer();
+  TestLobbyCommandsBatch();
+  TestPlayerPingerDrop();
+  TestMasterServerPingerAndGameServer();
+  TestLanBeacon();
 
   if (g_failures != 0) {
     std::println("server_test: {} FAILURES", g_failures);

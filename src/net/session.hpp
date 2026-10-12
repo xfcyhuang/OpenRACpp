@@ -46,6 +46,21 @@ enum class ClientState {
 
 enum class ConnectionQuality { Good, Moderate, Poor };
 
+/// Session.MapStatus(Session.cs L198-205):Global.MapStatus 的位组合
+/// Session.MapStatus (Session.cs L198-205): the bit union of Global's
+/// MapStatus field.
+enum class SessionMapStatus : int {
+  Unknown = 0,
+  Validating = 1,
+  Playable = 2,
+  Incompatible = 4,
+  UnsafeCustomRules = 8,
+};
+
+constexpr bool HasMapStatusFlag(int int4_flags, SessionMapStatus flag) {
+  return (int4_flags & static_cast<int>(flag)) == static_cast<int>(flag);
+}
+
 struct SessionClient {
   int Index = 0;
   std::string Name;
@@ -55,6 +70,12 @@ struct SessionClient {
   int SpawnPoint = 0;
   std::string AnonymizedIPAddress;  // null 承载为空串 | null as ""
   std::string Location;             // 同上 | ditto
+  /// IPAddress(Session.cs L138;[FieldLoader.Ignore] —— 封禁面专用,不上
+  /// 线;服务器 CompleteConnection 装配)
+  /// IPAddress (Session.cs L138; [FieldLoader.Ignore] — the banning face's
+  /// private copy, never on the wire; assembled by the server's
+  /// CompleteConnection).
+  std::string IPAddress;
   ConnectionQuality ConnectionQualityKind = ConnectionQuality::Good;
   ClientState State = ClientState::Invalid;
   int Team = 0;
@@ -148,6 +169,31 @@ struct Session {
       if (!c.IsBot())
         out.push_back(&c);
     return out;
+  }
+
+  /// NonBotPlayers(Session.cs L109-112):Bot == null 且有槽者
+  /// NonBotPlayers (Session.cs L109-112): the slotted Bot == null set.
+  std::vector<SessionClient*> NonBotPlayers() {
+    std::vector<SessionClient*> out;
+    for (auto& c : vec_clients)
+      if (!c.IsBot() && !c.Slot.empty())
+        out.push_back(&c);
+    return out;
+  }
+
+  /// Slots.TryGetValue(key, out slot) 的等价面
+  /// The equivalent of Slots.TryGetValue(key, out slot).
+  SessionSlot* FindSlot(const std::string& str_key) {
+    for (auto& [k, s] : vec_slots)
+      if (k == str_key)
+        return &s;
+    return nullptr;
+  }
+  const SessionSlot* FindSlot(const std::string& str_key) const {
+    for (const auto& [k, s] : vec_slots)
+      if (k == str_key)
+        return &s;
+    return nullptr;
   }
 
   /// FirstEmptySlot(Session.cs L97-100):首个未关闭且无人占用的槽键

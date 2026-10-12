@@ -164,6 +164,29 @@ struct Color {
     return {fp4_h, fp4_delta / fp4_max, fp4_v};
   }
 
+  /// FromAhsv(Color.cs L43-52):HSV → 就近偶舍入 byte 通道
+  /// FromAhsv (Color.cs L43-52): HSV → half-to-even-rounded byte channels.
+  static Color FromAhsv(int int4_alpha, float fp4_h, float fp4_s, float fp4_v) {
+    const auto [fp4_r, fp4_g, fp4_b] = HsvToRgb(fp4_h, fp4_s, fp4_v);
+    // (byte)Math.Round(255 * x)(.NET 就近偶)
+    // (byte)Math.Round(255 * x) (.NET half-to-even).
+    const auto round = [](float fp4_x) {
+      const float fp4_rounded = std::nearbyint(255.0f * fp4_x);
+      const std::int64_t int8_v = static_cast<std::int64_t>(fp4_rounded);
+      return static_cast<int>(std::clamp<std::int64_t>(int8_v, 0, 255));
+    };
+    return FromArgb(int4_alpha, round(fp4_r), round(fp4_g), round(fp4_b));
+  }
+  static Color FromAhsv(float fp4_h, float fp4_s, float fp4_v) {
+    return FromAhsv(255, fp4_h, fp4_s, fp4_v);
+  }
+
+  /// ToAhsv(Color.cs L54-58)
+  std::tuple<int, float, float, float> ToAhsv() const {
+    const auto [fp4_h, fp4_s, fp4_v] = RgbToHsv(R(), G(), B());
+    return {A(), fp4_h, fp4_s, fp4_v};
+  }
+
  private:
   /// SrgbToLinear(Color.cs L84-89;标准 sRGB gamma 公式)。
   /// SrgbToLinear (Color.cs L84-89; the standard sRGB gamma formula).

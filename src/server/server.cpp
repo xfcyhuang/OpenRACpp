@@ -311,6 +311,25 @@ Server::Server(std::vector<std::pair<std::string, int>> vec_endpoints,
         SendFluentMessageTo(c, str_key, vec_args);
       });
 
+  {
+    auto deps_cache = MapStatusCacheDeps{};
+    deps_cache.vec_lint_passes = deps_.vec_lint_passes;
+    deps_cache.fn_server_log = [this](std::string_view str_line) {
+      ServerLog(str_line);
+    };
+    up_map_status_cache_ = std::make_unique<MapStatusCache>(
+        std::move(deps_cache),
+        [this](std::string_view str_uid, int int4_status) {
+          std::lock_guard lock{mutex_lobby};
+          if (LobbyInfo.global_settings.Map == str_uid)
+            LobbyInfo.global_settings.MapStatusFlags = int4_status;
+          SyncLobbyInfo();
+        },
+        type == ServerType::Dedicated && Settings.EnableLintChecks);
+  }
+
+  up_vote_kick_tracker_ = std::make_unique<VoteKickTracker>(*this);
+
   LobbyInfo.global_settings.RandomSeed = int4_random_seed_;
   LobbyInfo.global_settings.ServerName = Settings.Name;
   LobbyInfo.global_settings.EnableSingleplayer =
@@ -535,6 +554,7 @@ void Server::ValidateClient(std::shared_ptr<ServerConnection> up_new_conn,
   client.AnonymizedIPAddress =
       IsMultiplayer() && Settings.ShareAnonymizedIPs ? AnonymizeIP(str_ip)
                                                      : std::string{};
+  client.IPAddress = str_ip;  // Session.cs L138(封禁面,不上线) | (the banning face, never on the wire)
   client.Index = new_conn.int4_player_index;
   client.PreferredColor = handshake->Client.PreferredColor;
   client.Color = handshake->Client.Color;
@@ -693,6 +713,8 @@ void Server::CompleteConnection(
     if (deps_.fn_player_reference)
       SyncClientToPlayerReference(
           client, deps_.fn_player_reference(client.Slot));
+    else if (Map != nullptr)
+      SyncClientToPlayerReference(client, Map->Players().Find(client.Slot));
   } else {
     client.Color = core::Color::FromArgb(255, 255, 255, 255);
   }
@@ -1467,6 +1489,35 @@ bool PlayerMessageTracker::IsPlayerAtFloodLimit(ServerConnection& conn) {
   }
 
   return false;
+}
+
+bool Server::MapIsUnknown(const std::string& str_uid) const {
+  if (str_uid.empty())
+    return true;
+
+  const auto* p_map =
+      deps_.fn_map_cache_at ? deps_.fn_map_cache_at(str_uid) : nullptr;
+  const auto kind_status =
+      p_map != nullptr ? p_map->Status() : map::MapStatus::Unavailable;
+  return kind_status != map::MapStatus::Available &&
+         kind_status != map::MapStatus::DownloadAvailable;
+}
+
+bool Server::MapIsKnown(const std::string& str_uid) const {
+  if (str_uid.empty())
+    return false;
+
+  if (opt_map_pool.has_value() &&
+      std::find(opt_map_pool->begin(), opt_map_pool->end(), str_uid) ==
+          opt_map_pool->end())
+    return false;
+
+  const auto* p_map =
+      deps_.fn_map_cache_at ? deps_.fn_map_cache_at(str_uid) : nullptr;
+  const auto kind_status =
+      p_map != nullptr ? p_map->Status() : map::MapStatus::Unavailable;
+  return kind_status == map::MapStatus::Available ||
+         kind_status == map::MapStatus::DownloadAvailable;
 }
 
 }  // namespace ora::server
