@@ -241,4 +241,12 @@ yaml::MiniYamlNode SerializeSessionGlobalSettings(
 /// The by-name Client load (HandshakeResponse.Deserialize's Client branch).
 bool LoadSessionClient(const yaml::MiniYaml& yaml_v, SessionClient& out);
 
+/// Slot/GlobalSettings 的按名装载(UnitOrders 的 SyncLobbySlots/
+/// SyncLobbyGlobalSettings 分支)
+/// The by-name Slot/GlobalSettings loads (UnitOrders' SyncLobbySlots/
+/// SyncLobbyGlobalSettings branches).
+bool LoadSessionSlot(const yaml::MiniYaml& yaml_v, SessionSlot& out);
+bool LoadSessionGlobalSettings(const yaml::MiniYaml& yaml_v,
+                               SessionGlobalSettings& out);
+
 }  // namespace ora::net

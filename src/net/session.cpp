@@ -467,6 +467,15 @@ bool LoadSessionClient(const yaml::MiniYaml& yaml_v, SessionClient& out) {
   return LoadClient(yaml_v, out);
 }
 
+bool LoadSessionSlot(const yaml::MiniYaml& yaml_v, SessionSlot& out) {
+  return LoadSlot(yaml_v, out);
+}
+
+bool LoadSessionGlobalSettings(const yaml::MiniYaml& yaml_v,
+                               SessionGlobalSettings& out) {
+  return LoadGlobal(yaml_v, out);
+}
+
 yaml::MiniYamlNode SerializeSessionClientFields(yaml::StringPool& pool,
                                                 const SessionClient& c) {
   auto node = SerializeClient(pool, c);

@@ -12,6 +12,7 @@
 #pragma once
 import std;
 
+#include "net/sanitize.hpp"
 
 namespace ora::server {
 
@@ -60,18 +61,14 @@ struct ServerSettings {
   ServerSettings Clone() const { return *this; }
 };
 
-/// SanitizedName(L500-513):MiniYAML/JSON 保留字符剥离;空入 = 空串
-/// (上游 null 承载)
-/// SanitizedName (L500-513): the MiniYAML/JSON reserved-character strip;
-/// empty input = the empty string (upstream's null).
-std::string SanitizedName(std::string_view str_dirty);
-
-/// SanitizedPlayerName(L524-538):禁名(Open/Closed)与空白回落默认名 +
-/// 16 字符截断(UTF-8 码点计数)
-/// SanitizedPlayerName (L524-538): the forbidden names (Open/Closed) and
-/// whitespace fall back to the default name + the 16-character truncation
-/// (UTF-8 code-point counted).
-std::string SanitizedPlayerName(std::string_view str_dirty,
-                                std::string_view str_default_name);
+/// SanitizedName/SanitizedPlayerName(L500-538)已随第十六批迁入
+/// ora::net(net/sanitize.hpp —— client/server 双消费的 lib 层属);此处
+/// 以 using 转发保持 ora::server 侧旧调用点
+/// SanitizedName/SanitizedPlayerName (L500-538) moved into ora::net
+/// (net/sanitize.hpp — the lib layering for the client/server double
+/// consumption) with batch 16; forwarded here by using-declaration for
+/// the existing ora::server call sites.
+using ora::net::SanitizedName;
+using ora::net::SanitizedPlayerName;
 
 }  // namespace ora::server

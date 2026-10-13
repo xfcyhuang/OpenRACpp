@@ -76,6 +76,27 @@ class OrderManager {
   bool GameStarted() const { return int4_net_frame_number_ != 0; }  // L51
   IConnection& Connection() { return *connection_; }
 
+  /// ServerError / AuthenticationFailed(L40-41;客户端接线面)
+  /// ServerError / AuthenticationFailed (L40-41; the client-wiring faces).
+  const std::string& ServerError() const { return str_server_error_; }
+  void SetServerError(std::string str_error) {
+    str_server_error_ = std::move(str_error);
+  }
+  bool AuthenticationFailed() const { return b_authentication_failed_; }
+  void SetAuthenticationFailed(bool b_failed) {
+    b_authentication_failed_ = b_failed;
+  }
+
+  /// ServerMapPool(L44):null = 无限制 / 空集 = 全限制(三元态)
+  /// ServerMapPool (L44): null = no restriction / the empty set = all
+  /// restricted (the three-state form).
+  const std::optional<std::set<std::string>>& ServerMapPool() const {
+    return set_server_map_pool_;
+  }
+  void SetServerMapPool(std::optional<std::set<std::string>> set_pool) {
+    set_server_map_pool_ = std::move(set_pool);
+  }
+
   /// StartGame(L98-116)
   void StartGame();
 
@@ -165,6 +186,10 @@ class OrderManager {
   int int4_sent_orders_frame_ = 0;
   float fp4_tick_scale_ = 1.0f;
   bool b_is_out_of_sync_ = false;
+
+  std::string str_server_error_;  // null 承载为空串 | null as ""
+  bool b_authentication_failed_ = false;
+  std::optional<std::set<std::string>> set_server_map_pool_;
 
   int int4_game_save_last_frame_ = -1;
   int int4_game_save_last_sync_frame_ = -1;

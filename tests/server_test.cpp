@@ -17,10 +17,14 @@ import std;
 
 #include "net/order.hpp"
 #include "net/session.hpp"
-#include "server/fluent_message.hpp"
+#include "net/fluent_message.hpp"
+#include "net/network_connection.hpp"
+#include "net/order_manager.hpp"
+#include "net/text_notifications.hpp"
+#include "net/unit_orders.hpp"
 #include "server/game_information.hpp"
 #include "server/game_server.hpp"
-#include "server/handshake.hpp"
+#include "net/handshake.hpp"
 #include "server/lobby_commands.hpp"
 #include "server/master_server_pinger.hpp"
 #include "server/order_buffer.hpp"
@@ -220,7 +224,7 @@ struct TestClient {
     return nullptr;
   }
 
-  void Handshake(const srv::HandshakeResponse& response) {
+  void Handshake(const net::HandshakeResponse& response) {
     auto order = net::Order("HandshakeResponse", nullptr, false);
     order.type = net::OrderType::Handshake;
     order.b_is_immediate = true;
@@ -229,8 +233,8 @@ struct TestClient {
   }
 };
 
-srv::HandshakeResponse MakeResponse(std::string_view str_name) {
-  auto response = srv::HandshakeResponse{};
+net::HandshakeResponse MakeResponse(std::string_view str_name) {
+  auto response = net::HandshakeResponse{};
   response.Mod = "ra";
   response.Version = "test";
   response.OrdersProtocol = srv::kOrdersProtocol;
@@ -844,7 +848,7 @@ void TestPingAndOrderBuffer() {
 void TestPureLogic() {
   std::println("[server] pure logic faces");
 
-  const auto str_fluent = srv::FluentMessage::Serialize(
+  const auto str_fluent = net::FluentMessage::Serialize(
       "notification-joined",
       std::vector<srv::FluentArgument>{{"player", std::string{"Bob"}},
                                        {"team", std::string{"2"},
@@ -864,13 +868,13 @@ void TestPureLogic() {
       "\t\t\tType: Number"};
   CheckEq(str_fluent, str_expected, "FluentMessage wire text");
 
-  auto request = srv::HandshakeRequest{};
+  auto request = net::HandshakeRequest{};
   request.Mod = "ra";
   request.Version = "1.0";
   request.AuthToken = "tok";
   const auto str_request = request.Serialize();
   const auto back_request =
-      srv::HandshakeRequest::Deserialize(str_request, "h");
+      net::HandshakeRequest::Deserialize(str_request, "h");
   Check(back_request && back_request->Mod == "ra" &&
             back_request->Version == "1.0" && back_request->AuthToken == "tok",
         "HandshakeRequest roundtrip");
@@ -879,7 +883,7 @@ void TestPureLogic() {
   response.Password = "pw";
   response.Fingerprint = "fp";
   const auto back_response =
-      srv::HandshakeResponse::Deserialize(response.Serialize(), "h");
+      net::HandshakeResponse::Deserialize(response.Serialize(), "h");
   Check(back_response && back_response->Mod == "ra" &&
             back_response->Password == "pw" &&
             back_response->OrdersProtocol == srv::kOrdersProtocol &&
@@ -1500,6 +1504,407 @@ void TestLanBeacon() {
 
 }  // namespace
 
+// ———— 9. 客户端接线(NetworkConnection + OrderManager + ProcessOrder 的
+// 真 socket 全链:HandshakeRequest 自动应答 → 槽位装配 → 命令上行 →
+// SyncLobby*/SyncMapPool/FluentMessage 下行)————
+// 9. The client wiring (the real-socket full chain of NetworkConnection +
+// OrderManager + ProcessOrder: the HandshakeRequest auto-answer → the
+// slot assembly → the command uplink → the SyncLobby*/SyncMapPool/
+// FluentMessage downlink).
+struct WiredClient {
+  std::unique_ptr<net::OrderManager> om;
+  std::mutex mutex_om;  // OM 单线程契约:发布线程与泵线程互斥 | the OM's
+                        // single-thread contract: the posting thread and
+                        // the pump thread mutually excluded.
+  std::atomic<bool> b_stop{false};
+  std::thread thread_pump;
+
+  explicit WiredClient(int int4_port_target)
+      : om(std::make_unique<net::OrderManager>(
+            std::make_unique<net::NetworkConnection>(
+                net::ConnectionTarget{"127.0.0.1", int4_port_target}))) {
+    om->SetOrderProcessor(
+        [](net::OrderManager& om_target, ora::sim::World* p_world,
+           int int4_client, const net::Order& order_target) {
+          net::ProcessOrder(om_target, p_world, int4_client, order_target);
+        });
+    thread_pump = std::thread([this] {
+      while (!b_stop.load()) {
+        {
+          std::lock_guard lock{mutex_om};
+          om->TickImmediate();
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+    });
+  }
+
+  /// 主线程发布 order 并即冲刷(与泵线程互斥)
+  /// The main thread posts an order and flushes it right away (mutually
+  /// excluded from the pump thread).
+  void Post(const net::Order& order_new) {
+    std::lock_guard lock{mutex_om};
+    om->IssueOrder(order_new);
+    om->TickImmediate();
+  }
+
+  /// 断言侧的互斥读 | the assertion side's mutually excluded read.
+  template <class Fn>
+  bool WithOm(Fn fn) {
+    std::lock_guard lock{mutex_om};
+    return fn(*om);
+  }
+
+  ~WiredClient() {
+    b_stop.store(true);
+    thread_pump.join();
+  }
+};
+
+void TestClientWiring() {
+  std::println("[server] client wiring");
+  auto& tnm = net::TextNotificationsManager::Instance();
+  tnm.ResetForTest();
+
+  const auto int4_port = FreePort();
+  auto settings = srv::ServerSettings{};
+  settings.EnableSingleplayer = true;
+  settings.Name = "Test#Server";
+  auto server = MakeLobbyServer(int4_port, settings, nullptr);
+  server->opt_map_pool = std::vector<std::string>{"a.oramap", "b.oramap"};
+
+  auto face = net::ClientJoinFace{};
+  face.str_mod_id = "ra";
+  face.str_mod_version = "test";
+  face.str_player_name = "Wired#Player";  // sanitize 剥 '#' → "WiredPlayer"
+  face.color_player = ora::core::Color::FromArgb(255, 12, 34, 56);
+
+  auto int4_changes = 0;
+  net::SetLobbyInfoChangedHandler([&] { ++int4_changes; });
+
+  auto make_client = [](net::ClientJoinFace face_join, int int4_port_target) {
+    net::SetClientJoinFace(std::move(face_join));
+    return std::make_unique<WiredClient>(int4_port_target);
+  };
+
+  auto alice = make_client(face, int4_port);
+  Check(WaitUntil(
+            [&] {
+              return alice->WithOm([](net::OrderManager& m) {
+                auto* p_client = m.LobbyInfo().ClientWithIndex(
+                    m.Connection().LocalClientId());
+                return p_client != nullptr &&
+                       p_client->Name == "WiredPlayer" &&
+                       !p_client->Slot.empty() &&
+                       p_client->State == net::ClientState::Invalid;
+              });
+            },
+            5000),
+        "wired client auto-handshake + slot assembly");
+  Check(int4_changes > 0, "LobbyInfoChanged fired on SyncInfo");
+  Check(WaitUntil(
+            [&] {
+              return alice->WithOm([](net::OrderManager& m) {
+                return m.ServerMapPool().has_value() &&
+                       m.ServerMapPool()->size() == 2 &&
+                       m.ServerMapPool()->count("a.oramap") == 1 &&
+                       m.ServerMapPool()->count("b.oramap") == 1;
+              });
+            },
+            5000),
+        "SyncMapPool received");
+
+  // ———— 命令上行:Order.Command → 服务器 LobbyCommands → SyncLobbyClients
+  // 下行 → 本端 LobbyInfo 物化(name 命令 —— state 会触发 CheckAutoStart
+  // 的失败复位:无图服务器上 Ready 即被回写 NotReady,上游 quirk)
+  // The command uplink: Order.Command → the server's LobbyCommands → the
+  // SyncLobbyClients downlink → the local LobbyInfo materialization (the
+  // name command — state would trigger CheckAutoStart's failure reset:
+  // on a mapless server Ready is written straight back to NotReady, the
+  // upstream quirk).
+  const auto int4_changes_before = int4_changes;
+  alice->Post(net::Order::Command("name WiredPlayer2"));
+  Check(WaitUntil(
+            [&] {
+              return alice->WithOm([](net::OrderManager& m) {
+                auto* p_client = m.LobbyInfo().ClientWithIndex(
+                    m.Connection().LocalClientId());
+                return p_client != nullptr &&
+                       p_client->Name == "WiredPlayer2";
+              });
+            },
+            5000),
+        "name uplink round-trip");
+
+  // state Ready 的 CheckAutoStart 复位 quirk:无图 → 全员回写 NotReady
+  // The state-Ready CheckAutoStart reset quirk: no map → everyone written
+  // back to NotReady.
+  alice->Post(net::Order::Command("state Ready"));
+  Check(WaitUntil(
+            [&] {
+              return alice->WithOm([](net::OrderManager& m) {
+                auto* p_client = m.LobbyInfo().ClientWithIndex(
+                    m.Connection().LocalClientId());
+                return p_client != nullptr &&
+                       p_client->State == net::ClientState::NotReady;
+              });
+            },
+            5000),
+        "state Ready → auto-start reset → NotReady (upstream quirk)");
+  Check(int4_changes > int4_changes_before,
+        "SyncLobbyClients fired LobbyInfoChanged");
+
+  // ———— 第二客户端:joined FluentMessage 通知 + Chat 广播 ————
+  // The second client: the joined FluentMessage notification + the Chat
+  // broadcast.
+  auto face_bob = face;
+  face_bob.str_player_name = "Bobba";
+  auto bob = make_client(face_bob, int4_port);
+  Check(WaitUntil(
+            [&] {
+              return alice->WithOm([](net::OrderManager& m) {
+                for (const auto& c_bob : m.LobbyInfo().vec_clients)
+                  if (c_bob.Name == "Bobba" && c_bob.Slot == "Multi1")
+                    return true;
+                return false;
+              });
+            },
+            5000),
+        "bob visible in alice lobby");
+  Check(WaitUntil(
+            [&] {
+              for (const auto& n : tnm.Notifications())
+                if (n.Pool() == net::TextNotificationPool::Join &&
+                    n.Text() == "notification-joined")
+                  return true;
+              return false;
+            },
+            5000),
+        "joined FluentMessage → Join pool notification");
+
+  bob->Post(net::Order::Chat("hello from bob"));
+  Check(WaitUntil(
+            [&] {
+              for (const auto& n : tnm.Notifications())
+                if (n.Pool() == net::TextNotificationPool::Chat &&
+                    n.Prefix() == "Bobba" && n.Text() == "hello from bob")
+                  return true;
+              return false;
+            },
+            5000),
+        "chat broadcast → Chat pool line");
+
+  net::ClearLobbyInfoChangedHandler();
+
+  // ———— AuthenticationError / ServerError 的真实链 ————
+  // The AuthenticationError / ServerError real chains.
+  const auto int4_port_locked = FreePort();
+  auto locked_settings = srv::ServerSettings{};
+  locked_settings.EnableSingleplayer = true;
+  locked_settings.Name = "Locked";
+  locked_settings.Password = "sesame";
+  auto server_locked = MakeServer(int4_port_locked, srv::ServerType::Local,
+                                  locked_settings, nullptr);
+
+  auto face_no_pass = face;
+  face_no_pass.str_player_name = "NoPass";
+  face_no_pass.str_password = "wrong";
+  auto wrong_password = make_client(face_no_pass, int4_port_locked);
+  Check(WaitUntil(
+            [&] {
+              return wrong_password->WithOm([](net::OrderManager& m) {
+                return m.AuthenticationFailed() &&
+                       !m.ServerError().empty();
+              });
+            },
+            5000),
+        "wrong password → AuthenticationError");
+
+  auto face_alien = face;
+  face_alien.str_mod_id = "cnc";
+  // mod 门在无密码服务器上直验(密码门在前 —— 上游 ValidateClient 序)
+  // The mod gate checks straight on the passwordless server (the password
+  // gate precedes it — upstream's ValidateClient order).
+  auto alien = make_client(face_alien, int4_port);
+  Check(WaitUntil(
+            [&] {
+              return alien->WithOm([](net::OrderManager& m) {
+                return !m.ServerError().empty() &&
+                       !m.AuthenticationFailed();
+              });
+            },
+            5000),
+        "wrong mod → ServerError (AuthenticationFailed reset)");
+
+  net::SetClientJoinFace(net::ClientJoinFace{});
+}
+
+// ———— 10. 客户端分支的纯逻辑面(无世界/无服务器:大厅期 Chat 变体/
+// StartKickVote·EndKickVote 门/DisableChatEntry 算术/SyncConnectionQuality/
+// GenerateMap 早退)————
+// 10. The client branches' pure-logic faces (no world/no server: the
+// lobby-phase Chat variants / the StartKickVote·EndKickVote gates / the
+// DisableChatEntry arithmetic / SyncConnectionQuality / GenerateMap's
+// early-outs).
+void TestClientPureBranches() {
+  std::println("[server] client pure branches");
+  auto& tnm = net::TextNotificationsManager::Instance();
+  tnm.ResetForTest();
+  net::ClearUnitOrdersStatics();
+  net::SetRuntimeMsFn([] { return std::int64_t{1000}; });
+
+  auto om = net::OrderManager{std::make_unique<net::EchoConnection>()};
+  om.LobbyInfo().vec_clients.push_back(net::SessionClient{});
+  om.LobbyInfo().vec_clients.push_back(net::SessionClient{});
+  om.LobbyInfo().vec_clients[0].Index = 2;
+  om.LobbyInfo().vec_clients[0].Name = "Sender";
+  om.LobbyInfo().vec_clients[0].Team = 2;
+  om.LobbyInfo().vec_clients[0].Color =
+      ora::core::Color::FromArgb(255, 1, 2, 3);
+  om.LobbyInfo().vec_clients[1].Index = 1;  // EchoConnection 本地 | the local
+  om.LobbyInfo().vec_clients[1].Name = "Local";
+  om.LobbyInfo().vec_clients[1].Team = 2;
+  om.LobbyInfo().vec_clients.push_back(net::SessionClient{});
+  om.LobbyInfo().vec_clients.back().Index = 3;
+  om.LobbyInfo().vec_clients.back().Name = "Foreign";
+  om.LobbyInfo().vec_clients.back().Team = 5;
+
+  auto run = [&](std::string_view str_name, std::string str_target,
+                 std::uint32_t uint4_extra, int int4_client) {
+    auto order = net::Order{std::string{str_name}, nullptr, false};
+    order.str_target_string = std::move(str_target);
+    order.uint4_extra_data = uint4_extra;
+    net::ProcessOrder(om, nullptr, int4_client, order);
+  };
+
+  // 大厅期队伍聊天:同队可见(client.Team == local.Team);异队滤除。
+  // 上游 lobby 分支只比 client.Team 与 local.Team —— ExtraData 的目标队
+  // 号不参与(quirk 保真:同队发任意队号都上屏)
+  // The lobby-phase team chat: same-team visible (client.Team ==
+  // local.Team); cross-team filtered. Upstream's lobby branch compares
+  // only client.Team vs local.Team — ExtraData's target team number never
+  // joins in (the quirk kept: a same-team sender shows under any team
+  // number).
+  run("Chat", "[Team] secret", 2, 2);
+  run("Chat", "[Spectators] hi", std::numeric_limits<std::uint32_t>::max(), 2);
+  run("Chat", "[Team] quirk-extra", 3, 2);
+  run("Chat", "[Team] hidden", 5, 3);
+  bool b_team_line = false;
+  bool b_spectator_line = false;
+  bool b_quirk_extra_line = false;
+  bool b_cross_team_hidden = true;
+  for (const auto& n : tnm.Notifications()) {
+    if (n.Pool() != net::TextNotificationPool::Chat)
+      continue;
+    if (n.Prefix() == "[Team] Sender" && n.Text() == "[Team] secret")
+      b_team_line = true;
+    if (n.Prefix() == "[Spectators] Sender")
+      b_spectator_line = true;
+    if (n.Text() == "[Team] quirk-extra")
+      b_quirk_extra_line = true;
+    if (n.Text() == "[Team] hidden")
+      b_cross_team_hidden = false;
+  }
+  Check(b_team_line, "lobby team chat same-team line");
+  Check(b_spectator_line, "lobby spectator-channel same-team line");
+  Check(b_quirk_extra_line, "lobby same-team quirk: extra team number ignored");
+  Check(b_cross_team_hidden, "lobby cross-team chat filtered");
+
+  // 截断:>2500 字符裁到限
+  // The truncation: over 2500 characters clipped.
+  tnm.ResetForTest();
+  run("Chat", std::string(2600, 'x'), 0, 2);
+  Check(!tnm.Notifications().empty() &&
+            tnm.Notifications().back().Text().size() == 2500,
+        "chat hard-limit truncation");
+
+  // StartKickVote/EndKickVote:非服务器源(id!=0)拒;匹配的 End 清除
+  // StartKickVote/EndKickVote: a non-server source (id!=0) rejected; the
+  // matching End clears.
+  tnm.ResetForTest();
+  run("StartKickVote", "", 3, 1);
+  Check(!net::KickVoteTarget().has_value(), "kick vote from non-server ignored");
+  run("StartKickVote", "", 3, 0);
+  Check(net::KickVoteTarget().has_value() && *net::KickVoteTarget() == 3,
+        "kick vote target set");
+  run("EndKickVote", "", 4, 0);
+  Check(net::KickVoteTarget().has_value() && *net::KickVoteTarget() == 3,
+        "non-matching end vote keeps target");
+  run("EndKickVote", "", 3, 0);
+  Check(!net::KickVoteTarget().has_value(), "matching end vote clears");
+
+  // DisableChatEntry:RunTime + ExtraData;MaxValue = 永久
+  // DisableChatEntry: RunTime + ExtraData; MaxValue = permanent.
+  tnm.SetChatDisabledUntil(0);
+  run("DisableChatEntry", "", 500, 0);
+  Check(tnm.ChatDisabledUntil() == 1500, "chat disabled until = runtime+extra");
+  run("DisableChatEntry", "", std::numeric_limits<std::uint32_t>::max(), 0);
+  Check(tnm.ChatDisabledUntil() ==
+            std::numeric_limits<std::int64_t>::max(),
+        "chat disabled permanently on MaxValue");
+  run("DisableChatEntry", "", 500, 1);
+  Check(tnm.ChatDisabledUntil() ==
+            std::numeric_limits<std::int64_t>::max(),
+        "chat disable from non-server ignored");
+
+  // SyncConnectionQuality:服务器节点格式("ConnectionQuality@N: Poor")
+  // SyncConnectionQuality: the server's node format.
+  auto quality_order = net::Order{"SyncConnectionQuality", nullptr, false};
+  quality_order.str_target_string = "ConnectionQuality@2: Poor";
+  net::ProcessOrder(om, nullptr, 0, quality_order);
+  Check(om.LobbyInfo().vec_clients[0].ConnectionQualityKind ==
+            net::ConnectionQuality::Poor,
+        "connection quality synced");
+
+  // GenerateMap:未注入 MapCache 面 → 早退不抛
+  // GenerateMap: with the MapCache face uninjected → the early-out throws
+  // nothing.
+  net::SetMapCacheAtFn(nullptr);
+  auto generate_order = net::Order{"GenerateMap", nullptr, false};
+  generate_order.str_target_string =
+      "Uid: abc\nGenerator: gen\nTileset: temperat\nSize: 64,64\n"
+      "Title: T\nAuthor: A";
+  net::ProcessOrder(om, nullptr, 0, generate_order);
+
+  // FluentMessage 解析回环:Serialize → FromYaml(参数保留)
+  // The FluentMessage parse round-trip: Serialize → FromYaml (the
+  // arguments preserved).
+  const auto str_wire = net::FluentMessage::Serialize(
+      "notification-kicked", std::vector<net::FluentArgument>{{"admin", "A"}});
+  const auto vec_nodes =
+      ora::yaml::MiniYaml::FromString(str_wire, "fluent");
+  Check(!vec_nodes.empty(), "fluent wire parses");
+  const auto message = net::FluentMessage::FromYaml(vec_nodes.front().Value);
+  Check(message.Key() == "notification-kicked" &&
+            message.Arguments().size() == 1 &&
+            message.Arguments()[0].str_key == "admin" &&
+            message.Arguments()[0].str_value == "A",
+        "fluent message round-trip");
+
+  net::SetRuntimeMsFn([] { return std::int64_t{0}; });
+
+  // SyncLobbyClients 装载回环(服务器 SerializeSessionClient 线格式)
+  // The SyncLobbyClients load round-trip (the server's
+  // SerializeSessionClient wire format).
+  om.LobbyInfo().vec_clients.clear();
+  auto client_ready = net::SessionClient{};
+  client_ready.Index = 4;
+  client_ready.Name = "RoundTrip";
+  client_ready.State = net::ClientState::Ready;
+  client_ready.Slot = "Multi0";
+  auto pool_rt = ora::yaml::StringPool{};
+  auto vec_rt = std::vector<ora::yaml::MiniYamlNode>{};
+  vec_rt.push_back(net::SerializeSessionClient(pool_rt, client_ready));
+  auto sync_order = net::Order{"SyncLobbyClients", nullptr, false};
+  sync_order.str_target_string = ora::yaml::WriteToString(vec_rt);
+  net::ProcessOrder(om, nullptr, 0, sync_order);
+  Check(om.LobbyInfo().vec_clients.size() == 1 &&
+            om.LobbyInfo().vec_clients[0].Name == "RoundTrip" &&
+            om.LobbyInfo().vec_clients[0].IsReady() &&
+            om.LobbyInfo().vec_clients[0].Slot == "Multi0",
+        "SyncLobbyClients round-trip");
+}
+
 int main() {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
@@ -1515,6 +1920,8 @@ int main() {
   TestPlayerPingerDrop();
   TestMasterServerPingerAndGameServer();
   TestLanBeacon();
+  TestClientWiring();
+  TestClientPureBranches();
 
   if (g_failures != 0) {
     std::println("server_test: {} FAILURES", g_failures);

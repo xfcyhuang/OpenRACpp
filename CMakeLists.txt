@@ -223,6 +223,13 @@ ora_link_std(ora_sim)
 # (PORTING_PLAN §Phase 3)
 # The network layer: Order serialization / the OrderIO wire protocol / the
 # OrderManager lockstep / EchoConnection (PORTING_PLAN §Phase 3).
+# ———— Phase 7 第十六批:客户端接线(TextNotificationsManager 全文 +
+# UnitOrders 全分支 + FluentMessage/Handshake 迁入(上游 OpenRA.Game/
+# Network 层属)+ Settings.sanitize 双函数)————
+# Phase 7 batch 16: the client wiring (the whole TextNotificationsManager
+# + UnitOrders' every branch + FluentMessage/Handshake moved in (their
+# upstream OpenRA.Game/Network layer) + the two Settings.sanitize
+# functions).
 add_library(ora_net STATIC
   src/net/order.cpp
   src/net/order_io.cpp
@@ -232,6 +239,10 @@ add_library(ora_net STATIC
   src/net/order_manager.cpp
   src/net/session.cpp
   src/net/unit_orders.cpp
+  src/net/text_notifications.cpp
+  src/net/fluent_message.cpp
+  src/net/handshake.cpp
+  src/net/sanitize.cpp
   src/net/replay_recorder.cpp
   src/net/sync_report.cpp
   src/net/replay_diff.cpp)
@@ -249,8 +260,6 @@ ora_link_std(ora_net)
 # VoteKickTracker/MapStatusCache/PlayerPinger/MasterServerPinger+LanBeacon/
 # GameServer/the ColorPickerManager server face/the LobbyOption value face).
 add_library(ora_server STATIC
-  src/server/fluent_message.cpp
-  src/server/handshake.cpp
   src/server/game_information.cpp
   src/server/server_settings.cpp
   src/server/order_buffer.cpp

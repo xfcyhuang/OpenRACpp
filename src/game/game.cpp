@@ -13,6 +13,7 @@ import std;
 #include "map/map_cache.hpp"
 #include "net/replay_recorder.hpp"
 #include "net/session.hpp"
+#include "net/text_notifications.hpp"
 #include "net/unit_orders.hpp"
 #include "sim/trait_registry.hpp"
 #include "sim/world.hpp"
@@ -56,8 +57,14 @@ int Game::LocalTick() const {
 }
 
 void Game::JoinInner(std::unique_ptr<net::OrderManager> up_om) {
-  // Refresh static classes before the game starts.(上游注释;
-  // TextNotificationsManager 未移植,UnitOrders 无静态态 —— 均 no-op)
+  // Refresh static classes before the game starts.(上游注释;第十六批
+  // 客户端接线:TextNotificationsManager.Clear + UnitOrders.Clear)
+  // Refresh static classes before the game starts. (the upstream comment;
+  // the batch-16 client wiring: TextNotificationsManager.Clear +
+  // UnitOrders.Clear).
+  net::TextNotificationsManager::Instance().Clear();
+  net::ClearUnitOrdersStatics();
+
   if (up_order_manager_ != nullptr) {
     const bool b_keep = up_order_manager_->World() != nullptr &&
                         up_order_manager_->World()->Type() == sim::WorldType::Shellmap;
@@ -76,6 +83,18 @@ void Game::JoinInner(std::unique_ptr<net::OrderManager> up_om) {
          int client_id, const net::Order& order) {
         net::ProcessOrder(om_target, world_target, client_id, order);
       });
+
+  // Game.SyncLobbyInfo → LobbyInfoChanged 事件转发(上游静态直调;
+  // Game.RunTime 注入一并装配 —— DisableChatEntry 的 ChatDisabledUntil
+  // 算术消费)
+  // The Game.SyncLobbyInfo → LobbyInfoChanged event forward (upstream's
+  // static call); the Game.RunTime injection rides along — the
+  // ChatDisabledUntil arithmetic's consumer.
+  net::SetLobbyInfoChangedHandler([this]() {
+    for (auto& fn : vec_lobby_info_changed_)
+      fn();
+  });
+  net::SetRuntimeMsFn([this] { return RunTime(); });
 
   // StartGame 分支的 Game.StartGame 装配面(上游静态直调 + MapCache 状态
   // 门槛;不可用地图走上游 Disconnect+LoadShellMap 的 no-op 等价)

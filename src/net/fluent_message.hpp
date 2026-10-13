@@ -1,7 +1,9 @@
 // UPSTREAM: OpenRA.Game/Network/FluentMessage.cs @e180e3225 L19-124(服务
-//          器 → 客户端的通知消息线格式:Protocol/Key/Arguments 三段 +
+//          器 ↔ 客户端的通知消息线格式:Protocol/Key/Arguments 三段 +
 //          FluentArgument 的 Key/Value/Type;Serialize 的 ToLines +
-//          JoinWith("\n") 形态逐字;Deserialize 随 Phase 6 Fluent 批)
+//          JoinWith("\n") 形态逐字;FromYaml = 客户端侧 FluentMessage(
+//          MiniYaml) 构造;上游位于 OpenRA.Game/Network —— C++ 随第十六
+//          批自 src/server 迁入 src/net 对齐上游层属)
 //          FluentMessage.cs L19-124 (the server→client notification wire
 //          format: the Protocol/Key/Arguments trio + FluentArgument's
 //          Key/Value/Type; Serialize's ToLines + JoinWith("\n") shape
@@ -9,8 +11,11 @@
 #pragma once
 import std;
 
+namespace ora::yaml {
+class MiniYaml;
+}
 
-namespace ora::server {
+namespace ora::net {
 
 /// FluentArgumentType(FluentMessage.cs L22-27)
 /// FluentArgumentType (FluentMessage.cs L22-27).
@@ -43,6 +48,24 @@ class FluentMessage {
   /// newline); null args produce no Arguments node.
   static std::string Serialize(std::string_view str_key,
                                std::span<const FluentArgument> vec_args);
+
+  /// FluentMessage(MiniYaml)(L80-83 + LoadArguments L60-77):FieldLoader 的
+  /// 按名装载面 —— Key 叶 + Arguments 节点表(缺 Arguments = 空表);
+  /// Number 参数的 double.TryParse 失败走 Log.Write("debug")(值文本
+  /// 原样保留,数值化交 Fluent 消费面)
+  /// FluentMessage(MiniYaml) (L80-83 + LoadArguments L60-77): the
+  /// by-name loading face — the Key leaf + the Arguments node list (a
+  /// missing Arguments = the empty list); a Number argument's failed
+  /// double.TryParse rides Log.Write("debug") (the value text kept as-is,
+  /// the numeric conversion deferred to the Fluent consumer).
+  static FluentMessage FromYaml(const yaml::MiniYaml& yaml_node);
+
+  const std::string& Key() const { return str_key_; }
+  const std::vector<FluentArgument>& Arguments() const { return vec_args_; }
+
+ private:
+  std::string str_key_;
+  std::vector<FluentArgument> vec_args_;
 };
 
-}  // namespace ora::server
+}  // namespace ora::net

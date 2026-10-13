@@ -32,9 +32,9 @@ import std;
 #include "net/replay_recorder.hpp"
 #include "net/session.hpp"
 #include "server/color_picker_manager.hpp"
-#include "server/fluent_message.hpp"
+#include "net/fluent_message.hpp"
 #include "server/game_information.hpp"
-#include "server/handshake.hpp"
+#include "net/handshake.hpp"
 #include "server/lobby_option.hpp"
 #include "server/map_status_cache.hpp"
 #include "server/order_buffer.hpp"
@@ -45,6 +45,12 @@ import std;
 #include "server/vote_kick_tracker.hpp"
 
 namespace ora::server {
+
+using ora::net::FluentArgument;
+using ora::net::FluentArgumentType;
+using ora::net::HandshakeRequest;
+using ora::net::HandshakeResponse;
+using ora::net::FluentMessage;
 
 enum class ServerState {  // Server.cs L33-38
   WaitingPlayers = 1,

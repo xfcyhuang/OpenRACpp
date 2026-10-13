@@ -6,7 +6,8 @@
 // CursorManager/ChromeProvider/WorldRenderer+Viewport/Ui、Settings.Graphics
 // 值面、NetworkConnection 的连接态观测(Phase 7)、world.OrderGenerator
 // (Phase 5)、PerfHistory/PerfSample/Benchmark/截图(Phase 5+)、
-// TextNotificationsManager/UnitOrders.Clear(前者未移植,后者无静态态)
+// TextNotificationsManager/UnitOrders.Clear(第十六批客户端接线落地:
+// JoinInner 双 Clear + LobbyInfoChanged 事件转发)
 // —— 不在场的编排点全部 no-op 并注释锚定。
 // Verbatim-semantics rewrite of the main-loop skeleton (the RunTime clock /
 // the delayed-action queue / JoinInner·JoinLocal / InnerLogicTick's dual
@@ -192,6 +193,15 @@ class Game {
   /// IsCurrentWorld(L987-990) | IsCurrentWorld (L987-990).
   bool IsCurrentWorld(const sim::World* ptr_world) const;
 
+  /// LobbyInfoChanged(L179-183 事件面;UnitOrders 的 SyncLobby* 分支经
+  /// Game.SyncLobbyInfo 触发 —— 第十六批客户端接线)
+  /// LobbyInfoChanged (the L179-183 event face; UnitOrders' SyncLobby*
+  /// branches fire it through Game.SyncLobbyInfo — the batch-16 client
+  /// wiring).
+  void AddLobbyInfoChangedHandler(std::function<void()> fn_changed) {
+    vec_lobby_info_changed_.push_back(std::move(fn_changed));
+  }
+
   void SetWorldRenderer(std::unique_ptr<gfx::WorldRenderer> up_wr, gfx::Viewport* ptr_viewport);
   gfx::WorldRenderer* WorldRendererFace() const { return up_world_renderer_.get(); }
 
@@ -215,6 +225,8 @@ class Game {
   Deps deps_;
   core::ActionQueue delayed_actions_;
   MersenneTwister mt_cosmetic_{0};  // 种子于 ctor 按时钟重设 | re-seeded in the ctor
+
+  std::vector<std::function<void()>> vec_lobby_info_changed_;
 
   std::unique_ptr<net::OrderManager> up_order_manager_;
   std::unique_ptr<gfx::WorldRenderer> up_world_renderer_;

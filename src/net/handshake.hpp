@@ -14,7 +14,7 @@ import std;
 #include "net/session.hpp"
 
 
-namespace ora::server {
+namespace ora::net {
 
 /// HandshakeRequest(Handshake.cs L17-35)
 /// HandshakeRequest (Handshake.cs L17-35).
@@ -47,7 +47,7 @@ struct HandshakeResponse {
   std::string Fingerprint;
   std::string AuthSignature;
 
-  net::SessionClient Client{};
+  SessionClient Client{};
 
   /// Deserialize(L54-76):Handshake/Client 双节按名装载;失败 = nullopt
   /// Deserialize (L54-76): the Handshake/Client nodes load by name; a
@@ -61,4 +61,4 @@ struct HandshakeResponse {
   std::string Serialize() const;
 };
 
-}  // namespace ora::server
+}  // namespace ora::net

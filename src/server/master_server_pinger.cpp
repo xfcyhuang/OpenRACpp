@@ -9,11 +9,15 @@
 #include "server/master_server_pinger.hpp"
 
 #include "core/mersenne_twister.hpp"
-#include "server/fluent_message.hpp"
+#include "net/fluent_message.hpp"
 #include "server/game_server.hpp"
 #include "server/server.hpp"
 
 namespace ora::server {
+
+using ora::net::FluentArgument;
+using ora::net::FluentArgumentType;
+using ora::net::FluentMessage;
 
 namespace {
 

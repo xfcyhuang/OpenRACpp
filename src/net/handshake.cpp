@@ -5,11 +5,11 @@
 //          Session's).
 import std;
 
-#include "server/handshake.hpp"
+#include "net/handshake.hpp"
 
 #include "yaml/mini_yaml.hpp"
 
-namespace ora::server {
+namespace ora::net {
 
 namespace {
 
@@ -106,7 +106,7 @@ std::optional<HandshakeResponse> HandshakeResponse::Deserialize(
       response.Fingerprint = unused_fingerprint;
       response.AuthSignature = unused_signature;
     } else if (key == "Client") {
-      if (!net::LoadSessionClient(node.Value, response.Client))
+      if (!LoadSessionClient(node.Value, response.Client))
         return std::nullopt;
     }
   }
@@ -132,8 +132,8 @@ std::string HandshakeResponse::Serialize() const {
   vec_root.push_back(yaml::MiniYamlNode{
       pool.Intern("Handshake"),
       yaml::MiniYaml{nullptr, std::move(vec_handshake_fields)}});
-  vec_root.push_back(net::SerializeSessionClientFields(pool, Client));
+  vec_root.push_back(SerializeSessionClientFields(pool, Client));
   return yaml::WriteToString(vec_root);
 }
 
-}  // namespace ora::server
+}  // namespace ora::net

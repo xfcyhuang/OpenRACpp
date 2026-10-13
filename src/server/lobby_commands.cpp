@@ -12,13 +12,17 @@
 #include "core/color.hpp"
 #include "map/map_players.hpp"
 #include "meta/parse.hpp"
-#include "server/fluent_message.hpp"
+#include "net/fluent_message.hpp"
 #include "server/server.hpp"
 #include "server/server_connection.hpp"
 #include "sim/player.hpp"
 #include "yaml/mini_yaml.hpp"
 
 namespace ora::server {
+
+using ora::net::FluentArgument;
+using ora::net::FluentArgumentType;
+using ora::net::FluentMessage;
 
 namespace {
 

@@ -3,10 +3,14 @@
 //          The implementation body.
 #include "server/vote_kick_tracker.hpp"
 
-#include "server/fluent_message.hpp"
+#include "net/fluent_message.hpp"
 #include "server/server.hpp"
 
 namespace ora::server {
+
+using ora::net::FluentArgument;
+using ora::net::FluentArgumentType;
+using ora::net::FluentMessage;
 
 namespace {
 

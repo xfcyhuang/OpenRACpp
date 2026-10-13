@@ -300,6 +300,17 @@ class IValidateOrder {
                                const ora::net::Order& order) = 0;
 };
 
+/// TraitsInterfaces.cs L377(客户端接线批:GameSaved order 分发面)
+/// TraitsInterfaces.cs L377 (the client-wiring batch: the GameSaved
+/// order's dispatch face).
+class INotifyGameSaved {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_INotifyGameSaved;
+  virtual ~INotifyGameSaved() = default;
+  virtual void GameSaved(World& w, bool b_is_auto_save) = 0;
+};
+
 /// TraitsInterfaces.cs L627
 class ICreationActivity {
  public:
