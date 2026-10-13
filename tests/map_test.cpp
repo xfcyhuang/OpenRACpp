@@ -13,11 +13,14 @@ void RegisterGeneratedAll();
 #include "fs/folder.hpp"
 #include "game/game.hpp"
 #include "game/mod_data.hpp"
+#include "game/platform.hpp"
+#include "game/web_services.hpp"
 #include "map/map_cache.hpp"
 #include "server/map_status_cache.hpp"
 #include "map/cell_layer.hpp"
 #include "map/cell_region.hpp"
 #include "map/map.hpp"
+#include "platform/tcp_socket.hpp"
 #include "sim/selection.hpp"
 #include "sim/trait_registry.hpp"
 #include "sim/spatially_partitioned.hpp"
@@ -25,6 +28,9 @@ void RegisterGeneratedAll();
 #include "sim/world.hpp"
 #include <boost/hash2/sha1.hpp>  // SHA-1 承载(std→Boost 选型;白名单头)| the SHA-1 carrier (the std→Boost selection; a whitelisted header)
 #include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
+#ifdef GetMessage
+#undef GetMessage  // winsock 的 GetMessageA 宏不得改写 MapPreview::GetMessage | winsock's GetMessageA macro must not rewrite MapPreview::GetMessage
+#endif
 
 using namespace ora;
 using namespace ora::map;
@@ -248,6 +254,243 @@ void TestSpatialPartition() {
   CheckEq(partitioned.Count(), 0, "Clear empties the partition");
 }
 
+// ———— 第十七批:在线资源中心 HTTP 面(回环伪资源中心全链)————
+// Batch 17: the online resource-center HTTP face (the loopback fake
+// resource-center full chain).
+void TestRemoteMapRepository(const char* ch_upstream_root) {
+  std::println("[map] remote map repository");
+  const std::string str_root{ch_upstream_root};
+
+  // 临时 SupportDir + User 地图目录({DEV_VERSION} 为上游字面目录名)
+  // A temporary SupportDir + the User map directory ({DEV_VERSION} is
+  // upstream's literal directory name).
+  std::filesystem::path path_support =
+      std::filesystem::temp_directory_path() / "ora_map_test_support";
+  std::error_code ec_fs{};
+  std::filesystem::remove_all(path_support, ec_fs);
+  std::filesystem::create_directories(path_support / "maps" / "ra" /
+                                       "{DEV_VERSION}", ec_fs);
+
+  game::InstalledMods mods_remote{str_root + "/mods"};
+  const game::Manifest* manifest_remote = mods_remote.Find("ra");
+  Check(manifest_remote != nullptr, "ra manifest found (remote face)");
+  if (manifest_remote == nullptr)
+    return;
+  game::ModData mod_data{*manifest_remote, mods_remote, str_root};
+  mod_data.ModFiles().SetPathResolver(
+      game::PathResolver{str_root, path_support.string()});
+
+  // 伪资源中心:GET /hash/{uid}/yaml → RemoteMapData 节点;GET /download/
+  // {uid} → 真图字节 + Content-Disposition;GET /version → 状态词。
+  // The fake resource center: GET /hash/{uid}/yaml → the RemoteMapData
+  // node; GET /download/{uid} → real map bytes + Content-Disposition; GET
+  // /version → the status word.
+  const std::string str_uid_hit = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+  const std::string str_uid_miss = "ffffffffffffffffffffffffffffffffffffffff";
+
+  auto listener = platform::TcpSocket::Listen(0);
+  Check(listener.IsValid(), "fake resource center listens");
+  const auto int4_port = listener.BoundPort();
+
+  auto thread_serve = std::thread{[&] {
+    while (true) {
+      auto client = listener.Accept();
+      if (!client.IsValid())
+        return;
+      auto str_req = std::string{};
+      const auto read_more = [&]() {
+        std::array<std::uint8_t, 8192> arr_buf{};
+        const auto int4_n =
+            client.ReceiveUpTo(arr_buf.data(), arr_buf.size());
+        if (int4_n <= 0)
+          return false;
+        str_req.append(reinterpret_cast<const char*>(arr_buf.data()),
+                       static_cast<std::size_t>(int4_n));
+        return true;
+      };
+      while (str_req.find("\r\n\r\n") == std::string::npos) {
+        if (!client.PollReadable(3000000) || !read_more())
+          break;
+      }
+      if (!str_req.starts_with("GET "))
+        continue;
+
+      const std::size_t sz_path_end = str_req.find(' ', 4);
+      const std::string str_path =
+          str_req.substr(4, sz_path_end == std::string::npos
+                                 ? std::string::npos
+                                 : sz_path_end - 4);
+      if (str_path.find("/hash/") == 0) {
+        Check(str_path.find(str_uid_hit) != std::string::npos &&
+                  str_path.ends_with("/yaml"),
+              "query path carries the uid batch");
+        const std::string str_yaml = std::format(
+            "{}:\n\ttitle: Remote Test Map\n\tauthor: tester\n\ttileset: "
+            "TEMPERAT\n\tdownloading: True\n\tplayers: 2\n\tcategories: "
+            "Conquest\n\tbounds: 0,0,32,32\n\tmap_grid_type: "
+            "Rectangular\n\tmapformat: 11\n",
+            str_uid_hit);
+        const std::string str_response =
+            std::format("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                        str_yaml.size(), str_yaml);
+        client.SendAll(std::span<const std::uint8_t>{
+            reinterpret_cast<const std::uint8_t*>(str_response.data()),
+            str_response.size()});
+      } else if (str_path.find("/download/") == 0) {
+        std::ifstream file_map{str_root + "/mods/ra/maps/a-path-beyond.oramap",
+                               std::ios::binary};
+        std::string str_bytes{std::istreambuf_iterator<char>{file_map},
+                              std::istreambuf_iterator<char>{}};
+        const std::string str_response = std::format(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Disposition: "
+            "attachment; filename=\"downloaded-map.oramap\"\r\n\r\n{}",
+            str_bytes.size(), str_bytes);
+        client.SendAll(std::span<const std::uint8_t>{
+            reinterpret_cast<const std::uint8_t*>(str_response.data()),
+            str_response.size()});
+      } else if (str_path.find("/version") == 0) {
+        static constexpr std::string_view kBody = "outdated";
+        const std::string str_response =
+            std::format("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                        kBody.size(), kBody);
+        client.SendAll(std::span<const std::uint8_t>{
+            reinterpret_cast<const std::uint8_t*>(str_response.data()),
+            str_response.size()});
+      } else {
+        static constexpr std::string_view kBody = "not-found";
+        const std::string str_response = std::format(
+            "HTTP/1.1 404 Not Found\r\nContent-Length: {}\r\n\r\n{}",
+            kBody.size(), kBody);
+        client.SendAll(std::span<const std::uint8_t>{
+            reinterpret_cast<const std::uint8_t*>(str_response.data()),
+            str_response.size()});
+      }
+    }
+  }};
+
+  // QueryRemoteMapDetails:命中 uid → DownloadAvailable + received 回调;
+  // 未命中 uid → 批尾 Searching → CompleteRemoteSearch(null) → fail 回调
+  // QueryRemoteMapDetails: the hit uid → DownloadAvailable + the received
+  // callback; the missed uid → the batch tail's Searching →
+  // CompleteRemoteSearch(null) → the fail callback.
+  {
+    auto cache = map::MapCache{mod_data.ManifestRef(), mod_data.ModFiles()};
+    cache.LoadMaps(mod_data, "a-path-beyond");
+
+    const fs::IReadOnlyPackage* ptr_user_package = nullptr;
+    for (const auto& [ptr_package, kind_class] : cache.MapLocations())
+      if (kind_class == map::MapClassification::User)
+        ptr_user_package = ptr_package;
+    Check(ptr_user_package != nullptr, "User map location registered");
+
+    auto int4_received = 0;
+    auto vec_failed_uids = std::vector<std::string>{};
+    auto mutex_callbacks = std::mutex{};
+    cache.QueryRemoteMapDetails(
+        std::format("http://127.0.0.1:{}/", int4_port),
+        {str_uid_hit, str_uid_miss, str_uid_hit},
+        [&](map::MapPreview&) {
+          const std::lock_guard lock{mutex_callbacks};
+          int4_received++;
+        },
+        [&](map::MapPreview& p) {
+          const std::lock_guard lock{mutex_callbacks};
+          vec_failed_uids.push_back(p.Uid());
+        });
+
+    // 等后台批查线程全链收尾(状态 + 两侧回调均已落地)—— 回调数据面
+    // 的读须在回调静默后
+    // Wait for the background batch thread's full tail (the statuses +
+    // both callbacks landed) — the callback data faces are read only after
+    // the callbacks fall silent.
+    bool b_hit_done = false;
+    for (int i = 0; i < 400 && !b_hit_done; ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds{10});
+      bool b_callbacks = false;
+      {
+        const std::lock_guard lock{mutex_callbacks};
+        b_callbacks = int4_received == 1 && vec_failed_uids.size() == 1;
+      }
+      b_hit_done =
+          b_callbacks &&
+          cache.At(str_uid_hit).Status() ==
+              map::MapStatus::DownloadAvailable &&
+          cache.At(str_uid_miss).Status() == map::MapStatus::Unavailable;
+    }
+    Check(b_hit_done,
+          "query resolves hit=DownloadAvailable miss=Unavailable");
+    Check(cache.At(str_uid_hit).Title() == "Remote Test Map",
+          "remote title loaded");
+    Check(cache.At(str_uid_hit).Author() == "tester", "remote author loaded");
+    Check(cache.At(str_uid_hit).TileSet() == "TEMPERAT",
+          "remote tileset loaded");
+    CheckEq(cache.At(str_uid_hit).PlayerCount(), 2, "remote player count");
+    Check(cache.At(str_uid_hit).Bounds().Width == 32, "remote bounds loaded");
+    CheckEq(int4_received, 1, "received callback fires once");
+    CheckEq(vec_failed_uids.size(), std::size_t{1},
+            "fail callback fires for the missed uid");
+    if (!vec_failed_uids.empty())
+      CheckEq(vec_failed_uids.front(), str_uid_miss, "fail uid is the miss");
+
+    // Install:DownloadAvailable → GET /download/{uid} → 写 User 包 →
+    // UpdateFromMapWithoutOwningPackage → Available
+    // Install: DownloadAvailable → GET /download/{uid} → writing the User
+    // package → UpdateFromMapWithoutOwningPackage → Available.
+    cache.At(str_uid_hit).Install(
+        std::format("http://127.0.0.1:{}/download/", int4_port));
+    bool b_installed = false;
+    for (int i = 0; i < 600 && !b_installed; ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds{10});
+      b_installed =
+          cache.At(str_uid_hit).Status() == map::MapStatus::Available;
+    }
+    Check(b_installed, "install lands the map as Available");
+    Check(std::filesystem::exists(path_support / "maps" / "ra" /
+                                   "{DEV_VERSION}" /
+                                   "downloaded-map.oramap"),
+          "downloaded file written into the User location");
+    Check(cache.At(str_uid_hit).DownloadBytes() > 0, "download bytes set");
+    CheckEq(cache.At(str_uid_hit).DownloadPercentage(), 100,
+            "download percentage reaches 100");
+
+    // 状态前置门:Available 态 Install 为 no-op(不触发新请求)
+    // The status preamble gate: Install at Available is a no-op (no new
+    // request fires).
+    cache.At(str_uid_hit).Install(
+        std::format("http://127.0.0.1:{}/download/", int4_port));
+    Check(cache.At(str_uid_hit).Status() == map::MapStatus::Available,
+          "install at Available stays a no-op");
+  }
+
+  // WebServices.CheckModVersion:回环 /version 的 "outdated" 三态映射
+  // WebServices.CheckModVersion: the loopback /version's "outdated"
+  // three-state mapping.
+  {
+    auto services = game::WebServices{};
+    services.VersionCheck =
+        std::format("http://127.0.0.1:{}/version", int4_port);
+    services.SetVersionInfo("test-engine", "ra", "test-version");
+    services.CheckModVersion();
+    bool b_checked = false;
+    for (int i = 0; i < 300 && !b_checked; ++i) {
+      std::this_thread::sleep_for(std::chrono::milliseconds{10});
+      b_checked =
+          services.ModVersionStatus_() == game::ModVersionStatus::Outdated;
+    }
+    Check(b_checked, "CheckModVersion maps 'outdated'");
+
+    Check(game::BuildHttpQuery("http://x/y", {{"a", "1 2"}, {"b", "z/z"}}) ==
+              "http://x/y?a=1%202&b=z%2Fz&",
+          "BuildHttpQuery escapes and joins");
+    Check(game::EscapeDataString("AZaz09-_.~ x") == "AZaz09-_.~%20x",
+          "EscapeDataString keeps RFC3986 unreserved");
+  }
+
+  listener.Close();
+  thread_serve.join();
+  std::filesystem::remove_all(path_support, ec_fs);
+}
+
 int main(int argc, char** argv) {
   setvbuf(stdout, nullptr, _IONBF, 0);
   if (argc < 2) {
@@ -466,6 +709,9 @@ int main(int argc, char** argv) {
       Check(world->MapPtr() != nullptr, "Map face wired");
     }
   }
+
+  if (g_failures == 0)
+    TestRemoteMapRepository(argv[1]);
 
   return g_failures == 0 ? 0 : 1;
 }

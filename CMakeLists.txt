@@ -183,8 +183,9 @@ add_library(ora_game STATIC
   src/game/ruleset.cpp
   src/game/mod_data.cpp
   src/game/loaders.cpp
-  src/game/settings.cpp)
-target_link_libraries(ora_game PUBLIC ora_gen ora_terrain PRIVATE ora_fs ora_formats)
+  src/game/settings.cpp
+  src/game/web_services.cpp)
+target_link_libraries(ora_game PUBLIC ora_gen ora_terrain PRIVATE ora_fs ora_formats ora_http)
 ora_link_std(ora_game)
 
 # 仿真核心:Actor/World/TraitDictionary/Activity/条件系统/SyncHash/Effects
@@ -196,7 +197,7 @@ add_library(ora_map STATIC
   src/map/map_players.cpp
   src/map/map_cache.cpp
   src/map/map_directory_tracker.cpp)
-target_link_libraries(ora_map PUBLIC ora_game ora_fs PRIVATE ora_formats)
+target_link_libraries(ora_map PUBLIC ora_game ora_fs PRIVATE ora_formats ora_http)
 ora_link_std(ora_map)
 
 add_library(ora_sim STATIC
@@ -284,7 +285,7 @@ add_library(ora_server STATIC
   src/server/game_server.cpp
   src/server/master_server_pinger.cpp
   src/server/lobby_commands.cpp)
-target_link_libraries(ora_server PUBLIC ora_net ora_game PRIVATE ora_map ora_platform ora_sim ora_boost_url)
+target_link_libraries(ora_server PUBLIC ora_net ora_game PRIVATE ora_map ora_platform ora_sim ora_boost_url ora_http)
 ora_link_std(ora_server)
 
 # 第三方:Boost.URL 的编译态符号面(../liboost 的 19 个 src;url 非纯
@@ -316,6 +317,19 @@ add_library(ora_boost_url STATIC
   ../liboost/libs/url/src/pct_string_view.cpp)
 target_include_directories(ora_boost_url PUBLIC ${CMAKE_SOURCE_DIR}/../liboost)
 target_compile_options(ora_boost_url PRIVATE -w)
+
+# HTTP 同步承载(src/net/http_sync;上游 HttpClientFactory/HttpExtension
+# 的消费点直调面)。独立于 ora_net —— 链接拓扑上 ora_net→ora_sim→
+# ora_map,资源中心查询住在 ora_map,不能反向依赖 ora_net。
+# The synchronous HTTP carrier (src/net/http_sync; the upstream
+# HttpClientFactory/HttpExtension direct-call face). Independent of
+# ora_net — the linkage topology is ora_net→ora_sim→ora_map, the
+# resource-center queries live in ora_map, and must not depend back on
+# ora_net.
+add_library(ora_http STATIC src/net/http_sync.cpp)
+target_include_directories(ora_http PUBLIC ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(ora_http PUBLIC ora_boost_url ws2_32)
+ora_link_std(ora_http)
 
 # ———— Phase 4 第一批:平台层 + 渲染命令缓冲 ————
 # Phase 4 first batch: the platform layer + the render command buffer.

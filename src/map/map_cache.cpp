@@ -6,6 +6,7 @@ import std;
 #include "game/mod_data.hpp"
 #include "game/ruleset.hpp"
 #include "meta/field_loader.hpp"
+#include "net/http_sync.hpp"
 #include "terrain/map_grid.hpp"
 
 namespace ora::map {
@@ -94,7 +95,15 @@ MapPreview::MapPreview(game::ModData* mod_data, std::string str_uid,
       ptr_cache_{ptr_cache},
       str_uid_{std::move(str_uid)},
       opt_grid_type_{grid_type},
-      ptr_inner_{std::make_shared<InnerData>()} {}
+      ptr_inner_{std::make_shared<InnerData>()} {
+  // 上游 ctor 直取 modData.ModFiles(Install/CompleteRemoteSearch 的后台
+  // 面不再依赖装载路径的后置 SetOpenContext)
+  // Upstream's ctor takes modData.ModFiles directly (the Install/
+  // CompleteRemoteSearch background faces no longer depend on the loading
+  // path's later SetOpenContext).
+  if (ptr_mod_data_ != nullptr)
+    ptr_mod_files_ = &ptr_mod_data_->ModFiles();
+}
 
 MapPreview::~MapPreview() = default;
 
@@ -616,156 +625,158 @@ void MapPreview::BeginRemoteSearch() {
 }
 
 void MapPreview::CompleteRemoteSearch(
-    const yaml::MiniYamlNode& node_yaml,
+    const yaml::MiniYamlNode* node_yaml,
     const std::function<void(MapPreview&)>& fn_parse_metadata) {
   InnerData data_new = *Snapshot();
   data_new.kind_class = MapClassification::Remote;
   data_new.kind_status = MapStatus::Unavailable;
 
-  const auto find_field = [&](std::string_view str_key) {
-    for (const yaml::MiniYamlNode& n : node_yaml.Value.Nodes) {
-      const std::string_view sv_key =
-          n.Key != nullptr ? std::string_view{*n.Key} : std::string_view{};
-      if (sv_key == str_key)
-        return &n.Value;
-    }
-    return static_cast<const yaml::MiniYaml*>(nullptr);
-  };
-  const auto field_value = [&](const yaml::MiniYaml* f) -> std::string_view {
-    if (f == nullptr || f->Value == nullptr)
-      return {};
-    return *f->Value;
-  };
+  if (node_yaml != nullptr) {
+    const auto find_field = [&](std::string_view str_key) {
+      for (const yaml::MiniYamlNode& n : node_yaml->Value.Nodes) {
+        const std::string_view sv_key =
+            n.Key != nullptr ? std::string_view{*n.Key} : std::string_view{};
+        if (sv_key == str_key)
+          return &n.Value;
+      }
+      return static_cast<const yaml::MiniYaml*>(nullptr);
+    };
+    const auto field_value = [&](const yaml::MiniYaml* f) -> std::string_view {
+      if (f == nullptr || f->Value == nullptr)
+        return {};
+      return *f->Value;
+    };
 
-  const auto try_field_str = [&](std::string_view str_key,
-                                 std::string& out) {
-    const yaml::MiniYaml* f = find_field(str_key);
-    if (f == nullptr || f->Value == nullptr || f->Value->empty())
-      return false;
-    out = std::string{*f->Value};
-    return true;
-  };
+    const auto try_field_str = [&](std::string_view str_key,
+                                   std::string& out) {
+      const yaml::MiniYaml* f = find_field(str_key);
+      if (f == nullptr || f->Value == nullptr || f->Value->empty())
+        return false;
+      out = std::string{*f->Value};
+      return true;
+    };
 
-  try {
-    std::string str_buf;
-    if (const yaml::MiniYaml* f = find_field("downloading"))
-      if (meta::GetBoolValue("downloading", field_value(f)))
-        data_new.kind_status = MapStatus::DownloadAvailable;
+    try {
+      std::string str_buf;
+      if (const yaml::MiniYaml* f = find_field("downloading"))
+        if (meta::GetBoolValue("downloading", field_value(f)))
+          data_new.kind_status = MapStatus::DownloadAvailable;
 
-    if (!try_field_str("title", data_new.str_title) ||
-        !try_field_str("author", data_new.str_author) ||
-        !try_field_str("tileset", data_new.str_tile_set)) {
+      if (!try_field_str("title", data_new.str_title) ||
+          !try_field_str("author", data_new.str_author) ||
+          !try_field_str("tileset", data_new.str_tile_set)) {
+        data_new.kind_status = MapStatus::Unavailable;
+      } else {
+        if (const yaml::MiniYaml* f = find_field("categories"))
+          data_new.vec_categories =
+              meta::GetStringArrayValue("categories", field_value(f));
+
+        std::int32_t int4_players = 0;
+        if (try_field_str("players", str_buf) &&
+            meta::TryParseInt32Invariant(str_buf, int4_players))
+          data_new.int4_player_count = int4_players;
+
+        if (const yaml::MiniYaml* f = find_field("bounds"))
+          data_new.rect_bounds =
+              meta::GetRectangleValue("bounds", field_value(f));
+
+        std::int32_t int4_map_format = 0;
+        if (try_field_str("mapformat", str_buf) &&
+            meta::TryParseInt32Invariant(str_buf, int4_map_format))
+          data_new.int4_map_format = int4_map_format;
+
+        if (const yaml::MiniYaml* f = find_field("hideSpawnPreviews"))
+          data_new.b_hide_spawn_previews =
+              meta::GetBoolValue("hideSpawnPreviews", field_value(f));
+
+        if (const yaml::MiniYaml* f = find_field("spawnpoints")) {
+          const std::vector<std::string_view> vec_parts =
+              meta::SplitCommaTrimmed(field_value(f));
+          std::vector<CPos> vec_points;
+          bool b_ok = true;
+          for (std::size_t i = 0; i + 1 < vec_parts.size(); i += 2) {
+            std::int32_t int4_x = 0;
+            std::int32_t int4_y = 0;
+            if (!meta::TryParseInt32Invariant(vec_parts[i], int4_x) ||
+                !meta::TryParseInt32Invariant(vec_parts[i + 1], int4_y)) {
+              b_ok = false;
+              break;
+            }
+            vec_points.emplace_back(int4_x, int4_y);
+          }
+          if (b_ok && !vec_parts.empty())
+            data_new.vec_spawn_points = std::move(vec_points);
+        }
+
+        if (const yaml::MiniYaml* f = find_field("map_grid_type"))
+          data_new.grid_type = static_cast<MapGridType>(meta::GetEnumValue(
+              "map_grid_type", field_value(f), "OpenRA.MapGridType"));
+
+        const bool b_preview_images =
+            ptr_cache_ == nullptr || ptr_cache_->LoadPreviewImages;
+        if (b_preview_images) {
+          try {
+            std::string str_minimap;
+            if (try_field_str("minimap", str_minimap)) {
+              const std::optional<std::vector<std::byte>> vec_decoded =
+                  DecodeBase64(str_minimap);
+              if (vec_decoded.has_value())
+                data_new.ptr_preview = std::make_shared<const fmt::Png>(
+                    std::span<const std::byte>{vec_decoded->data(),
+                                               vec_decoded->size()});
+            }
+          } catch (...) {
+            data_new.ptr_preview.reset();
+          }
+        }
+
+        std::string str_players_block;
+        if (try_field_str("players_block", str_players_block)) {
+          const std::optional<std::vector<std::byte>> vec_players =
+              DecodeBase64(str_players_block);
+          if (vec_players.has_value()) {
+            data_new.opt_players =
+                MapPlayers{yaml::MiniYaml::FromString(
+                               std::string_view{
+                                   reinterpret_cast<const char*>(
+                                       vec_players->data()),
+                                   vec_players->size()},
+                               "players_block", false,
+                               yaml::MiniYaml::GlobalPool()),
+                           core::Color::FromArgbRaw(0xFF4B4B4B)};
+          }
+        }
+
+        std::string str_rules;
+        if (try_field_str("rules", str_rules)) {
+          const std::optional<std::vector<std::byte>> vec_rules =
+              DecodeBase64(str_rules);
+          if (vec_rules.has_value()) {
+            yaml::MiniYaml root;
+            root.Nodes = yaml::MiniYaml::FromString(
+                std::string_view{
+                    reinterpret_cast<const char*>(vec_rules->data()),
+                    vec_rules->size()},
+                "rules", false, yaml::MiniYaml::GlobalPool());
+            SetCustomRules(root.ToDictionary(), nullptr, data_new);
+          }
+        }
+
+        std::string str_game_mod;
+        if (try_field_str("game_mod", str_game_mod) &&
+            ptr_mod_data_ != nullptr) {
+          const game::Manifest& manifest = ptr_mod_data_->ManifestRef();
+          const bool compatible = std::any_of(
+              manifest.MapCompatibility().begin(),
+              manifest.MapCompatibility().end(),
+              [&](const std::string& c) { return c == str_game_mod; });
+          if (!compatible)
+            data_new.kind_status = MapStatus::Unavailable;
+        }
+      }
+    } catch (...) {
       data_new.kind_status = MapStatus::Unavailable;
-    } else {
-      if (const yaml::MiniYaml* f = find_field("categories"))
-        data_new.vec_categories =
-            meta::GetStringArrayValue("categories", field_value(f));
-
-      std::int32_t int4_players = 0;
-      if (try_field_str("players", str_buf) &&
-          meta::TryParseInt32Invariant(str_buf, int4_players))
-        data_new.int4_player_count = int4_players;
-
-      if (const yaml::MiniYaml* f = find_field("bounds"))
-        data_new.rect_bounds =
-            meta::GetRectangleValue("bounds", field_value(f));
-
-      std::int32_t int4_map_format = 0;
-      if (try_field_str("mapformat", str_buf) &&
-          meta::TryParseInt32Invariant(str_buf, int4_map_format))
-        data_new.int4_map_format = int4_map_format;
-
-      if (const yaml::MiniYaml* f = find_field("hideSpawnPreviews"))
-        data_new.b_hide_spawn_previews =
-            meta::GetBoolValue("hideSpawnPreviews", field_value(f));
-
-      if (const yaml::MiniYaml* f = find_field("spawnpoints")) {
-        const std::vector<std::string_view> vec_parts =
-            meta::SplitCommaTrimmed(field_value(f));
-        std::vector<CPos> vec_points;
-        bool b_ok = true;
-        for (std::size_t i = 0; i + 1 < vec_parts.size(); i += 2) {
-          std::int32_t int4_x = 0;
-          std::int32_t int4_y = 0;
-          if (!meta::TryParseInt32Invariant(vec_parts[i], int4_x) ||
-              !meta::TryParseInt32Invariant(vec_parts[i + 1], int4_y)) {
-            b_ok = false;
-            break;
-          }
-          vec_points.emplace_back(int4_x, int4_y);
-        }
-        if (b_ok && !vec_parts.empty())
-          data_new.vec_spawn_points = std::move(vec_points);
-      }
-
-      if (const yaml::MiniYaml* f = find_field("map_grid_type"))
-        data_new.grid_type = static_cast<MapGridType>(meta::GetEnumValue(
-            "map_grid_type", field_value(f), "OpenRA.MapGridType"));
-
-      const bool b_preview_images =
-          ptr_cache_ == nullptr || ptr_cache_->LoadPreviewImages;
-      if (b_preview_images) {
-        try {
-          std::string str_minimap;
-          if (try_field_str("minimap", str_minimap)) {
-            const std::optional<std::vector<std::byte>> vec_decoded =
-                DecodeBase64(str_minimap);
-            if (vec_decoded.has_value())
-              data_new.ptr_preview = std::make_shared<const fmt::Png>(
-                  std::span<const std::byte>{vec_decoded->data(),
-                                             vec_decoded->size()});
-          }
-        } catch (...) {
-          data_new.ptr_preview.reset();
-        }
-      }
-
-      std::string str_players_block;
-      if (try_field_str("players_block", str_players_block)) {
-        const std::optional<std::vector<std::byte>> vec_players =
-            DecodeBase64(str_players_block);
-        if (vec_players.has_value()) {
-          data_new.opt_players =
-              MapPlayers{yaml::MiniYaml::FromString(
-                             std::string_view{
-                                 reinterpret_cast<const char*>(
-                                     vec_players->data()),
-                                 vec_players->size()},
-                             "players_block", false,
-                             yaml::MiniYaml::GlobalPool()),
-                         core::Color::FromArgbRaw(0xFF4B4B4B)};
-        }
-      }
-
-      std::string str_rules;
-      if (try_field_str("rules", str_rules)) {
-        const std::optional<std::vector<std::byte>> vec_rules =
-            DecodeBase64(str_rules);
-        if (vec_rules.has_value()) {
-          yaml::MiniYaml root;
-          root.Nodes = yaml::MiniYaml::FromString(
-              std::string_view{
-                  reinterpret_cast<const char*>(vec_rules->data()),
-                  vec_rules->size()},
-              "rules", false, yaml::MiniYaml::GlobalPool());
-          SetCustomRules(root.ToDictionary(), nullptr, data_new);
-        }
-      }
-
-      std::string str_game_mod;
-      if (try_field_str("game_mod", str_game_mod) &&
-          ptr_mod_data_ != nullptr) {
-        const game::Manifest& manifest = ptr_mod_data_->ManifestRef();
-        const bool compatible = std::any_of(
-            manifest.MapCompatibility().begin(),
-            manifest.MapCompatibility().end(),
-            [&](const std::string& c) { return c == str_game_mod; });
-        if (!compatible)
-          data_new.kind_status = MapStatus::Unavailable;
-      }
     }
-  } catch (...) {
-    data_new.kind_status = MapStatus::Unavailable;
   }
 
   MapClassification kind_after;
@@ -784,8 +795,115 @@ void MapPreview::CompleteRemoteSearch(
   }
 }
 
+std::optional<MapGridType> MapPreview::GridType() const {
+  return Snapshot()->grid_type;
+}
+
+long long MapPreview::DownloadBytes() const {
+  return int8_download_bytes_.load(std::memory_order_relaxed);
+}
+
+int MapPreview::DownloadPercentage() const {
+  return int4_download_percentage_.load(std::memory_order_relaxed);
+}
+
+void MapPreview::SetStatus(MapStatus kind_status) {
+  InnerData data_new = *Snapshot();
+  data_new.kind_status = kind_status;
+  const std::lock_guard<std::mutex> lock{mtx_inner_};
+  ptr_inner_ = std::make_shared<const InnerData>(std::move(data_new));
+}
+
+/// Install(L655-714):DownloadError/DownloadAvailable 之外不动;后台
+/// GET {repository}{Uid} → Content-Disposition 文件名 → 进度读全 → 写
+/// User 位置的可写包 → OpenPackage → UpdateFromMapWithoutOwningPackage。
+/// Task.Run 的闭包态(上游 GC 常青)以值拷承载 —— ptr_cache_/ptr_mod_data_
+/// 的悬垂窗口与 QueryRemoteMapDetails 同(D 登记)。
+/// Install (L655-714): no-op outside DownloadError/DownloadAvailable;
+/// the background GET {repository}{Uid} → the Content-Disposition filename
+/// → the progress read-through → writing the User-location writable
+/// package → OpenPackage → UpdateFromMapWithoutOwningPackage. Task.Run's
+/// closure state (upstream's GC evergreen liveness) is carried by value —
+/// the ptr_cache_/ptr_mod_data_ dangling window matches
+/// QueryRemoteMapDetails's (registered as a deviation).
 void MapPreview::Install(const std::string& str_map_repository_url) {
-  (void)str_map_repository_url;
+  const auto kind_status = Status();
+  if ((kind_status != MapStatus::DownloadError &&
+       kind_status != MapStatus::DownloadAvailable) ||
+      (ptr_cache_ != nullptr && !ptr_cache_->AllowDownloading()))
+    return;
+
+  SetStatus(MapStatus::Downloading);
+  fs::IReadWritePackage* ptr_install_package = nullptr;
+  if (ptr_cache_ != nullptr) {
+    for (const auto& [ptr_package, kind_class] : ptr_cache_->MapLocations())
+      if (kind_class == MapClassification::User) {
+        ptr_install_package = dynamic_cast<fs::IReadWritePackage*>(
+            const_cast<fs::IReadOnlyPackage*>(ptr_package));
+        break;
+      }
+  }
+  if (ptr_install_package == nullptr) {
+    if (ptr_cache_ != nullptr)
+      ptr_cache_->DebugLog("Map install directory not found");
+    SetStatus(MapStatus::DownloadError);
+    return;
+  }
+
+  MapCache* const ptr_cache = ptr_cache_;
+  fs::IReadWritePackage* const ptr_install = ptr_install_package;
+  fs::FileSystem* const ptr_mod_files = ptr_mod_files_;
+  const std::string str_uid = str_uid_;
+  const auto debug_log = [ptr_cache](std::string_view sv_line) {
+    if (ptr_cache != nullptr)
+      ptr_cache->DebugLog(sv_line);
+  };
+
+  std::thread{[this, ptr_cache, ptr_install, ptr_mod_files, str_uid,
+              str_map_repository_url, debug_log]() mutable {
+    const std::string str_map_url = str_map_repository_url + str_uid;
+    try {
+      const auto result_get = net::HttpGetSync(
+          str_map_url, [this](long long int8_total, long long int8_read,
+                              int int4_percentage) {
+            int8_download_bytes_.store(int8_total,
+                                       std::memory_order_relaxed);
+            int4_download_percentage_.store(int4_percentage,
+                                            std::memory_order_relaxed);
+          });
+
+      if (!result_get.b_ok || result_get.int4_status < 200 ||
+          result_get.int4_status >= 300) {
+        SetStatus(MapStatus::DownloadError);
+        return;
+      }
+
+      if (result_get.str_filename.empty()) {
+        SetStatus(MapStatus::DownloadError);
+        return;
+      }
+
+      ptr_install->Update(
+          result_get.str_filename,
+          std::span<const char>{result_get.str_body.data(),
+                                result_get.str_body.size()});
+      debug_log(std::format("Downloaded map to '{}'",
+                            result_get.str_filename));
+
+      auto ptr_package =
+          ptr_install->OpenPackage(result_get.str_filename, *ptr_mod_files);
+      if (ptr_package == nullptr)
+        SetStatus(MapStatus::DownloadError);
+      else {
+        UpdateFromMapWithoutOwningPackage(*ptr_package, *ptr_install,
+                                          MapClassification::User,
+                                          GridType());
+      }
+    } catch (...) {
+      debug_log("Map installation failed with error:");
+      SetStatus(MapStatus::DownloadError);
+    }
+  }}.detach();
 }
 
 void MapPreview::Invalidate() {
@@ -964,6 +1082,7 @@ void MapCache::LoadMap(const std::string& str_map,
 }
 
 MapPreview& MapCache::At(const std::string& str_uid) {
+  const std::lock_guard<std::mutex> lock{mtx_previews_};
   for (const auto& [key, preview] : vec_previews_)
     if (key == str_uid)
       return *preview;
@@ -972,6 +1091,116 @@ MapPreview& MapCache::At(const std::string& str_uid) {
       str_uid, std::make_unique<MapPreview>(ptr_mod_data_, str_uid, grid_type_,
                                             this));
   return *vec_previews_.back().second;
+}
+
+void MapCache::QueryRemoteMapDetails(
+    const std::string& str_repository_url,
+    const std::vector<std::string>& vec_uids,
+    const std::function<void(MapPreview&)>& fn_map_details_received,
+    const std::function<void(MapPreview&)>& fn_map_query_failed) {
+  // queryUids:Distinct() 的去重保序 + 非空 + Unavailable 态筛(L227-232)
+  // queryUids: Distinct()'s order-preserving dedup + non-null + the
+  // Unavailable-status filter (L227-232).
+  std::vector<std::string> vec_query_uids;
+  for (const auto& str_uid : vec_uids) {
+    if (str_uid.empty() ||
+        std::find(vec_query_uids.begin(), vec_query_uids.end(), str_uid) !=
+            vec_query_uids.end())
+      continue;
+    if (At(str_uid).Status() == MapStatus::Unavailable)
+      vec_query_uids.push_back(str_uid);
+  }
+
+  // 启动集快照(上游 previews[uid] 的惰性构造面在主线程先行物化);
+  // 后台线程不再触达 this —— 上游 Task.Run 的闭包由 GC 保活,此处以
+  // 快照指针 + 值拷成员承载(D 登记:响应键超出查询集时离线构造,
+  // cache=nullptr → CacheMinimap 不跑)。
+  // The startup-set snapshot (upstream's previews[uid] lazy construction
+  // materialized up front on the main thread); the background thread never
+  // touches this — upstream's Task.Run closure is kept alive by the GC,
+  // here carried by snapshot pointers + by-value members (registered
+  // deviation: a response key outside the query set constructs an
+  // offline preview, cache=nullptr → no CacheMinimap).
+  std::map<std::string, MapPreview*> map_previews;
+  for (const auto& str_uid : vec_query_uids)
+    map_previews[str_uid] = &At(str_uid);
+  for (const auto& [str_uid, ptr_preview] : map_previews)
+    ptr_preview->BeginRemoteSearch();
+
+  auto* const ptr_mod_data = ptr_mod_data_;
+  const auto kind_grid = grid_type_;
+  const auto fn_debug_log = fn_debug_log_;
+  const auto debug_log = [fn_debug_log](std::string_view sv_line) {
+    if (fn_debug_log)
+      fn_debug_log(sv_line);
+  };
+
+  // Task.Run(L234):批查线程;每批 50(请求体量限),GET
+  // {repository}/hash/{uids}/yaml;批次间共享 stringPool = 全局池的
+  // 进程级超集。
+  // Task.Run (L234): the batch-query thread; 50 per batch (the request-
+  // size limit), GET {repository}/hash/{uids}/yaml; the batch-spanning
+  // stringPool = a process-wide superset via the global pool.
+  std::thread{[map_previews = std::move(map_previews), str_repository_url,
+              vec_query_uids, fn_map_details_received, fn_map_query_failed,
+              ptr_mod_data, kind_grid, debug_log]() mutable {
+    std::map<std::string, std::unique_ptr<MapPreview>> map_offline;
+    const auto preview_at = [&](const std::string& str_uid) -> MapPreview& {
+      if (const auto it = map_previews.find(str_uid);
+          it != map_previews.end())
+        return *it->second;
+      auto& ptr_up = map_offline[str_uid];
+      if (!ptr_up)
+        ptr_up = std::make_unique<MapPreview>(ptr_mod_data, str_uid,
+                                              kind_grid, nullptr);
+      return *ptr_up;
+    };
+
+    constexpr std::size_t kBatch = 50;
+    for (std::size_t st_begin = 0; st_begin < vec_query_uids.size();
+         st_begin += kBatch) {
+      const std::size_t st_end =
+          std::min(st_begin + kBatch, vec_query_uids.size());
+      std::string str_url = str_repository_url + "hash/";
+      for (std::size_t st_i = st_begin; st_i < st_end; ++st_i) {
+        if (st_i != st_begin)
+          str_url += ",";
+        str_url += vec_query_uids[st_i];
+      }
+      str_url += "/yaml";
+
+      const net::HttpResult result_get = net::HttpGetSync(str_url);
+      if (result_get.b_ok) {
+        // 空 body = FromStream 无节点(上游静默,批尾按 Searching 处理)
+        // An empty body = FromStream yields no nodes (upstream stays
+        // silent; the batch tail handles them as Searching).
+        try {
+          const auto vec_nodes = yaml::MiniYaml::FromString(
+              result_get.str_body, str_url, true,
+              yaml::MiniYaml::GlobalPool());
+          for (const auto& node : vec_nodes)
+            preview_at(node.Key ? *node.Key : std::string{})
+                .CompleteRemoteSearch(&node, fn_map_details_received);
+        } catch (...) {
+          debug_log("Remote map query failed with error:");
+          debug_log("URL was: " + str_url);
+        }
+      } else {
+        debug_log("Remote map query failed with error:");
+        debug_log("URL was: " + str_url);
+      }
+
+      // 批尾:仍 Searching = 服务器未答此图 → CompleteRemoteSearch(null)
+      // (L253-257)
+      // Batch tail: still Searching = the server left this map unanswered
+      // → CompleteRemoteSearch(null) (L253-257).
+      for (std::size_t st_i = st_begin; st_i < st_end; ++st_i) {
+        MapPreview& preview = preview_at(vec_query_uids[st_i]);
+        if (preview.Status() == MapStatus::Searching)
+          preview.CompleteRemoteSearch(nullptr, fn_map_query_failed);
+      }
+    }
+  }}.detach();
 }
 
 std::string MapCache::ChooseInitialMap(const std::string& str_initial_uid,
