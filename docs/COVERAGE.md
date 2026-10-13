@@ -876,14 +876,15 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 
 依 ../cpp26.md §二「std→Boost→自研」顺序对未完成面/未展开面的前置选型登记
 (落地批次实施时按此执行,勿再自研;均为规划条目,不占偏离号;接入 =
-ora_core 的 ../liboost include 已就位 + std_import 白名单逐头放行):
+ora_core 的 third_party/boost 闭包 include 已就位 + std_import 白名单逐头放
+行;闭包外组件须先补拷进 third_party/boost 并重跑 clang++ -M 闭包校验):
 
 | 面 | 触发批次/现状 | Boost 组件 | 接入注意 |
 |---|---|---|---|
 | HTTP 客户端 | **已落地(D236+第十七批)**:POST 面 = MasterServerPinger 的 fn_post 缺省(net::HttpPostSync);GET 面 = QueryRemoteMapDetails/Install/CheckModVersion 的 net::HttpGetSync(src/net/http_sync 的 ora_http 库,回环全链验收) | boost::beast ✓ | 同步收发在专属线程(await 的非阻塞等价),io_context 局部持有,全程 ec 重载无 throw;GET 进度粒度偏离见 D237;不动已锁定的 socket 层与注入面 |
 | 网络增量策略 | tcp_socket/udp_socket(WinSock2 直连)已对拍锁定 + 回环测试全绿 —— 已建成面保留 | boost::asio | 新增网络面(非 HTTP 的裸 socket 需求)禁再扩 WinSock2 直连封装,一律走 asio;重写已锁定面 = 纯风险无收益,不做 |
 | URL 解析 | **已落地(D236+第十七批)**:PostSync/GetSync 的 URI 解析消费点直调(scheme/host/port/path/query/authority) | boost::url ✓ | **非纯 header-only**:ipv4/pct/normalize 等 19 个 src 需编译 —— CMake 目标 ora_boost_url(-w 抑第三方告警)链接 ora_http/ora_server;authority() 等视图与 std::string_view 不同型,经 data/size 显式构造 |
-| CLI 参数解析 | Phase 8 Utility;--check-yaml/--map-hash/--resolved-rules/--extract/--docs 子命令未开始(tools/replaydiff 现为手写 argv 读取,仅两位置参数,不动) | boost::program_options | 少数需编译态组件之一(cpp26.md 指明):先在 ../liboost 内 bootstrap+b2 构建,再 find_package(Boost 1.92 REQUIRED COMPONENTS program_options);Utility CLI 立项时接入 |
+| CLI 参数解析 | Phase 8 Utility;--check-yaml/--map-hash/--resolved-rules/--extract/--docs 子命令未开始(tools/replaydiff 现为手写 argv 读取,仅两位置参数,不动) | boost::program_options | 少数需编译态组件之一(cpp26.md 指明):闭包外组件 —— 先从完整 Boost 树补拷 program_options 头闭包进 third_party/boost(其编译态库可在树外 b2 构建或随批评估 header-only 形态);Utility CLI 立项时接入 |
 | UUID 生成 | 未定批次;Platform.SessionGUID 现为 ServerDeps 注入(宿主提供字符串),C++ 侧无自生成点 | boost::uuid | header-only(uuid/random_generator);C++ 侧需自生成 GUID 时接入,注入面形态不变 |
 | JSON | 条件性;当前数据面 = MiniYaml + 二进制 + base64,无 JSON 需求 | boost::json | 仅当资源中心应答为 JSON 时接入;BOOST_JSON_HEADER_ONLY 纯头形态 |
 
