@@ -103,7 +103,17 @@ endfunction()
 
 # ———— 引擎库(Phase 0:core 全为 constexpr 头文件;Phase 1 起含编译单元)
 add_library(ora_core INTERFACE)
-target_include_directories(ora_core INTERFACE ${CMAKE_SOURCE_DIR}/src)
+# Boost 1.92 header-only 组件(../liboost;cpp26.md §二 std→Boost→自研选型。
+# sha1.hpp 经 boost/hash2/sha1_160 承载;INTERFACE 传递 = 全下游可用)
+# Boost 1.92 header-only components (../liboost; the cpp26.md §2
+# std→Boost→self-write selection. sha1.hpp rides boost/hash2/sha1_160;
+# INTERFACE propagation = available to every downstream target).
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/../liboost/boost/hash2/sha1.hpp")
+  message(FATAL_ERROR "Boost 1.92 source tree not found at ../liboost (expected boost/hash2/sha1.hpp)")
+endif()
+target_include_directories(ora_core INTERFACE
+  ${CMAKE_SOURCE_DIR}/src
+  ${CMAKE_SOURCE_DIR}/../liboost)
 target_compile_options(ora_core INTERFACE
   -fmodule-file=std=${CMAKE_BINARY_DIR}/cxx/std.pcm)
 
@@ -274,8 +284,38 @@ add_library(ora_server STATIC
   src/server/game_server.cpp
   src/server/master_server_pinger.cpp
   src/server/lobby_commands.cpp)
-target_link_libraries(ora_server PUBLIC ora_net ora_game PRIVATE ora_map ora_platform ora_sim)
+target_link_libraries(ora_server PUBLIC ora_net ora_game PRIVATE ora_map ora_platform ora_sim ora_boost_url)
 ora_link_std(ora_server)
+
+# 第三方:Boost.URL 的编译态符号面(../liboost 的 19 个 src;url 非纯
+# header-only,ipv4/pct/normalize 等符号需编译;HTTP 批的 endpoint 解析
+# 消费点直调。boost 源码经典 include,不走 import std。)
+# Third party: Boost.URL's compiled-symbol face (the 19 src files of
+# ../liboost; url is not purely header-only — the ipv4/pct/normalize
+# symbols need compiling; the HTTP batch's endpoint parse consumes it by
+# the direct call. The boost sources include classically, no import std).
+add_library(ora_boost_url STATIC
+  ../liboost/libs/url/src/decode_view.cpp
+  ../liboost/libs/url/src/detail/decode.cpp
+  ../liboost/libs/url/src/detail/except.cpp
+  ../liboost/libs/url/src/detail/format_args.cpp
+  ../liboost/libs/url/src/detail/normalize.cpp
+  ../liboost/libs/url/src/detail/pattern.cpp
+  ../liboost/libs/url/src/detail/pct_format.cpp
+  ../liboost/libs/url/src/detail/replacement_field_rule.cpp
+  ../liboost/libs/url/src/detail/vformat.cpp
+  ../liboost/libs/url/src/error.cpp
+  ../liboost/libs/url/src/grammar/ci_string.cpp
+  ../liboost/libs/url/src/grammar/detail/recycled.cpp
+  ../liboost/libs/url/src/grammar/error.cpp
+  ../liboost/libs/url/src/grammar/string_view_base.cpp
+  ../liboost/libs/url/src/ipv4_address.cpp
+  ../liboost/libs/url/src/ipv6_address.cpp
+  ../liboost/libs/url/src/parse_path.cpp
+  ../liboost/libs/url/src/parse_query.cpp
+  ../liboost/libs/url/src/pct_string_view.cpp)
+target_include_directories(ora_boost_url PUBLIC ${CMAKE_SOURCE_DIR}/../liboost)
+target_compile_options(ora_boost_url PRIVATE -w)
 
 # ———— Phase 4 第一批:平台层 + 渲染命令缓冲 ————
 # Phase 4 first batch: the platform layer + the render command buffer.

@@ -4,33 +4,18 @@ import std;
 
 #include "map/map.hpp"
 
-#include "core/sha1.hpp"
 #include "core/wvec.hpp"
 #include "game/mod_data.hpp"
 #include "game/ruleset.hpp"
 #include "gfx/sequence_set.hpp"
 #include "meta/field_loader.hpp"
 #include "terrain/terrain_info.hpp"
+#include <boost/hash2/sha1.hpp>  // SHA-1 承载(std→Boost 选型;白名单头)| the SHA-1 carrier (the std→Boost selection; a whitelisted header)
+#include <boost/regex.hpp>  // 上游 Regex 直调(性能选型,优于 std::regex;白名单头)| the upstream Regex by direct call (a performance selection over std::regex; a whitelisted header)
 
 namespace ora::map {
 
 namespace {
-
-/// .NET char.IsWhiteSpace 的 ASCII + Unicode 子集(MiniYaml 侧同款语义)
-/// The ASCII + Unicode subset of .NET char.IsWhiteSpace (the MiniYaml-side
-/// semantics).
-bool IsWs(char c) {
-  return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' ||
-         c == '\f';
-}
-
-std::string_view TrimWs(std::string_view s) {
-  while (!s.empty() && IsWs(s.front()))
-    s.remove_prefix(1);
-  while (!s.empty() && IsWs(s.back()))
-    s.remove_suffix(1);
-  return s;
-}
 
 struct StreamReader {
   std::span<const char> bytes;
@@ -60,42 +45,37 @@ struct StreamReader {
   }
 };
 
-/// GetMapFormat 的行匹配(Map.cs L331 的 Regex "^MapFormat:\s*(\d*)\s*$")
-/// The line match of GetMapFormat (Map.cs L331's regex).
+/// GetMapFormat 的行匹配(Map.cs L331 的 Regex "^MapFormat:\s*(\d*)\s*$"
+/// boost::regex 直调;boost perl 的 \s = [ \t\n\r\f\v] 与 .NET 的 ASCII
+/// 面一致)
+/// The line match of GetMapFormat (Map.cs L331's regex
+/// "^MapFormat:\s*(\d*)\s*$" by the direct boost::regex call; boost
+/// perl's \s = [ \t\n\r\f\v] agrees with .NET's ASCII face).
 std::optional<int> MatchMapFormatLine(std::string_view line) {
-  // ^MapFormat:\s*(\d*)\s*$:前缀字面量 + 两侧空白 + 数字组(可空)
-  if (!line.starts_with("MapFormat:"))
+  static const boost::regex re_format("^MapFormat:\\s*(\\d*)\\s*$");
+  boost::cmatch m;
+  if (!boost::regex_search(line.data(), line.data() + line.size(), m, re_format))
     return std::nullopt;
-  const std::string_view tail = line.substr(std::strlen("MapFormat:"));
-  const std::size_t pos_digits_start = tail.find_first_not_of(" \t\n\r\v\f");
-  if (pos_digits_start == std::string_view::npos)
-    return std::nullopt;
-  std::size_t pos_digits_end = pos_digits_start;
-  while (pos_digits_end < tail.size() && tail[pos_digits_end] >= '0' &&
-         tail[pos_digits_end] <= '9')
-    pos_digits_end++;
-  if (TrimWs(tail.substr(pos_digits_end)) != tail.substr(pos_digits_end, 0) &&
-      !TrimWs(tail.substr(pos_digits_end)).empty())
-    return std::nullopt;  // 数字组后仍需 \s*$ | digits must be followed by \s*$
-  if (pos_digits_end == pos_digits_start)
-    return std::nullopt;  // \d* 至少需要匹配 $ 前内容;空组 = 无效
-                          // (上游 (\d*) 可空但随后 \s*$ 必须达行尾;
-                          //  "MapFormat:" 空值 → 组空 → GetValue<int>("") 失败
-                          //  —— 等价忽略该行)
+  if (m[1].length() == 0)
+    return std::nullopt;  // 空组 = 上游 GetValue<int>("") 失败 —— 等价
+                          // 忽略该行(上游 (\d*) 可空但 GetValue 空串失败)
                           // an empty group fails GetValue<int> upstream —
                           // equivalently ignored here.
-  return std::stoi(std::string{tail.substr(pos_digits_start,
-                                           pos_digits_end - pos_digits_start)});
+  int int4_value = 0;
+  if (std::from_chars(m[1].first, m[1].second, int4_value).ec != std::errc{})
+    return std::nullopt;
+  return int4_value;
 }
 
 /// CryptoUtil.SHA1Hash(CryptoUtil.cs L251-258):20 字节摘要 → 小写 hex
 /// CryptoUtil.SHA1Hash (CryptoUtil.cs L251-258): the 20-byte digest →
 /// lowercase hex.
-std::string CryptoSha1Hex(std::span<const unsigned char> digest) {
+std::string CryptoSha1Hex(const boost::hash2::digest<20>& digest) {
   static constexpr char kHexLower[] = "0123456789abcdef";
   std::string out;
   out.reserve(digest.size() * 2);
-  for (const unsigned char b : digest) {
+  for (std::size_t st_i = 0; st_i < digest.size(); ++st_i) {
+    const unsigned char b = digest.data()[st_i];
     out.push_back(kHexLower[b >> 4]);
     out.push_back(kHexLower[b & 0xF]);
   }
@@ -163,17 +143,15 @@ std::string Map::ComputeUID(const fs::IReadOnlyPackage& package, int format) {
     }
   }
 
-  // Take the SHA1(上游注释)
-  if (streams.empty()) {
-    // CryptoUtil.SHA1Hash([])(L306)
-    const auto digest = sha1::HashData({});
-    return CryptoSha1Hex(digest);
-  }
-  sha1::Sha1 s;
+  // Take the SHA1(上游注释;streams 空 = 零次 update,SHA1([]) 同值,
+  // CryptoUtil.SHA1Hash([]) 的 L306 形态)
+  // Take the SHA1 (the upstream comment; an empty streams = zero updates,
+  // identical to SHA1([]), the L306 form of CryptoUtil.SHA1Hash([])).
+  boost::hash2::sha1_160 hasher;
   for (const auto& data : streams)
-    s.Update(std::span<const unsigned char>(
-        reinterpret_cast<const unsigned char*>(data.data()), data.size()));
-  return CryptoSha1Hex(s.Finish());
+    hasher.update(reinterpret_cast<const unsigned char*>(data.data()),
+                  data.size());
+  return CryptoSha1Hex(hasher.result());
 }
 
 int Map::GetMapFormat(const fs::IReadOnlyPackage& p) {

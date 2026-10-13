@@ -840,3 +840,37 @@ ASan+UBSan 与 Release 双构建通过(ctest 6/6)。
 | D231 | src/net/ unit_orders | 上游 Game/Settings/ModData/MapCache 静态直调 → 注入族:SetClientJoinFace(HandshakeRequest 应答的 Mod/Version/Player/Password/Fingerprint/Sign 六面合一;缺省空 = 分支早退)、SetMapCacheAtFn(GenerateMap;缺省 null 早退)、SetRuntimeMsFn(DisableChatEntry)、SetLobbyInfoChangedHandler(Game.SyncLobbyInfo)、SetStartGameHandler(D199 沿用);ExternalMods 注册表恒空 —— CurrentServerSettings.ServerExternalMod 跨进程 mod 切换分支永不触发(ConnectionFailedLogic 随 Phase 6);KickVoteTarget → TU 静态 + 访问器(ClearUnitOrdersStatics = 上游 UnitOrders.Clear);Chat 的 int==uint 比较 → long 等值承载 | 引擎环境依赖的装配面;UI/跨进程面分批;C# 隐式数值扩宽的显式化 |
 | D232 | src/net/ unit_orders | SyncLobbySlots 的 Dictionary.Add 重复键抛 → 插入序表首键去重(D195 同形);SyncLobbyClients/Slots/Global 的 FieldLoader 装载失败节点静默丢弃(上游单节点异常向上冒泡至 OM 外层;分支内等价丢弃保 order 流);PauseGame 上游直读 orderManager.World(大厅期 NRE 不可达)→ 空守卫早退;SaveTraitData 的空节点/解析失败 → 静默返回 | 无 throw 规范的 no-throw 承载;不可达面的防御等价 |
 | D233 | src/game/ game | JoinInner 的 TextNotificationsManager.Clear + UnitOrders.Clear 落地(C# 静态直调);Game.SyncLobbyInfo 的 LobbyInfoChanged event → vector<function> 事件面 + net::SetLobbyInfoChangedHandler 转发(JoinInner 装配);Game.RunTime 同批注入 net(SetRuntimeMsFn) | C# event/静态面的 C++ 分层承载;时序与触发点一致 |
+
+## 基础设施批:SHA-1 与正则的 Boost 承载 —— std→Boost 选型合规(2026-10-13)
+
+- **背景**:依 ../cpp26.md §二「std→Boost→自研」强制选型审查,src/core/sha1.hpp 的 167 行手写 FIPS 180-1 实现属 std 未覆盖但 Boost 已有能力(boost::hash2::sha1_160,Boost 1.92 header-only)的自研 —— 本批替换为 Boost 直调并**删除门面**,消除唯一一处选型顺序违规。
+- **移植面**:删除 src/core/sha1.hpp;消费点直调 boost::hash2::sha1_160 —— map.cpp 的 ComputeUID(单 hasher 循环 update + result();streams 空 = 零次 update,SHA1([]) 同值 = 上游 CryptoUtil.SHA1Hash([]) 的 L306 形态;CryptoSha1Hex 参数改 digest<20>)+ map_test 的 TestSha1(FIPS 180-1 向量 "abc"/空串 + 前 26/后 26 两段 update 与一次性恒等)。语义差异注记:boost 的 result() 将 padding 写入自身状态(摘要后对象不可复用),原实现同样声明复用不属契约,单趟消费契约不变。工程接线:ora_core INTERFACE 增 ../liboost include(EXISTS 守卫);std_import 白名单 +boost/hash2/sha1.hpp。
+- **验收**:map_test TestSha1 + Map UID 黄金面随 map_test 全量;三构建全绿;门禁 std_import(535,白名单 +boost/hash2/sha1.hpp)/upstream_check(505+7 可选)PASS。
+
+### 已登记偏离(基础设施批)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D234 | src/core/ sha1.hpp(删除)+ src/map/ map.cpp + tests/ map_test.cpp | SHA-1 实现载体:167 行手写 FIPS 180-1(sha1.hpp 门面)→ 消费点直调 boost::hash2::sha1_160,门面删除;ComputeUID 的 CryptoSha1Hex 参数 span<const unsigned char> → digest<20>;boost result() 的 padding 写入自身状态 vs 原本地快照 —— 摘要后复用均不属契约,单趟消费等价 | ../cpp26.md §二选型顺序(std 无加密哈希,Boost 补位);Map UID/oracle 黄金哈希消费点经 map_test 标准向量锁定 |
+| D235 | src/formats/ shp_remastered(.hpp/.cpp)+ src/map/ map.cpp | 两处正则手写复刻(D67)→ boost::regex 消费点直调:ShpRemastered 的 FilenameRegex(惰性 .+?[\-_] 最左匹配)/MetaRegex(六命名组 + regex_match 全串恰匹配)与 Map.cs L331 的 "^MapFormat:\s*(\d*)\s*$"(空组 = GetValue<int>("") 失败的等价忽略短路保留;空组后 stoi → from_chars,超长数字串不再越界抛);map.cpp 的 IsWs/TrimWs/ParseDigits 随手写体删除;pattern 以函数级 static const 缓存(每次调用的重编译开销归零) | boost::regex 匹配引擎性能优于 std::regex(../cpp26.md §二 std 优先规则的性能豁免);boost perl \s = [ \t\n\r\f\v ] 与手写版 .NET ASCII 面一致;探针实证 header-only 可链(无 libboost_regex 依赖),FIPS 级语义逐向量验证 |
+
+| D236 | src/server/ master_server_pinger.cpp | fn_post 缺省分支「立即失败」占位 → 消费点直调 boost::beast + boost::url:PostSyncBeast(匿名 ns)同步 POST 于专属 detach 线程后回调 fn_done(服务器事件循环不被网络往返阻塞;fn_done 只触 shared_ptr 共享态,越过 trait 析构安全 —— 本文件头注记的 GC 常青语义);上游 L155-158 逐细节对齐:StringContent 单参默认媒体型 "text/plain; charset=utf-8"、无 EnsureSuccessStatusCode(任意状态码读 body)、.NET HttpClient 默认 100s 超时(stream.expires_after);URI 非法/https(beast 纯同步无 TLS 后端)/DNS/连接/读写失败 = false(上游 PostAsync 异常路径等价);工程面:boost::urls 非纯 header-only → CMake 目标 ora_boost_url 编译 19 个 src 链接 ora_server;白名单 +url/asio/beast 五头 | ../cpp26.md §二 Boost 补位(HTTP 为 std 未落地面);server_test 新节以回环伪 HTTP 服务器全链验收(POST /master 行/Host 头 authority/StringContent 默认媒体型/body 的 Protocol 2/[0] 应答的 initial ping 日志行) |
+### 未完成/未展开面的 Boost 选型登记(规划条目,2026-10-13)
+
+依 ../cpp26.md §二「std→Boost→自研」顺序对未完成面/未展开面的前置选型登记
+(落地批次实施时按此执行,勿再自研;均为规划条目,不占偏离号;接入 =
+ora_core 的 ../liboost include 已就位 + std_import 白名单逐头放行):
+
+| 面 | 触发批次/现状 | Boost 组件 | 接入注意 |
+|---|---|---|---|
+| HTTP 客户端 | **已落地(D236)**:MasterServerPinger 的 fn_post 缺省分支消费点直调 boost::beast + boost::url(原「立即失败」占位形态移除);资源中心 HTTP 查询仍随其批 | boost::beast ✓ | 同步 POST 在专属 detach 线程(await PostAsync 的非阻塞等价),io_context 局部持有,全程 ec 重载无 throw;不动已锁定的 socket 层与注入面 |
+| 网络增量策略 | tcp_socket/udp_socket(WinSock2 直连)已对拍锁定 + 回环测试全绿 —— 已建成面保留 | boost::asio | 新增网络面(非 HTTP 的裸 socket 需求)禁再扩 WinSock2 直连封装,一律走 asio;重写已锁定面 = 纯风险无收益,不做 |
+| URL 解析 | **endpoint 面已落地(D236)**:PostSyncBeast 的 URI 解析消费点直调(scheme/host/port/path/query);远程地图/资源 URL 仍随其批 | boost::url ✓ | **非纯 header-only**:ipv4/pct/normalize 等 19 个 src 需编译 —— CMake 目标 ora_boost_url(-w 抑第三方告警)链接 ora_server;authority() 等视图与 std::string_view 不同型,经 data/size 显式构造 |
+| CLI 参数解析 | Phase 8 Utility;--check-yaml/--map-hash/--resolved-rules/--extract/--docs 子命令未开始(tools/replaydiff 现为手写 argv 读取,仅两位置参数,不动) | boost::program_options | 少数需编译态组件之一(cpp26.md 指明):先在 ../liboost 内 bootstrap+b2 构建,再 find_package(Boost 1.92 REQUIRED COMPONENTS program_options);Utility CLI 立项时接入 |
+| UUID 生成 | 未定批次;Platform.SessionGUID 现为 ServerDeps 注入(宿主提供字符串),C++ 侧无自生成点 | boost::uuid | header-only(uuid/random_generator);C++ 侧需自生成 GUID 时接入,注入面形态不变 |
+| JSON | 条件性;当前数据面 = MiniYaml + 二进制 + base64,无 JSON 需求 | boost::json | 仅当资源中心应答为 JSON 时接入;BOOST_JSON_HEADER_ONLY 纯头形态 |
+
+已建成面的既定结论(不再审):third_party 全部 C 库(SDL2/OpenAL/FreeType/
+miniz/StbVorbis/Minimp3)与 Blowfish/base64/MT19937/LongBitSet/priority_queue/
+arena/text.hpp 等 —— Boost 均无对应或形态不等价(语义对拍锁定/CRC32 的
+constexpr 约束同),维持现状。

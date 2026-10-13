@@ -1,110 +1,83 @@
 // UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpRemasteredLoader.cs @e180e3225
-// L24-121(实现半;头文件为契约半)。两条正则的等价手写解析:
-//   - FilenameRegex 惰性 .+?[\-_]:自左向右找首个使"前缀 + 恰 4 数字 +
-//     .tga 恰尽"成立的 -/_ 位置(前缀含分隔符);
-//   - MetaRegex:字面前缀 {"size":[ + 数字对 + ],"crop":[ + 四数字 +
-//     字尾 ]},全串恰匹配。
-// 实现半(契约半见头文件)。FilenameRegex 的惰性 .+?[\-_] 自左向右找
-// 首个使"前缀 + 恰 4 数字 + .tga 恰尽"成立的 -/_ 位置(前缀含分隔符);
-// MetaRegex 为字面前缀 {"size":[ + 数字对 + ],"crop":[ + 四数字 + 字尾
-// ]} 的全串恰匹配。容器实现:ora::fs::ReadOnlyZipFile(条目序 = 中央目
-// 录序)。
-// The implementation half (the contract half is in the header).
-// FilenameRegex's lazy .+?[\-_] scans left to right for the first -/_
-// position where "prefix + exactly four digits + .tga exactly to the end"
-// holds (the prefix includes the separator); MetaRegex is an exact
-// full-string match of the literal prefix {"size":[ + a digit pair +
-// ],"crop":[ + four digits + the literal ]} tail. The container:
-// ora::fs::ReadOnlyZipFile (entry order = central directory order).
+// L24-121(实现半;头文件为契约半)。两条上游正则 boost::regex 消费点
+// 直调(D235;原等价手写复刻 D67 由本批取代):
+//   - FilenameRegex ^(?<prefix>.+?[\-_])(?<frame>\d{4})\.tga$ 的惰性
+//     .+? = boost perl 语义的最左匹配(前缀含分隔符);
+//   - MetaRegex 的 {"size":[w,h],"crop":[l,t,r,b]} 六命名组捕获,
+//     regex_match 全串恰匹配。
+// boost::regex 替代 std/手写的选型理由:其匹配引擎性能优于 std::regex
+// (../cpp26.md §二 std 优先规则的性能豁免)。容器实现:ora::fs::
+// ReadOnlyZipFile(条目序 = 中央目录序)。
+// The implementation half (the contract half is in the header). The two
+// upstream regexes are consumed by direct boost::regex calls at the use
+// sites (D235; superseding the former equivalent hand-written parsers of
+// D67): FilenameRegex ^(?<prefix>.+?[\-_])(?<frame>\d{4})\.tga$ with its
+// lazy .+? = the leftmost match of boost's perl semantics (the prefix
+// includes the separator); MetaRegex's six named capture groups over
+// {"size":[w,h],"crop":[l,t,r,b]} with regex_match as the exact
+// full-string match. boost::regex over std/hand-written per the
+// performance exemption of ../cpp26.md §2: its matching engine outperforms
+// std::regex. The container: ora::fs::ReadOnlyZipFile (entry order =
+// central directory order).
 #include "formats/shp_remastered.hpp"
 
 #include "fs/zip_file.hpp"
+#include <boost/regex.hpp>  // 上游两条正则直调(性能选型;白名单头)| the two upstream regexes by direct call (a performance selection; a whitelisted header)
 
 namespace ora::fmt {
 namespace {
 
-/// FilenameRegex(L51)的等价手写解析。返回 false = 不匹配;匹配时
-/// str_prefix 含分隔符,int4_frame = 4 位数字值。
-/// The equivalent hand-written parse of FilenameRegex (L51). False means
-/// no match; on a match str_prefix includes the separator and
-/// int4_frame is the four-digit value.
+/// FilenameRegex(L51)直调:boost::regex 的惰性 .+?[\-_] 最左匹配。返回
+/// false = 不匹配;匹配时 str_prefix 含分隔符,int4_frame = 4 位数字值。
+/// The direct FilenameRegex (L51) call: boost::regex's leftmost lazy
+/// .+?[\-_] match. False means no match; on a match str_prefix includes
+/// the separator and int4_frame is the four-digit value.
 bool MatchFrameName(const std::string& str_name, std::string& str_prefix, std::int32_t& int4_frame) {
-  constexpr std::string_view kSuffixTga = ".tga";
-  if (str_name.size() < 1 + 1 + 4 + 4)  // .+? 至少 1 字符 + 分隔符 + 4 数字 + .tga
+  static const boost::regex re_filename("^(?<prefix>.+?[-_])(?<frame>\\d{4})\\.tga$");
+  boost::smatch m;
+  if (!boost::regex_search(str_name, m, re_filename))
     return false;
-  if (!str_name.ends_with(kSuffixTga))
-    return false;
-
-  // 惰性 .+?:自左向右的首个可行分隔位 = 正则最左匹配。
-  // The lazy .+?: the first feasible separator from the left = the
-  // regex's leftmost match.
-  for (std::size_t st_k = 1; st_k + 1 + 4 + 4 <= str_name.size(); st_k++) {
-    const auto char_sep = str_name[st_k];
-    if (char_sep != '-' && char_sep != '_')
-      continue;
-
-    const auto st_digits = st_k + 1;
-    auto b_all_digits = true;
-    auto int4_value = 0;
-    for (auto int4_i = 0; int4_i < 4; int4_i++) {
-      const auto char_d = str_name[st_digits + static_cast<std::size_t>(int4_i)];
-      if (char_d < '0' || char_d > '9') {
-        b_all_digits = false;
-        break;
-      }
-      int4_value = int4_value * 10 + (char_d - '0');
-    }
-    if (!b_all_digits || st_digits + 4 + 4 != str_name.size())
-      continue;
-
-    str_prefix = str_name.substr(0, st_k + 1);
-    int4_frame = int4_value;
-    return true;
-  }
-  return false;
+  str_prefix = m["prefix"].str();
+  const std::string str_frame = m["frame"].str();
+  std::from_chars(str_frame.data(), str_frame.data() + str_frame.size(), int4_frame);
+  return true;
 }
 
-/// MetaRegex(L52)的等价手写解析(全串恰匹配;失配 = 上游 ParseGroup 的
-/// FormatException 等价抛点,D67)。
-/// The equivalent hand-written parse of MetaRegex (L52) (an exact
-/// full-string match; a mismatch hits the equivalent of upstream
-/// ParseGroup's FormatException, D67).
+/// MetaRegex(L52)的承载结构(失配 = 上游 ParseGroup 的 FormatException
+/// 等价抛点,D67)。
+/// The carrier struct of MetaRegex (L52) (a mismatch hits the equivalent
+/// of upstream ParseGroup's FormatException, D67).
 struct MetaInfo {
   int2 int2_size;
   Rectangle rect_crop;
 };
 
-bool ParseDigits(std::string_view str_text, std::size_t& st_pos, std::int32_t& int4_out) {
-  auto int4_value = 0;
-  auto st_start = st_pos;
-  while (st_pos < str_text.size() && str_text[st_pos] >= '0' && str_text[st_pos] <= '9') {
-    int4_value = int4_value * 10 + (str_text[st_pos] - '0');
-    st_pos++;
-  }
-  if (st_pos == st_start)
-    return false;
-  int4_out = int4_value;
-  return true;
-}
-
+/// MetaRegex(L52)直调:六命名组捕获,regex_match 全串恰匹配(手写的
+/// st_pos==size 恰尽语义)。
+/// The direct MetaRegex (L52) call: six named capture groups with
+/// regex_match as the exact full-string match (the hand-written
+/// st_pos==size exact-consumption semantics).
 bool MatchMetaText(const std::string& str_text, MetaInfo& meta_out) {
-  const std::string_view str_view = str_text;
-  std::size_t st_pos = 0;
+  static const boost::regex re_meta(
+      "\\{\"size\":\\[(?<w>\\d+),(?<h>\\d+)\\],"
+      "\"crop\":\\[(?<l>\\d+),(?<t>\\d+),(?<r>\\d+),(?<b>\\d+)\\]\\}");
+  boost::smatch m;
+  if (!boost::regex_match(str_text, m, re_meta))
+    return false;
 
-  const auto eat = [&](std::string_view str_literal) {
-    if (str_view.substr(st_pos, str_literal.size()) != str_literal)
-      return false;
-    st_pos += str_literal.size();
-    return true;
+  const auto parse_group = [&m](const char* str_group, std::int32_t& int4_out) {
+    const std::string str_value = m[str_group].str();
+    std::from_chars(str_value.data(), str_value.data() + str_value.size(), int4_out);
   };
 
-  std::int32_t int4_width = 0, int4_height = 0, int4_left = 0, int4_top = 0, int4_right = 0, int4_bottom = 0;
-  if (!eat("{\"size\":[") || !ParseDigits(str_view, st_pos, int4_width) || !eat(",") ||
-      !ParseDigits(str_view, st_pos, int4_height) || !eat("],\"crop\":[") || !ParseDigits(str_view, st_pos, int4_left) ||
-      !eat(",") || !ParseDigits(str_view, st_pos, int4_top) || !eat(",") ||
-      !ParseDigits(str_view, st_pos, int4_right) || !eat(",") || !ParseDigits(str_view, st_pos, int4_bottom) ||
-      !eat("]}") || st_pos != str_view.size())
-    return false;
+  std::int32_t int4_width = 0, int4_height = 0;
+  std::int32_t int4_left = 0, int4_top = 0, int4_right = 0, int4_bottom = 0;
+  parse_group("w", int4_width);
+  parse_group("h", int4_height);
+  parse_group("l", int4_left);
+  parse_group("t", int4_top);
+  parse_group("r", int4_right);
+  parse_group("b", int4_bottom);
 
   meta_out = MetaInfo{int2{int4_width, int4_height},
                       Rectangle::FromLTRB(int4_left, int4_top, int4_right, int4_bottom)};

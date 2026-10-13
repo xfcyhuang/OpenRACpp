@@ -9,7 +9,6 @@ namespace ora::gen {
 void RegisterGeneratedAll();
 }  // namespace ora::gen
 
-#include "core/sha1.hpp"
 #include "core/polygon.hpp"
 #include "fs/folder.hpp"
 #include "game/game.hpp"
@@ -24,6 +23,7 @@ void RegisterGeneratedAll();
 #include "sim/spatially_partitioned.hpp"
 #include "mods/create_map_players.hpp"
 #include "sim/world.hpp"
+#include <boost/hash2/sha1.hpp>  // SHA-1 承载(std→Boost 选型;白名单头)| the SHA-1 carrier (the std→Boost selection; a whitelisted header)
 #include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 using namespace ora;
@@ -44,29 +44,39 @@ void CheckEq(const A& a, const B& b, const std::string& what) {
   Check(a == b, std::format("{} ({} == {})", what, a, b));
 }
 
-// ———— SHA-1 标准向量(FIPS 180-1 附录;一次性摘要与流式同值)————
+// ———— SHA-1 标准向量(FIPS 180-1 附录;boost::hash2 直调;多段流式与一次性同值)————
+// ———— SHA-1 standard vectors (the FIPS 180-1 appendix; the direct
+// boost::hash2 calls; the multi-segment streaming == the one-shot) ————
 void TestSha1() {
-  const auto hex = [](std::span<const unsigned char> bytes) {
-    ora::sha1::Sha1 s;
-    s.Update(bytes);
-    auto d = s.Finish();
+  const auto hex_digest = [](const boost::hash2::digest<20>& d) {
     std::string out;
-    for (unsigned char b : d) {
+    for (std::size_t st_i = 0; st_i < d.size(); ++st_i) {
+      const unsigned char b = d.data()[st_i];
       out += "0123456789abcdef"[b >> 4];
       out += "0123456789abcdef"[b & 0xF];
     }
     return out;
+  };
+  const auto hex = [&](std::span<const unsigned char> bytes) {
+    boost::hash2::sha1_160 hasher;
+    hasher.update(bytes.data(), bytes.size());
+    return hex_digest(hasher.result());
   };
   CheckEq(hex({}), "da39a3ee5e6b4b0d3255bfef95601890afd80709", "SHA1('')");
   const std::string abc = "abc";
   CheckEq(hex(std::span<const unsigned char>(
               reinterpret_cast<const unsigned char*>(abc.data()), 3)),
           "a9993e364706816aba3e25717850c26c9cd0d89d", "SHA1('abc')");
-  // 52 字节 = 块内多段 Update + 尾部填充路径(流式与一次性恒等)
+  // 52 字节 = 前 26 + 后 26 两段 update(块内分段 + 尾部填充路径)与一次性恒等
+  // 52 bytes = two 26-byte updates (the in-block split + the tail-padding
+  // path) agree with the one-shot.
   const std::string az = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz";
   const std::span<const unsigned char> az_bytes{
       reinterpret_cast<const unsigned char*>(az.data()), az.size()};
-  Check(hex(az_bytes) == ora::sha1::HexOf(ora::sha1::HashData(az_bytes)),
+  boost::hash2::sha1_160 split;
+  split.update(az_bytes.data(), 26);
+  split.update(az_bytes.data() + 26, az_bytes.size() - 26);
+  Check(hex_digest(split.result()) == hex(az_bytes),
         "streaming == one-shot digest");
 }
 

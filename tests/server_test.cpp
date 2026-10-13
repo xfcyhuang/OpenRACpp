@@ -1438,6 +1438,158 @@ void TestMasterServerPingerAndGameServer() {
   }
 }
 
+// ———— MasterServerPinger 的 fn_post 缺省直调(boost::beast + boost::url;
+//      回环伪 HTTP 服务器全链:POST 行/Host 头/StringContent 默认媒体型/
+//      body 的 Protocol 2/initial ping 的 [0] 应答解析)————
+// MasterServerPinger's fn_post default by the direct call (boost::beast +
+// boost::url; the loopback fake-HTTP-server full chain: the POST line/the
+// Host header/the StringContent default media type/the body's Protocol 2/
+// the initial ping's [0]-reply parse).
+void TestMasterServerPingerDefaultBeastPost() {
+  std::println("[server] master pinger default beast post");
+  auto vec_log = std::vector<std::string>{};
+  auto mutex_log = std::mutex{};
+
+  auto listener = platform::TcpSocket::Listen(0);
+  Check(listener.IsValid(), "fake HTTP server listens");
+  const auto int4_http_port = listener.BoundPort();
+
+  // 上游对一次会话恰两投(事件循环 Tick 的 initial + ServerShutdown 的
+  // final),伪服务器须逐连接服务每一个,否则另一投滞留 backlog、收尾
+  // RST 后其 detach 回调越过本函数栈(窄窗悬垂 + 时序 flaky)。
+  // Upstream posts exactly twice per session (the event loop Tick's
+  // initial + ServerShutdown's final), so the fake server must serve
+  // every connection: the other post would otherwise sit in the backlog
+  // and, after the shutdown RST, its detached callback would outlive this
+  // function's stack (a narrow dangling window + timing flakiness).
+  auto str_request = std::string{};
+  auto mutex_request = std::mutex{};
+  auto atomic_served = std::atomic<int>{0};
+  auto thread_serve = std::thread{[&] {
+    while (true) {
+      auto client = listener.Accept();
+      if (!client.IsValid())
+        return;
+      auto str_req = std::string{};
+      const auto read_more = [&]() {
+        std::array<std::uint8_t, 4096> arr_buf{};
+        const auto int4_n = client.ReceiveUpTo(arr_buf.data(), arr_buf.size());
+        if (int4_n <= 0)
+          return false;
+        str_req.append(reinterpret_cast<const char*>(arr_buf.data()),
+                       static_cast<std::size_t>(int4_n));
+        return true;
+      };
+      auto b_complete = true;
+      while (str_req.find("\r\n\r\n") == std::string::npos) {
+        if (!client.PollReadable(3000000) || !read_more()) {
+          b_complete = false;
+          break;
+        }
+      }
+      if (b_complete) {
+        auto int4_content_length = 0;
+        const auto pos_length = str_req.find("Content-Length:");
+        if (pos_length != std::string::npos) {
+          const auto pos_length_end = str_req.find("\r\n", pos_length);
+          std::from_chars(str_req.data() + pos_length + 15,
+                          str_req.data() + pos_length_end,
+                          int4_content_length);
+        }
+        const auto pos_body = str_req.find("\r\n\r\n") + 4;
+        while (str_req.size() - pos_body <
+               static_cast<std::size_t>(int4_content_length)) {
+          if (!client.PollReadable(3000000) || !read_more()) {
+            b_complete = false;
+            break;
+          }
+        }
+      }
+      if (b_complete) {
+        const auto str_reply = std::string{"[0]Beast OK"};
+        const auto str_response =
+            std::format("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                        str_reply.size(), str_reply);
+        client.SendAll(std::span<const std::uint8_t>{
+            reinterpret_cast<const std::uint8_t*>(str_response.data()),
+            str_response.size()});
+        atomic_served.fetch_add(1);
+        {
+          const std::lock_guard lock{mutex_request};
+          if (str_request.empty())
+            str_request = str_req;
+        }
+      }
+    }
+  }};
+
+  auto settings = srv::ServerSettings{};
+  settings.AdvertiseOnLocalNetwork = false;
+  auto deps = srv::MasterServerPingerDeps{};
+  deps.fn_advertise_endpoint = [int4_http_port] {
+    return std::format("http://127.0.0.1:{}/master", int4_http_port);
+  };
+  deps.fn_server_log = [&](std::string_view sv_line) {
+    const std::lock_guard lock{mutex_log};
+    vec_log.emplace_back(sv_line);
+  };
+
+  const auto int4_port = FreePort();
+  auto server = MakeServer(int4_port, srv::ServerType::Multiplayer, settings,
+                           nullptr);
+  server->AddServerTrait(std::make_unique<srv::MasterServerPinger>(
+      std::move(deps)));
+  server->Shutdown();
+
+  const auto b_beast_seen = WaitUntil([&] {
+    const std::lock_guard lock{mutex_log};
+    return std::any_of(vec_log.begin(), vec_log.end(),
+                       [](const std::string& str_line) {
+                         return str_line.find(
+                                    "Master server: [0]Beast OK") !=
+                                std::string::npos;
+                       });
+  }, 5000);
+  if (!b_beast_seen) {
+    const std::lock_guard lock{mutex_log};
+    for (const auto& str_line : vec_log)
+      std::println("beast-debug log: {}", str_line);
+    std::println("beast-debug request ({} bytes): {}",
+                 str_request.size(), str_request);
+  }
+  Check(b_beast_seen, "beast POST round-trip reaches the initial-ping log");
+
+  // 两投都被服务后收尾:served>=2 时两响应均已上线,POST 线程的 fn_done
+  // 只差毫秒级收尾,100ms 余量让 detach 线程跑完再动本函数的栈;随后
+  // Close 解除 serve 线程的 Accept 阻塞,join 方能返回(单投时序下靠
+  // 4s 超时兜底)。
+  // Wind down after both posts are served: once served >= 2 both replies
+  // are on the wire, the POST threads' fn_done calls are milliseconds from
+  // done, and the 100ms grace lets the detached threads finish before this
+  // function's stack moves; Close then unblocks the serve thread's Accept
+  // so join can return (the single-post timing falls back on the 4s
+  // timeout).
+  WaitUntil([&] { return atomic_served.load() >= 2; }, 4000);
+  std::this_thread::sleep_for(std::chrono::milliseconds{100});
+  listener.Close();
+  thread_serve.join();
+
+  Check(str_request.starts_with("POST /master HTTP/1.1"),
+        "beast request line carries the URL path");
+  Check(str_request.find("Host: 127.0.0.1:" +
+                         std::to_string(int4_http_port)) !=
+            std::string::npos,
+        "beast Host header carries the authority");
+  Check(str_request.find("Content-Type: text/plain; charset=utf-8") !=
+            std::string::npos,
+        "StringContent's single-argument default media type");
+  const auto pos_body_check = str_request.find("\r\n\r\n");
+  Check(pos_body_check != std::string::npos &&
+            str_request.substr(pos_body_check + 4).find("Protocol: 2") !=
+                std::string::npos,
+        "POST body carries Protocol 2");
+}
+
 void TestLanBeacon() {
   std::println("[server] lan beacon");
   auto beacon = srv::LanBeacon{"OpenRALANGame", 43210, nullptr};
@@ -1919,6 +2071,7 @@ int main() {
   TestLobbyCommandsBatch();
   TestPlayerPingerDrop();
   TestMasterServerPingerAndGameServer();
+  TestMasterServerPingerDefaultBeastPost();
   TestLanBeacon();
   TestClientWiring();
   TestClientPureBranches();

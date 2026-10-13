@@ -12,6 +12,11 @@
 #include "net/fluent_message.hpp"
 #include "server/game_server.hpp"
 #include "server/server.hpp"
+#include <boost/url.hpp>  // endpoint 的 URI 解析(消费点直调;白名单头)| the endpoint's URI parse (a direct call at the use site; a whitelisted header)
+#include <boost/asio/io_context.hpp>  // beast 承载的局部 io_context(白名单头)| the local io_context riding beast (a whitelisted header)
+#include <boost/asio/ip/tcp.hpp>      // 同上 | same as above
+#include <boost/beast/core.hpp>       // 同上 | same as above
+#include <boost/beast/http.hpp>       // 上游 HttpClient.PostAsync 的消费点直调(白名单头)| the upstream HttpClient.PostAsync by the direct call at the use site (a whitelisted header)
 
 namespace ora::server {
 
@@ -32,6 +37,82 @@ constexpr std::string_view kGameOffline = "notification-game-offline";
 
 constexpr std::string_view kBeaconType = "OpenRALANGame";
 constexpr int kDiscoveryPort = 35891;  // BeaconLib.DiscoveryPort
+
+/// fn_post 缺省的直调形态(上游 L155-158:HttpClient.PostAsync(endpoint,
+/// new StringContent(postData)) + ReadAsStringAsync):StringContent 单参 =
+/// "text/plain; charset=utf-8";无 EnsureSuccessStatusCode —— 任意状态码
+/// 都读 body;.NET HttpClient 默认 100s 超时。全程 boost::system::
+/// error_code 重载,无 throw;URI 非法/https(纯同步 beast 无 TLS 后端)/
+/// DNS/连接/读写任一失败 = false(上游 PostAsync 异常路径的等价)。
+/// The direct form of fn_post's default (upstream L155-158:
+/// HttpClient.PostAsync(endpoint, new StringContent(postData)) +
+/// ReadAsStringAsync): the single-argument StringContent = "text/plain;
+/// charset=utf-8"; no EnsureSuccessStatusCode — any status code still reads
+/// the body; .NET HttpClient's default 100s timeout. Every step takes the
+/// boost::system::error_code overload, no throw; an invalid URI / https
+/// (plain synchronous beast carries no TLS backend) / any DNS/connect/
+/// read/write failure = false (the equivalent of upstream's PostAsync
+/// exception path).
+bool PostSyncBeast(const std::string& str_endpoint, const std::string& str_body,
+                   std::string& str_response_out) {
+  namespace asio = boost::asio;
+  namespace http = boost::beast::http;
+  namespace urls = boost::urls;
+
+  const auto result_url = urls::parse_uri(str_endpoint);
+  if (!result_url)
+    return false;
+  const urls::url_view uv_endpoint = *result_url;
+  if (uv_endpoint.scheme_id() != urls::scheme::http)
+    return false;
+  std::string str_host{uv_endpoint.host()};
+  if (str_host.empty())
+    return false;
+  const std::string str_port =
+      uv_endpoint.port().empty() ? std::string{"80"}
+                                 : std::string{uv_endpoint.port()};
+  std::string str_target{uv_endpoint.path()};
+  if (uv_endpoint.has_query())
+    str_target += "?" + std::string{uv_endpoint.query()};
+
+  asio::io_context io_context_local{};
+  asio::ip::tcp::resolver resolver{io_context_local};
+  boost::system::error_code ec{};
+  const auto endpoints_resolved = resolver.resolve(str_host, str_port, ec);
+  if (ec || endpoints_resolved.empty())
+    return false;
+
+  boost::beast::tcp_stream stream{io_context_local};
+  stream.expires_after(std::chrono::seconds{100});
+  stream.connect(endpoints_resolved, ec);
+  if (ec)
+    return false;
+
+  http::request<http::string_body> request{
+      http::verb::post,
+      str_target.empty() ? std::string{"/"} : str_target, 11};
+  const auto sv_authority = uv_endpoint.authority();
+  request.set(http::field::host,
+              std::string{sv_authority.data(), sv_authority.size()});
+  request.set(http::field::content_type, "text/plain; charset=utf-8");
+  request.body() = str_body;
+  request.prepare_payload();
+
+  http::write(stream, request, ec);
+  if (ec)
+    return false;
+
+  boost::beast::flat_buffer buffer;
+  http::response<http::string_body> response;
+  http::read(stream, buffer, response, ec);
+  if (ec)
+    return false;
+
+  str_response_out = response.body();
+
+  stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, ec);
+  return true;
+}
 
 /// BeaconLib.Encode:2 字节小端长度前缀 + UTF-8
 /// BeaconLib.Encode: a 2-byte little-endian length prefix + UTF-8.
@@ -347,10 +428,25 @@ void MasterServerPinger::UpdateMasterServer(const Server&,
       deps_.fn_advertise_endpoint ? deps_.fn_advertise_endpoint()
                                   : std::string{};
   if (!deps_.fn_post) {
-    // HttpClient 构建失败的等价面:异常路径 → Error 通知
-    // The equivalent of HttpClient construction failing: the exception
-    // path → the Error notification.
-    fn_done(false, "");
+    // HttpClient 的消费点直调(D236):boost::beast + boost::url 的同步
+    // POST 在专属线程执行后回调 —— 上游 await PostAsync 的非阻塞等价
+    // (服务器事件循环不被网络往返卡住);fn_done 只触 SharedState
+    // (shared_ptr),detach 线程越过 trait 析构仍安全(本文件头注记的
+    // GC 常青语义);原缺省「立即失败」为 HTTP 未展开期的占位形态。
+    // The HttpClient direct call at the use site (D236): the synchronous
+    // boost::beast + boost::url POST runs on a dedicated thread and then
+    // calls back — the non-blocking equivalent of upstream's await
+    // PostAsync (the server event loop never stalls on the network
+    // round-trip); fn_done touches only the SharedState (shared_ptr), so
+    // a detached thread remains safe past the trait's destruction (the
+    // GC-evergreen note in this file's header); the former "fail at
+    // once" default was the placeholder of the unexpanded HTTP era.
+    std::thread{[str_endpoint, str_post_data, fn_done]() {
+      std::string str_response;
+      const bool b_ok =
+          PostSyncBeast(str_endpoint, str_post_data, str_response);
+      fn_done(b_ok, std::move(str_response));
+    }}.detach();
     return;
   }
 

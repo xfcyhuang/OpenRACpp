@@ -5,7 +5,8 @@
 // 缺号帧 = 空白 TgaFrame、meta 条目 {"size":[w,h],"crop":[l,t,r,b]} 的
 // 画框/裁剪窗口、前缀不一致即抛。SharpZipLib ZipFile → ora::fs::
 // ReadOnlyZipFile(miniz;条目枚举序 = 中央目录序,同 SharpZipLib 事实序);
-// 两条正则以等价的手写最左匹配解析复刻(COVERAGE 登记 D67)。
+// 两条正则 boost::regex 消费点直调(性能选型,取代 D67 手写复刻;
+// COVERAGE 登记 D235)。
 // The Remastered SHP is a zip container: the entry-name regex ^(?<prefix>.
 // +?[\-_])(?<frame>\d{4})\.tga$ with its lazy prefix (the shortest .+?
 // followed by a -/_ separator), frame count = max(frame+1), gap frames as
@@ -13,8 +14,9 @@
 // canvas/crop window, and the prefix-mismatch throw. SharpZipLib ZipFile →
 // ora::fs::ReadOnlyZipFile (miniz; the entry enumeration order = the
 // central-directory order, the same de-facto order as SharpZipLib); the
-// two regexes are reproduced as equivalent hand-written leftmost-match
-// parsers (registered as D67).
+// two regexes are consumed by direct boost::regex calls at the use sites
+// (a performance selection superseding the D67 hand-written parsers;
+// registered as D235).
 #pragma once
 import std;
 
