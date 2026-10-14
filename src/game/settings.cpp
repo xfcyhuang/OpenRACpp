@@ -7,6 +7,7 @@
 #include "meta/dump_format.hpp"
 #include "meta/field_loader.hpp"
 #include "meta/field_saver.hpp"
+#include "meta/parse.hpp"
 
 namespace ora::game {
 
@@ -60,6 +61,32 @@ constexpr FieldDesc kGameSettingsFields[] = {
     {.str_name = "UsePlayerStanceColors", .type = FieldType::Bool},
 };
 
+/// GraphicSettings 字段表(Settings.cs L237-280;全字段;枚举经本文件的
+/// WindowMode/GLProfile/WorldViewport 注册表)
+/// The GraphicSettings field table (Settings.cs L237-280; every field; the
+/// enums go through this file's WindowMode/GLProfile/WorldViewport registry
+/// entries).
+constexpr FieldDesc kGraphicSettingsFields[] = {
+    {.str_name = "Mode", .type = FieldType::Enum, .b_required = false,
+     .str_loader = {}, .str_type_name = "OpenRA.WindowMode"},
+    {.str_name = "VSync", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "FullscreenSize", .type = FieldType::Int2, .b_required = false},
+    {.str_name = "WindowedSize", .type = FieldType::Int2, .b_required = false},
+    {.str_name = "CursorDouble", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "ViewportDistance", .type = FieldType::Enum, .b_required = false,
+     .str_type_name = "OpenRA.WorldViewport"},
+    {.str_name = "UIScale", .type = FieldType::Float, .b_required = false},
+    {.str_name = "CapFramerate", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "MaxFramerate", .type = FieldType::Int32, .b_required = false},
+    {.str_name = "CapFramerateToGameFps", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "DisableGLDebugMessageCallback", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "DisableHardwareCursors", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "VideoDisplay", .type = FieldType::Int32, .b_required = false},
+    {.str_name = "GLProfile", .type = FieldType::Enum, .b_required = false,
+     .str_type_name = "OpenRA.GLProfile"},
+};
+
 /// PlayerSettings/GameSettings 的默认值(展开序 = 字段序)
 /// The PlayerSettings/GameSettings defaults (the expansion order = the
 /// field order).
@@ -97,6 +124,39 @@ const std::vector<GenericValue>& GameSettingsDefaults() {
   return vec_defaults;
 }
 
+/// GraphicSettings 默认值(Settings.cs L237-280 字面量;枚举槽 = 底层值:
+/// WindowMode.PseudoFullscreen=2 / WorldViewport.Medium=2 / GLProfile.
+/// Automatic=0)
+/// The GraphicSettings defaults (Settings.cs L237-280's literals; enum slots
+/// = the underlying values: WindowMode.PseudoFullscreen=2 /
+/// WorldViewport.Medium=2 / GLProfile.Automatic=0).
+const std::vector<GenericValue>& GraphicSettingsDefaults() {
+  const auto fn_tuple2 = [](std::int64_t int8_a, std::int64_t int8_b) {
+    meta::GenericTuple t{};
+    t.arr_ints[0] = int8_a;
+    t.arr_ints[1] = int8_b;
+    t.uint1_count = 2;
+    return GenericValue::Of(t);
+  };
+  static const std::vector<GenericValue> vec_defaults = {
+      GenericValue::Of(static_cast<std::int64_t>(2)),
+      GenericValue::Of(true),
+      fn_tuple2(0, 0),
+      fn_tuple2(1024, 768),
+      GenericValue::Of(false),
+      GenericValue::Of(static_cast<std::int64_t>(2)),
+      GenericValue::Of(1.0f),
+      GenericValue::Of(false),
+      GenericValue::Of(static_cast<std::int64_t>(60)),
+      GenericValue::Of(false),
+      GenericValue::Of(false),
+      GenericValue::Of(false),
+      GenericValue::Of(static_cast<std::int64_t>(0)),
+      GenericValue::Of(static_cast<std::int64_t>(0)),
+  };
+  return vec_defaults;
+}
+
 constexpr meta::RecordDesc kPlayerSettingsDesc = {
     .str_name = "PlayerSettings",
     .str_full_name = "OpenRA.PlayerSettings",
@@ -117,6 +177,46 @@ constexpr meta::RecordDesc kGameSettingsDesc = {
     .interfaces = {},
 };
 
+constexpr meta::RecordDesc kGraphicSettingsDesc = {
+    .str_name = "GraphicSettings",
+    .str_full_name = "OpenRA.GraphicSettings",
+    .str_base = "",
+    .fields = kGraphicSettingsFields,
+    .requires_types = {},
+    .not_before_types = {},
+    .interfaces = {},
+};
+
+/// Settings 段的三枚举(PlatformInterfaces.cs L18-24 的 GLProfile/WindowMode
+/// 与 Settings.cs L50 的 WorldViewport;schema_dumper 未导出 —— 引擎核心
+/// 消费域手写注册)
+/// The Graphics section's three enums (PlatformInterfaces.cs L18-24's
+/// GLProfile/WindowMode and Settings.cs L50's WorldViewport; not exported by
+/// schema_dumper — hand-registered for the engine-core consumer domain).
+constexpr meta::EnumMemberDesc kEnumWindowMode[] = {
+    {.str_name = "Windowed", .int4_value = 0},
+    {.str_name = "Fullscreen", .int4_value = 1},
+    {.str_name = "PseudoFullscreen", .int4_value = 2},
+};
+constexpr meta::EnumMemberDesc kEnumGLProfile[] = {
+    {.str_name = "Automatic", .int4_value = 0},
+    {.str_name = "ANGLE", .int4_value = 1},
+    {.str_name = "Modern", .int4_value = 2},
+    {.str_name = "Embedded", .int4_value = 3},
+};
+constexpr meta::EnumMemberDesc kEnumWorldViewport[] = {
+    {.str_name = "Native", .int4_value = 0},
+    {.str_name = "Close", .int4_value = 1},
+    {.str_name = "Medium", .int4_value = 2},
+    {.str_name = "Far", .int4_value = 3},
+};
+
+void RegisterGraphicSettingsEnums() {
+  meta::RegisterEnum("OpenRA.WindowMode", kEnumWindowMode);
+  meta::RegisterEnum("OpenRA.GLProfile", kEnumGLProfile);
+  meta::RegisterEnum("OpenRA.WorldViewport", kEnumWorldViewport);
+}
+
 }  // namespace
 
 const meta::RecordDesc* SettingsDescOf(std::string_view str_section) {
@@ -124,6 +224,8 @@ const meta::RecordDesc* SettingsDescOf(std::string_view str_section) {
     return &kPlayerSettingsDesc;
   if (str_section == "Game")
     return &kGameSettingsDesc;
+  if (str_section == "Graphics")
+    return &kGraphicSettingsDesc;
   return nullptr;
 }
 
@@ -137,7 +239,10 @@ SettingsModule::SettingsModule(const meta::RecordDesc& desc,
     ptr_defaults = &PlayerSettingsDefaults();
   else if (&desc == &kGameSettingsDesc)
     ptr_defaults = &GameSettingsDefaults();
-  else {
+  else if (&desc == &kGraphicSettingsDesc) {
+    RegisterGraphicSettingsEnums();
+    ptr_defaults = &GraphicSettingsDefaults();
+  } else {
     // 未知段:空字段承载(上游 Activator.CreateInstance 的缺省面)
     // An unknown section: the empty carrier (upstream's
     // Activator.CreateInstance default face).
@@ -185,14 +290,18 @@ std::vector<yaml::MiniYamlNode> SettingsModule::Commit(
 // ———— Settings ————
 
 Settings::Settings() {
-  // 上游 [YamlNode("Player"/"Game")] 两段(shared: true)
-  // Upstream's [YamlNode("Player"/"Game")] sections (shared: true).
+  // 上游 [YamlNode("Player"/"Game"/"Graphics")] 三段(shared: true)
+  // Upstream's [YamlNode("Player"/"Game"/"Graphics")] sections (shared:
+  // true).
   if (const meta::RecordDesc* ptr_desc = SettingsDescOf("Player"))
     vec_modules_.push_back(
         std::make_unique<SettingsModule>(*ptr_desc, "Player", true));
   if (const meta::RecordDesc* ptr_desc = SettingsDescOf("Game"))
     vec_modules_.push_back(
         std::make_unique<SettingsModule>(*ptr_desc, "Game", true));
+  if (const meta::RecordDesc* ptr_desc = SettingsDescOf("Graphics"))
+    vec_modules_.push_back(
+        std::make_unique<SettingsModule>(*ptr_desc, "Graphics", true));
 }
 
 void Settings::Load(const std::vector<yaml::MiniYamlNode>& vec_nodes,

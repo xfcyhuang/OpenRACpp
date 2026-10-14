@@ -266,4 +266,19 @@ void Sdl2Window::SetRelativeMouseMode(bool b_enabled) {
   SDL_SetRelativeMouseMode(b_enabled ? SDL_TRUE : SDL_FALSE);
 }
 
+std::string Sdl2Window::GetClipboardText() const {
+  // Sdl2Input.cs L23:SDL_GetClipboardText(null 返回 = 空串)。
+  // Sdl2Input.cs L23: SDL_GetClipboardText (a null return = empty).
+  char* ptr_text = SDL_GetClipboardText();
+  std::string str_ret{ptr_text != nullptr ? ptr_text : ""};
+  SDL_free(ptr_text);
+  return str_ret;
+}
+
+bool Sdl2Window::SetClipboardText(const std::string& str_text) const {
+  // Sdl2Input.cs L24:SDL_SetClipboardText 的 0 = 成功。
+  // Sdl2Input.cs L24: SDL_SetClipboardText's 0 is success.
+  return SDL_SetClipboardText(str_text.c_str()) == 0;
+}
+
 }  // namespace ora::platform

@@ -64,6 +64,13 @@ class WidgetLoader {
   /// L38-44: a miss throws "Cannot find widget with Id `{w}`" verbatim.
   Widget* LoadWidget(WidgetArgs& args_args, Widget* ptr_parent, const std::string& str_id);
 
+  /// 无 parent 根的所有权移交(上游 parentless LoadWidget 的 GC 生命域 →
+  /// AttachPanel 类消费者入树持有;不在锚表返回 null)
+  /// Ownership handover of a parentless root (upstream's parentless
+  /// LoadWidget GC lifetime domain → the AttachPanel-style consumer's tree
+  /// ownership; null when absent from the anchor table).
+  std::unique_ptr<Widget> ReleaseRoot(Widget& widget_root);
+
  private:
   /// L46-75;返回值由 parent(或调用方经 up_widget)持有
   /// L46-75; the return value is held by parent (or the caller via

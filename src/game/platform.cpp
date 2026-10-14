@@ -7,6 +7,14 @@ import std;
 
 namespace ora::game {
 
+bool CurrentPlatformIsOSX() {
+#if defined(__APPLE__)
+  return true;
+#else
+  return false;
+#endif
+}
+
 namespace {
 /// 逐码点级尾部空白裁剪(C# path.TrimEnd(' ', '\t') 只剥这两个字符)
 /// Code-point-level tail trimming (C# path.TrimEnd(' ', '\t') strips these

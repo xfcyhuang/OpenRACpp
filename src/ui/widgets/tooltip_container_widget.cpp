@@ -13,7 +13,7 @@ namespace ora::ui {
 namespace {
 
 bool CursorDoubleOrDefault() {
-  return false;
+  return Ui::HasInstance() && Ui::Instance().CursorDouble();
 }
 
 }  // namespace

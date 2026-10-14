@@ -12,6 +12,14 @@ import std;
 
 namespace ora::game {
 
+/// Platform.CurrentPlatform == PlatformType.OSX(Platform.cs L25-45 的
+/// Environment.OSVersion 探测;按构建目标编译期判定 —— 运行时探测不可能
+/// 跨 OS 撒谎,语义等价,登记 COVERAGE)
+/// Platform.CurrentPlatform == PlatformType.OSX (Platform.cs L25-45's
+/// Environment.OSVersion probe; decided at compile time by the build target
+/// — a runtime probe cannot lie across OSes, semantically equal; registered).
+bool CurrentPlatformIsOSX();
+
 /// Platform.ResolvePath(Platform.cs L288-312):TrimEnd(' ','\t') + 特殊目录
 /// 前缀替换(整值或 '前缀|' 形态)
 /// Platform.ResolvePath (Platform.cs L288-312): TrimEnd(' ','\t') + special

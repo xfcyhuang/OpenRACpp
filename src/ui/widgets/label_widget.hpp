@@ -61,6 +61,13 @@ class LabelWidget : public Widget {
   void IncreaseHeightToFitCurrentText();
   void Draw() override;
 
+  /// 标准委托族的自读重建(ctor 同式;clone 后源体亡于 GC 域外的重绑面 ——
+  /// SimpleTooltipLogic 的模板克隆消费)
+  /// The standard delegate family rebound to self (the ctor's shape; the
+  /// rebinding face for clones whose source dies outside the GC domain —
+  /// consumed by SimpleTooltipLogic's template clone).
+  void BindStandardDelegates();
+
   bool LoadFieldOrProperty(std::string_view str_key, std::string_view str_value) override;
 
   const std::string* GetCursor(int2) const override { return nullptr; }

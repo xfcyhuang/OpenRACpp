@@ -1,10 +1,11 @@
 // UPSTREAM: OpenRA.Game/Settings.cs @e180e3225 L52-340 的起步承载面(
 //          SettingsModule 的 Commit 差异保存协议 + PlayerSettings/
-//          GameSettings 两段手写字段表;其余段与 UI 绑定面随 Phase 6/7)
+//          GameSettings/GraphicSettings 三段手写字段表;其余段与 UI 绑定面
+//          随 Phase 6/7)
 //          The starter face of Settings.cs L52-340 (SettingsModule's
-//          save-differences Commit protocol + the hand-written field
-//          tables of PlayerSettings/GameSettings; the remaining sections
-//          and the UI bindings ride Phase 6/7).
+//          save-differences Commit protocol + the hand-written field tables
+//          of PlayerSettings/GameSettings/GraphicSettings; the remaining
+//          sections and the UI bindings ride Phase 6/7).
 //
 // 机制对照 / Mechanism mapping:
 //  - Settings 具体类的反射字段 → 手写 RecordDesc 描述表(值袋承载,
@@ -55,9 +56,10 @@ class SettingsModule {
   std::unique_ptr<meta::GeneratedRecord> up_defaults_;
 };
 
-/// PlayerSettings/GameSettings 的手写描述表(Settings.cs L309-340/L319-…)
-/// The hand-written descriptors of PlayerSettings/GameSettings (Settings.cs
-/// L309-340/L319-...).
+/// PlayerSettings/GameSettings/GraphicSettings 的手写描述表(Settings.cs
+/// L309-340/L319-…/L237-280)
+/// The hand-written descriptors of PlayerSettings/GameSettings/
+/// GraphicSettings (Settings.cs L309-340/L319-.../L237-280).
 const meta::RecordDesc* SettingsDescOf(std::string_view str_section);
 
 /// 设置承载(段表 + Save 协议;文件 IO 面随 Game 装配)
@@ -65,9 +67,10 @@ const meta::RecordDesc* SettingsDescOf(std::string_view str_section);
 /// IO face rides the Game assembly).
 class Settings {
  public:
-  /// 装配 PlayerSettings/GameSettings 两段(其余段随 Phase 6/7 扩展)
-  /// Assembles the PlayerSettings/GameSettings sections (the rest extend
-  /// with Phase 6/7).
+  /// 装配 PlayerSettings/GameSettings/GraphicSettings 三段(其余段随
+  /// Phase 6/7 扩展)
+  /// Assembles the PlayerSettings/GameSettings/GraphicSettings sections (the
+  /// rest extend with Phase 6/7).
   Settings();
 
   /// 上游 Settings.Load 的段合并面(节点 → 段记录)

@@ -126,6 +126,18 @@ class Sdl2Window {
   /// CursorManager.Lock/Unlock).
   void SetRelativeMouseMode(bool b_enabled);
 
+  /// 剪贴板读(Sdl2PlatformWindow.cs L505-509 → Sdl2Input.cs L23;SDL null
+  /// 返回 = 空串)。
+  /// Clipboard read (Sdl2PlatformWindow.cs L505-509 → Sdl2Input.cs L23;
+  /// SDL's null return becomes the empty string).
+  std::string GetClipboardText() const;
+
+  /// 剪贴板写(Sdl2PlatformWindow.cs L511-515 → Sdl2Input.cs L24;SDL 0 =
+  /// 成功)。
+  /// Clipboard write (Sdl2PlatformWindow.cs L511-515 → Sdl2Input.cs L24;
+  /// SDL's 0 is success).
+  bool SetClipboardText(const std::string& str_text) const;
+
   /// NativeWindowScale(Sdl2PlatformWindow.cs L69-75;drawable/window 的
   /// HiDPI 比 = OPT-B5 快照的 scale 字段)。
   /// NativeWindowScale (Sdl2PlatformWindow.cs L69-75; the drawable/window

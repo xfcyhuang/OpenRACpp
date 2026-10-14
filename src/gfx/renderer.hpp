@@ -213,6 +213,13 @@ class Renderer {
   platform::Sdl2Window& window() { return window_; }
   RenderThread& render() { return render_; }
 
+  /// 剪贴板对(Renderer.cs L568-575 的 Window 转发;TextFieldWidget 的
+  /// Ctrl+C/X/V 消费)。
+  /// The clipboard pair (Renderer.cs L568-575's Window forwarding; consumed
+  /// by TextFieldWidget's Ctrl+C/X/V).
+  bool SetClipboardText(const std::string& str_text) { return window_.SetClipboardText(str_text); }
+  std::string GetClipboardText() const { return window_.GetClipboardText(); }
+
   /// 默认帧缓冲的呈现(EndFrame 内部;渲染线程交换)。
   /// Presents the default framebuffer (inside EndFrame; swapped on the
   /// render thread).

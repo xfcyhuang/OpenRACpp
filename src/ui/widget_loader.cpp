@@ -6,15 +6,20 @@ import std;
 
 #include "ui/widget_loader.hpp"
 
+#include "ui/logic/simple_tooltip_logic.hpp"
 #include "ui/widgets/background_widget.hpp"
 #include "ui/widgets/button_widget.hpp"
 #include "ui/widgets/checkbox_widget.hpp"
 #include "ui/widgets/color_block_widget.hpp"
+#include "ui/widgets/drop_down_button_widget.hpp"
 #include "ui/widgets/image_widget.hpp"
 #include "ui/widgets/label_widget.hpp"
+#include "ui/widgets/label_with_tooltip_widget.hpp"
 #include "ui/widgets/progress_bar_widget.hpp"
 #include "ui/widgets/scroll_item_widget.hpp"
 #include "ui/widgets/scroll_panel_widget.hpp"
+#include "ui/widgets/slider_widget.hpp"
+#include "ui/widgets/text_field_widget.hpp"
 #include "ui/widgets/tooltip_container_widget.hpp"
 
 namespace ora::ui {
@@ -97,6 +102,16 @@ Widget* WidgetLoader::LoadWidget(WidgetArgs& args_args, Widget* ptr_parent,
     vec_owned_.push_back(std::move(up_widget));
   }
   return ptr_widget;
+}
+
+std::unique_ptr<Widget> WidgetLoader::ReleaseRoot(Widget& widget_root) {
+  for (auto it_owned = vec_owned_.begin(); it_owned != vec_owned_.end(); ++it_owned)
+    if (it_owned->get() == &widget_root) {
+      std::unique_ptr<Widget> up_root = std::move(*it_owned);
+      vec_owned_.erase(it_owned);
+      return up_root;
+    }
+  return nullptr;
 }
 
 Widget* WidgetLoader::LoadWidgetNode(WidgetArgs& args_args, Widget* ptr_parent,
@@ -212,6 +227,11 @@ namespace {
         return std::make_unique<ColorBlockWidget>(args_args);
       });
   registry_widgets.Register(
+      "DropDownButtonWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<DropDownButtonWidget>(args_args);
+      });
+  registry_widgets.Register(
       "GradientColorBlockWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
         return std::make_unique<GradientColorBlockWidget>();
       });
@@ -223,6 +243,15 @@ namespace {
       "LabelWidget",
       [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
         return std::make_unique<LabelWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "LabelWithTooltipWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<LabelWithTooltipWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "MaskWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<MaskWidget>();
       });
   registry_widgets.Register(
       "ProgressBarWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
@@ -239,8 +268,31 @@ namespace {
         return std::make_unique<ScrollPanelWidget>(args_args);
       });
   registry_widgets.Register(
+      "SliderWidget", [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<SliderWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "TextFieldWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<TextFieldWidget>(args_args);
+      });
+  registry_widgets.Register(
       "TooltipContainerWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
         return std::make_unique<TooltipContainerWidget>();
+      });
+  return true;
+}();
+
+// ChromeLogic 注册(Phase 6 第三批;集中本 TU —— 静态库的注册对象随
+// WidgetLoader 的引用链保活)
+// The ChromeLogic registrations (the Phase 6 batch three; centralized in
+// this TU — a static library's registration objects stay alive through
+// WidgetLoader's reference chain).
+[[maybe_unused]] const bool kBaseLogicBatchRegistered = [] {
+  ChromeLogicRegistry::Instance().Register(
+      "SimpleTooltipLogic",
+      [](WidgetArgs& args_args) -> std::unique_ptr<ChromeLogic> {
+        return std::make_unique<SimpleTooltipLogic>(args_args);
       });
   return true;
 }();

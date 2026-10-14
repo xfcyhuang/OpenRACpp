@@ -17,18 +17,6 @@ import std;
 #include "ui/widgets/tooltip_container_widget.hpp"
 
 namespace ora::ui {
-namespace {
-
-gfx::SpriteFont& RequireFont(const std::string& str_font) {
-  gfx::Renderer* ptr_renderer = Ui::Instance().RendererDeps();
-  gfx::SpriteFont* ptr_font =
-      ptr_renderer != nullptr ? ptr_renderer->TryGetFont(str_font) : nullptr;
-  if (ptr_font == nullptr)
-    throw std::runtime_error("Requested font '" + str_font + "' was not found.");
-  return *ptr_font;
-}
-
-}  // namespace
 
 ButtonWidget::ButtonWidget(WidgetArgs& args_args) {
   if (const WidgetArgValue* ptr_value = args_args.TryGet("modData"))
@@ -180,7 +168,7 @@ void ButtonWidget::Draw() {
   const Rectangle rect_rb = RenderBounds();
   const bool b_disabled = fn_is_disabled();
   const bool b_highlighted = fn_is_highlighted();
-  gfx::SpriteFont& font_text = RequireFont(str_font);
+  gfx::SpriteFont& font_text = RequireWidgetFont(str_font);
   const std::string str_text_drawn = fn_get_text();
   const core::Color color_drawn = fn_get_color();
   const core::Color color_drawn_disabled = fn_get_color_disabled();

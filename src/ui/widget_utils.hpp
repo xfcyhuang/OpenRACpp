@@ -45,6 +45,15 @@ game::ModData* ModDataOrNull();
 gfx::Renderer& RequireRenderer();
 gfx::ChromeProvider* ChromeProviderOrNull();
 
+/// Game.Renderer.Fonts[name] 的 widget 族统一访问(Label/Button/TextField
+/// /SimpleTooltip 的 RequireFont 合流;缺名抛 ArgumentException 文本逐字;
+/// 生产 = ptr_renderer,测试回落 = Ui Deps fn_try_get_font)
+/// The widget family's unified Game.Renderer.Fonts[name] access (the merged
+/// RequireFont of Label/Button/TextField/SimpleTooltip; a miss throws the
+/// ArgumentException text verbatim; production = ptr_renderer, the test
+/// fallback = Ui Deps fn_try_get_font).
+gfx::SpriteFont& RequireWidgetFont(const std::string& str_font);
+
 /// 状态图名后缀(WidgetUtils.cs L33-42)。
 /// The stateful image-name suffix (WidgetUtils.cs L33-42).
 std::string GetStatefulImageName(std::string_view str_base_name, bool b_disabled = false,

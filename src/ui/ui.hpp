@@ -23,6 +23,7 @@ namespace ora::gfx {
 class Viewport;
 class Renderer;
 class ChromeProvider;
+class SpriteFont;
 }
 namespace ora::game {
 class Ruleset;
@@ -51,6 +52,11 @@ class Ui {
     /// the WidgetLoader.LoadWidget callback; the return value is owned by
     /// parent (isomorphic to upstream).
     std::function<Widget*(WidgetArgs&, Widget*, const std::string&)> fn_load_widget;
+    /// WidgetLoader.ReleaseRoot 回调(无 parent 根的所有权移交;未接线 =
+    /// 返回 null = 调用方自担)
+    /// the WidgetLoader.ReleaseRoot callback (the parentless-root ownership
+    /// handover; unwired = null = the caller fends for itself).
+    std::function<std::unique_ptr<Widget>(Widget*)> fn_release_root;
     std::function<int2()> fn_window_size;    // Renderer.Resolution
     std::function<std::int64_t()> fn_clock;  // Game.RunTime(缺省恒 0 | 0 by default)
     ChromeMetrics* ptr_chrome_metrics = nullptr;
@@ -68,12 +74,23 @@ class Ui {
     /// Game.Settings.Game.UIScrollSpeed(缺省 50;Settings.cs L330)
     /// Game.Settings.Game.UIScrollSpeed (default 50; Settings.cs L330).
     std::function<float()> fn_ui_scroll_speed = [] { return 50.0f; };
+    /// Game.Settings.Graphics.CursorDouble(缺省 false;Settings.cs L249;
+    /// TooltipContainerWidget 的光标缩放消费)
+    /// Game.Settings.Graphics.CursorDouble (default false; Settings.cs
+    /// L249; consumed by TooltipContainerWidget's cursor scaling).
+    std::function<bool()> fn_cursor_double = [] { return false; };
     /// Game.ModData.Hotkeys[name](FieldLoader.ParseHotkeyReference;缺省 =
     /// GetHotkeyReference 尾段回落)
     /// Game.ModData.Hotkeys[name] (FieldLoader.ParseHotkeyReference;
     /// defaulting to GetHotkeyReference's tail fallback).
     std::function<HotkeyReference(std::string_view)> fn_hotkey_lookup =
         [](std::string_view str_name) { return HotkeyReferenceFromNameOrCode(str_name); };
+    /// Game.Renderer.Fonts[name] 的直连测试面(生产走 ptr_renderer;未接线 =
+    /// null = 缺字体,widget 族统一经 widget_utils::RequireWidgetFont)
+    /// Game.Renderer.Fonts[name]'s direct test face (production goes through
+    /// ptr_renderer; unwired = null = missing font — the widget family
+    /// funnels through widget_utils::RequireWidgetFont).
+    std::function<gfx::SpriteFont*(const std::string&)> fn_try_get_font;
   };
 
   void Initialize(Deps deps);
@@ -90,11 +107,15 @@ class Ui {
       deps_.fn_play_notification(ptr_rules, str_notification);
   }
   float UiScrollSpeed() const { return deps_.fn_ui_scroll_speed(); }
+  bool CursorDouble() const { return deps_.fn_cursor_double(); }
   HotkeyReference Hotkey(std::string_view str_name) const {
     return deps_.fn_hotkey_lookup(str_name);
   }
   std::int64_t RunTime() const { return deps_.fn_clock ? deps_.fn_clock() : 0; }
   int2 Resolution() const { return deps_.fn_window_size ? deps_.fn_window_size() : int2{}; }
+  gfx::SpriteFont* TryGetFontDeps(const std::string& str_key) const {
+    return deps_.fn_try_get_font ? deps_.fn_try_get_font(str_key) : nullptr;
+  }
 
   Widget* MouseFocusWidget() const { return ptr_mouse_focus_; }
   void SetMouseFocusWidget(Widget* ptr_widget) { ptr_mouse_focus_ = ptr_widget; }
@@ -125,6 +146,15 @@ class Ui {
 
   /// L90-104;不入树时须传 Root 持有 | L90-104; pass Root even off-tree.
   Widget* LoadWidget(const std::string& str_id, Widget* ptr_parent, WidgetArgs args_args);
+
+  /// 无 parent 根的所有权移交(fn_release_root 的访问面;未接线 = null)
+  /// The parentless-root ownership handover (the fn_release_root access
+  /// face; unwired = null).
+  std::unique_ptr<Widget> ReleaseWidget(Widget* ptr_widget) {
+    if (deps_.fn_release_root)
+      return deps_.fn_release_root(ptr_widget);
+    return nullptr;
+  }
 
   void Tick() { ptr_root_->TickOuter(); }              // L106
   void PrepareRenderables() { ptr_root_->PrepareRenderablesOuter(); }  // L108

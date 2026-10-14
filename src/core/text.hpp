@@ -111,4 +111,18 @@ constexpr std::string_view TrimEndNetWhiteSpace(std::string_view text) {
   return text.substr(0, int8_end);
 }
 
+/// 仅剥首端(TextFieldWidget 的 GetNextWhitespaceIndex 的 x.TrimStart())。
+/// Strip the head only (TextFieldWidget's GetNextWhitespaceIndex
+/// x.TrimStart()).
+constexpr std::string_view TrimStartNetWhiteSpace(std::string_view text) {
+  std::size_t int8_begin{0};
+  while (int8_begin < text.size()) {
+    std::size_t int8_next{int8_begin};
+    if (!IsNetWhiteSpace(DecodeUtf8(text, int8_next)))
+      break;
+    int8_begin = int8_next;
+  }
+  return text.substr(int8_begin);
+}
+
 }  // namespace ora

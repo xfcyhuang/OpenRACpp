@@ -14,18 +14,6 @@ import std;
 #include "ui/widget_utils.hpp"
 
 namespace ora::ui {
-namespace {
-
-gfx::SpriteFont& RequireFont(const std::string& str_font) {
-  gfx::Renderer* ptr_renderer = Ui::Instance().RendererDeps();
-  gfx::SpriteFont* ptr_font =
-      ptr_renderer != nullptr ? ptr_renderer->TryGetFont(str_font) : nullptr;
-  if (ptr_font == nullptr)
-    throw std::runtime_error("Requested font '" + str_font + "' was not found.");
-  return *ptr_font;
-}
-
-}  // namespace
 
 LabelWidget::LabelWidget(WidgetArgs& args_args)
     : cache_text_([](const std::string& str_s) {
@@ -43,6 +31,13 @@ LabelWidget::LabelWidget(WidgetArgs& args_args)
   color_contrast_light = metrics.GetColor("TextContrastColorLight");
   int4_contrast_radius = metrics.GetInt32("TextContrastRadius");
 
+  fn_get_text = [this] { return cache_text_.Update(opt_text.value_or("")); };
+  fn_get_color = [this] { return color_text; };
+  fn_get_contrast_color_dark = [this] { return color_contrast_dark; };
+  fn_get_contrast_color_light = [this] { return color_contrast_light; };
+}
+
+void LabelWidget::BindStandardDelegates() {
   fn_get_text = [this] { return cache_text_.Update(opt_text.value_or("")); };
   fn_get_color = [this] { return color_text; };
   fn_get_contrast_color_dark = [this] { return color_contrast_dark; };
@@ -72,7 +67,7 @@ LabelWidget::LabelWidget(const LabelWidget& widget_other)
       }) {}
 
 void LabelWidget::IncreaseHeightToFitCurrentText() {
-  gfx::SpriteFont& font_text = RequireFont(str_font);
+  gfx::SpriteFont& font_text = RequireWidgetFont(str_font);
 
   std::string str_line = fn_get_text();
   if (b_word_wrap)
@@ -82,7 +77,7 @@ void LabelWidget::IncreaseHeightToFitCurrentText() {
 }
 
 void LabelWidget::Draw() {
-  gfx::SpriteFont& font_text = RequireFont(str_font);
+  gfx::SpriteFont& font_text = RequireWidgetFont(str_font);
 
   const std::string str_text_drawn = fn_get_text();
 

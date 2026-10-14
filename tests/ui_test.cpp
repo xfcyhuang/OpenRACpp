@@ -32,6 +32,7 @@ void RegisterGeneratedAll();
 }  // namespace ora::gen
 #include "gfx/sheet.hpp"
 #include "gfx/sprite_font.hpp"
+#include "gfx/viewport.hpp"
 #include "platform/ifont.hpp"
 #include "sim/world.hpp"
 #include "ui/chrome_metrics.hpp"
@@ -41,9 +42,14 @@ void RegisterGeneratedAll();
 #include "ui/widget_utils.hpp"
 #include "ui/widgets/button_widget.hpp"
 #include "ui/widgets/checkbox_widget.hpp"
+#include "ui/widgets/drop_down_button_widget.hpp"
 #include "ui/widgets/label_widget.hpp"
+#include "ui/widgets/label_with_tooltip_widget.hpp"
 #include "ui/widgets/scroll_item_widget.hpp"
 #include "ui/widgets/scroll_panel_widget.hpp"
+#include "ui/widgets/slider_widget.hpp"
+#include "ui/widgets/text_field_widget.hpp"
+#include "ui/widgets/tooltip_container_widget.hpp"
 #include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 namespace {
@@ -787,6 +793,13 @@ void TestFontsModData(game::ModData& mod_data) {
   Check(b_found_bold, "Fonts.Bold 存在");
 }
 
+void TestBaseWidgetsChrome(const std::string& str_root);
+
+void TestSliderWidget();
+
+void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
+                             ui::WidgetLoader& loader_chrome);
+
 void TestBaseWidgetsChrome(const std::string& str_root) {
   // ButtonWidget ctor 的 ModData.DefaultRules 需要全装载链注册(map_test 同序)
   // ButtonWidget's ctor's ModData.DefaultRules needs the full loading-chain
@@ -969,6 +982,447 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   ptr_list->ScrollToBottom();
   Check(ptr_list->CurrentListOffset() == -2.0f, "dropdown 底 offset = 40-42");
   Check(ptr_label_inner->fn_get_text().empty(), "Label 无 Text = 空串直通");
+
+  // ———— Phase 6 第三批:Slider/TextField/LabelWithTooltip/DropDown/
+  // SimpleTooltipLogic(真 ra chrome + fake 字体注入)————
+  TestSliderWidget();
+  TestChromeWidgetsBatch3(mod_data, metrics_chrome, loader_chrome);
+}
+
+// ———— Phase 6 第三批:SliderWidget(纯逻辑面)————
+
+void TestSliderWidget() {
+  // 前序测试的局部 widget 可能未让焦即亡(GC 域等价面):焦点三指针清悬垂
+  // Prior tests' local widgets may die without yielding (the GC-domain
+  // equivalent): clear dangling focus pointers first.
+  ui::Ui::Instance().SetKeyboardFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseOverWidget(nullptr);
+
+  auto up_slider = std::make_unique<ui::SliderWidget>();
+  up_slider->bounds_widget = {0, 0, 100, 20};
+  ui::SliderWidget& slider_test = *up_slider;
+
+  int int4_changes = 0;
+  slider_test.fn_on_change = [&int4_changes](float) { ++int4_changes; };
+
+  // UpdateValue:夹取 + 变更通知
+  slider_test.fp4_minimum_value = 0.0f;
+  slider_test.fp4_maximum_value = 1.0f;
+  slider_test.UpdateValue(0.5f);
+  Check(std::abs(slider_test.fp4_value - 0.5f) < 1e-6f && int4_changes == 1,
+        "UpdateValue 0.5 + OnChange");
+  slider_test.UpdateValue(2.0f);
+  Check(slider_test.fp4_value == 1.0f && int4_changes == 2, "上界夹取");
+  slider_test.UpdateValue(1.0f);
+  Check(int4_changes == 2, "同值不再通知");
+
+  // 拖拽:Down@50 → 0.5;Move@90 → 1.0;Up 让焦
+  slider_test.fp4_value = 0.0f;
+  MouseInput input_slide{.Event = MouseInputEvent::Down,
+                         .Button = MouseButton::Left,
+                         .Location = int2{50, 10}};
+  Check(slider_test.HandleMouseInput(input_slide), "Down 于 thumb 外仍取焦消费");
+  Check(std::abs(slider_test.fp4_value - 0.5f) < 1e-6f, "Down 取值 0.5");
+  input_slide.Event = MouseInputEvent::Move;
+  input_slide.Location = int2{90, 10};
+  Check(slider_test.HandleMouseInput(input_slide), "Move 消费");
+  Check(std::abs(slider_test.fp4_value - 1.0f) < 1e-6f, "Move 拖至 1.0");
+  input_slide.Event = MouseInputEvent::Up;
+  Check(slider_test.HandleMouseInput(input_slide), "Up 消费");
+  Check(ui::Ui::Instance().MouseFocusWidget() != &slider_test, "Up 让出鼠标焦点");
+
+  // 禁用面:非左键/IsDisabled 恒拒
+  input_slide.Event = MouseInputEvent::Down;
+  input_slide.Button = MouseButton::Right;
+  Check(!slider_test.HandleMouseInput(input_slide), "右键拒绝");
+  slider_test.b_disabled = true;
+  input_slide.Button = MouseButton::Left;
+  Check(!slider_test.HandleMouseInput(input_slide), "禁用拒绝");
+  slider_test.b_disabled = false;
+
+  // Clone 保值
+  auto up_clone = std::unique_ptr<ui::SliderWidget>(
+      static_cast<ui::SliderWidget*>(slider_test.Clone().release()));
+  Check(up_clone->fp4_value == slider_test.fp4_value &&
+            up_clone->fp4_maximum_value == 1.0f && up_clone->int4_ticks == 0,
+        "Slider 克隆字段");
+}
+
+// ———— Phase 6 第三批:TextField/LabelWithTooltip/DropDown/SimpleTooltip ————
+
+void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
+                             ui::WidgetLoader& loader_chrome) {
+  // 焦点三指针清悬垂(TestWidgetFocusInput 的局部 widget 未让焦即亡)
+  // Clear the dangling focus trio (TestWidgetFocusInput's local widgets die
+  // without yielding).
+  ui::Ui::Instance().SetKeyboardFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseOverWidget(nullptr);
+
+  // fake 字体注入(Regular = TextField/Bold = SIMPLE_TOOLTIP 的 LABEL)
+  gfx::SheetBuilder builder_fonts(gfx::SheetType::BGRA, 128);
+  constexpr auto fn_flat_noop = [](const gfx::Sprite&, core::Vector3, float, core::Vector3,
+                                  float) {};
+  constexpr auto fn_quad_noop = [](const gfx::Sprite&, core::Vector3, core::Vector3,
+                                  core::Vector3, core::Vector3, core::Vector3, float) {};
+  auto up_font_regular = std::make_unique<gfx::SpriteFont>(
+      "regular", std::span<const std::uint8_t>{}, std::make_unique<FakeFont>(), 10, 8, 1.0f,
+      builder_fonts, fn_flat_noop, fn_quad_noop);
+  auto up_font_bold = std::make_unique<gfx::SpriteFont>(
+      "bold", std::span<const std::uint8_t>{}, std::make_unique<FakeFont>(), 10, 8, 1.0f,
+      builder_fonts, fn_flat_noop, fn_quad_noop);
+  gfx::SpriteFont* ptr_font_regular = up_font_regular.get();
+  gfx::SpriteFont* ptr_font_bold = up_font_bold.get();
+
+  auto deps_fonts = std::make_shared<ui::Ui::Deps>();
+  deps_fonts->ptr_mod_data = &mod_data;
+  deps_fonts->fn_window_size = [] { return int2{1280, 960}; };
+  // 大时钟:TooltipContainer 的 delay 门常开(懒装载即时可见)
+  // A large clock: TooltipContainer's delay gate stays open (the lazy load
+  // is immediately visible).
+  deps_fonts->fn_clock = [] { return std::int64_t{100000}; };
+  deps_fonts->ptr_chrome_metrics = &metrics_chrome;
+  deps_fonts->fn_load_widget = [&loader_chrome](ui::WidgetArgs& args_load, ui::Widget* ptr_parent,
+                                                const std::string& str_id) {
+    return loader_chrome.LoadWidget(args_load, ptr_parent, str_id);
+  };
+  deps_fonts->fn_release_root = [&loader_chrome](ui::Widget* ptr_root) {
+    return ptr_root != nullptr ? loader_chrome.ReleaseRoot(*ptr_root) : nullptr;
+  };
+  deps_fonts->fn_try_get_font = [ptr_font_regular, ptr_font_bold](const std::string& str_key) {
+    if (str_key == "Regular")
+      return ptr_font_regular;
+    if (str_key == "Bold")
+      return ptr_font_bold;
+    return static_cast<gfx::SpriteFont*>(nullptr);
+  };
+  ui::Ui::Instance().Initialize(*deps_fonts);
+
+  // —— TextFieldWidget:类型过滤/插入/光标/选择/删除族 ——
+  {
+    ui::WidgetArgs args_field;
+    auto up_field = std::make_unique<ui::TextFieldWidget>(args_field);
+    ui::TextFieldWidget& field_test = *up_field;
+    field_test.bounds_widget = {0, 0, 100, 20};
+    Check(field_test.str_font == "Regular", "TextField Font = TextfieldFont 指标");
+
+    // 类型过滤
+    field_test.SetType(ui::TextFieldType::Filename);
+    field_test.SetText("a<b>:c*?");
+    Check(field_test.Text() == "abc", "Filename 过滤 9 标点");
+    field_test.SetType(ui::TextFieldType::Integer);
+    field_test.SetText("1a2b3");
+    Check(field_test.Text() == "123", "Integer 只留数字");
+    field_test.SetType(ui::TextFieldType::General);
+
+    // 焦点门:未聚焦不消费
+    KeyInput input_key{};
+    input_key.Event = KeyInputEvent::Down;
+    input_key.Key = Keycode::LEFT;
+    Check(!field_test.HandleKeyPress(input_key), "未聚焦按键不消费");
+    Check(field_test.TakeKeyboardFocus(), "TakeKeyboardFocus");
+
+    // 插入:光标位插字
+    int int4_edited = 0;
+    field_test.fn_on_text_edited = [&int4_edited] { ++int4_edited; };
+    field_test.SetText("ab");
+    field_test.int4_cursor_position = 1;
+    Check(field_test.HandleTextInput("X") && field_test.Text() == "aXb" &&
+              field_test.int4_cursor_position == 2 && int4_edited == 1,
+          "光标位插入");
+
+    // MaxLength 门
+    field_test.int4_max_length = 3;
+    Check(field_test.HandleTextInput("Y") && field_test.Text() == "aXb" && int4_edited == 1,
+          "MaxLength 满员拒插");
+    field_test.SetText("ab");
+    field_test.int4_cursor_position = 2;
+    field_test.HandleTextInput("cd");
+    Check(field_test.Text() == "abc" && field_test.int4_cursor_position == 3,
+          "粘贴截断到 MaxLength");
+    field_test.int4_max_length = 0;
+
+    // 光标移动:END/LEFT/Ctrl+LEFT/HOME/RIGHT/Ctrl+RIGHT
+    field_test.SetText("hello world");
+    input_key.Key = Keycode::END;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.int4_cursor_position == 11, "END 到尾");
+    input_key.Key = Keycode::LEFT;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.int4_cursor_position == 10, "LEFT 退一");
+    input_key.ModifierFlags = Modifiers::Ctrl;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.int4_cursor_position == 6, "Ctrl+LEFT 词跳到 6");
+    input_key.ModifierFlags = Modifiers::None;
+    input_key.Key = Keycode::HOME;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.int4_cursor_position == 0, "HOME 到头");
+    input_key.Key = Keycode::RIGHT;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.int4_cursor_position == 1, "RIGHT 进一");
+    input_key.ModifierFlags = Modifiers::Ctrl;
+    input_key.Key = Keycode::RIGHT;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.int4_cursor_position == 5, "Ctrl+RIGHT 词跳到 5");
+    input_key.ModifierFlags = Modifiers::None;
+
+    // 选择:Ctrl+A 全选 → BACKSPACE 删选区
+    input_key.Key = Keycode::A;
+    input_key.ModifierFlags = Modifiers::Ctrl;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.SelectionStartIndex() == 0 && field_test.SelectionEndIndex() == 11,
+          "Ctrl+A 全选");
+    input_key.Key = Keycode::BACKSPACE;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.Text().empty() && field_test.int4_cursor_position == 0 &&
+              field_test.SelectionStartIndex() == -1,
+          "BACKSPACE 删选区");
+
+    // Ctrl+U:光标前全删
+    field_test.SetText("ab cd");
+    field_test.int4_cursor_position = 5;
+    input_key.Key = Keycode::U;
+    input_key.ModifierFlags = Modifiers::Ctrl;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.Text().empty() && field_test.int4_cursor_position == 0, "Ctrl+U 全删");
+
+    // Ctrl+K:光标后全删
+    field_test.SetText("ab cd");
+    field_test.int4_cursor_position = 2;
+    input_key.Key = Keycode::K;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.Text() == "ab", "Ctrl+K 删尾");
+
+    // Ctrl+D:光标处删一字
+    field_test.SetText("abc");
+    field_test.int4_cursor_position = 0;
+    input_key.Key = Keycode::D;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.Text() == "bc", "Ctrl+D");
+
+    // DELETE:单字与词删
+    field_test.SetText("ab cd");
+    field_test.int4_cursor_position = 0;
+    input_key.Key = Keycode::DELETE;
+    input_key.ModifierFlags = Modifiers::None;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.Text() == "b cd", "DELETE 单字");
+    field_test.SetText("ab cd");
+    field_test.int4_cursor_position = 0;
+    input_key.ModifierFlags = Modifiers::Ctrl;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.Text() == " cd", "Ctrl+DELETE 词删(保留分隔空格)");
+    input_key.ModifierFlags = Modifiers::None;
+
+    // blink:10 tick 翻相位;LEFT 复位
+    input_key.Key = Keycode::LEFT;
+    input_key.ModifierFlags = Modifiers::None;
+    field_test.SetText("abc");
+    field_test.int4_cursor_position = 3;
+    field_test.HandleKeyPress(input_key);
+    Check(field_test.ShowCursor(), "ResetBlinkCycle 后光标可见");
+    for (int int4_i = 0; int4_i < 10; ++int4_i)
+      field_test.Tick();
+    Check(!field_test.ShowCursor(), "10 tick 后光标隐藏(相位翻转)");
+
+    // 让焦回调
+    bool b_lost_focus = false;
+    field_test.fn_on_lose_focus = [&b_lost_focus] { b_lost_focus = true; };
+    field_test.YieldKeyboardFocus();
+    Check(b_lost_focus, "YieldKeyboardFocus 触发 OnLoseFocus");
+
+    // 鼠标点击取位(fake 字体 advance 4:x=7 → 最近 i=1)
+    field_test.SetText("ab");
+    field_test.int4_cursor_position = 0;
+    field_test.TakeKeyboardFocus();
+    MouseInput input_field{.Event = MouseInputEvent::Down,
+                           .Button = MouseButton::Left,
+                           .Location = int2{7, 10}};
+    Check(field_test.HandleMouseInput(input_field) && field_test.int4_cursor_position == 1,
+          "点击最近字位");
+    input_field.Event = MouseInputEvent::Up;
+    Check(field_test.HandleMouseInput(input_field), "拖选 Up 结束");
+    field_test.YieldKeyboardFocus();
+  }
+
+  // —— SimpleTooltipLogic(装载 args 仿容器的 tooltipContainer/getText 注入)——
+  {
+    ui::TooltipContainerWidget container_logic;
+    std::string str_tooltip_text = "AB\nCD";
+    ui::WidgetArgs args_tooltip_panel;
+    args_tooltip_panel.Add("modData", static_cast<game::ModData*>(&mod_data));
+    args_tooltip_panel.Add("chromeMetrics", static_cast<ui::ChromeMetrics*>(&metrics_chrome));
+    args_tooltip_panel.Add("windowSize", int2{1280, 960});
+    args_tooltip_panel.Add("tooltipContainer", static_cast<ui::Widget*>(&container_logic));
+    args_tooltip_panel.Add(
+        "getText",
+        std::function<std::string()>{[&str_tooltip_text] { return str_tooltip_text; }});
+    ui::Widget* ptr_panel_raw =
+        loader_chrome.LoadWidget(args_tooltip_panel, nullptr, "SIMPLE_TOOLTIP");
+    std::unique_ptr<ui::Widget> up_panel_root = loader_chrome.ReleaseRoot(*ptr_panel_raw);
+    Check(up_panel_root != nullptr && up_panel_root->TypeName() == "BackgroundWidget",
+          "SIMPLE_TOOLTIP 装载");
+    Check(up_panel_root->LogicObjects().size() == 1, "SimpleTooltipLogic 物化");
+
+    container_logic.fn_before_render();
+    Check(up_panel_root->OwnedChildren().size() == 2, "两行 Label 克隆");
+    Check(up_panel_root->bounds_widget.int4_width == 22 &&
+              up_panel_root->bounds_widget.int4_height == 47,
+          "SimpleTooltip 自适应尺寸(14+8 / 44+3)");
+    const ui::Widget& widget_line1 = *up_panel_root->OwnedChildren()[1];
+    Check(widget_line1.bounds_widget.int4_y == 21 && widget_line1.bounds_widget.int4_width == 8,
+          "第二行 Y=21(−1+3+19)/宽 8");
+
+    // cachedText 门:同文本不重建
+    std::string str_child_ptr = [&] {
+      std::ostringstream oss_stream;
+      oss_stream << up_panel_root->OwnedChildren()[0].get();
+      return oss_stream.str();
+    }();
+    container_logic.fn_before_render();
+    std::ostringstream oss_after;
+    oss_after << up_panel_root->OwnedChildren()[0].get();
+    Check(oss_after.str() == str_child_ptr, "同文本不重建");
+    str_tooltip_text = "E";
+    container_logic.fn_before_render();
+    Check(up_panel_root->OwnedChildren().size() == 1 &&
+              up_panel_root->bounds_widget.int4_height == 28,
+          "新文本重建(单行 25+3)");
+  }
+
+  // —— LabelWithTooltip 挂真容器端到端(懒装载 + BeforeRender)——
+  {
+    auto up_container = std::make_unique<ui::TooltipContainerWidget>();
+    up_container->str_id = "TOOLTIP_CONTAINER";
+    ui::Widget* ptr_container = up_container.get();
+    ui::Ui::Instance().Root()->AddChild(std::move(up_container));
+
+    ui::WidgetArgs args_label;
+    auto up_label = std::make_unique<ui::LabelWithTooltipWidget>(args_label);
+    up_label->str_id = "LWT";
+    up_label->str_tooltip_container = "TOOLTIP_CONTAINER";
+    up_label->str_tooltip_template = "SIMPLE_TOOLTIP";
+    up_label->fn_get_tooltip_text = [] { return std::string{"AB"}; };
+    up_label->bounds_widget = {10, 10, 50, 10};
+    ui::LabelWithTooltipWidget* ptr_label_lwt = up_label.get();
+    ui::Ui::Instance().Root()->AddChild(std::move(up_label));
+
+    ptr_label_lwt->MouseEntered();
+    Check(ptr_container->OwnedChildren().empty(), "未过期前懒装载不触发");
+
+    // 时钟越过 delay → 可见 → DrawOuter 经 IsVisible 触发懒装载 + BeforeRender
+    gfx::Viewport::int8_last_move_run_time = 0;
+    ptr_container->DrawOuter();
+    Check(ptr_container->OwnedChildren().size() == 1, "懒装载 SIMPLE_TOOLTIP");
+    const ui::Widget& widget_tip = *ptr_container->OwnedChildren().front();
+    Check(widget_tip.bounds_widget.int4_width == 22 &&
+              widget_tip.bounds_widget.int4_height == 28,
+          "端到端 tooltip 尺寸(AB 单行)");
+
+    ptr_label_lwt->MouseExited();
+    Check(ptr_container->OwnedChildren().empty(), "MouseExited 移除 tooltip");
+    ui::Ui::Instance().Root()->RemoveChild(*ptr_label_lwt);
+    ui::Ui::Instance().Root()->RemoveChild(*ptr_container);
+  }
+
+  // —— DropDownButtonWidget:ShowDropDown/Mask/ESC/双挂异常 ——
+  {
+    ui::WidgetArgs args_dropdown_button;
+    args_dropdown_button.Add("modData", static_cast<game::ModData*>(&mod_data));
+    auto up_button = std::make_unique<ui::DropDownButtonWidget>(args_dropdown_button);
+    up_button->str_id = "DDB";
+    up_button->bounds_widget = {10, 10, 120, 25};
+    ui::DropDownButtonWidget* ptr_button_drop = up_button.get();
+    ui::Ui::Instance().Root()->AddChild(std::move(up_button));
+
+    bool b_option_clicked = false;
+    const std::vector<std::string> vec_options{"one", "two"};
+    ptr_button_drop->ShowDropDown<std::string>(
+        "LABEL_DROPDOWN_TEMPLATE", 60, vec_options,
+        [&b_option_clicked](const std::string& str_option, ui::ScrollItemWidget& item_template) {
+          return ui::ScrollItemWidget::Setup(
+              str_option, item_template, [] { return false; },
+              [&b_option_clicked, str_option] { b_option_clicked = str_option == "two"; }, [] {});
+        });
+
+    // Root 新增 Mask + panel;面板锚在按钮下方,高 = min(60, 2+25+25+2=54)
+    ui::Widget* ptr_mask = nullptr;
+    ui::ScrollPanelWidget* ptr_drop_panel = nullptr;
+    for (const auto& up_child : ui::Ui::Instance().Root()->OwnedChildren()) {
+      if (up_child->TypeName() == "MaskWidget")
+        ptr_mask = up_child.get();
+      if (up_child->TypeName() == "ScrollPanelWidget")
+        ptr_drop_panel = static_cast<ui::ScrollPanelWidget*>(up_child.get());
+    }
+    Check(ptr_mask != nullptr && ptr_drop_panel != nullptr, "Mask + 面板挂 Root");
+    Check(ptr_mask->bounds_widget.int4_width == 1280 && ptr_mask->bounds_widget.int4_height == 960,
+          "Mask 全屏(分辨率注入)");
+    Check(ptr_drop_panel->bounds_widget.int4_x == 10 &&
+              ptr_drop_panel->bounds_widget.int4_y == 35,
+          "面板锚定按钮下方(10, 10+25)");
+    Check(ptr_drop_panel->bounds_widget.int4_height == 54, "面板高 = min(60, content 54)");
+    Check(ptr_drop_panel->OwnedChildren().size() == 2, "两选项项");
+
+    // 双挂异常
+    bool b_double_threw = false;
+    try {
+      auto up_dummy = std::make_unique<ui::ContainerWidget>();
+      ptr_button_drop->AttachPanel(std::move(up_dummy));
+    } catch (const std::exception& e_ptr) {
+      b_double_threw = std::string_view(e_ptr.what()).find(
+                           "Attempted to attach a panel to an open dropdown") !=
+                       std::string_view::npos;
+    }
+    Check(b_double_threw, "开面板再挂抛出");
+
+    // 项点击 → 原回调 + RemovePanel
+    ui::ScrollItemWidget* ptr_item_two =
+        static_cast<ui::ScrollItemWidget*>(ptr_drop_panel->OwnedChildren()[1].get());
+    ptr_item_two->fn_on_click();
+    Check(b_option_clicked, "选项回调触发");
+    bool b_panel_gone = true;
+    for (const auto& up_child : ui::Ui::Instance().Root()->OwnedChildren())
+      if (up_child.get() == ptr_drop_panel || up_child.get() == ptr_mask)
+        b_panel_gone = false;
+    Check(b_panel_gone, "点击后面板与 Mask 移除");
+
+    // 重开 → ESC 撤销
+    ptr_button_drop->ShowDropDown<std::string>(
+        "LABEL_DROPDOWN_TEMPLATE", 60, vec_options,
+        [](const std::string& str_option, ui::ScrollItemWidget& item_template) {
+          return ui::ScrollItemWidget::Setup(str_option, item_template, [] { return false; },
+                                             [] {}, [] {});
+        });
+    Check(ptr_button_drop->HasKeyboardFocus(), "开面板取键盘焦点");
+    KeyInput input_esc{};
+    input_esc.Event = KeyInputEvent::Down;
+    input_esc.Key = Keycode::ESCAPE;
+    Check(ptr_button_drop->HandleKeyPress(input_esc), "ESC 撤销面板");
+
+    // Mask 点击路径:开面板 → Mask 吞输入并撤
+    ptr_button_drop->ShowDropDown<std::string>(
+        "LABEL_DROPDOWN_TEMPLATE", 60, vec_options,
+        [](const std::string& str_option, ui::ScrollItemWidget& item_template) {
+          return ui::ScrollItemWidget::Setup(str_option, item_template, [] { return false; },
+                                             [] {}, [] {});
+        });
+    ui::Widget* ptr_mask2 = nullptr;
+    for (const auto& up_child : ui::Ui::Instance().Root()->OwnedChildren())
+      if (up_child->TypeName() == "MaskWidget")
+        ptr_mask2 = up_child.get();
+    MouseInput input_mask{.Event = MouseInputEvent::Down,
+                          .Button = MouseButton::Left,
+                          .Location = int2{640, 480}};
+    Check(ptr_mask2 != nullptr && ptr_mask2->HandleMouseInput(input_mask), "Mask 吞 Down");
+    bool b_mask_gone = true;
+    for (const auto& up_child : ui::Ui::Instance().Root()->OwnedChildren())
+      if (up_child->TypeName() == "MaskWidget")
+        b_mask_gone = false;
+    Check(b_mask_gone, "Mask 点击后面板族移除");
+
+    ui::Ui::Instance().Root()->RemoveChild(*ptr_button_drop);
+  }
 }
 
 }  // namespace

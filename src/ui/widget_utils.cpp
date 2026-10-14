@@ -37,6 +37,17 @@ ChromeMetrics& RequireChromeMetrics() {
   return *ptr_metrics;
 }
 
+gfx::SpriteFont& RequireWidgetFont(const std::string& str_font) {
+  gfx::Renderer* ptr_renderer = Ui::Instance().RendererDeps();
+  gfx::SpriteFont* ptr_font =
+      ptr_renderer != nullptr ? ptr_renderer->TryGetFont(str_font) : nullptr;
+  if (ptr_font == nullptr)
+    ptr_font = Ui::Instance().TryGetFontDeps(str_font);
+  if (ptr_font == nullptr)
+    throw std::runtime_error("Requested font '" + str_font + "' was not found.");
+  return *ptr_font;
+}
+
 std::string GetStatefulImageName(std::string_view str_base_name, bool b_disabled,
                                  bool b_pressed, bool b_hover, bool b_focused) {
   std::string_view sv_suffix = b_disabled   ? "-disabled"

@@ -546,15 +546,20 @@ add_library(ora_ui STATIC
   src/ui/hotkey.cpp
   src/ui/widget_utils.cpp
   src/ui/widgets/label_widget.cpp
+  src/ui/widgets/label_with_tooltip_widget.cpp
   src/ui/widgets/button_widget.cpp
   src/ui/widgets/checkbox_widget.cpp
   src/ui/widgets/image_widget.cpp
   src/ui/widgets/background_widget.cpp
   src/ui/widgets/color_block_widget.cpp
+  src/ui/widgets/drop_down_button_widget.cpp
   src/ui/widgets/progress_bar_widget.cpp
   src/ui/widgets/scroll_item_widget.cpp
   src/ui/widgets/scroll_panel_widget.cpp
-  src/ui/widgets/tooltip_container_widget.cpp)
+  src/ui/widgets/slider_widget.cpp
+  src/ui/widgets/text_field_widget.cpp
+  src/ui/widgets/tooltip_container_widget.cpp
+  src/ui/logic/simple_tooltip_logic.cpp)
 target_link_libraries(ora_ui PUBLIC ora_gfx ora_net ora_meta PRIVATE ora_fs ora_game ora_fluent)
 ora_link_std(ora_ui)
 
