@@ -7,6 +7,7 @@ import std;
 #include "game/platform.hpp"
 #include "fs/d2k_sound_resources.hpp"
 #include "fs/mix_file.hpp"
+#include "fluent/fluent_provider.hpp"
 #include "meta/field_loader.hpp"
 #include "terrain/terrain_info.hpp"
 
@@ -248,6 +249,15 @@ std::vector<std::vector<yaml::MiniYamlNode>> ModData::GetRulesYaml() {
         pool_rules));
   }
   return vec_out;
+}
+
+// ———— InitializeLoaders(ModData.cs L162-171 的 Fluent 面)————
+// InitializeLoaders (the Fluent face of ModData.cs L162-171).
+void ModData::InitializeLoaders(const fluent::FileOpenFn& fn_open,
+                                const yaml::MiniYaml* ptr_map_fluent_definitions) {
+  fluent::FluentProvider::Instance().Initialize(
+      manifest_->FluentCulture(), manifest_->FluentMessages(), fn_open,
+      ptr_map_fluent_definitions);
 }
 
 }  // namespace ora::game

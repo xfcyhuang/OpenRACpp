@@ -892,3 +892,21 @@ ora_core 的 third_party/boost 闭包 include 已就位 + std_import 白名单�
 miniz/StbVorbis/Minimp3)与 Blowfish/base64/MT19937/LongBitSet/priority_queue/
 arena/text.hpp 等 —— Boost 均无对应或形态不等价(语义对拍锁定/CRC32 的
 constexpr 约束同),维持现状。
+
+
+## Phase 6 第一批:Fluent 本地化落地(2026-10-14)
+
+- **背景**:Phase 6 交汇起步 —— 上游 FluentProvider/FluentBundle(依赖 Linguini 0.8.1)的 C++ 承载:自研 Fluent 子集(解析 + 求值),以 golden_fluent 对拍门钉死与 Linguini 的全等价(mods 全部 11 mod 的 FluentMessages 文件表 + 19 用例微用例集,19404 行查询逐行恒等:MISS/FALSE/=文本 三态)。
+- **移植面**:src/fluent 三件 —— fluent_syntax(FTL 解析:消息/术语/属性行/选择子变体(嵌套/混合缩进/多行 dedent)/字符串字面量转义/错误容错 junk 跳段)+ fluent_bundle(HasAttrMessage/TryGetMessage 的 dot 键/args 对/CLDR en 复数类别(精确数字键 → 类别 → 缺省)/未解析变量 `{$name}` 回退/术语引用)+ fluent_provider(进程级单例;mod 优先 → map → 键回落;Initialize 的 map 文件表 + base64 文本)。接线:Manifest 增 FluentCulture("en" 常量,上游无 yaml 装载面)/FluentMessages(YamlList);ModData::InitializeLoaders 的 Fluent 面;MapPreview 的 InnerData.FluentBundle(SetCustomRules 构造:文件表 + base64;UpdateFromMap = map 包优先 + mod 兜底的前转,远程路径 = mod 兜底)+ TryGetMessage(mod 级复用 → 预览 bundle);TextNotificationsManager 的缺省 Fluent 面 = provider(未初始化 = 键回落,原 D229 注入覆盖面保持)。
+- **验收**:fluent_test = golden 门(19404 行对拍)+ 单元(复数类别 en 全表/数字渲染/provider mod→map→键回落与 TryGetModMessage);三构建 38/38 全绿;std_import(545)/upstream_check(513+7 可选)PASS。
+
+### 已登记偏离(Phase 6 第一批)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D242 | src/fluent/ 三件 | 上游 FluentBundle 依赖 Linguini 0.8.1(nuget)→ 自研 Fluent 0.x 子集(解析 + 求值):语料未用的面(内建函数 NUMBER/DATETIME/消息引用/术语带参调用/术语属性行)未实现,按解析错误落 junk/求值错误计账;文本元素的反斜杠字面、placeable 邻接换行保留、行尾空白保留、未解析变量 `{$name}` 无空格回退、缺选择子值落默认变体 = Linguini 0.8.1 的实测面(非 Fluent 规范文本) —— 全部由 golden_fluent 19404 行对拍钉死 | R7(Fluent 无成熟 C++ 实现 → 自研子集);对拍门保证语料域等价 |
+| D243 | src/fluent/ fluent_bundle | 上游 CultureInfo(culture) 的复数规则表 → CLDR en 整数规则全量承载(i%10==1 && i%100!=11 → one,含负数);非 en 文化以 en 规则承载 | 树内 mods 全部 FluentCulture="en"(语言包为外部下载物);非 en 表随语言包批补 |
+| D244 | src/fluent/ fluent_provider | Initialize 的 `fileSystem is Map` 类型判 → 显式 map 定义节点参数(const MiniYaml*;Map 住 ora_map,ora_fluent 不得上依);FluentBundle 的 IReadOnlyFileSystem.Open → FileOpenFn 函数封装器注入(C++ 侧 FileSystem/Map 为具体类无公共接口) | 链接拓扑约束 + 无反射类型判;调用方(ModData.InitializeLoaders/MapPreview)做型判与适配 |
+| D245 | src/game/ mod_data | InitializeLoaders(ModData.cs L162-171)仅落地 Fluent 面(FluentProvider.Initialize);ChromeMetrics/ChromeProvider/Ui/Sound.Initialize 随各自批次接入 | 本批范围裁剪;Game 启动路径(上游 Game.cs L509)随 Chrome 大厅 UI 批 |
+| D246 | src/map/ map_cache | MapPreview.SetCustomRules 的 fileSystem 形参(MapPreview.cs L122/459/502/620 传 `this` 的 IReadOnlyFileSystem 前转,L744-750:map 包优先 + mod 文件系兜底)→ fn_open 注入:UpdateFromMap 站点 = map 包(非 '|' 路径)优先 + ModFiles 兜底;远程搜索站点 = ModFiles 兜底(上游 `this` 无包形态的前转实测差异见 D238 家族);文件打开失败 = 跳过该文件记错误(上游 Open 抛 → ctor 吞) | C++ MapPreview 非 fs 接口;错误面收敛为 ErrorSink(no-op 缺省,上游 Log.Write("debug")) |
+| D247 | src/net/ text_notifications | FluentGetMessage 的缺省面 = FluentProvider.GetMessage(未初始化 = 恒未中 → 键回落;与上游直调等价);SetFluentProvider 注入覆盖面保持(D229 的注入协议不变) | C# static → 进程级单例的缺省装配;测试隔离经注入或未初始化态 |

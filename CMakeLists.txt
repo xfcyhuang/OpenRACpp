@@ -131,6 +131,18 @@ add_library(ora_miniz STATIC third_party/miniz/miniz.c)
 target_include_directories(ora_miniz PUBLIC ${CMAKE_SOURCE_DIR}/third_party/miniz)
 target_compile_options(ora_miniz PRIVATE -w)  # 第三方告警不外溢 / third-party warnings stay local
 
+# Fluent 本地化(PORTING_PLAN §Phase 6 第一批:FluentProvider + 自研
+# Fluent 子集,上游 Linguini 依赖的等价承载面;仅依赖 core/yaml,无上依)
+# Fluent localization (PORTING_PLAN §Phase 6 batch one: FluentProvider + the
+# self-written Fluent subset, the carrier face standing in for the upstream
+# Linguini dependency; core/yaml deps only, no upward edges).
+add_library(ora_fluent STATIC
+  src/fluent/fluent_syntax.cpp
+  src/fluent/fluent_bundle.cpp
+  src/fluent/fluent_provider.cpp)
+target_link_libraries(ora_fluent PUBLIC ora_core PRIVATE ora_yaml)
+ora_link_std(ora_fluent)
+
 # 虚拟文件系统(PORTING_PLAN §Phase 1)/ Virtual file system (PORTING_PLAN §Phase 1)
 add_library(ora_fs STATIC
   src/fs/folder.cpp
@@ -188,7 +200,7 @@ add_library(ora_game STATIC
   src/game/loaders.cpp
   src/game/settings.cpp
   src/game/web_services.cpp)
-target_link_libraries(ora_game PUBLIC ora_gen ora_terrain PRIVATE ora_fs ora_formats ora_http)
+target_link_libraries(ora_game PUBLIC ora_gen ora_terrain PRIVATE ora_fs ora_formats ora_http ora_fluent)
 ora_link_std(ora_game)
 
 # 仿真核心:Actor/World/TraitDictionary/Activity/条件系统/SyncHash/Effects
@@ -200,7 +212,7 @@ add_library(ora_map STATIC
   src/map/map_players.cpp
   src/map/map_cache.cpp
   src/map/map_directory_tracker.cpp)
-target_link_libraries(ora_map PUBLIC ora_game ora_fs PRIVATE ora_formats ora_http)
+target_link_libraries(ora_map PUBLIC ora_game ora_fs PRIVATE ora_formats ora_http ora_fluent)
 ora_link_std(ora_map)
 
 add_library(ora_sim STATIC
@@ -260,7 +272,7 @@ add_library(ora_net STATIC
   src/net/replay_recorder.cpp
   src/net/sync_report.cpp
   src/net/replay_diff.cpp)
-target_link_libraries(ora_net PUBLIC ora_sim ora_yaml)
+target_link_libraries(ora_net PUBLIC ora_sim ora_yaml PRIVATE ora_fluent)
 ora_link_std(ora_net)
 
 # ———— Phase 7 第十四批:服务器实体(Server/Connection/OrderBuffer/
@@ -663,6 +675,17 @@ add_executable(meta_test tests/meta_test.cpp)
 target_link_libraries(meta_test PRIVATE ora_meta)
 ora_link_std(meta_test)
 add_test(NAME meta_test COMMAND meta_test)
+
+# Fluent 本地化对拍门(Phase 6 第一批:golden_fluent.txt 重放 oracle =
+# Linguini 0.8.1;含微用例集与单元面)
+# The Fluent-localization differential gate (Phase 6 batch one: replaying
+# golden_fluent.txt against the Linguini 0.8.1 oracle; the micro-case set +
+# the unit faces included).
+add_executable(fluent_test tests/fluent_test.cpp)
+target_link_libraries(fluent_test PRIVATE ora_fluent ora_yaml)
+ora_link_std(fluent_test)
+add_test(NAME fluent_test COMMAND fluent_test
+  ${CMAKE_SOURCE_DIR}/tests/golden_fluent.txt ${ORA_UPSTREAM_ROOT})
 
 # 三代表 trait 端到端断言(§Phase 2 R2 对冲;期望值人工对照上游源码)
 # The three-representative-trait end-to-end assertions (the §Phase 2 R2

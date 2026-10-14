@@ -9,12 +9,16 @@ import std;
 #include "game/ruleset.hpp"
 #include "map/map.hpp"
 #include "map/map_directory_tracker.hpp"
+#include "fluent/fluent_bundle.hpp"
 #include "map/map_players.hpp"
 #include "yaml/mini_yaml.hpp"
 
 namespace ora::game {
 class Manifest;
 class ModData;
+}
+namespace ora::fluent {
+class FluentBundle;
 }
 
 namespace ora::map {
@@ -98,6 +102,7 @@ class MapPreview final {
     std::optional<yaml::MiniYaml> opt_sequence_definitions;
     std::optional<yaml::MiniYaml> opt_model_sequence_definitions;
     std::optional<yaml::MiniYaml> opt_fluent_message_definitions;
+    std::shared_ptr<const fluent::FluentBundle> ptr_fluent_bundle;
 
     std::shared_ptr<const game::ActorInfo> ptr_world_actor_info;
     std::shared_ptr<const game::ActorInfo> ptr_player_actor_info;
@@ -194,10 +199,18 @@ class MapPreview final {
                      std::optional<MapGridType> grid_type,
                      const std::vector<std::vector<yaml::MiniYamlNode>>* vec_mod_data_rules);
 
+  /// 上游 SetCustomRules(modData, fileSystem, …) 的 fileSystem 面:bundle
+  /// 文件打开经注入(null = 远程搜索路径的无包形态 —— 文件全数打开失败,
+  /// 仅 base64 文本生效)
+  /// Upstream SetCustomRules(modData, fileSystem, …)'s fileSystem face:
+  /// the bundle's file opening arrives by injection (null = the remote
+  /// search path's packageless form — every file open fails, only the
+  /// base64 text applies).
   void SetCustomRules(
       const std::vector<std::pair<std::string_view, const yaml::MiniYaml*>>& yaml,
       const std::vector<std::vector<yaml::MiniYamlNode>>* vec_mod_data_rules,
-      InnerData& data_new);
+      InnerData& data_new,
+      fluent::FileOpenFn fn_open = nullptr);
 
   std::shared_ptr<const InnerData> Snapshot() const;
 

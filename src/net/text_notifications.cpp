@@ -5,6 +5,8 @@ import std;
 
 #include "net/text_notifications.hpp"
 
+#include "fluent/fluent_provider.hpp"
+
 #include "sim/player.hpp"
 #include "sim/world.hpp"
 
@@ -59,7 +61,24 @@ std::string TextNotificationsManager::FluentGetMessage(
     std::string_view str_key, std::span<const FluentArgument> vec_args) const {
   if (fn_fluent_)
     return fn_fluent_(str_key, vec_args);
-  return std::string{str_key};
+  // 上游直调 FluentProvider.GetMessage;未初始化 = 恒未中 → 键回落
+  // upstream calls FluentProvider.GetMessage directly; uninitialized =
+  // never a hit → the key fallback.
+  std::vector<std::pair<std::string, fluent::FluentValue>> vec_fluent_args;
+  vec_fluent_args.reserve(vec_args.size());
+  for (const FluentArgument& arg : vec_args) {
+    std::variant<std::int64_t, std::string> val;
+    if (arg.type == FluentArgumentType::Number) {
+      std::int64_t int8_parsed = 0;
+      std::from_chars(arg.str_value.data(), arg.str_value.data() + arg.str_value.size(),
+                      int8_parsed);
+      val = int8_parsed;
+    } else {
+      val = arg.str_value;
+    }
+    vec_fluent_args.emplace_back(arg.str_key, fluent::FluentValue{std::move(val)});
+  }
+  return fluent::FluentProvider::Instance().GetMessage(str_key, vec_fluent_args);
 }
 
 bool TextNotificationsManager::IsPoolEnabled(

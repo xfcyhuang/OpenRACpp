@@ -82,6 +82,12 @@ class Manifest final {
   const std::vector<std::string>& Voices() const { return vec_voices_; }
   const std::vector<std::string>& Notifications() const { return vec_notifications_; }
   const std::vector<std::string>& Music() const { return vec_music_; }
+  const std::vector<std::string>& FluentMessages() const { return vec_fluentMessages_; }
+
+  /// FluentCulture(Manifest.cs L77):缺省 "en"(上游无 yaml 装载面)
+  /// FluentCulture (Manifest.cs L77): defaults to "en" (upstream has no
+  /// yaml-loading face for it).
+  const std::string& FluentCulture() const { return str_fluentCulture_; }
   const std::vector<std::string>& TileSets() const { return vec_tileSets_; }
   const std::vector<std::string>& ChromeMetrics() const { return vec_chromeMetrics_; }
   const std::vector<std::string>& ServerTraits() const { return vec_serverTraits_; }
@@ -176,6 +182,8 @@ class Manifest final {
   std::string str_spriteSequenceFormat_;
   std::string str_terrainFormat_;
   std::vector<std::string> vec_mapCompatibility_;
+  std::vector<std::string> vec_fluentMessages_;
+  std::string str_fluentCulture_{"en"};
 };
 
 }  // namespace ora::game

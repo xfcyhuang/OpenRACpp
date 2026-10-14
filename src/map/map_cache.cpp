@@ -2,6 +2,9 @@ import std;
 
 #include "map/map_cache.hpp"
 
+#include "fluent/fluent_bundle.hpp"
+#include "fluent/fluent_provider.hpp"
+
 #include "game/manifest.hpp"
 #include "game/mod_data.hpp"
 #include "game/ruleset.hpp"
@@ -219,9 +222,17 @@ std::string MapPreview::GetMessage(std::string_view str_key) const {
 
 bool MapPreview::TryGetMessage(std::string_view str_key,
                                std::string& out_message) const {
-  (void)str_key;
-  (void)out_message;
-  return false;
+  // mod 级 bundle 复用(FluentProvider.TryGetModMessage)→ 预览自有 bundle
+  // (MapPreview.cs L272-284)
+  // the mod-level bundle reuse (FluentProvider.TryGetModMessage) → this
+  // preview's own bundle (MapPreview.cs L272-284).
+  if (fluent::FluentProvider::Instance().TryGetModMessage(
+          str_key, {}, out_message))
+    return true;
+  const std::shared_ptr<const fluent::FluentBundle> ptr_bundle = Snapshot()->ptr_fluent_bundle;
+  if (ptr_bundle == nullptr)
+    return false;
+  return ptr_bundle->TryGetMessage(str_key, out_message);
 }
 
 std::uintptr_t MapPreview::GetMinimap() {
@@ -324,7 +335,8 @@ void MapPreview::LoadPackage() const {
 void MapPreview::SetCustomRules(
     const std::vector<std::pair<std::string_view, const yaml::MiniYaml*>>& yaml,
     const std::vector<std::vector<yaml::MiniYamlNode>>* vec_mod_data_rules,
-    InnerData& data_new) {
+    InnerData& data_new,
+    fluent::FileOpenFn fn_open) {
   data_new.opt_rule_definitions = LoadRuleSection(yaml, "Rules");
   data_new.opt_weapon_definitions = LoadRuleSection(yaml, "Weapons");
   data_new.opt_voice_definitions = LoadRuleSection(yaml, "Voices");
@@ -337,6 +349,34 @@ void MapPreview::SetCustomRules(
       LoadRuleSection(yaml, "FluentMessages");
 
   try {
+    // FluentBundle(MapPreview.cs L133-155):文件表 + base64 文本;无定义
+    // 节点 = null bundle
+    // FluentBundle (MapPreview.cs L133-155): the file list + the base64
+    // text; no definitions node = the null bundle.
+    if (data_new.opt_fluent_message_definitions.has_value() &&
+        ptr_mod_data_ != nullptr) {
+      const yaml::MiniYaml& yaml_fluent = *data_new.opt_fluent_message_definitions;
+      std::vector<std::string> vec_files;
+      if (yaml_fluent.Value != nullptr)
+        for (const std::string_view part : meta::SplitComma(*yaml_fluent.Value))
+          vec_files.emplace_back(part);
+      std::string str_text;
+      for (const yaml::MiniYamlNode& node : yaml_fluent.Nodes)
+        if (node.Key != nullptr && *node.Key == "base64" &&
+            node.Value.Value != nullptr) {
+          if (const std::optional<std::vector<std::byte>> opt_decoded =
+                  DecodeBase64(*node.Value.Value))
+            str_text.append(
+                reinterpret_cast<const char*>(opt_decoded->data()),
+                opt_decoded->size());
+        }
+      data_new.ptr_fluent_bundle = std::make_shared<const fluent::FluentBundle>(
+          ptr_mod_data_->ManifestRef().FluentCulture(), vec_files,
+          std::move(fn_open), str_text);
+    } else {
+      data_new.ptr_fluent_bundle = nullptr;
+    }
+
     if (data_new.opt_rule_definitions.has_value()) {
       std::vector<std::vector<yaml::MiniYamlNode>> vec_sources;
       if (vec_mod_data_rules != nullptr) {
@@ -544,7 +584,27 @@ bool MapPreview::UpdateFromMap(
     data_new.kind_status = MapStatus::Unavailable;
   }
 
-  SetCustomRules(yaml, vec_mod_data_rules, data_new);
+  fluent::FileOpenFn fn_fluent_open =
+      [&p, this](const std::string& str_name) -> std::optional<std::vector<char>> {
+        // IReadOnlyFileSystem.Open 的前转(MapPreview.cs L744-750):map 包
+        // 优先,mod 文件系兜底;'|' 显式包路径不查 map 包
+        // the IReadOnlyFileSystem.Open forward (MapPreview.cs L744-750):
+        // the map package first, the mod file system as fallback; '|'
+        // explicit package paths skip the map package.
+        if (str_name.find('|') == std::string::npos) {
+          const std::optional<std::vector<char>> opt_stream =
+              p.GetStream(str_name);
+          if (opt_stream.has_value())
+            return opt_stream;
+        }
+        if (ptr_mod_files_ != nullptr) {
+          std::vector<char> vec_bytes;
+          if (ptr_mod_files_->TryOpen(str_name, vec_bytes))
+            return vec_bytes;
+        }
+        return std::nullopt;
+      };
+  SetCustomRules(yaml, vec_mod_data_rules, data_new, std::move(fn_fluent_open));
 
   const bool b_load_preview_images =
       ptr_cache_ == nullptr || ptr_cache_->LoadPreviewImages;
@@ -758,7 +818,17 @@ void MapPreview::CompleteRemoteSearch(
                     reinterpret_cast<const char*>(vec_rules->data()),
                     vec_rules->size()},
                 "rules", false, yaml::MiniYaml::GlobalPool());
-            SetCustomRules(root.ToDictionary(), nullptr, data_new);
+            fluent::FileOpenFn fn_fluent_open =
+                [this](const std::string& str_name) -> std::optional<std::vector<char>> {
+                  if (ptr_mod_files_ != nullptr) {
+                    std::vector<char> vec_bytes;
+                    if (ptr_mod_files_->TryOpen(str_name, vec_bytes))
+                      return vec_bytes;
+                  }
+                  return std::nullopt;
+                };
+            SetCustomRules(root.ToDictionary(), nullptr, data_new,
+                           std::move(fn_fluent_open));
           }
         }
 

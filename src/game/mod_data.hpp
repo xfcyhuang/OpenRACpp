@@ -12,6 +12,8 @@
 #pragma once
 import std;
 
+#include "fluent/fluent_bundle.hpp"
+
 #include "fs/file_system.hpp"
 #include "fs/folder.hpp"
 #include "game/manifest.hpp"
@@ -68,6 +70,22 @@ class ModData final {
   const Manifest& ManifestRef() const { return *manifest_; }
   fs::FileSystem& ModFiles() { return fs_modFiles_; }
   Ruleset& DefaultRules();
+
+  /// InitializeLoaders(ModData.cs L162-171)的 Fluent 面:FluentProvider.
+  /// Initialize(Manifest, fileSystem)。ChromeMetrics/ChromeProvider/Ui/
+  /// Sound.Initialize 随 Phase 6 各自批次接入。上游 `fileSystem is Map`
+  /// 类型判 → 显式 map 定义节点参数(Map 住 ora_map,ora_game 不可见;
+  /// map 装载路径由调用方传 Map::FluentMessageDefinitions;偏离登记见
+  /// COVERAGE)
+  /// The Fluent face of InitializeLoaders (ModData.cs L162-171):
+  /// FluentProvider.Initialize(Manifest, fileSystem). The
+  /// ChromeMetrics/ChromeProvider/Ui/Sound.Initialize calls arrive with
+  /// their Phase 6 batches. Upstream's `fileSystem is Map` type test
+  /// becomes the explicit map-definitions parameter (Map lives in ora_map,
+  /// invisible from ora_game; the map-loading path passes
+  /// Map::FluentMessageDefinitions; see the COVERAGE registry).
+  void InitializeLoaders(const fluent::FileOpenFn& fn_open,
+                         const yaml::MiniYaml* ptr_map_fluent_definitions = nullptr);
 
   /// GetOrCreate<MapGrid>()(ModData.cs L221-231):mod.yaml 的 "Grid" 节点
   /// 优先,缺省 = 默认构造(上游 ObjectCreator.CreateBasic 等价)

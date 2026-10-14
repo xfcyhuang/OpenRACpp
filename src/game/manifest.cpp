@@ -237,6 +237,7 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
   vec_voices_ = YamlListOf(vec_yaml, "Voices");
   vec_notifications_ = YamlListOf(vec_yaml, "Notifications");
   vec_music_ = YamlListOf(vec_yaml, "Music");
+  vec_fluentMessages_ = YamlListOf(vec_yaml, "FluentMessages");
   vec_tileSets_ = YamlListOf(vec_yaml, "TileSets");
   vec_chromeMetrics_ = YamlListOf(vec_yaml, "ChromeMetrics");
   vec_serverTraits_ = YamlListOf(vec_yaml, "ServerTraits");
