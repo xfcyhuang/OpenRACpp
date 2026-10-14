@@ -241,6 +241,7 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
   vec_tileSets_ = YamlListOf(vec_yaml, "TileSets");
   vec_chromeMetrics_ = YamlListOf(vec_yaml, "ChromeMetrics");
   vec_serverTraits_ = YamlListOf(vec_yaml, "ServerTraits");
+  vec_hotkeys_ = YamlListOf(vec_yaml, "Hotkeys");
 }
 
 }  // namespace ora::game

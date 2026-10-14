@@ -195,6 +195,7 @@ add_library(ora_game STATIC
   src/game/actor_info.cpp
   src/game/game_records.cpp
   src/game/game_speed.cpp
+  src/game/fonts.cpp
   src/game/ruleset.cpp
   src/game/mod_data.cpp
   src/game/loaders.cpp
@@ -428,6 +429,7 @@ add_library(ora_gfx STATIC
   src/gfx/animation.cpp
   src/gfx/cursor_manager.cpp
   src/gfx/chrome_provider.cpp
+  src/gfx/sprite_font.cpp
   src/gfx/viewport.cpp)
 target_link_libraries(ora_gfx PUBLIC ora_platform ora_sim PRIVATE ora_formats)
 ora_link_std(ora_gfx)
@@ -540,8 +542,20 @@ add_library(ora_ui STATIC
   src/ui/widget.cpp
   src/ui/ui.cpp
   src/ui/chrome_metrics.cpp
-  src/ui/widget_loader.cpp)
-target_link_libraries(ora_ui PUBLIC ora_gfx ora_net ora_meta PRIVATE ora_fs)
+  src/ui/widget_loader.cpp
+  src/ui/hotkey.cpp
+  src/ui/widget_utils.cpp
+  src/ui/widgets/label_widget.cpp
+  src/ui/widgets/button_widget.cpp
+  src/ui/widgets/checkbox_widget.cpp
+  src/ui/widgets/image_widget.cpp
+  src/ui/widgets/background_widget.cpp
+  src/ui/widgets/color_block_widget.cpp
+  src/ui/widgets/progress_bar_widget.cpp
+  src/ui/widgets/scroll_item_widget.cpp
+  src/ui/widgets/scroll_panel_widget.cpp
+  src/ui/widgets/tooltip_container_widget.cpp)
+target_link_libraries(ora_ui PUBLIC ora_gfx ora_net ora_meta PRIVATE ora_fs ora_game ora_fluent)
 ora_link_std(ora_ui)
 
 # 游戏主循环骨架(第十五批):Game 的 Run/Loop/LogicTick/RenderTick/延迟动作
@@ -986,6 +1000,8 @@ add_test(NAME sound_test COMMAND sound_test ${ORA_UPSTREAM_ROOT})
 # matrix) + the Game main-loop skeleton (the Loop pacing under an injected
 # clock/JoinLocal/delayed actions/Run cleanup).
 add_executable(ui_test tests/ui_test.cpp)
-target_link_libraries(ui_test PRIVATE ora_engine)
+# ButtonWidget ctor 的 ModData.DefaultRules 需要全 trait 工厂
+# ButtonWidget's ctor's ModData.DefaultRules needs the full trait factory set.
+target_link_libraries(ui_test PRIVATE ora_engine ora_fluent ora_mods)
 ora_link_std(ui_test)
-add_test(NAME ui_test COMMAND ui_test)
+add_test(NAME ui_test COMMAND ui_test ${ORA_UPSTREAM_ROOT})

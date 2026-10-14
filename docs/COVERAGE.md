@@ -910,3 +910,30 @@ constexpr 约束同),维持现状。
 | D245 | src/game/ mod_data | InitializeLoaders(ModData.cs L162-171)仅落地 Fluent 面(FluentProvider.Initialize);ChromeMetrics/ChromeProvider/Ui/Sound.Initialize 随各自批次接入 | 本批范围裁剪;Game 启动路径(上游 Game.cs L509)随 Chrome 大厅 UI 批 |
 | D246 | src/map/ map_cache | MapPreview.SetCustomRules 的 fileSystem 形参(MapPreview.cs L122/459/502/620 传 `this` 的 IReadOnlyFileSystem 前转,L744-750:map 包优先 + mod 文件系兜底)→ fn_open 注入:UpdateFromMap 站点 = map 包(非 '|' 路径)优先 + ModFiles 兜底;远程搜索站点 = ModFiles 兜底(上游 `this` 无包形态的前转实测差异见 D238 家族);文件打开失败 = 跳过该文件记错误(上游 Open 抛 → ctor 吞) | C++ MapPreview 非 fs 接口;错误面收敛为 ErrorSink(no-op 缺省,上游 Log.Write("debug")) |
 | D247 | src/net/ text_notifications | FluentGetMessage 的缺省面 = FluentProvider.GetMessage(未初始化 = 恒未中 → 键回落;与上游直调等价);SetFluentProvider 注入覆盖面保持(D229 的注入协议不变) | C# static → 进程级单例的缺省装配;测试隔离经注入或未初始化态 |
+
+
+## Phase 6 第二批:Chrome 大厅 UI 的 widget 基础族(2026-10-14)
+
+- **背景**:Phase 6 交汇 —— 文本面(SpriteFont/Fonts)+ 热键面(Hotkey 家族)+
+  WidgetUtils 渲染子集 + 基础 widget 族 12 件(Label/Background/Image/Sprite/
+  Button/Checkbox/ColorBlock/GradientColorBlock/ProgressBar/ScrollItem/
+  ScrollPanel(+ILayout/ListLayout/GridLayout)/TooltipContainer),ra 真本体
+  chrome.yaml 装载冒烟(THREEBUTTON_PROMPT/MULTIPLAYER_FILTER_PANEL/
+  LABEL_DROPDOWN_TEMPLATE:方程求值/字段装载/Fluent 文本/命名热键/按钮三态
+  输入/ScrollPanel 布局与定界滚动)。
+- **验收**:ui_test 扩批(Reloaded 全部既有节 + 新五节);三构建 38/38 全绿
+  (Release 47s/ASan 169s/hardened 59s);std_import(575)/
+  upstream_check(543+7 可选)PASS。
+
+### 已登记偏离(Phase 6 第二批)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D248 | src/gfx/ sprite_font | 字形键 = UTF-8 码点(上游 char = UTF-16 单元;>0xFFFF 上游以代理对半值查字形,FreeTypeFont 的 charCode ≤0xFFFF 域本就无字形 —— 语义等价);Game.Renderer.RgbaSpriteRenderer 静态 → 双绘制 sink 注入(平铺/四角形态;生产 = UIRgbaSpriteRenderer 重载,测试捕获);ctor 的 `glyphs[n] == null` 抛上游不可达(Cache 恒物化),省略;CreateCircularWeightMap 公开化(仅为 golden 断言面,数值与上游注释样例对齐:r=1 角 0.60/边 1.00,r=3 首行 0/0.44/0.80/1.00;Math.Sign(0)=0 的 5×5 子网格语义逐字) | CodePoint 域等价 + headless 测试注入;FontGlyph/IFont 自 freetype_font.hpp 上移 ifont.hpp(接口与载荷同域防互含) |
+| D249 | src/gfx/ renderer + src/game/ fonts | InitializeFonts 的 platform.CreateFont/DefaultFileSystem.Open → FontOpenFn/CreateFontFn 注入(IFont 抽象直传 FreeTypeFont 实例);OnWindowScaleChanged 的字体重设面 = SetFontsWindowScale(接线随窗口事件批);Fonts(IGlobalModData)→ ModData::GetOrCreateFonts(mod.yaml "Fonts" 保留键经 MergedNode 直取;LoadUsing(LoadFonts) = Fonts::Load 的逐节点 FieldLoader.Load<FontData> 等价,三必填字段的手写 RecordDesc) | Renderer 不见平台/文件系统;保留键装载与上游 GlobalModData 循环等价 |
+| D250 | src/ui/ hotkey | Enum.TryParse 的名字域 = 238 项名表(platform/keycode.hpp 枚举体与上游 KeycodeFluentKeys 同源生成;Modifiers 的 [Flags] 逗号名按位或解析);ModifiersExts 的 OSX Meta→Cmd 分支恒走 fluent 表(Platform.CurrentPlatform 固定 Windows,注入随打包批);HotkeyManager 的 HotkeySettings 持久化节点 = 注入面(缺省空表 = 全默认键;Set 的 settings-node 写回随 Settings 批);DisplayString 的 FluentProvider 未初始化 = 键回落(D247 族) | 无反射枚举域的表驱动等价;settings 基建未移植 |
+| D251 | src/ui/ ui(Deps) | widget 族的 Game.* 静态面(Game.Renderer/ChromeProvider/Sound.PlayNotification/Settings.Game.UIScrollSpeed(缺省 50)/ModData.Hotkeys/RunTime/Resolution)→ Ui::Instance() 的 Deps 注入承载;RequireChromeMetrics/RequireRenderer 的未注入 = KeyNotFoundException 等价文本/异常;ParseHotkeyReference → fn_hotkey_lookup(缺省 = GetHotkeyReference 尾段的硬编码回落) | C# static → 单例 Deps 的先例承载(TextNotificationsManager/FluentProvider);测试可注入 |
+| D252 | src/ui/ widgets(委托族) | 上游 clone 拷贝 GetText 委托(闭包绑源体,源体由 chrome 树持活)→ C++ 以自有 CachedTransform 重建标准委托族(GetText/GetColor/GetTooltipText 等;模板面语义等价 —— 缓存透明,逻辑覆写面不变);ButtonWidget 复制不拷贝 Key/ClickSound/Cursor(上游同);ScrollItemWidget 的 ctor 急建面板缓存(Background 的默认值 "scrollitem";yaml 后置覆写字段不重建缓存 = 上游 quirk 保真) | C++ 闭包不可跨所有权存活;重建等价且无悬垂 |
+| D253 | src/ui/ scroll_panel | Bind/Unbind(IObservableCollection)绑定族未移植(ObservableCollection 基建缺;消费点 = 服务器浏览器/玩家列表面板,随其批);ReplaceChild 的 Children[i] 覆写 → Widget::ChildrenOwned 保护存储访问(上游数组协变的 C++ 等价);装载序 quirk 保真:AddChild 先于字段装载 → 加载毕 content 只剩首项基座,Logic 侧以 AdjustChildren 重排(上游同序,ui_test 钉死) | 面板绑定消费面未到;所有权形态适配 |
+| D254 | src/ui/ widget_utils + tooltip_container | WidgetUtils 子集:WithSuffix/BindPlayerNameAndStatus/SetupTextNotification/TruncateLabelToTooltip 随消费批(LabelWithTooltip 族未移植);TooltipContainerWidget 的 GraphicSettings.CursorDouble → 缺省 false(注入面随 GraphicSettings 批);ImageWidget 的 tooltip args getText 委托经 WidgetArgs 的 std::function&lt;string()&gt; 变体承载 | 消费驱动;设置面板随 Phase 6 后续批 |
+| D255 | src/ui/ chrome_metrics | Get&lt;T&gt; 的 T 域 = string/Int32/bool/Color 四型(引擎消费域;经 meta::GetXxxValue,类型名进错误文本与上游 GetValue 一致);TryGet 仅 string 面(上游泛型缺省值面的唯一消费形) | 消费域裁剪;泛型反射面不可达 |

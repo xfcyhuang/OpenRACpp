@@ -16,10 +16,16 @@
 import std;
 
 #include "net/tick_time.hpp"
+#include "ui/hotkey.hpp"
 #include "ui/widget.hpp"
 
 namespace ora::gfx {
 class Viewport;
+class Renderer;
+class ChromeProvider;
+}
+namespace ora::game {
+class Ruleset;
 }
 
 namespace ora::ui {
@@ -48,9 +54,47 @@ class Ui {
     std::function<int2()> fn_window_size;    // Renderer.Resolution
     std::function<std::int64_t()> fn_clock;  // Game.RunTime(缺省恒 0 | 0 by default)
     ChromeMetrics* ptr_chrome_metrics = nullptr;
+    /// Game.Renderer 静态面(字体/渲染器/scissor;widget 族绘制域)
+    /// the Game.Renderer static face (fonts/renderers/scissor; the widget
+    /// family's drawing domain).
+    gfx::Renderer* ptr_renderer = nullptr;
+    /// ChromeProvider 静态面(chrome.yaml 图像/面板)
+    /// the ChromeProvider static face (chrome.yaml images/panels).
+    gfx::ChromeProvider* ptr_chrome_provider = nullptr;
+    /// Game.Sound.PlayNotification(modRules, null, "Sounds", name, null) 面
+    /// the Game.Sound.PlayNotification(modRules, null, "Sounds", name, null)
+    /// face.
+    std::function<void(const game::Ruleset*, std::string_view)> fn_play_notification;
+    /// Game.Settings.Game.UIScrollSpeed(缺省 50;Settings.cs L330)
+    /// Game.Settings.Game.UIScrollSpeed (default 50; Settings.cs L330).
+    std::function<float()> fn_ui_scroll_speed = [] { return 50.0f; };
+    /// Game.ModData.Hotkeys[name](FieldLoader.ParseHotkeyReference;缺省 =
+    /// GetHotkeyReference 尾段回落)
+    /// Game.ModData.Hotkeys[name] (FieldLoader.ParseHotkeyReference;
+    /// defaulting to GetHotkeyReference's tail fallback).
+    std::function<HotkeyReference(std::string_view)> fn_hotkey_lookup =
+        [](std::string_view str_name) { return HotkeyReferenceFromNameOrCode(str_name); };
   };
 
   void Initialize(Deps deps);
+
+  /// widget 族静态面访问(Game.* 的注入承载;未注入 = 缺省面)
+  /// the widget family's static-face access (the Game.* injection carrier;
+  /// uninjected = the default faces).
+  gfx::Renderer* RendererDeps() const { return deps_.ptr_renderer; }
+  gfx::ChromeProvider* ChromeProviderDeps() const { return deps_.ptr_chrome_provider; }
+  ChromeMetrics* ChromeMetricsDeps() const { return deps_.ptr_chrome_metrics; }
+  game::ModData* ModDataDeps() const { return deps_.ptr_mod_data; }
+  void PlayNotification(const game::Ruleset* ptr_rules, std::string_view str_notification) const {
+    if (deps_.fn_play_notification)
+      deps_.fn_play_notification(ptr_rules, str_notification);
+  }
+  float UiScrollSpeed() const { return deps_.fn_ui_scroll_speed(); }
+  HotkeyReference Hotkey(std::string_view str_name) const {
+    return deps_.fn_hotkey_lookup(str_name);
+  }
+  std::int64_t RunTime() const { return deps_.fn_clock ? deps_.fn_clock() : 0; }
+  int2 Resolution() const { return deps_.fn_window_size ? deps_.fn_window_size() : int2{}; }
 
   Widget* MouseFocusWidget() const { return ptr_mouse_focus_; }
   void SetMouseFocusWidget(Widget* ptr_widget) { ptr_mouse_focus_ = ptr_widget; }

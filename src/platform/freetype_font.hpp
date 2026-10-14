@@ -31,30 +31,15 @@
 import std;
 
 #include "core/int2.hpp"
+#include "platform/ifont.hpp"
 
 namespace ora::platform {
 
-/// 字形(FontGlyph,PlatformInterfaces.cs L197-203;Advance 上游为 float ——
-/// 赋值源是 26.6 右移后的整数)。
-/// A glyph (FontGlyph, PlatformInterfaces.cs L197-203; Advance is a float
-/// upstream — its assignment source is the post-26.6-shift integer).
-struct FontGlyph {
-  int2 offset{};                // bitmap_left / -bitmap_top
-  std::int32_t int4_width = 0;  // metrics.width >> 6
-  std::int32_t int4_height = 0; // metrics.height >> 6
-  float fp4_advance = 0.0f;     // metrics.horiAdvance >> 6
-  std::vector<std::uint8_t> vec_data;  // 行主序位图(每行 width 字节)| row-major bitmap (width bytes per row)
-
-  /// 上游 EmptyGlyph 的等价判定(Data == null / 全零)。
-  /// The equivalent of upstream's EmptyGlyph test (Data == null / all-zero).
-  [[nodiscard]] bool Empty() const {
-    return int4_width == 0 && int4_height == 0 && fp4_advance == 0.0f && vec_data.empty();
-  }
-};
-
-/// FreeType 字体(FreeTypeFont.cs 的 IFont 面)。
-/// A FreeType font (the IFont face of FreeTypeFont.cs).
-class FreeTypeFont {
+/// FreeType 字体(FreeTypeFont.cs 的 IFont 面;FontGlyph/IFont 见
+/// ifont.hpp)。
+/// A FreeType font (the IFont face of FreeTypeFont.cs; FontGlyph/IFont live
+/// in ifont.hpp).
+class FreeTypeFont : public IFont {
  public:
   /// 数据拷入自持缓冲(D86);FT_New_Memory_Face 失败抛
   /// "Failed to initialize font"(InvalidDataException 消息逐字)。
@@ -77,7 +62,7 @@ class FreeTypeFont {
   /// shift and the row copy. Not const: the upstream method likewise writes
   /// the face's internal glyph slot.
   [[nodiscard]] FontGlyph CreateGlyph(std::uint32_t uint4_char_code, int int4_size,
-                                      float fp4_device_scale);
+                                      float fp4_device_scale) override;
 
  private:
   std::vector<std::uint8_t> vec_data_;  // 自持字体字节(D86)| owned font bytes (D86)

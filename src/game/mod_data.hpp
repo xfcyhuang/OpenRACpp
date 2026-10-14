@@ -16,6 +16,7 @@ import std;
 
 #include "fs/file_system.hpp"
 #include "fs/folder.hpp"
+#include "game/fonts.hpp"
 #include "game/manifest.hpp"
 #include "game/ruleset.hpp"
 #include "game/game_speed.hpp"
@@ -105,6 +106,13 @@ class ModData final {
   /// default is an empty table).
   GameSpeeds& GetOrCreateGameSpeeds();
 
+  /// GetOrCreate<Fonts>()(mod.yaml 的 "Fonts" 节点 → Fonts::Load;缺省 =
+  /// 空表)。Renderer.InitializeFonts 的 FontList 来源。
+  /// GetOrCreate<Fonts>() (the mod.yaml "Fonts" node → Fonts::Load; the
+  /// lazy default is the empty table). The FontList source of
+  /// Renderer.InitializeFonts.
+  Fonts& GetOrCreateFonts();
+
   std::vector<std::vector<yaml::MiniYamlNode>> GetRulesYaml();
 
  private:
@@ -113,6 +121,7 @@ class ModData final {
   std::unique_ptr<Ruleset> ruleset_default_;  // Lazy<Ruleset> 的等价 / the Lazy<Ruleset> equivalent.
   std::unique_ptr<map::MapGrid> grid_;             // GetOrCreate<MapGrid> 面 | the GetOrCreate<MapGrid> face.
   std::unique_ptr<GameSpeeds> game_speeds_;   // GetOrCreate<GameSpeeds> 面 | the GetOrCreate face.
+  std::unique_ptr<Fonts> fonts_;              // GetOrCreate<Fonts> 面 | the GetOrCreate face.
   std::vector<std::pair<std::string, std::unique_ptr<map::ITerrainInfo>>>
       vec_terrain_info_;  // DefaultTerrainInfo 懒缓存 | the lazy cache.
 };

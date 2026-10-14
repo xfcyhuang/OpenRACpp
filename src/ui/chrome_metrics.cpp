@@ -1,10 +1,12 @@
 // UPSTREAM: OpenRA.Game/Widgets/ChromeMetrics.cs @e180e3225(chrome_metrics.hpp
-// 的实现)
-// The implementation of chrome_metrics.hpp.
+// 的实现;Get<T> 的标量域经 meta GetValue,类型名进错误文本)
+// The implementation of chrome_metrics.hpp (Get<T>'s scalar domain through
+// meta GetValue; the type names enter the error texts).
 import std;
 
 #include "ui/chrome_metrics.hpp"
 
+#include "meta/field_loader.hpp"
 #include "yaml/mini_yaml.hpp"
 
 namespace ora::ui {
@@ -42,24 +44,42 @@ void ChromeMetrics::Initialize(Deps deps) {
 }
 
 const std::string& ChromeMetrics::Get(std::string_view str_key) const {
-  for (const auto& [str_entry_key, str_entry_value] : vec_data_)
-    if (str_entry_key == str_key)
-      return str_entry_value;
+  const std::string* ptr_value = Find(str_key);
+  if (ptr_value == nullptr)
+    throw std::runtime_error("The given key was not present in the dictionary.");
+  return *ptr_value;
+}
 
-  throw std::runtime_error("The given key was not present in the dictionary.");
+std::int32_t ChromeMetrics::GetInt32(std::string_view str_key) const {
+  return meta::GetInt32Value(str_key, Get(str_key));
+}
+
+bool ChromeMetrics::GetBool(std::string_view str_key) const {
+  return meta::GetBoolValue(str_key, Get(str_key));
+}
+
+core::Color ChromeMetrics::GetColor(std::string_view str_key) const {
+  return meta::GetColorValue(str_key, Get(str_key));
 }
 
 bool ChromeMetrics::TryGet(std::string_view str_key, std::string& str_result) const {
-  for (const auto& [str_entry_key, str_entry_value] : vec_data_)
-    if (str_entry_key == str_key) {
-      str_result = str_entry_value;
-      return true;
-    }
+  const std::string* ptr_value = Find(str_key);
+  if (ptr_value == nullptr) {
+    // 上游 default 值面(T = string → 空) | upstream's default face
+    // (T = string → empty).
+    str_result.clear();
+    return false;
+  }
 
-  // 上游 default 值面(T = string → 空) | upstream's default face
-  // (T = string → empty).
-  str_result.clear();
-  return false;
+  str_result = *ptr_value;
+  return true;
+}
+
+const std::string* ChromeMetrics::Find(std::string_view str_key) const {
+  for (const auto& [str_entry_key, str_entry_value] : vec_data_)
+    if (str_entry_key == str_key)
+      return &str_entry_value;
+  return nullptr;
 }
 
 }  // namespace ora::ui

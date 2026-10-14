@@ -11,6 +11,7 @@
 #pragma once
 import std;
 
+#include "core/color.hpp"
 #include "fs/file_system.hpp"
 
 namespace ora::ui {
@@ -25,15 +26,23 @@ class ChromeMetrics {
   /// Initialize(L21-30) | Initialize (L21-30).
   void Initialize(Deps deps);
 
-  /// Get(L32-35):缺键抛 KeyNotFoundException 等价消息
-  /// Get (L32-35): a missing key throws the KeyNotFoundException
-  /// equivalent.
+  /// Get<T>(L32-35):缺键抛 KeyNotFoundException 等价消息;T 域经
+  /// FieldLoader.GetValue(string/int/bool/Color 四型,ChromeMetrics.Get 的
+  /// 消费域)
+  /// Get<T> (L32-35): a missing key throws the KeyNotFoundException
+  /// equivalent; the T domain goes through FieldLoader.GetValue (the
+  /// string/int/bool/Color quartet — ChromeMetrics.Get's consumer domain).
   const std::string& Get(std::string_view str_key) const;
+  std::int32_t GetInt32(std::string_view str_key) const;
+  bool GetBool(std::string_view str_key) const;
+  core::Color GetColor(std::string_view str_key) const;
 
   /// TryGet(L37-47) | TryGet (L37-47).
   bool TryGet(std::string_view str_key, std::string& str_result) const;
 
  private:
+  const std::string* Find(std::string_view str_key) const;
+
   std::vector<std::pair<std::string, std::string>> vec_data_;
 };
 

@@ -197,6 +197,18 @@ GameSpeeds& ModData::GetOrCreateGameSpeeds() {
   return *game_speeds_;
 }
 
+Fonts& ModData::GetOrCreateFonts() {
+  // Fonts.cs L27-34 LoadFonts:"Fonts" 保留键的合并树直取,缺省空表
+  // Fonts.cs L27-34 LoadFonts: the "Fonts" reserved key's merged tree, the
+  // empty table as the default.
+  if (fonts_ == nullptr) {
+    fonts_ = std::make_unique<Fonts>();
+    if (const yaml::MiniYaml* node = manifest_->MergedNode("Fonts"))
+      fonts_->vec_font_list = Fonts::Load(*node);
+  }
+  return *fonts_;
+}
+
 map::MapGrid& ModData::GetOrCreateMapGrid() {
   // GetOrCreate<T>(ModData.cs L221-231):L71-91 的 GlobalModData 装载把
   // mod.yaml 顶层节点(ObjectCreator.FindType(键) 命中 IGlobalModData 者,

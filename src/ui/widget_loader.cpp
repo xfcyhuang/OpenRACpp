@@ -6,6 +6,17 @@ import std;
 
 #include "ui/widget_loader.hpp"
 
+#include "ui/widgets/background_widget.hpp"
+#include "ui/widgets/button_widget.hpp"
+#include "ui/widgets/checkbox_widget.hpp"
+#include "ui/widgets/color_block_widget.hpp"
+#include "ui/widgets/image_widget.hpp"
+#include "ui/widgets/label_widget.hpp"
+#include "ui/widgets/progress_bar_widget.hpp"
+#include "ui/widgets/scroll_item_widget.hpp"
+#include "ui/widgets/scroll_panel_widget.hpp"
+#include "ui/widgets/tooltip_container_widget.hpp"
+
 namespace ora::ui {
 namespace {
 
@@ -173,4 +184,65 @@ Widget* WidgetLoader::LoadWidgetNode(WidgetArgs& args_args, Widget* ptr_parent,
   return ptr_widget;
 }
 
+// ———— 基础 widget 族注册(Phase 6 第二批;集中本 TU —— 静态库的注册
+// 对象随 WidgetLoader 的引用链保活)————
+// The base widget-family registrations (the Phase 6 batch two; centralized
+// in this TU — a static library's registration objects stay alive through
+// WidgetLoader's reference chain).
+namespace {
+[[maybe_unused]] const bool kBaseWidgetsBatchRegistered = [] {
+  auto& registry_widgets = WidgetTypeRegistry::Instance();
+  registry_widgets.Register(
+      "BackgroundWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<BackgroundWidget>();
+      });
+  registry_widgets.Register(
+      "ButtonWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<ButtonWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "CheckboxWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<CheckboxWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "ColorBlockWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<ColorBlockWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "GradientColorBlockWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<GradientColorBlockWidget>();
+      });
+  registry_widgets.Register(
+      "ImageWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<ImageWidget>();
+      });
+  registry_widgets.Register(
+      "LabelWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<LabelWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "ProgressBarWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<ProgressBarWidget>();
+      });
+  registry_widgets.Register(
+      "ScrollItemWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<ScrollItemWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "ScrollPanelWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<ScrollPanelWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "TooltipContainerWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<TooltipContainerWidget>();
+      });
+  return true;
+}();
+}  // namespace
 }  // namespace ora::ui

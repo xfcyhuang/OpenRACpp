@@ -64,6 +64,7 @@ using WidgetArgValue =
     std::variant<std::monostate, int2, std::int32_t, std::string, Widget*, sim::World*,
                  net::OrderManager*, gfx::WorldRenderer*, game::ModData*, ChromeMetrics*,
                  Mediator*,
+                 std::function<std::string()>,         // getText/getDesc 委托 | the getText/getDesc delegates
                  const std::map<std::string, std::int32_t>*,  // substitutions
                  const YamlDictionary*>;                      // logicArgs
 
@@ -442,6 +443,13 @@ class Widget {
   /// L244-265: the Clone base; the clone's IsVisible delegate reads the
   /// SOURCE's Visible (upstream delegate-copy semantics, until rebound).
   Widget(const Widget& widget_other);
+
+  /// 子槽的可变存储访问(ScrollPanel.ReplaceChild 的 Children[i]=newChild
+  /// 槽位覆写;上游数组协变的 C++ 等价)。
+  /// Mutable access to the child slots (ScrollPanel.ReplaceChild's
+  /// Children[i]=newChild slot overwrite; the C++ equivalent of upstream's
+  /// array covariance).
+  std::vector<std::unique_ptr<Widget>>& ChildrenOwned() { return vec_children_; }
 
  private:
   void ForceYieldMouseFocus();

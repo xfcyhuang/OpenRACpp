@@ -58,9 +58,9 @@ class ActorInfo;
 }
 
 namespace ora::gfx {
-class IRenderable;  // 渲染域前置(渲染缓存字段的元素类型;Phase 6 接线)
-                    // The render-domain forward (the render-cache fields'
-                    // element type; wired in Phase 6).
+struct IRenderable;  // 渲染域前置(渲染缓存字段的元素类型;Phase 6 接线)
+                     // The render-domain forward (the render-cache fields'
+                     // element type; wired in Phase 6).
 }
 
 namespace ora::sim {

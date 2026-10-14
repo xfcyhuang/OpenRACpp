@@ -2,20 +2,48 @@
 // ChromeMetrics/WidgetLoader 异常矩阵 + Game 主循环骨架(时钟注入下的节拍/
 // JoinLocal/延迟动作/Run 清理)。期望值人工对照上游源码(ActionQueue.cs/
 // Widget.cs/ChromeMetrics.cs/WidgetLoader.cs/Game.cs)。
+// Phase 6 第二批追加:Hotkey/HotkeyManager(ra 真热键表)、SpriteFont(fake
+// 字体的度量/绘制/对比度权图)、Fonts mod 装载、基础 widget 族的 ra 真本体
+// chrome.yaml 装载冒烟(THREEBUTTON_PROMPT/MULTIPLAYER_FILTER_PANEL/
+// LABEL_DROPDOWN_TEMPLATE)+ 按钮三态输入 + ScrollPanel 布局/滚动面。
 // The fifteenth-batch acceptance: ActionQueue/WidgetArgs/Mediator/the Widget
 // tree/the Ui window stack and input/ChromeMetrics/the WidgetLoader
 // exception matrix + the Game main-loop skeleton (pacing under an injected
 // clock/JoinLocal/delayed actions/Run cleanup). Expected values hand-checked
-// against the upstream sources.
+// against the upstream sources. The Phase 6 batch-two append:
+// Hotkey/HotkeyManager (the real ra hotkey tables), SpriteFont (the fake
+// font's metrics/draw/contrast weight maps), the Fonts mod load, and the
+// base widget family's chrome.yaml load smoke against the real mod
+// (THREEBUTTON_PROMPT/MULTIPLAYER_FILTER_PANEL/LABEL_DROPDOWN_TEMPLATE) +
+// the button input trio + the ScrollPanel layout/scroll faces.
 import std;
 
 #include "core/action_queue.hpp"
 #include "fs/file_system.hpp"
+#include "game/fonts.hpp"
 #include "game/game.hpp"
+#include "game/mod_data.hpp"
+#include "game/game_records.hpp"
+#include "mods/create_map_players.hpp"
+#include "sim/trait_registry.hpp"
+
+namespace ora::gen {
+void RegisterGeneratedAll();
+}  // namespace ora::gen
+#include "gfx/sheet.hpp"
+#include "gfx/sprite_font.hpp"
+#include "platform/ifont.hpp"
 #include "sim/world.hpp"
 #include "ui/chrome_metrics.hpp"
+#include "ui/hotkey.hpp"
 #include "ui/ui.hpp"
 #include "ui/widget_loader.hpp"
+#include "ui/widget_utils.hpp"
+#include "ui/widgets/button_widget.hpp"
+#include "ui/widgets/checkbox_widget.hpp"
+#include "ui/widgets/label_widget.hpp"
+#include "ui/widgets/scroll_item_widget.hpp"
+#include "ui/widgets/scroll_panel_widget.hpp"
 #include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
 
 namespace {
@@ -540,9 +568,412 @@ void TestWidgetLoader() {
   Check(ptr_multi->str_id == "MULTI", "Id = Split('@')[1]");
 }
 
+// ———— Phase 6 第二批:Hotkey/HotkeyManager ————
+
+void TestHotkey() {
+  ui::Hotkey hk_key{};
+  Check(ui::Hotkey::TryParse("F5", hk_key) && hk_key.key_kind == Keycode::F5 &&
+            hk_key.kind_modifiers == Modifiers::None,
+        "Hotkey.TryParse 单段");
+  Check(ui::Hotkey::TryParse("f5 ctrl", hk_key) && hk_key.key_kind == Keycode::F5 &&
+            hk_key.kind_modifiers == Modifiers::Ctrl,
+        "Hotkey.TryParse 忽略大小写双段");
+  Check(!ui::Hotkey::TryParse("NOT A KEY", hk_key), "Hotkey.TryParse 未知名失败");
+  Check(!ui::Hotkey::TryParse("F5 BOGUSMOD", hk_key), "Hotkey.TryParse 未知修饰失败");
+  Check((ui::Hotkey{Keycode::F5, Modifiers::None}).ToString() == "F5 None",
+        "Hotkey.ToString");
+
+  // FluentProvider 未初始化 = 键回落(D247 族)
+  Check(ui::Hotkey{Keycode::F5, Modifiers::None}.DisplayString() == "keycode.f5",
+        "KeycodeExts.DisplayString 键回落");
+
+  const ui::Hotkey hk_invalid = ui::Hotkey::Invalid();
+  Check(hk_invalid != ui::Hotkey{Keycode::F5, Modifiers::None} &&
+            !(hk_invalid == ui::Hotkey::Invalid()),
+        "UNKNOWN 永不相等");
+  Check(ui::Hotkey{Keycode::F5, Modifiers::None} ==
+            ui::Hotkey{Keycode::F5, Modifiers::None},
+        "有效键相等");
+
+  KeyInput input_key{};
+  input_key.Event = KeyInputEvent::Down;
+  input_key.Key = Keycode::F5;
+  input_key.ModifierFlags = Modifiers::Ctrl;
+  const ui::HotkeyReference ref_key = ui::HotkeyReferenceFromNameOrCode("f5 ctrl");
+  Check(ref_key.IsActivatedBy(input_key), "HotkeyReference.IsActivatedBy 命中");
+  input_key.Key = Keycode::F6;
+  Check(!ref_key.IsActivatedBy(input_key), "HotkeyReference.IsActivatedBy 未命中");
+  const ui::HotkeyReference ref_invalid = ui::HotkeyReferenceFromNameOrCode("junk");
+  Check(!ref_invalid.GetValue().IsValid(), "硬编码回落失败 = Invalid");
+}
+
+void TestHotkeyManager(game::ModData& mod_data) {
+  const ui::HotkeyManager::OpenFn fn_open = [&mod_data](const std::string& str_name) {
+    return mod_data.ModFiles().Open(str_name);
+  };
+
+  // settings 覆盖:Sell = Z → 改设为 X
+  std::vector<ui::HotkeyManager::SettingsOverride> vec_overrides{
+      {"Sell", "X"}};
+  ui::HotkeyManager manager_keys(fn_open, mod_data.ManifestRef().Hotkeys(),
+                                 vec_overrides);
+
+  Check(manager_keys.Definitions().size() > 50, "ra 热键定义装载量");
+
+  KeyInput input_sell{};
+  input_sell.Event = KeyInputEvent::Down;
+  input_sell.Key = Keycode::X;
+  Check(manager_keys.Get("Sell").IsActivatedBy(input_sell), "settings 覆盖生效");
+
+  // Readonly 定义(chat.yaml 的 ToggleChatMode)Set 无效
+  const ui::HotkeyDefinition* ptr_readonly = nullptr;
+  for (const auto& [str_name, definition] : manager_keys.Definitions())
+    if (definition.b_readonly) {
+      ptr_readonly = &definition;
+      break;
+    }
+  Check(ptr_readonly != nullptr, "Readonly 定义存在");
+  if (ptr_readonly != nullptr) {
+    manager_keys.Set(ptr_readonly->str_name, ui::Hotkey{Keycode::F5, Modifiers::None});
+    Check(!manager_keys.Get(ptr_readonly->str_name)
+               .GetValue()
+               .IsValid() ||
+          manager_keys.Get(ptr_readonly->str_name).GetValue().key_kind != Keycode::F5,
+          "Readonly Set 跳过");
+  }
+
+  // 未知名回落硬编码解析
+  KeyInput input_hard{};
+  input_hard.Event = KeyInputEvent::Down;
+  input_hard.Key = Keycode::Q;
+  Check(manager_keys.Get("Q").IsActivatedBy(input_hard), "未知名硬编码回落");
+}
+
+// ———— Phase 6 第二批:SpriteFont(fake 字体)————
+
+class FakeFont final : public platform::IFont {
+ public:
+  platform::FontGlyph CreateGlyph(std::uint32_t uint4_char_code, int int4_size,
+                                  float fp4_device_scale) override {
+    // 确定性度量:宽 2/高 3/advance 4/offset (1,2);数据 = 竖条纹
+    // Deterministic metrics: width 2 / height 3 / advance 4 / offset (1,2);
+    // data = vertical stripes.
+    platform::FontGlyph glyph_ret;
+    glyph_ret.offset = int2{1, 2};
+    glyph_ret.int4_width = 2;
+    glyph_ret.int4_height = 3;
+    glyph_ret.fp4_advance = 4.0f;
+    glyph_ret.vec_data.assign(2 * 3, 0);
+    glyph_ret.vec_data[0] = 200;
+    glyph_ret.vec_data[4] = 100;
+    (void)uint4_char_code;
+    (void)int4_size;
+    (void)fp4_device_scale;
+    return glyph_ret;
+  }
+};
+
+void TestSpriteFont() {
+  gfx::SheetBuilder builder_sheets(gfx::SheetType::BGRA, 128);
+
+  struct Drawn {
+    core::Vector3 vec_location;
+    float fp4_scale;
+    std::uint8_t u8_first_pixel;
+  };
+  std::vector<Drawn> vec_flat_drawn;
+  std::vector<Drawn> vec_quad_drawn;
+
+  auto up_font = std::make_unique<gfx::SpriteFont>(
+      "fake", std::span<const std::uint8_t>{}, std::make_unique<FakeFont>(), 10, 8, 1.0f,
+      builder_sheets,
+      [&vec_flat_drawn](const gfx::Sprite& sprite_s, core::Vector3 v_location, float fp4_scale,
+                        core::Vector3, float) {
+        const std::span<const std::byte> span_data = sprite_s.ptr_sheet->GetData();
+        vec_flat_drawn.push_back(
+            Drawn{v_location, fp4_scale,
+                  static_cast<std::uint8_t>(span_data[static_cast<std::size_t>(
+                                               sprite_s.ptr_sheet->Size().X * 4 *
+                                               sprite_s.Bounds.Top()) +
+                                           4 * sprite_s.Bounds.Left()])});
+      },
+      [&vec_quad_drawn](const gfx::Sprite&, core::Vector3 v_a, core::Vector3, core::Vector3,
+                        core::Vector3, core::Vector3, float) {
+        vec_quad_drawn.push_back(Drawn{v_a, 0.0f, 0});
+      });
+
+  Check(up_font->TopOffset() == 2, "TopOffset = size - ascender");
+
+  const int2 int2_size = up_font->Measure("AB");
+  Check(int2_size.X == 8 && int2_size.Y == 10, "Measure(advance 和,行高 = size)");
+  Check(up_font->Measure("") == int2{0, 10}, "Measure 空串");
+  Check(up_font->Measure("A\nBB") == int2{8, 20}, "Measure 多行");
+
+  up_font->DrawText("A", core::Vector2{10.0f, 20.0f}, core::Color::FromArgb(255, 255, 255, 255));
+  Check(vec_flat_drawn.size() == 1, "DrawText 单字形单投递");
+  // screen = ((int)(10*1+0.5), (int)((20+10)*1+0.5)) = (10, 30);pos = (10+1, 30+2)/1
+  Check(vec_flat_drawn[0].vec_location.X == 11.0f && vec_flat_drawn[0].vec_location.Y == 32.0f,
+        "DrawText 屏幕像素取整 + offset");
+  Check(vec_flat_drawn[0].fp4_scale == 1.0f, "DrawText scale = 1/deviceScale");
+  Check(vec_flat_drawn[0].u8_first_pixel == 200, "字形位图写入 sheet");
+
+  // 阴影:offset=1 → bg 先绘(位移 1),fg 后绘
+  vec_flat_drawn.clear();
+  up_font->DrawTextWithShadow("A", core::Vector2{0.0f, 0.0f},
+                              core::Color::FromArgb(255, 255, 255, 255),
+                              core::Color::FromArgb(255, 0, 0, 0), 1);
+  Check(vec_flat_drawn.size() == 2, "DrawTextWithShadow 双投递");
+  Check(vec_flat_drawn[0].vec_location.X == vec_flat_drawn[1].vec_location.X + 1.0f,
+        "阴影位移 1 像素");
+
+  // 对比度:radius 1 → 膨胀字形先绘(半径 1 位移)
+  vec_flat_drawn.clear();
+  up_font->DrawTextWithContrast("A", core::Vector2{0.0f, 0.0f},
+                                core::Color::FromArgb(255, 255, 255, 255),
+                                core::Color::FromArgb(255, 0, 0, 0),
+                                core::Color::FromArgb(255, 0, 0, 0), 1);
+  Check(vec_flat_drawn.size() == 2, "DrawTextWithContrast 双投递");
+  Check(vec_flat_drawn[0].vec_location.X == vec_flat_drawn[1].vec_location.X - 1.0f &&
+            vec_flat_drawn[0].vec_location.Y == vec_flat_drawn[1].vec_location.Y - 1.0f,
+        "对比度位移 (radius, radius)");
+
+  // 角度绘制走四角形态
+  up_font->DrawText("A", core::Vector2{5.0f, 5.0f},
+                    core::Color::FromArgb(255, 255, 255, 255), 0.0f);
+  Check(vec_quad_drawn.size() == 1, "DrawText(angle) 四角投递");
+
+  // SetScale(2):advance 和除以 deviceScale
+  up_font->SetScale(2.0f);
+  Check(up_font->Measure("AB") == int2{4, 10}, "SetScale 后 Measure 减半");
+
+  // 圆形权图:上游注释样例(r=1 角 0.60 / r=3 首行 0,0.44,0.80,1.00,…)
+  const std::vector<float> vec_r1 = gfx::SpriteFont::CreateCircularWeightMap(1);
+  Check(std::abs(vec_r1[0] - 0.60f) < 0.02f && std::abs(vec_r1[1] - 1.0f) < 0.001f &&
+            std::abs(vec_r1[2] - 0.60f) < 0.02f && std::abs(vec_r1[4] - 1.0f) < 0.001f,
+        "权图 r=1 角/边");
+  const std::vector<float> vec_r3 = gfx::SpriteFont::CreateCircularWeightMap(3);
+  Check(std::abs(vec_r3[0]) < 0.001f && std::abs(vec_r3[1] - 0.44f) < 0.02f &&
+            std::abs(vec_r3[2] - 0.80f) < 0.02f && std::abs(vec_r3[3] - 1.0f) < 0.001f,
+        "权图 r=3 首行");
+
+  // GetContrastColor:白/亮色 → dark,暗色 → light
+  Check(gfx::SpriteFont::GetContrastColor(core::Color::FromArgb(255, 255, 255, 255),
+                                          core::Color::FromArgb(255, 1, 2, 3),
+                                          core::Color::FromArgb(255, 4, 5, 6)) ==
+            core::Color::FromArgb(255, 1, 2, 3),
+        "GetContrastColor 白 → dark");
+  Check(gfx::SpriteFont::GetContrastColor(core::Color::FromArgb(255, 10, 10, 10),
+                                          core::Color::FromArgb(255, 1, 2, 3),
+                                          core::Color::FromArgb(255, 4, 5, 6)) ==
+            core::Color::FromArgb(255, 4, 5, 6),
+        "GetContrastColor 暗 → light");
+}
+
+// ———— Phase 6 第二批:Fonts mod 装载 + 基础 widget 族 chrome.yaml 冒烟 ————
+
+void TestFontsModData(game::ModData& mod_data) {
+  const game::Fonts& fonts_mod = mod_data.GetOrCreateFonts();
+  bool b_found_tiny = false;
+  bool b_found_bold = false;
+  for (const auto& [str_key, data_font] : fonts_mod.vec_font_list) {
+    if (str_key == "Tiny") {
+      b_found_tiny = data_font.int4_size == 10 && data_font.int4_ascender == 8 &&
+                     data_font.str_font.find("FreeSans.ttf") != std::string::npos;
+    }
+    if (str_key == "Bold")
+      b_found_bold = data_font.int4_size > 0;
+  }
+  Check(b_found_tiny, "Fonts.Tiny = FreeSans 10/8");
+  Check(b_found_bold, "Fonts.Bold 存在");
+}
+
+void TestBaseWidgetsChrome(const std::string& str_root) {
+  // ButtonWidget ctor 的 ModData.DefaultRules 需要全装载链注册(map_test 同序)
+  // ButtonWidget's ctor's ModData.DefaultRules needs the full loading-chain
+  // registration (the same order as map_test).
+  gen::RegisterGeneratedAll();
+  game::RegisterGameLoaders();
+  sim::RegisterWorldTraits();
+  mods::RegisterCommonTraits();
+
+  game::InstalledMods mods_installed{str_root + "/mods"};
+  const game::Manifest* manifest_ra = mods_installed.Find("ra");
+  Check(manifest_ra != nullptr, "ra mod found");
+  if (manifest_ra == nullptr)
+    return;
+  game::ModData mod_data{*manifest_ra, mods_installed, str_root};
+
+  // Fluent 面(标签/按钮文本解析所需)
+  mod_data.InitializeLoaders([&mod_data](const std::string& str_name) {
+    std::optional<std::vector<char>> opt_bytes;
+    try {
+      opt_bytes = mod_data.ModFiles().Open(str_name);
+    } catch (const std::exception&) {
+    }
+    return opt_bytes;
+  });
+
+  ui::ChromeMetrics metrics_chrome;
+  metrics_chrome.Initialize(
+      {.ptr_file_system = &mod_data.ModFiles(),
+       .vec_metric_files = &manifest_ra->ChromeMetrics()});
+  Check(metrics_chrome.GetColor("TextColor") == core::Color::FromArgb(255, 255, 255, 255),
+        "metrics TextColor");
+  Check(metrics_chrome.GetInt32("ButtonDepth") == 1, "metrics ButtonDepth = 1");
+  Check(metrics_chrome.Get("ButtonFont") == "Regular", "metrics ButtonFont");
+
+  ui::WidgetLoader loader_chrome(manifest_ra->ChromeLayout(), mod_data.ModFiles());
+
+  ui::Ui::Deps deps_ui;
+  deps_ui.ptr_mod_data = &mod_data;
+  deps_ui.fn_window_size = [] { return int2{1280, 960}; };
+  deps_ui.fn_clock = [] { return std::int64_t{0}; };
+  deps_ui.ptr_chrome_metrics = &metrics_chrome;
+  deps_ui.fn_load_widget = [&loader_chrome](ui::WidgetArgs& args_load, ui::Widget* ptr_parent,
+                                            const std::string& str_id) {
+    return loader_chrome.LoadWidget(args_load, ptr_parent, str_id);
+  };
+  ui::Ui::Instance().Initialize(deps_ui);
+
+  // —— THREEBUTTON_PROMPT:Background + Label×2 + Button×3 ——
+  ui::WidgetArgs args_prompt;
+  args_prompt.Add("modData", static_cast<game::ModData*>(&mod_data));
+  args_prompt.Add("chromeMetrics", static_cast<ui::ChromeMetrics*>(&metrics_chrome));
+  args_prompt.Add("windowSize", int2{1280, 960});
+  ui::Widget* ptr_prompt =
+      loader_chrome.LoadWidget(args_prompt, nullptr, "THREEBUTTON_PROMPT");
+  Check(ptr_prompt != nullptr && ptr_prompt->TypeName() == "BackgroundWidget",
+        "THREEBUTTON_PROMPT 根类型");
+  // X = (1280-600)/2 = 340
+  Check(ptr_prompt->RenderBounds().X == 340, "PARENT_WIDTH 方程求值(窗口 1280)");
+
+  ui::ButtonWidget* ptr_confirm = ptr_prompt->GetOrNull<ui::ButtonWidget>("CONFIRM_BUTTON");
+  ui::ButtonWidget* ptr_cancel = ptr_prompt->GetOrNull<ui::ButtonWidget>("CANCEL_BUTTON");
+  Check(ptr_confirm != nullptr && ptr_cancel != nullptr, "按钮子装载");
+  Check(ptr_confirm->str_text == "button-prompt-confirm", "按钮 Text 字段");
+  Check(ptr_confirm->fn_get_text() == "Confirm", "按钮 Fluent 文本解析(en)");
+  Check(ptr_confirm->int4_visual_height == 1, "按钮 VisualHeight = ButtonDepth");
+  Check(ptr_confirm->fn_is_disabled != nullptr && !ptr_confirm->fn_is_disabled(),
+        "按钮可用态");
+  Check(ptr_confirm->key_hotkey.GetValue().key_kind == Keycode::RETURN,
+        "按钮 Key: return 命名键");
+
+  // Key 激活路径(yaml Visible:false → Logic 重绑可见后可交互)
+  KeyInput input_return{};
+  input_return.Event = KeyInputEvent::Down;
+  input_return.Key = Keycode::RETURN;
+  bool b_clicked = false;
+  ptr_confirm->fn_is_visible = [] { return true; };
+  ptr_confirm->fn_on_click = [&b_clicked] { b_clicked = true; };
+  Check(ptr_confirm->HandleKeyPressOuter(input_return), "Return 键激活消费");
+  Check(b_clicked, "Return 键触发 OnClick");
+
+  // 鼠标三态:Down 持焦 + Depressed → Up 让焦触发(yaml Visible:false →
+  // Logic 重绑可见)
+  b_clicked = false;
+  ptr_cancel->fn_is_visible = [] { return true; };
+  ptr_cancel->fn_on_click = [&b_clicked] { b_clicked = true; };
+  ui::Ui::Instance().SetMouseFocusWidget(nullptr);
+  const int2 int2_center = ptr_cancel->RenderOrigin() +
+                           int2{ptr_cancel->bounds_widget.int4_width / 2,
+                                ptr_cancel->bounds_widget.int4_height / 2};
+  MouseInput input_mouse{.Location = int2_center,
+                         .Button = MouseButton::Left,
+                         .Event = MouseInputEvent::Down};
+  Check(ptr_cancel->HandleMouseInputOuter(input_mouse), "鼠标 Down 消费 + Depressed");
+  Check(ptr_cancel->b_depressed, "Down 后 Depressed");
+  input_mouse.Event = MouseInputEvent::Up;
+  Check(ptr_cancel->HandleMouseInputOuter(input_mouse), "鼠标 Up 消费");
+  Check(b_clicked, "Up 触发 OnClick");
+  Check(!ptr_cancel->b_depressed, "Up 后 Depressed 复位");
+
+  // —— MULTIPLAYER_FILTER_PANEL:ScrollPanel + Checkbox 族 ——
+  ui::WidgetArgs args_filter;
+  ui::Widget* ptr_filter =
+      loader_chrome.LoadWidget(args_filter, nullptr, "MULTIPLAYER_FILTER_PANEL");
+  Check(ptr_filter != nullptr && ptr_filter->TypeName() == "ScrollPanelWidget",
+        "MULTIPLAYER_FILTER_PANEL 根类型");
+  auto* ptr_panel = static_cast<ui::ScrollPanelWidget*>(ptr_filter);
+  Check(ptr_panel->OwnedChildren().size() >= 3, "过滤器面板 checkbox 数");
+  const ui::CheckboxWidget* ptr_first_check =
+      dynamic_cast<const ui::CheckboxWidget*>(ptr_panel->OwnedChildren().front().get());
+  Check(ptr_first_check != nullptr, "子为 Checkbox");
+  // 装载序 quirk:AddChild 先于字段装载 → 加载毕 content 只剩首项基座;
+  // Logic 侧以 AdjustChildren 重排(上游同序)
+  // The load-order quirk: AddChild precedes field loading → after loading
+  // the content holds only the first-item base; Logic re-runs AdjustChildren
+  // (upstream's same order).
+  ptr_panel->ptr_layout->AdjustChildren();
+  const int int4_expected_content = [&] {
+    int int4_sum = ptr_panel->int4_top_bottom_spacing;
+    for (const auto& up_child : ptr_panel->OwnedChildren())
+      int4_sum += up_child->bounds_widget.int4_height + ptr_panel->int4_item_spacing;
+    return int4_sum + ptr_panel->int4_top_bottom_spacing - ptr_panel->int4_item_spacing;
+  }();
+  Check(ptr_panel->int4_content_height == int4_expected_content,
+        "ListLayout AdjustChildren 重排");
+  Check(ptr_panel->int4_content_height == 104 && ptr_panel->bounds_widget.int4_height == 130,
+        "过滤器面板 content(2+5×20+2=104)< 视口 130");
+
+  // 滚轮:target offset 按 UIScrollSpeed(50)移动(取上界夹取)
+  MouseInput input_scroll{.Location = int2{0, 0},
+                          .Button = MouseButton::None,
+                          .Event = MouseInputEvent::Scroll,
+                          .Delta = int2{0, -1}};
+  ptr_panel->HandleMouseInput(input_scroll);
+  input_scroll.Delta = int2{0, 1};
+  ptr_panel->HandleMouseInput(input_scroll);
+  ptr_panel->ScrollToBottom();
+  Check(ptr_panel->ScrolledToBottom(), "ScrollToBottom");
+  // content(104)< 视口(130)→ min(0, 26) = 0
+  Check(ptr_panel->CurrentListOffset() == 0.0f, "content<视口时底 offset = 0");
+  ptr_panel->ScrollToTop();
+  Check(ptr_panel->CurrentListOffset() == 0.0f, "ScrollToTop");
+
+  // —— LABEL_DROPDOWN_TEMPLATE:ScrollItem 模板面 ——
+  ui::WidgetArgs args_dropdown;
+  ui::Widget* ptr_dropdown =
+      loader_chrome.LoadWidget(args_dropdown, nullptr, "LABEL_DROPDOWN_TEMPLATE");
+  Check(ptr_dropdown != nullptr && ptr_dropdown->TypeName() == "ScrollPanelWidget",
+        "LABEL_DROPDOWN_TEMPLATE 根类型");
+  auto* ptr_list = static_cast<ui::ScrollPanelWidget*>(ptr_dropdown);
+  Check(ptr_list->OwnedChildren().size() == 2, "HEADER + TEMPLATE 两项");
+  const ui::Widget& widget_header = *ptr_list->OwnedChildren().front();
+  Check(widget_header.TypeName() == "ScrollItemWidget", "子为 ScrollItem");
+  Check(!widget_header.fn_is_visible(), "模板 IsVisible 恒 false");
+  // 字段装载后于 AddChild → yaml 的 Y:0 终值(上游同序)
+  // Field loading follows AddChild → yaml's Y:0 is final (upstream's same
+  // order).
+  Check(widget_header.bounds_widget.int4_y == 0, "装载序 Y 终值 = yaml 值");
+
+  // 定界滚动面:面板高度注入 + AdjustChildren 后 content = 2+13+25+2 = 42
+  ptr_list->bounds_widget.int4_height = 40;
+  ptr_list->ptr_layout->AdjustChildren();
+  Check(ptr_list->int4_content_height == 42, "dropdown content = 2+13+25+2");
+
+  // Setup 装配方:克隆模板 → 可见 + 选中态
+  auto* ptr_template_item = static_cast<ui::ScrollItemWidget*>(
+      ptr_list->OwnedChildren()[1].get());
+  bool b_selected = false;
+  auto up_setup = ui::ScrollItemWidget::Setup(
+      std::string{"k1"}, *ptr_template_item, [&b_selected] { return b_selected; },
+      [] {}, [] {});
+  Check(up_setup->fn_is_visible() && up_setup->str_item_key == "k1", "Setup 可见 + 键");
+
+  ui::LabelWidget* ptr_label_inner =
+      ptr_list->OwnedChildren().front()->GetOrNull<ui::LabelWidget>("LABEL");
+  Check(ptr_label_inner != nullptr && ptr_label_inner->str_font == "TinyBold",
+        "内嵌 Label Font");
+
+  Check(!ptr_list->ScrolledToBottom(), "dropdown(40/42)未到底");
+  ptr_list->ScrollToBottom();
+  Check(ptr_list->CurrentListOffset() == -2.0f, "dropdown 底 offset = 40-42");
+  Check(ptr_label_inner->fn_get_text().empty(), "Label 无 Text = 空串直通");
+}
+
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
   setvbuf(stdout, nullptr, _IONBF, 0);
   TestActionQueue();
   TestWidgetArgs();
@@ -553,6 +984,26 @@ int main() {
   TestUiWindowStack();
   TestChromeMetrics();
   TestWidgetLoader();
+
+  // Phase 6 第二批(mod 根经 argv[1] 注入;缺省跳过 —— 与 platform_test 的
+  // SKIP 门同形)
+  // The Phase 6 batch two (the mod root arrives via argv[1]; skip when
+  // absent — the same shape as platform_test's SKIP gate).
+  TestHotkey();
+  TestSpriteFont();
+  if (argc > 1) {
+    const std::string str_root{argv[1]};
+    game::InstalledMods mods_keys{str_root + "/mods"};
+    const game::Manifest* manifest_keys = mods_keys.Find("ra");
+    Check(manifest_keys != nullptr, "ra mod found (hotkeys)");
+    if (manifest_keys != nullptr) {
+      game::ModData mod_keys{*manifest_keys, mods_keys, str_root};
+          TestHotkeyManager(mod_keys);
+          TestFontsModData(mod_keys);
+    }
+      TestBaseWidgetsChrome(str_root);
+  } else
+    std::println("SKIP: mod 根未提供(HotkeyManager/Fonts/chrome 冒烟)| SKIP: no mod root (HotkeyManager/Fonts/chrome smoke)");
 
   if (int4_failures == 0) {
     std::println("ui_test: all passed");

@@ -67,6 +67,7 @@ import std;
 #include "gfx/hardware_palette.hpp"
 #include "gfx/sheet.hpp"
 #include "gfx/shader.hpp"
+#include "gfx/sprite_font.hpp"
 #include "gfx/sprite_renderer.hpp"
 #include "gfx/vertex_buffer.hpp"
 #include "platform/sdl2_window.hpp"
@@ -129,6 +130,46 @@ class Renderer {
   void BeginWorld(core::Vector2 vec_viewport_location, int2 int2_viewport_size);
   void BeginUI();
   void EndFrame();
+
+  /// InitializeFonts(Renderer.cs L129-153):旧字体释放 → 新 SheetBuilder
+  /// (BGRA,FontSheetSize)→ 逐 FontList 项构造 SpriteFont。上游的
+  /// Window.OnWindowScaleChanged 重设面为 SetFontsWindowScale(接线随窗口
+  /// 事件批)。字体字节与 IFont 工厂注入(上游 modData.DefaultFileSystem.
+  /// Open + platform.CreateFont 的等价)。
+  /// InitializeFonts (Renderer.cs L129-153): dispose the old fonts → a new
+  /// SheetBuilder (BGRA, FontSheetSize) → one SpriteFont per FontList entry.
+  /// Upstream's Window.OnWindowScaleChanged re-scale face is
+  /// SetFontsWindowScale (wiring arrives with the window-event batch). The
+  /// font bytes and the IFont factory are injected (the equivalents of
+  /// upstream's modData.DefaultFileSystem.Open + platform.CreateFont).
+  struct FontDesc {
+    std::string str_key;   // FontList 键(Tiny/Small/…) | the FontList key
+    std::string str_file;  // Font 文件名 | the Font filename
+    int int4_size = 0;     // Size
+    int int4_ascender = 0; // Ascender
+  };
+
+  using FontOpenFn =
+      std::function<std::vector<std::uint8_t>(const std::string&)>;
+  using CreateFontFn =
+      std::function<std::unique_ptr<platform::IFont>(std::span<const std::uint8_t>)>;
+
+  void InitializeFonts(std::span<const FontDesc> vec_fonts, std::int32_t int4_font_sheet_size,
+                       float fp4_window_scale, const FontOpenFn& fn_open,
+                       const CreateFontFn& fn_create_font);
+
+  /// Fonts[name](Renderer.cs L39;缺名抛 KeyNotFoundException 等价)。
+  /// Fonts[name] (Renderer.cs L39; a miss throws the KeyNotFoundException
+  /// equivalent).
+  SpriteFont& Font(const std::string& str_key);
+
+  /// Fonts.TryGetValue | the Fonts.TryGetValue face.
+  SpriteFont* TryGetFont(const std::string& str_key);
+
+  /// OnWindowScaleChanged 的字体面:newEffective → 逐字体 SetScale。
+  /// The fonts face of OnWindowScaleChanged: newEffective → SetScale per
+  /// font.
+  void SetFontsWindowScale(float fp4_scale);
 
   /// 调色板纹理绑定缓存(Renderer.cs L321-338)。
   /// The palette-texture binding cache (Renderer.cs L321-338).
@@ -217,6 +258,9 @@ class Renderer {
   std::unique_ptr<FrameBuffer> ptr_world_buffer_;
   std::unique_ptr<Sheet> ptr_world_sheet_;
   std::optional<Sprite> opt_world_sprite_;
+
+  std::unique_ptr<SheetBuilder> ptr_font_sheet_builder_;
+  std::vector<std::pair<std::string, std::unique_ptr<SpriteFont>>> vec_fonts_;
 
   std::vector<Rectangle> vec_scissor_stack_;
   IBatchRenderer* ptr_current_batch_ = nullptr;

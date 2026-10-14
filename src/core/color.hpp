@@ -53,6 +53,13 @@ struct Color {
 
   bool operator==(const Color&) const = default;
 
+  /// GetBrightness(Color.cs L69-72):max(R,G,B)/255f(.NET 语义)。
+  /// GetBrightness (Color.cs L69-72): max(R,G,B)/255f (the .NET semantics).
+  float GetBrightness() const {
+    const std::uint8_t u8_max = std::max({R(), G(), B()});
+    return static_cast<float>(u8_max) / 255.0f;
+  }
+
   /// TryParse(Color.cs L164-184):Trim → 长度 6/8 → 每两位十六进制解析
   /// TryParse (Color.cs L164-184): Trim → length 6/8 → parse each hex pair.
   static bool TryParse(std::string_view sv_value, Color& color_out) {

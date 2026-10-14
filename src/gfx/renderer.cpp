@@ -479,4 +479,54 @@ void Renderer::DisableAntialiasingFilter() {
   UISpriteRenderer().EnablePixelArtScaling(false);
 }
 
+void Renderer::InitializeFonts(std::span<const FontDesc> vec_fonts,
+                               std::int32_t int4_font_sheet_size, float fp4_window_scale,
+                               const FontOpenFn& fn_open, const CreateFontFn& fn_create_font) {
+  // Fonts 的重建序(Renderer.cs L131-148):旧字体先释放(此处 = 表清空)
+  // → fontSheetBuilder 重建 → FontList.ToDictionary(逐项 SpriteFont)。
+  // The Fonts rebuild order (Renderer.cs L131-148): the old fonts dispose
+  // first (here = clearing the table) → the fontSheetBuilder rebuild →
+  // FontList.ToDictionary (one SpriteFont per entry).
+  vec_fonts_.clear();
+  ptr_font_sheet_builder_ = std::make_unique<SheetBuilder>(SheetType::BGRA, int4_font_sheet_size);
+
+  vec_fonts_.reserve(vec_fonts.size());
+  for (const FontDesc& desc_font : vec_fonts) {
+    const std::vector<std::uint8_t> vec_data = fn_open(desc_font.str_file);
+    RgbaSpriteRenderer& renderer_rgba = UIRgbaSpriteRenderer();
+    auto ptr_font = std::make_unique<SpriteFont>(
+        desc_font.str_file, vec_data, fn_create_font(vec_data), desc_font.int4_size,
+        desc_font.int4_ascender, fp4_window_scale, *ptr_font_sheet_builder_,
+        [&renderer_rgba](const Sprite& sprite_s, core::Vector3 v_location, float fp4_scale,
+                         core::Vector3 v_tint, float fp4_alpha) {
+          renderer_rgba.DrawSprite(sprite_s, v_location, fp4_scale, v_tint, fp4_alpha);
+        },
+        [&renderer_rgba](const Sprite& sprite_s, core::Vector3 v_a, core::Vector3 v_b,
+                         core::Vector3 v_c, core::Vector3 v_d, core::Vector3 v_tint,
+                         float fp4_alpha) {
+          renderer_rgba.DrawSprite(sprite_s, v_a, v_b, v_c, v_d, v_tint, fp4_alpha);
+        });
+    vec_fonts_.emplace_back(desc_font.str_key, std::move(ptr_font));
+  }
+}
+
+SpriteFont& Renderer::Font(const std::string& str_key) {
+  SpriteFont* ptr_font = TryGetFont(str_key);
+  if (ptr_font == nullptr)
+    throw std::runtime_error("The given key was not present in the dictionary.");
+  return *ptr_font;
+}
+
+SpriteFont* Renderer::TryGetFont(const std::string& str_key) {
+  for (auto& [str_entry_key, ptr_entry_font] : vec_fonts_)
+    if (str_entry_key == str_key)
+      return ptr_entry_font.get();
+  return nullptr;
+}
+
+void Renderer::SetFontsWindowScale(float fp4_scale) {
+  for (auto& [str_entry_key, ptr_entry_font] : vec_fonts_)
+    ptr_entry_font->SetScale(fp4_scale);
+}
+
 }  // namespace ora::gfx
