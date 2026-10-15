@@ -63,7 +63,7 @@ using YamlDictionary = std::vector<std::pair<std::string_view, const yaml::MiniY
 /// The WidgetArgs payload (the closure of types actually threaded by the
 /// engine and Phase 6 logic).
 using WidgetArgValue =
-    std::variant<std::monostate, int2, std::int32_t, std::string, Widget*, sim::World*,
+    std::variant<std::monostate, int2, std::int32_t, bool, std::string, Widget*, sim::World*,
                  net::OrderManager*, gfx::WorldRenderer*, game::ModData*, ChromeMetrics*,
                  Mediator*, net::SessionClient*, core::Color,
                  std::function<std::string()>,         // getText/getDesc 委托 | the getText/getDesc delegates

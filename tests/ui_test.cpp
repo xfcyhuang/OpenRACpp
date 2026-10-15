@@ -20,11 +20,17 @@ import std;
 
 #include "core/action_queue.hpp"
 #include "fs/file_system.hpp"
+#include "formats/png.hpp"
 #include "game/fonts.hpp"
 #include "game/game.hpp"
 #include "game/mod_data.hpp"
 #include "game/game_records.hpp"
+#include "map/map.hpp"
+#include "map/map_cache.hpp"
 #include "mods/create_map_players.hpp"
+#include "net/session.hpp"
+#include "server/game_information.hpp"
+#include "server/game_server.hpp"
 #include "sim/trait_registry.hpp"
 
 namespace ora::gen {
@@ -33,6 +39,7 @@ void RegisterGeneratedAll();
 #include "gfx/sheet.hpp"
 #include "gfx/sprite_font.hpp"
 #include "gfx/viewport.hpp"
+#include "gfx/chrome_provider.hpp"
 #include "platform/ifont.hpp"
 #include "sim/world.hpp"
 #include "ui/chrome_metrics.hpp"
@@ -45,10 +52,13 @@ void RegisterGeneratedAll();
 #include "ui/widgets/client_tooltip_region_widget.hpp"
 #include "ui/widgets/drop_down_button_widget.hpp"
 #include "ui/widgets/exponential_slider_widget.hpp"
+#include "ui/widgets/generated_map_preview_widget.hpp"
+#include "ui/widgets/hotkey_entry_widget.hpp"
 #include "ui/widgets/label_for_input_widget.hpp"
 #include "ui/widgets/label_with_highlight_widget.hpp"
 #include "ui/widgets/logic_key_listener_widget.hpp"
 #include "ui/widgets/logic_ticker_widget.hpp"
+#include "ui/widgets/map_preview_widget.hpp"
 #include "ui/widgets/menu_button_widget.hpp"
 #include "ui/widgets/password_field_widget.hpp"
 #include "ui/widgets/rgba_sprite_widget.hpp"
@@ -817,6 +827,8 @@ void TestChromeWidgetsBatch4(game::ModData& mod_data, ui::ChromeMetrics& metrics
                              ui::WidgetLoader& loader_chrome);
 
 void TestChromeWidgetsBatch5(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome);
+void TestChromeWidgetsBatch6(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
+                             ui::WidgetLoader& loader_chrome);
 
 void TestBaseWidgetsChrome(const std::string& str_root) {
   // ButtonWidget ctor 的 ModData.DefaultRules 需要全装载链注册(map_test 同序)
@@ -1007,6 +1019,7 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   TestChromeWidgetsBatch3(mod_data, metrics_chrome, loader_chrome);
   TestChromeWidgetsBatch4(mod_data, metrics_chrome, loader_chrome);
   TestChromeWidgetsBatch5(mod_data, metrics_chrome);
+  TestChromeWidgetsBatch6(mod_data, metrics_chrome, loader_chrome);
 }
 
 // ———— Phase 6 第三批:SliderWidget(纯逻辑面)————
@@ -2067,6 +2080,311 @@ void TestChromeWidgetsBatch5(game::ModData& mod_data, ui::ChromeMetrics& metrics
       loader_bad.LoadWidget(args_bad, nullptr, "COLOR_CHOOSER");
     });
   }
+}
+
+void TestChromeWidgetsBatch6(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
+                             ui::WidgetLoader& loader_chrome) {
+  ui::Ui::Instance().SetKeyboardFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseOverWidget(nullptr);
+
+  gfx::ChromeProvider chrome_provider;
+  chrome_provider.Initialize(
+      {.ptr_file_system = &mod_data.ModFiles(),
+       .vec_chrome_files = &mod_data.ManifestRef().Chrome(),
+       .fp4_dpi_scale = 1.0f});
+
+  gfx::SheetBuilder builder_fonts6(gfx::SheetType::BGRA, 128);
+  constexpr auto fn_flat6 = [](const gfx::Sprite&, core::Vector3, float, core::Vector3,
+                               float) {};
+  constexpr auto fn_quad6 = [](const gfx::Sprite&, core::Vector3, core::Vector3,
+                               core::Vector3, core::Vector3, core::Vector3, float) {};
+  auto up_font_tiny_bold = std::make_unique<gfx::SpriteFont>(
+      "tinybold", std::span<const std::uint8_t>{}, std::make_unique<FakeFont>(), 10, 8,
+      1.0f, builder_fonts6, fn_flat6, fn_quad6);
+  auto up_font_regular6 = std::make_unique<gfx::SpriteFont>(
+      "regular6", std::span<const std::uint8_t>{}, std::make_unique<FakeFont>(), 10, 8,
+      1.0f, builder_fonts6, fn_flat6, fn_quad6);
+  gfx::SpriteFont* ptr_font_tiny_bold = up_font_tiny_bold.get();
+  gfx::SpriteFont* ptr_font_regular6 = up_font_regular6.get();
+
+  auto deps_batch6 = std::make_shared<ui::Ui::Deps>();
+  deps_batch6->ptr_mod_data = &mod_data;
+  deps_batch6->fn_window_size = [] { return int2{1280, 960}; };
+  deps_batch6->fn_clock = [] { return std::int64_t{0}; };
+  deps_batch6->ptr_chrome_metrics = &metrics_chrome;
+  deps_batch6->ptr_chrome_provider = &chrome_provider;
+  deps_batch6->fn_load_widget = [&loader_chrome](ui::WidgetArgs& args_load,
+                                                 ui::Widget* ptr_parent,
+                                                 const std::string& str_id) {
+    return loader_chrome.LoadWidget(args_load, ptr_parent, str_id);
+  };
+  deps_batch6->fn_try_get_font = [ptr_font_tiny_bold,
+                                  ptr_font_regular6](const std::string& str_key) {
+    if (str_key == "TinyBold")
+      return ptr_font_tiny_bold;
+    if (str_key == "Regular")
+      return ptr_font_regular6;
+    return static_cast<gfx::SpriteFont*>(nullptr);
+  };
+  ui::Ui::Instance().Initialize(*deps_batch6);
+
+  Check(metrics_chrome.Get("SpawnFont") == "TinyBold", "metrics SpawnFont");
+  Check(metrics_chrome.GetInt2("SpawnLabelOffset") == int2{0, 1},
+        "metrics SpawnLabelOffset = 0,1");
+
+  game::Game game6{game::Game::Deps{.ptr_mod_data = &mod_data}};
+  game6.JoinLocal();
+  map::MapCache cache6{mod_data.ManifestRef(), mod_data.ModFiles()};
+  cache6.LoadMaps(mod_data);
+
+  std::vector<std::byte> vec_rgba6;
+  for (int int4_p = 0; int4_p < 16; int4_p++) {
+    vec_rgba6.push_back(std::byte{0x80});
+    vec_rgba6.push_back(std::byte{0xC0});
+    vec_rgba6.push_back(std::byte{0xFF});
+    vec_rgba6.push_back(std::byte{0xFF});
+  }
+  const fmt::Png png_mini6{vec_rgba6, gfx::SpriteFrameType::Rgba32, 4, 4};
+  const std::vector<std::byte> vec_png6 = png_mini6.Save();
+  gfx::Sheet sheet_mini6{gfx::SheetType::BGRA,
+                         std::span<const std::byte>{vec_png6.data(), vec_png6.size()}};
+  const gfx::Sprite sprite_mini6{sheet_mini6, Rectangle{0, 0, 4, 4},
+                                 gfx::TextureChannel::RGBA};
+
+  map::MapPreview* ptr_map_preview6 = nullptr;
+  ui::Widget* ptr_hotkey6_root = nullptr;
+  for (map::MapPreview* p6 : cache6.Previews())
+    if (p6->Status() == map::MapStatus::Available && !p6->SpawnPoints().empty() &&
+        p6->Preview() != nullptr && !p6->HideSpawnPreviews() &&
+        p6->GridType().has_value() && p6->GridType() == MapGridType::Rectangular) {
+      ptr_map_preview6 = p6;
+      break;
+    }
+  Check(ptr_map_preview6 != nullptr, "a flat rectangular ra map with spawns");
+
+  if (ptr_map_preview6 != nullptr) {
+    cache6.SetMinimapMaterializer([&sprite_mini6](map::MapPreview& p_mini) {
+      p_mini.SetMinimap(reinterpret_cast<std::uintptr_t>(&sprite_mini6));
+    });
+    ptr_map_preview6->GetMinimap();
+    for (int int4_i = 0; int4_i < 200 && ptr_map_preview6->GetMinimap() == 0; ++int4_i)
+      std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    Check(ptr_map_preview6->GetMinimap() ==
+              reinterpret_cast<std::uintptr_t>(&sprite_mini6),
+          "minimap handle materialized");
+
+    net::SessionClient client6{};
+    client6.Name = "Alice";
+    client6.Team = 2;
+    client6.Faction = "soviet";
+    client6.SpawnPoint = 3;
+    client6.Color = core::Color::FromArgb(255, 1, 2, 3);
+    const ui::SpawnOccupant occupant6{client6};
+    Check(occupant6.str_player_name == "Alice" && occupant6.int4_team == 2 &&
+              occupant6.str_faction == "soviet" && occupant6.int4_spawn_point == 3,
+          "SpawnOccupant(SessionClient) non-bot");
+
+    net::SessionClient client_bot6{};
+    client_bot6.Name = "no.such.bot.key";
+    client_bot6.Bot = "ai";
+    const ui::SpawnOccupant occupant_bot6{client_bot6};
+    Check(occupant_bot6.str_player_name == "no.such.bot.key",
+          "SpawnOccupant bot name = fluent key fallback");
+
+    server::GameInformationPlayer player6{};
+    player6.Name = "Bob";
+    player6.IsBot = true;
+    player6.FactionId = "allies";
+    const ui::SpawnOccupant occupant_info6{player6};
+    Check(occupant_info6.str_player_name == "Bob" && occupant_info6.str_faction == "allies",
+          "SpawnOccupant(GameInformation.Player)");
+
+    server::GameClientData game_client6{};
+    game_client6.Name = "Carol";
+    game_client6.Faction = "england";
+    const ui::SpawnOccupant occupant_gc6{game_client6, true};
+    Check(occupant_gc6.str_player_name == "Carol" && occupant_gc6.str_faction.empty(),
+          "SpawnOccupant(GameClient, suppressFaction)");
+
+    ui::WidgetArgs args_preview6;
+    auto up_preview6 = std::make_unique<ui::MapPreviewWidget>();
+    ui::MapPreviewWidget& widget_preview6 = *up_preview6;
+    widget_preview6.Initialize(args_preview6);
+    Check(widget_preview6.str_tooltip_template == "SPAWN_TOOLTIP",
+          "MapPreview TooltipTemplate default");
+    widget_preview6.bounds_widget = {10, 20, 50, 100};
+    widget_preview6.fn_preview = [&ptr_map_preview6] { return ptr_map_preview6; };
+
+    widget_preview6.UpdateMinimap(sprite_mini6);
+    Check(widget_preview6.PreviewScale() == 12.5f, "previewScale = min(50/4, 100/4)");
+    Check(widget_preview6.MapRect() == Rectangle{10, 45, 50, 50},
+          "mapRect 居中(y = 20 + (100-50)/2)");
+    Check(widget_preview6.Loaded(), "MapPreview Loaded");
+
+    const Rectangle rect_map_bounds6 = ptr_map_preview6->Bounds();
+    const int int4_origin_shift6 = rect_map_bounds6.Top() & 1;
+    const CPos cell_origin6{rect_map_bounds6.Left(), rect_map_bounds6.Top()};
+    Check(widget_preview6.ConvertToPreview(cell_origin6, MapGridType::Rectangular) ==
+              int2{10 + int4_origin_shift6, 45},
+          "ConvertToPreview 原点(奇行 +1)");
+    const CPos cell_far6{rect_map_bounds6.Left() + 2, rect_map_bounds6.Top() + 2};
+    Check(widget_preview6.ConvertToPreview(cell_far6, MapGridType::Rectangular) ==
+              int2{10 + 25 + int4_origin_shift6, 45 + 25},
+          "ConvertToPreview (+2,+2) = (+25,+25)");
+
+    bool b_mouse_down6 = false;
+    widget_preview6.fn_on_mouse_down = [&b_mouse_down6](const MouseInput&) {
+      b_mouse_down6 = true;
+    };
+    MouseInput input_map6{.Location = int2{30, 70},
+                          .Button = MouseButton::Left,
+                          .Event = MouseInputEvent::Down};
+    Check(widget_preview6.HandleMouseInput(input_map6), "MapPreview Down 消费");
+    Check(b_mouse_down6, "Down 触发 OnMouseDown");
+    input_map6.Event = MouseInputEvent::Move;
+    Check(!widget_preview6.HandleMouseInput(input_map6), "Move 不消费");
+    widget_preview6.b_ignore_mouse_input = true;
+    input_map6.Event = MouseInputEvent::Down;
+    Check(!widget_preview6.HandleMouseInput(input_map6), "IgnoreMouseInput 走基类");
+
+    auto up_map6 = ptr_map_preview6->ToMap();
+    Check(up_map6 != nullptr, "preview.ToMap constructs");
+    if (up_map6 != nullptr) {
+      const std::vector<std::byte> vec_saved6 = up_map6->SavePreview();
+      Check(fmt::Png::Verify(vec_saved6), "SavePreview 输出 PNG 签名");
+      const fmt::Png png_saved6{vec_saved6};
+      Check(png_saved6.Width() == up_map6->Bounds().Width &&
+                png_saved6.Height() == up_map6->Bounds().Height,
+            "SavePreview 尺寸 = Bounds(ra 平面图)");
+    }
+
+    auto up_generated6 = std::make_unique<ui::GeneratedMapPreviewWidget>();
+    ui::GeneratedMapPreviewWidget& widget_generated6 = *up_generated6;
+    ui::WidgetArgs args_generated6;
+    widget_generated6.Initialize(args_generated6);
+    widget_generated6.b_show_spawn_points = false;
+    widget_generated6.bounds_widget = {0, 0, 100, 100};
+    widget_generated6.Update(*ptr_map_preview6);
+    Check(widget_generated6.Loaded(), "GeneratedMapPreview Update(MapPreview) loaded");
+    const int int4_pw6 = ptr_map_preview6->Preview()->Width();
+    const int int4_ph6 = ptr_map_preview6->Preview()->Height();
+    const float fp4_scale6 = std::min(100.0f / int4_pw6, 100.0f / int4_ph6);
+    Check(widget_generated6.MapRect() ==
+              Rectangle{(100 - static_cast<int>(fp4_scale6 * int4_pw6)) / 2,
+                        (100 - static_cast<int>(fp4_scale6 * int4_ph6)) / 2,
+                        static_cast<int>(fp4_scale6 * int4_pw6),
+                        static_cast<int>(fp4_scale6 * int4_ph6)},
+          "GeneratedMapPreview mapRect 方程");
+
+    if (up_map6 != nullptr) {
+      widget_generated6.Update(*up_map6, true);
+      Check(widget_generated6.Loaded(), "GeneratedMapPreview Update(Map, force) loaded");
+      Check(widget_generated6.MapRect().Width ==
+                static_cast<int>(std::min(100.0f / up_map6->Bounds().Width,
+                                          100.0f / up_map6->Bounds().Height) *
+                                 up_map6->Bounds().Width),
+            "Update(Map, force) 重算 mapRect");
+    }
+
+    widget_generated6.Clear();
+    Check(!widget_generated6.Loaded(), "Clear 后未装载");
+  }
+
+  const auto dir_batch6 = std::filesystem::temp_directory_path() / "ora_ui_test_batch6";
+  std::filesystem::create_directories(dir_batch6);
+  WriteLayout(dir_batch6, "previews.yaml",
+              "GeneratedMapPreview@GPREVIEW:\n\tX: 1\n\tY: 1\n"
+              "\tWidth: WINDOW_WIDTH - 2\n\tHeight: 98\n\tShowSpawnPoints: false\n"
+              "Container@ENTRY_ROOT:\n\tX: 0\n\tY: 0\n\tWidth: 640\n\tHeight: 480\n"
+              "\tChildren:\n\t\tHotkeyEntry@HOTKEY_ENTRY:\n"
+              "\t\t\tX: 15 + 200 + 5\n\t\t\tY: 20\n\t\t\tWidth: 300\n\t\t\tHeight: 25\n");
+  fs::FileSystem fs_batch6;
+  fs_batch6.Mount(dir_batch6.generic_string());
+  const std::vector<std::string> vec_batch6{"previews.yaml"};
+  ui::WidgetLoader loader_batch6(vec_batch6, fs_batch6);
+
+  ui::WidgetArgs args_yaml6;
+  args_yaml6.Add("windowSize", int2{1280, 960});
+  ui::Widget* ptr_yaml_preview6 = loader_batch6.LoadWidget(args_yaml6, nullptr, "GPREVIEW");
+  Check(ptr_yaml_preview6 != nullptr &&
+            ptr_yaml_preview6->TypeName() == "GeneratedMapPreviewWidget",
+        "GeneratedMapPreview 装载类型");
+  auto* ptr_generated_yaml6 =
+      dynamic_cast<ui::GeneratedMapPreviewWidget*>(ptr_yaml_preview6);
+  Check(ptr_generated_yaml6 != nullptr &&
+            ptr_generated_yaml6->bounds_widget.int4_x == 1 &&
+            ptr_generated_yaml6->bounds_widget.int4_width == 1278,
+        "GPREVIEW X=1/W=WINDOW_WIDTH-2");
+  Check(ptr_generated_yaml6 != nullptr && !ptr_generated_yaml6->b_show_spawn_points,
+        "GPREVIEW ShowSpawnPoints: false");
+
+  ptr_hotkey6_root = loader_batch6.LoadWidget(args_yaml6, nullptr, "ENTRY_ROOT");
+
+  ui::Widget* ptr_hotkey6 =
+      ptr_hotkey6_root != nullptr ? ptr_hotkey6_root->GetOrNull<ui::Widget>("HOTKEY_ENTRY")
+                                  : nullptr;
+  Check(ptr_hotkey6 != nullptr && ptr_hotkey6->TypeName() == "HotkeyEntryWidget",
+        "HOTKEY_ENTRY 装载类型");
+  auto* ptr_entry6 = dynamic_cast<ui::HotkeyEntryWidget*>(ptr_hotkey6);
+  Check(ptr_entry6 != nullptr && ptr_entry6->bounds_widget.int4_x == 220 &&
+            ptr_entry6->bounds_widget.int4_width == 300,
+        "HOTKEY_ENTRY X=220/W=300");
+  Check(ptr_entry6->str_font == "Regular", "HotkeyEntry Font = HotkeyFont 指标");
+  Check(ptr_entry6->color_text_invalid == core::Color::FromArgb(255, 255, 0, 0),
+        "HotkeyColorInvalid = FF0000");
+
+  if (ptr_entry6 != nullptr) {
+    ptr_entry6->fn_is_valid = [] { return true; };
+
+    MouseInput input_entry6{.Location = int2{220 + 150, 20 + 12},
+                            .Button = MouseButton::Left,
+                            .Event = MouseInputEvent::Down};
+    Check(ptr_entry6->HandleMouseInput(input_entry6), "HotkeyEntry Down 取焦");
+    Check(ptr_entry6->HasKeyboardFocus(), "HotkeyEntry 持焦");
+
+    KeyInput input_esc6{};
+    input_esc6.Event = KeyInputEvent::Down;
+    input_esc6.Key = Keycode::ESCAPE;
+    bool b_esc6 = false;
+    ptr_entry6->fn_on_esc_key = [&b_esc6](const KeyInput&) { b_esc6 = true; };
+    Check(ptr_entry6->HandleKeyPress(input_esc6), "ESC 键消费");
+    Check(b_esc6, "ESC 触发 OnEscKey");
+    Check(!ptr_entry6->HasKeyboardFocus(), "ESC 后让焦(有效)");
+
+    Check(ptr_entry6->HandleMouseInput(input_entry6), "再次 Down 取焦");
+    KeyInput input_a6{};
+    input_a6.Event = KeyInputEvent::Down;
+    input_a6.Key = Keycode::A;
+    Check(ptr_entry6->HandleKeyPress(input_a6), "A 键消费");
+    Check(ptr_entry6->key_hotkey.key_kind == Keycode::A &&
+              ptr_entry6->key_hotkey.kind_modifiers == Modifiers::None,
+          "Key = FromKeyInput(A)");
+    Check(ptr_entry6->key_hotkey.DisplayString() == "A", "DisplayString A");
+    Check(!ptr_entry6->HasKeyboardFocus(), "捕获后让焦");
+
+    ptr_entry6->fn_is_valid = [] { return false; };
+    Check(ptr_entry6->HandleMouseInput(input_entry6), "无效态仍可取焦");
+    KeyInput input_q6{};
+    input_q6.Event = KeyInputEvent::Down;
+    input_q6.Key = Keycode::Q;
+    Check(ptr_entry6->HandleKeyPress(input_q6), "Q 键消费");
+    Check(ptr_entry6->key_hotkey.key_kind == Keycode::Q, "Key = Q");
+    Check(ptr_entry6->HasKeyboardFocus(), "无效键 YieldKeyboardFocus 拒绝让焦");
+    Check(ptr_entry6->ForceYieldKeyboardFocus(), "ForceYield 强制让焦");
+    Check(!ptr_entry6->HasKeyboardFocus(), "ForceYield 后无焦");
+
+    Check(ptr_entry6->HandleMouseInput(input_entry6), "blink 取焦");
+    for (int int4_t = 0; int4_t < 15; int4_t++)
+      ptr_entry6->Tick();
+    Check(!ptr_entry6->ShowEntry(), "15 tick 翻相位");
+    for (int int4_t = 0; int4_t < 15; int4_t++)
+      ptr_entry6->Tick();
+    Check(ptr_entry6->ShowEntry(), "再 15 tick 翻回");
+    ptr_entry6->ForceYieldKeyboardFocus();
+  }
+
+  chrome_provider.Deinitialize();
 }
 
 }  // namespace

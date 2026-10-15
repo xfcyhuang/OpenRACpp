@@ -12,6 +12,7 @@
 import std;
 
 #include "core/color.hpp"
+#include "core/int2.hpp"
 #include "fs/file_system.hpp"
 
 namespace ora::ui {
@@ -36,6 +37,7 @@ class ChromeMetrics {
   std::int32_t GetInt32(std::string_view str_key) const;
   bool GetBool(std::string_view str_key) const;
   core::Color GetColor(std::string_view str_key) const;
+  int2 GetInt2(std::string_view str_key) const;
 
   /// TryGet(L37-47) | TryGet (L37-47).
   bool TryGet(std::string_view str_key, std::string& str_result) const;

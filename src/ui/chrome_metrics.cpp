@@ -62,6 +62,10 @@ core::Color ChromeMetrics::GetColor(std::string_view str_key) const {
   return meta::GetColorValue(str_key, Get(str_key));
 }
 
+int2 ChromeMetrics::GetInt2(std::string_view str_key) const {
+  return meta::GetSizeValue(str_key, Get(str_key));
+}
+
 bool ChromeMetrics::TryGet(std::string_view str_key, std::string& str_result) const {
   const std::string* ptr_value = Find(str_key);
   if (ptr_value == nullptr) {

@@ -26,6 +26,9 @@ import std;
 #include "ui/widgets/label_with_tooltip_widget.hpp"
 #include "ui/widgets/logic_key_listener_widget.hpp"
 #include "ui/widgets/logic_ticker_widget.hpp"
+#include "ui/widgets/map_preview_widget.hpp"
+#include "ui/widgets/generated_map_preview_widget.hpp"
+#include "ui/widgets/hotkey_entry_widget.hpp"
 #include "ui/widgets/menu_button_widget.hpp"
 #include "ui/widgets/password_field_widget.hpp"
 #include "ui/widgets/progress_bar_widget.hpp"
@@ -389,6 +392,18 @@ namespace {
   registry_widgets.Register(
       "HueSliderWidget", [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
         return std::make_unique<HueSliderWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "MapPreviewWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<MapPreviewWidget>();
+      });
+  registry_widgets.Register(
+      "GeneratedMapPreviewWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<GeneratedMapPreviewWidget>();
+      });
+  registry_widgets.Register(
+      "HotkeyEntryWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<HotkeyEntryWidget>();
       });
   return true;
 }();

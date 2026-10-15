@@ -5,6 +5,7 @@ import std;
 #include "map/map.hpp"
 
 #include "core/wvec.hpp"
+#include "formats/png.hpp"
 #include "game/mod_data.hpp"
 #include "game/ruleset.hpp"
 #include "gfx/sequence_set.hpp"
@@ -693,6 +694,105 @@ std::vector<unsigned char> Map::SaveBinaryData() const {
   }
 
   return data;
+}
+
+std::pair<int, int> Map::GetCellSpaceBounds() {
+  int int4_top = std::numeric_limits<int>::max();
+  int int4_bottom = std::numeric_limits<int>::min();
+
+  for (int int4_x = rect_bounds_.Left(); int4_x < rect_bounds_.Right(); int4_x++) {
+    const std::vector<MPos> vec_all_top = Unproject(PPos{int4_x, rect_bounds_.Top()});
+    const std::vector<MPos> vec_all_bottom = Unproject(PPos{int4_x, rect_bounds_.Bottom()});
+    if (!vec_all_top.empty()) {
+      const MPos& uv_min = *std::min_element(vec_all_top.begin(), vec_all_top.end(),
+                                              [](const MPos& uv_a, const MPos& uv_b) {
+                                                return uv_a.V < uv_b.V;
+                                              });
+      int4_top = std::min(int4_top, uv_min.V);
+    }
+
+    if (!vec_all_bottom.empty()) {
+      const MPos& uv_max = *std::max_element(vec_all_bottom.begin(), vec_all_bottom.end(),
+                                              [](const MPos& uv_a, const MPos& uv_b) {
+                                                return uv_a.V < uv_b.V;
+                                              });
+      int4_bottom = std::max(int4_bottom, uv_max.V);
+    }
+  }
+
+  return {int4_top, int4_bottom};
+}
+
+std::vector<std::byte> Map::SavePreview() {
+  const bool b_isometric = ptr_grid_->Type == MapGridType::RectangularIsometric;
+
+  int int4_top = 0;
+  int int4_bottom = 0;
+  if (ptr_grid_->MaximumTerrainHeight() > 0) {
+    const auto [int4_top_bounds, int4_bottom_bounds] = GetCellSpaceBounds();
+    int4_top = int4_top_bounds;
+    int4_bottom = int4_bottom_bounds;
+
+    if (int4_top == std::numeric_limits<int>::max() ||
+        int4_bottom == std::numeric_limits<int>::min())
+      throw std::runtime_error("The map has invalid boundaries");
+  } else {
+    int4_top = rect_bounds_.Top();
+    int4_bottom = rect_bounds_.Bottom();
+  }
+
+  const int int4_width = rect_bounds_.Width;
+  const int int4_height = int4_bottom - int4_top;
+
+  const int int4_bitmap_width = b_isometric ? 2 * int4_width - 1 : int4_width;
+  const std::size_t int8_stride = static_cast<std::size_t>(int4_bitmap_width) * 4;
+  constexpr std::size_t kPxStride = 4;
+  std::vector<std::byte> vec_minimap(int8_stride * int4_height);
+  std::pair<core::Color, core::Color> pair_terrain{};
+
+  for (int int4_y = 0; int4_y < int4_height; int4_y++) {
+    for (int int4_x = 0; int4_x < int4_width; int4_x++) {
+      const MPos uv{int4_x + rect_bounds_.Left(), int4_y + int4_top};
+      const core::Color color_actor{};
+      if (color_actor.A() == 0)
+        pair_terrain = GetTerrainColorPair(uv);
+
+      if (b_isometric) {
+        const int int4_dx = uv.V & 1;
+        const std::size_t int8_x_offset = kPxStride * (2 * int4_x + int4_dx);
+        if (int4_x + int4_dx > 0) {
+          std::size_t int8_z = static_cast<std::size_t>(int4_y) * int8_stride +
+                               int8_x_offset - kPxStride;
+          const core::Color color_c = color_actor.A() == 0 ? pair_terrain.first : color_actor;
+          vec_minimap[int8_z++] = static_cast<std::byte>(color_c.R());
+          vec_minimap[int8_z++] = static_cast<std::byte>(color_c.G());
+          vec_minimap[int8_z++] = static_cast<std::byte>(color_c.B());
+          vec_minimap[int8_z] = static_cast<std::byte>(color_c.A());
+        }
+
+        if (int8_x_offset < int8_stride) {
+          std::size_t int8_z = static_cast<std::size_t>(int4_y) * int8_stride + int8_x_offset;
+          const core::Color color_c = color_actor.A() == 0 ? pair_terrain.second : color_actor;
+          vec_minimap[int8_z++] = static_cast<std::byte>(color_c.R());
+          vec_minimap[int8_z++] = static_cast<std::byte>(color_c.G());
+          vec_minimap[int8_z++] = static_cast<std::byte>(color_c.B());
+          vec_minimap[int8_z] = static_cast<std::byte>(color_c.A());
+        }
+      } else {
+        std::size_t int8_z =
+            static_cast<std::size_t>(int4_y) * int8_stride + kPxStride * int4_x;
+        const core::Color color_c = color_actor.A() == 0 ? pair_terrain.first : color_actor;
+        vec_minimap[int8_z++] = static_cast<std::byte>(color_c.R());
+        vec_minimap[int8_z++] = static_cast<std::byte>(color_c.G());
+        vec_minimap[int8_z++] = static_cast<std::byte>(color_c.B());
+        vec_minimap[int8_z] = static_cast<std::byte>(color_c.A());
+      }
+    }
+  }
+
+  return fmt::Png{std::move(vec_minimap), gfx::SpriteFrameType::Rgba32, int4_bitmap_width,
+                  int4_height}
+      .Save();
 }
 
 // ———— GetTerrainColorPair(L767-782)————

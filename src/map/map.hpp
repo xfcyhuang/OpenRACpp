@@ -238,6 +238,10 @@ class Map final {
   // ———— 存档二进制(Map.cs L708-765;Save(yaml 全量)随编辑器批)————
   std::vector<unsigned char> SaveBinaryData() const;
 
+  std::vector<std::byte> SavePreview();
+
+  std::pair<int, int> GetCellSpaceBounds();
+
   // ———— 地形色对(L767-782;SavePreview 域消费)————
   std::pair<core::Color, core::Color> GetTerrainColorPair(MPos uv) const;
 

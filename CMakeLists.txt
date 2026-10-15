@@ -571,11 +571,14 @@ add_library(ora_ui STATIC
   src/ui/widgets/rgba_sprite_widget.cpp
   src/ui/widgets/hue_slider_widget.cpp
   src/ui/widgets/color_mixer_widget.cpp
+  src/ui/widgets/map_preview_widget.cpp
+  src/ui/widgets/generated_map_preview_widget.cpp
+  src/ui/widgets/hotkey_entry_widget.cpp
   src/ui/logic/simple_tooltip_logic.cpp
   src/ui/logic/button_tooltip_logic.cpp
   src/ui/logic/version_label_logic.cpp
   src/ui/logic/color_picker_logic.cpp)
-target_link_libraries(ora_ui PUBLIC ora_gfx ora_net ora_meta PRIVATE ora_fs ora_game ora_fluent ora_server)
+target_link_libraries(ora_ui PUBLIC ora_gfx ora_net ora_meta ora_map PRIVATE ora_fs ora_game ora_fluent ora_server ora_formats)
 ora_link_std(ora_ui)
 
 # 游戏主循环骨架(第十五批):Game 的 Run/Loop/LogicTick/RenderTick/延迟动作
