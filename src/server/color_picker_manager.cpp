@@ -136,4 +136,19 @@ core::Color ColorMakeValid(
                       vec_players, fn_on_error);
 }
 
+core::Color ColorRandomValidColor(
+    const ColorPickerManagerData& data, MersenneTwister& random,
+    std::span<const core::Color> vec_terrain,
+    std::span<const core::Color> vec_players) {
+  const float fp4_h = random.NextFloat();
+  const float fp4_s =
+      Lerp(data.arr_hsv_saturation_range[0], data.arr_hsv_saturation_range[1],
+           random.NextFloat());
+  const float fp4_v =
+      Lerp(data.arr_hsv_value_range[0], data.arr_hsv_value_range[1],
+           random.NextFloat());
+  return MakeValidHsv(data, fp4_h, fp4_s, fp4_v, random, vec_terrain,
+                      vec_players, nullptr);
+}
+
 }  // namespace ora::server

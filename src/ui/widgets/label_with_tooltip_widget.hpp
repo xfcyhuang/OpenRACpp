@@ -44,7 +44,7 @@ class LabelWithTooltipWidget : public LabelWidget {
   bool LoadFieldOrProperty(std::string_view str_key,
                            std::string_view str_value) override;
 
- private:
+ protected:
   /// Exts.Lazy(() => Ui.Root.Get<TooltipContainerWidget>(…))的物化面
   /// Exts.Lazy(() => Ui.Root.Get<TooltipContainerWidget>(…))'s
   /// materialization face.

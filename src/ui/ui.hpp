@@ -91,6 +91,17 @@ class Ui {
     /// ptr_renderer; unwired = null = missing font — the widget family
     /// funnels through widget_utils::RequireWidgetFont).
     std::function<gfx::SpriteFont*(const std::string&)> fn_try_get_font;
+    /// Game.Settings.Player.CustomColors 的读面(ColorPickerLogic;未接线 =
+    /// 空表)
+    /// Game.Settings.Player.CustomColors' read face (ColorPickerLogic;
+    /// unwired = the empty list).
+    std::function<std::vector<core::Color>()> fn_get_custom_colors = [] {
+      return std::vector<core::Color>{};
+    };
+    /// Game.Settings.Player.CustomColors 写 + Game.Settings.Save() 的落盘面
+    /// the CustomColors write + Game.Settings.Save() persistence face.
+    std::function<void(const std::vector<core::Color>&)> fn_store_custom_colors =
+        [](const std::vector<core::Color>&) {};
   };
 
   void Initialize(Deps deps);
@@ -115,6 +126,10 @@ class Ui {
   int2 Resolution() const { return deps_.fn_window_size ? deps_.fn_window_size() : int2{}; }
   gfx::SpriteFont* TryGetFontDeps(const std::string& str_key) const {
     return deps_.fn_try_get_font ? deps_.fn_try_get_font(str_key) : nullptr;
+  }
+  std::vector<core::Color> CustomColorsDeps() const { return deps_.fn_get_custom_colors(); }
+  void StoreCustomColorsDeps(const std::vector<core::Color>& vec_colors) const {
+    deps_.fn_store_custom_colors(vec_colors);
   }
 
   Widget* MouseFocusWidget() const { return ptr_mouse_focus_; }

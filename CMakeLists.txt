@@ -559,8 +559,23 @@ add_library(ora_ui STATIC
   src/ui/widgets/slider_widget.cpp
   src/ui/widgets/text_field_widget.cpp
   src/ui/widgets/tooltip_container_widget.cpp
-  src/ui/logic/simple_tooltip_logic.cpp)
-target_link_libraries(ora_ui PUBLIC ora_gfx ora_net ora_meta PRIVATE ora_fs ora_game ora_fluent)
+  src/ui/widgets/label_with_highlight_widget.cpp
+  src/ui/widgets/label_for_input_widget.cpp
+  src/ui/widgets/world_label_with_tooltip_widget.cpp
+  src/ui/widgets/world_button_widget.cpp
+  src/ui/widgets/menu_button_widget.cpp
+  src/ui/widgets/password_field_widget.cpp
+  src/ui/widgets/exponential_slider_widget.cpp
+  src/ui/widgets/logic_key_listener_widget.cpp
+  src/ui/widgets/client_tooltip_region_widget.cpp
+  src/ui/widgets/rgba_sprite_widget.cpp
+  src/ui/widgets/hue_slider_widget.cpp
+  src/ui/widgets/color_mixer_widget.cpp
+  src/ui/logic/simple_tooltip_logic.cpp
+  src/ui/logic/button_tooltip_logic.cpp
+  src/ui/logic/version_label_logic.cpp
+  src/ui/logic/color_picker_logic.cpp)
+target_link_libraries(ora_ui PUBLIC ora_gfx ora_net ora_meta PRIVATE ora_fs ora_game ora_fluent ora_server)
 ora_link_std(ora_ui)
 
 # 游戏主循环骨架(第十五批):Game 的 Run/Loop/LogicTick/RenderTick/延迟动作

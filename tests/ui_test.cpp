@@ -42,7 +42,20 @@ void RegisterGeneratedAll();
 #include "ui/widget_utils.hpp"
 #include "ui/widgets/button_widget.hpp"
 #include "ui/widgets/checkbox_widget.hpp"
+#include "ui/widgets/client_tooltip_region_widget.hpp"
 #include "ui/widgets/drop_down_button_widget.hpp"
+#include "ui/widgets/exponential_slider_widget.hpp"
+#include "ui/widgets/label_for_input_widget.hpp"
+#include "ui/widgets/label_with_highlight_widget.hpp"
+#include "ui/widgets/logic_key_listener_widget.hpp"
+#include "ui/widgets/logic_ticker_widget.hpp"
+#include "ui/widgets/menu_button_widget.hpp"
+#include "ui/widgets/password_field_widget.hpp"
+#include "ui/widgets/rgba_sprite_widget.hpp"
+#include "ui/widgets/world_button_widget.hpp"
+#include "ui/widgets/hue_slider_widget.hpp"
+#include "ui/widgets/color_mixer_widget.hpp"
+#include "ui/widgets/color_block_widget.hpp"
 #include "ui/widgets/label_widget.hpp"
 #include "ui/widgets/label_with_tooltip_widget.hpp"
 #include "ui/widgets/scroll_item_widget.hpp"
@@ -800,6 +813,11 @@ void TestSliderWidget();
 void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
                              ui::WidgetLoader& loader_chrome);
 
+void TestChromeWidgetsBatch4(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
+                             ui::WidgetLoader& loader_chrome);
+
+void TestChromeWidgetsBatch5(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome);
+
 void TestBaseWidgetsChrome(const std::string& str_root) {
   // ButtonWidget ctor 的 ModData.DefaultRules 需要全装载链注册(map_test 同序)
   // ButtonWidget's ctor's ModData.DefaultRules needs the full loading-chain
@@ -987,6 +1005,8 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   // SimpleTooltipLogic(真 ra chrome + fake 字体注入)————
   TestSliderWidget();
   TestChromeWidgetsBatch3(mod_data, metrics_chrome, loader_chrome);
+  TestChromeWidgetsBatch4(mod_data, metrics_chrome, loader_chrome);
+  TestChromeWidgetsBatch5(mod_data, metrics_chrome);
 }
 
 // ———— Phase 6 第三批:SliderWidget(纯逻辑面)————
@@ -1422,6 +1442,630 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     Check(b_mask_gone, "Mask 点击后面板族移除");
 
     ui::Ui::Instance().Root()->RemoveChild(*ptr_button_drop);
+  }
+}
+
+// ———— Phase 6 第四批:菜单/大厅 widget 族第二批 + ButtonTooltip/VersionLabel ————
+
+void TestChromeWidgetsBatch4(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
+                             ui::WidgetLoader& loader_chrome) {
+  ui::Ui::Instance().SetKeyboardFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseOverWidget(nullptr);
+
+  gfx::SheetBuilder builder_fonts4(gfx::SheetType::BGRA, 128);
+  constexpr auto fn_flat_noop4 = [](const gfx::Sprite&, core::Vector3, float, core::Vector3,
+                                    float) {};
+  constexpr auto fn_quad_noop4 = [](const gfx::Sprite&, core::Vector3, core::Vector3,
+                                    core::Vector3, core::Vector3, core::Vector3, float) {};
+
+  std::vector<float> vec_flat_x;
+  auto up_font_capture = std::make_unique<gfx::SpriteFont>(
+      "regular-capture", std::span<const std::uint8_t>{}, std::make_unique<FakeFont>(), 10, 8,
+      1.0f, builder_fonts4,
+      [&vec_flat_x](const gfx::Sprite&, core::Vector3 v_location, float, core::Vector3,
+                    float) { vec_flat_x.push_back(v_location.X); },
+      fn_quad_noop4);
+  auto up_font_bold4 = std::make_unique<gfx::SpriteFont>(
+      "bold4", std::span<const std::uint8_t>{}, std::make_unique<FakeFont>(), 10, 8, 1.0f,
+      builder_fonts4, fn_flat_noop4, fn_quad_noop4);
+  auto up_font_tinybold4 = std::make_unique<gfx::SpriteFont>(
+      "tinybold4", std::span<const std::uint8_t>{}, std::make_unique<FakeFont>(), 10, 8, 1.0f,
+      builder_fonts4, fn_flat_noop4, fn_quad_noop4);
+  gfx::SpriteFont* ptr_font_capture = up_font_capture.get();
+  gfx::SpriteFont* ptr_font_bold4 = up_font_bold4.get();
+  gfx::SpriteFont* ptr_font_tinybold4 = up_font_tinybold4.get();
+
+  auto deps_fonts4 = std::make_shared<ui::Ui::Deps>();
+  deps_fonts4->ptr_mod_data = &mod_data;
+  deps_fonts4->fn_window_size = [] { return int2{1280, 960}; };
+  deps_fonts4->fn_clock = [] { return std::int64_t{100000}; };
+  deps_fonts4->ptr_chrome_metrics = &metrics_chrome;
+  deps_fonts4->fn_load_widget = [&loader_chrome](ui::WidgetArgs& args_load, ui::Widget* ptr_parent,
+                                                 const std::string& str_id) {
+    return loader_chrome.LoadWidget(args_load, ptr_parent, str_id);
+  };
+  deps_fonts4->fn_release_root = [&loader_chrome](ui::Widget* ptr_root) {
+    return ptr_root != nullptr ? loader_chrome.ReleaseRoot(*ptr_root) : nullptr;
+  };
+  deps_fonts4->fn_try_get_font = [ptr_font_capture, ptr_font_bold4,
+                                  ptr_font_tinybold4](const std::string& str_key) {
+    if (str_key == "Regular")
+      return ptr_font_capture;
+    if (str_key == "Bold")
+      return ptr_font_bold4;
+    if (str_key == "TinyBold")
+      return ptr_font_tinybold4;
+    return static_cast<gfx::SpriteFont*>(nullptr);
+  };
+  ui::Ui::Instance().Initialize(*deps_fonts4);
+
+  {
+    ui::WidgetArgs args_highlight;
+    auto up_label = std::make_unique<ui::LabelWithHighlightWidget>(args_highlight);
+    up_label->str_id = "LWH";
+    up_label->bounds_widget = {0, 0, 200, 20};
+    up_label->opt_text = "A<BB>\\nC";
+    Check(up_label->color_highlight == core::Color::FromArgb(255, 255, 255, 0),
+          "HighlightColor = TextHighlightColor 指标");
+
+    vec_flat_x.clear();
+    up_label->Draw();
+    Check(vec_flat_x.size() == 4, "A<BB>\\nC 组件 4 字符");
+    if (vec_flat_x.size() == 4) {
+      Check(std::abs(vec_flat_x[1] - vec_flat_x[0] - 4.0f) < 0.01f, "BB 组基 = A 宽(4)");
+      Check(std::abs(vec_flat_x[3] - vec_flat_x[1] - 8.0f) < 0.01f, "C 组基 = BB 宽(8)");
+    }
+  }
+
+  {
+    auto up_root = std::make_unique<ui::ContainerWidget>();
+    up_root->str_id = "LFI_ROOT";
+    ui::Widget* ptr_root_input = up_root.get();
+    ui::Ui::Instance().Root()->AddChild(std::move(up_root));
+
+    ui::WidgetArgs args_field4;
+    auto up_field = std::make_unique<ui::TextFieldWidget>(args_field4);
+    up_field->str_id = "FIELD";
+    up_field->bounds_widget = {0, 0, 100, 20};
+    ptr_root_input->AddChild(std::move(up_field));
+
+    ui::WidgetArgs args_label_input;
+    auto up_label_input = std::make_unique<ui::LabelForInputWidget>(args_label_input);
+    up_label_input->str_id = "LFI";
+    up_label_input->str_for = "FIELD";
+    up_label_input->opt_text = "name";
+    up_label_input->bounds_widget = {0, 0, 100, 20};
+    ui::LabelForInputWidget* ptr_label_input = up_label_input.get();
+    ptr_root_input->AddChild(std::move(up_label_input));
+
+    vec_flat_x.clear();
+    ptr_label_input->Draw();
+    Check(vec_flat_x.size() == 4, "LabelForInput 未禁用绘制");
+    static_cast<ui::InputWidget*>(ptr_root_input->Get("FIELD"))->b_disabled = true;
+    vec_flat_x.clear();
+    ptr_label_input->Draw();
+    Check(vec_flat_x.size() == 4, "LabelForInput 禁用绘制(缓存换色)");
+
+    auto up_label_miss = std::make_unique<ui::LabelForInputWidget>(args_label_input);
+    up_label_miss->str_for = "MISSING";
+    ui::LabelForInputWidget* ptr_label_miss = up_label_miss.get();
+    ptr_root_input->AddChild(std::move(up_label_miss));
+    CheckThrow("has no child", [ptr_label_miss] { ptr_label_miss->Draw(); });
+    ui::Ui::Instance().Root()->RemoveChild(*ptr_root_input);
+  }
+
+  {
+    struct ProbePasswordField final : ui::PasswordFieldWidget {
+      const std::string& Apparent() const { return GetApparentText(); }
+    };
+    ProbePasswordField field_password{};
+    field_password.bounds_widget = {0, 0, 100, 20};
+    field_password.SetText("abc");
+    Check(field_password.Apparent() == "***", "PasswordField 三星");
+    field_password.SetText("abcdefgh");
+    Check(field_password.Apparent().size() == 8 &&
+              field_password.Apparent().find_first_not_of('*') == std::string::npos,
+          "PasswordField 八星");
+  }
+
+  {
+    struct ProbeExponentialSlider final : ui::ExponentialSliderWidget {
+      float ValueAt(int int4_x) const { return ValueFromPx(int4_x); }
+      int PxAt(float fp4_v) const { return PxFromValue(fp4_v); }
+    };
+    ProbeExponentialSlider slider_exponential{};
+    slider_exponential.bounds_widget = {0, 0, 200, 20};
+    slider_exponential.fp4_minimum_value = 0.0f;
+    slider_exponential.fp4_maximum_value = 100.0f;
+
+    Check(slider_exponential.ValueAt(10) == 0.0f, "指数滑条左端 0");
+    Check(slider_exponential.ValueAt(190) == 100.0f, "指数滑条右端 100");
+    Check(std::abs(slider_exponential.ValueAt(100) - 100.0f * 0.0316f) < 0.05f,
+          "指数滑条中点 ~3.16");
+    Check(slider_exponential.PxAt(50.0f) == 171, "对数回投:50 → 171");
+    Check(slider_exponential.PxAt(100.0f) == 189, "对数回投:100 → 189");
+    Check(slider_exponential.PxAt(slider_exponential.ValueAt(100)) == 100,
+          "对数中点往返 = 100");
+  }
+
+  {
+    ui::WidgetArgs args_listener;
+    auto up_listener = std::make_unique<ui::LogicKeyListenerWidget>(args_listener);
+    int int4_first = 0;
+    int int4_second = 0;
+    up_listener->AddHandler([&int4_first](const KeyInput&) {
+      ++int4_first;
+      return false;
+    });
+    up_listener->AddHandler([&int4_second](const KeyInput&) {
+      ++int4_second;
+      return true;
+    });
+    KeyInput input_probe{};
+    input_probe.Event = KeyInputEvent::Down;
+    Check(up_listener->HandleKeyPress(input_probe), "KeyListener 第二 handler 消费");
+    Check(int4_first == 1 && int4_second == 1, "KeyListener 顺序全询");
+
+    ui::WidgetArgs args_ticker;
+    auto up_ticker = std::make_unique<ui::LogicTickerWidget>(args_ticker);
+    int int4_ticks = 0;
+    up_ticker->fn_on_tick = [&int4_ticks] { ++int4_ticks; };
+    up_ticker->Tick();
+    up_ticker->Tick();
+    Check(int4_ticks == 2, "LogicTicker OnTick 双计");
+  }
+
+  {
+    ui::WidgetArgs args_menu;
+    auto up_menu = std::make_unique<ui::MenuButtonWidget>(args_menu);
+    Check(up_menu->str_menu_container == "INGAME_MENU" && up_menu->b_pause &&
+              up_menu->b_hide_ingame_ui && !up_menu->b_disable_world_sounds,
+          "MenuButton 默认四字段");
+    up_menu->str_menu_container = "EXTRA_MENU";
+    up_menu->b_pause = false;
+    up_menu->b_hide_ingame_ui = false;
+    up_menu->b_disable_world_sounds = true;
+    auto up_clone = up_menu->Clone();
+    auto* ptr_clone = static_cast<ui::MenuButtonWidget*>(up_clone.get());
+    Check(ptr_clone->str_menu_container == "EXTRA_MENU" && !ptr_clone->b_pause &&
+              !ptr_clone->b_hide_ingame_ui,
+          "MenuButton clone 三字段拷贝");
+    Check(!ptr_clone->b_disable_world_sounds, "clone 不拷 DisableWorldSounds(上游 quirk)");
+  }
+
+  {
+    ui::WidgetArgs args_rgba;
+    auto up_rgba = std::make_unique<ui::RGBASpriteWidget>(args_rgba);
+    bool b_called = false;
+    up_rgba->fn_get_sprite = [&b_called] {
+      b_called = true;
+      return gfx::Sprite{};
+    };
+    up_rgba->Draw();
+    Check(b_called, "RGBASprite GetSprite 调用(空精灵不投递)");
+  }
+
+  {
+    auto up_container = std::make_unique<ui::TooltipContainerWidget>();
+    up_container->str_id = "TOOLTIP_CONTAINER";
+    ui::Widget* ptr_container = up_container.get();
+    ui::Ui::Instance().Root()->AddChild(std::move(up_container));
+
+    ui::WidgetArgs args_wbutton;
+    sim::World* ptr_world_dummy = reinterpret_cast<sim::World*>(0x1234);
+    args_wbutton.Add("world", ptr_world_dummy);
+    args_wbutton.Add("modData", static_cast<game::ModData*>(&mod_data));
+    auto up_button = std::make_unique<ui::WorldButtonWidget>(args_wbutton);
+    up_button->str_id = "WB";
+    up_button->bounds_widget = {10, 10, 120, 25};
+    up_button->str_tooltip_container = "TOOLTIP_CONTAINER";
+    up_button->opt_tooltip_text = "Menu";
+    ui::Hotkey key_q = ui::Hotkey::Invalid();
+    key_q.key_kind = Keycode::Q;
+    up_button->key_hotkey = ui::HotkeyReference{[key_q] { return key_q; }};
+    ui::WorldButtonWidget* ptr_button_world = up_button.get();
+    Check(ptr_button_world->ptr_world == ptr_world_dummy, "WorldButton args.world 注入");
+    ui::Ui::Instance().Root()->AddChild(std::move(up_button));
+
+    ptr_button_world->MouseEntered();
+    Check(ptr_container->OwnedChildren().empty(), "BUTTON_TOOLTIP 未过期不装载");
+    gfx::Viewport::int8_last_move_run_time = 0;
+    ptr_container->DrawOuter();
+    Check(ptr_container->OwnedChildren().size() == 1, "BUTTON_TOOLTIP 懒装载");
+    const ui::Widget& widget_tip4 = *ptr_container->OwnedChildren().front();
+    Check(widget_tip4.bounds_widget.int4_width == 49, "BUTTON_TOOLTIP 宽 = 49");
+    Check(widget_tip4.bounds_widget.int4_height == 29, "BUTTON_TOOLTIP 高 = 29");
+    const ui::LabelWidget* ptr_label_tip = widget_tip4.GetOrNull<ui::LabelWidget>("LABEL");
+    Check(ptr_label_tip != nullptr && ptr_label_tip->bounds_widget.int4_width == 16,
+          "tooltip LABEL 宽 = 16");
+    const ui::LabelWidget* ptr_hotkey_tip =
+        widget_tip4.GetOrNull<ui::LabelWidget>("HOTKEY");
+    Check(ptr_hotkey_tip != nullptr && ptr_hotkey_tip->fn_is_visible() &&
+              ptr_hotkey_tip->bounds_widget.int4_x == 30,
+          "tooltip HOTKEY 可见 + X = 30");
+    Check(ptr_hotkey_tip->fn_get_text() == "(Q)", "tooltip HOTKEY 文本");
+    ptr_button_world->MouseExited();
+    Check(ptr_container->OwnedChildren().empty(), "WorldButton 退悬移除");
+
+    ui::WidgetArgs args_wbutton2;
+    args_wbutton2.Add("modData", static_cast<game::ModData*>(&mod_data));
+    auto up_button2 = std::make_unique<ui::WorldButtonWidget>(args_wbutton2);
+    up_button2->str_id = "WB2";
+    up_button2->bounds_widget = {10, 40, 120, 25};
+    up_button2->str_tooltip_container = "TOOLTIP_CONTAINER";
+    up_button2->opt_tooltip_text = "Menu";
+    up_button2->fn_get_tooltip_desc = [] { return std::string{"line1\nline22"}; };
+    ui::WorldButtonWidget* ptr_button_world2 = up_button2.get();
+    ui::Ui::Instance().Root()->AddChild(std::move(up_button2));
+    ptr_button_world2->MouseEntered();
+    gfx::Viewport::int8_last_move_run_time = 0;
+    ptr_container->DrawOuter();
+    Check(ptr_container->OwnedChildren().size() == 1, "DESC 形懒装载");
+    const ui::Widget& widget_desc = *ptr_container->OwnedChildren().front();
+    Check(widget_desc.bounds_widget.int4_width == 38, "DESC 形宽 = 38");
+    Check(widget_desc.bounds_widget.int4_height == 60, "DESC 形高 = 60");
+    const ui::LabelWidget* ptr_desc_line =
+        widget_desc.GetOrNull<ui::LabelWidget>("DESC");
+    Check(ptr_desc_line != nullptr && ptr_desc_line->fn_get_text() == "line1",
+          "首 DESC 命中 = 行克隆(克隆拷 Id)");
+    Check(widget_desc.OwnedChildren().size() == 4, "LABEL+HOTKEY+两行 DESC 克隆");
+    ptr_button_world2->MouseExited();
+    ui::Ui::Instance().Root()->RemoveChildren();
+  }
+
+  {
+    auto up_container = std::make_unique<ui::TooltipContainerWidget>();
+    up_container->str_id = "TOOLTIP_CONTAINER";
+    ui::Widget* ptr_container = up_container.get();
+    ui::Ui::Instance().Root()->AddChild(std::move(up_container));
+
+    auto up_region = std::make_unique<ui::ClientTooltipRegionWidget>();
+    up_region->str_id = "CTR";
+    up_region->str_tooltip_container = "TOOLTIP_CONTAINER";
+    up_region->str_template = "THREEBUTTON_PROMPT";
+    net::SessionClient client_dummy{};
+    net::OrderManager* ptr_om_dummy = reinterpret_cast<net::OrderManager*>(0x5678);
+    up_region->Bind(ptr_om_dummy, nullptr, &client_dummy);
+    ui::ClientTooltipRegionWidget* ptr_region = up_region.get();
+    ui::Ui::Instance().Root()->AddChild(std::move(up_region));
+
+    ptr_region->MouseEntered();
+    gfx::Viewport::int8_last_move_run_time = 0;
+    ptr_container->DrawOuter();
+    Check(ptr_container->OwnedChildren().size() == 1, "ClientTooltipRegion 懒装载");
+    ptr_region->MouseExited();
+    Check(ptr_container->OwnedChildren().empty(), "ClientTooltipRegion 退悬移除");
+    ui::Ui::Instance().Root()->RemoveChildren();
+  }
+
+  {
+    const auto dir_version =
+        std::filesystem::temp_directory_path() / "ora_ui_test_batch4";
+    std::filesystem::create_directories(dir_version);
+    WriteLayout(dir_version, "version.yaml",
+                "Label@VERSION_LABEL:\n\tLogic: VersionLabelLogic\n\tX: 0\n\tY: 0\n"
+                "\tWidth: 100\n\tHeight: 20\n\tFont: Regular\n");
+    fs::FileSystem fs_version;
+    fs_version.Mount(dir_version.generic_string());
+    const std::vector<std::string> vec_version{"version.yaml"};
+    ui::WidgetLoader loader_version(vec_version, fs_version);
+
+    ui::WidgetArgs args_version;
+    args_version.Add("modData", static_cast<game::ModData*>(&mod_data));
+    args_version.Add("windowSize", int2{1280, 960});
+    ui::Widget* ptr_version = loader_version.LoadWidget(args_version, nullptr, "VERSION_LABEL");
+    Check(ptr_version != nullptr && ptr_version->TypeName() == "LabelWidget",
+          "VERSION_LABEL 根类型");
+    ui::LabelWidget* ptr_label_version = static_cast<ui::LabelWidget*>(ptr_version);
+    Check(ptr_label_version->fn_get_text() == mod_data.ManifestRef().Metadata().str_version,
+          "VersionLabel 文本 = Manifest.Version");
+  }
+}
+
+void TestChromeWidgetsBatch5(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome) {
+  ui::Ui::Instance().SetKeyboardFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseOverWidget(nullptr);
+
+  {
+    ui::WidgetArgs args_mixer;
+    args_mixer.Add("modData", static_cast<game::ModData*>(&mod_data));
+    args_mixer.Add("windowSize", int2{1280, 960});
+    auto up_mixer = std::make_unique<ui::ColorMixerWidget>(args_mixer);
+    ui::ColorMixerWidget& mixer_test = *up_mixer;
+    mixer_test.Initialize(args_mixer);
+    mixer_test.bounds_widget = {10, 10, 100, 100};
+    Check(mixer_test.mod_rules == &mod_data.DefaultRules(),
+          "Mixer modRules = ModData.DefaultRules");
+    Check(mixer_test.str_click_sound == "ClickSound", "Mixer ClickSound 指标");
+
+    int int4_mixer_change = 0;
+    mixer_test.OnChangeAdd([&int4_mixer_change] { ++int4_mixer_change; });
+    mixer_test.SetColorLimits(0.3f, 0.95f, 0.3f, 0.95f);
+    Check(int4_mixer_change == 0, "SetColorLimits 不触发 OnChange");
+
+    MouseInput input_mixer{.Event = MouseInputEvent::Down,
+                           .Button = MouseButton::Left,
+                           .Location = int2{60, 60}};
+    Check(mixer_test.HandleMouseInput(input_mixer), "Mixer Down 消费");
+    const float fp4_expected_s =
+        0.3f + (0.95f - 0.3f) * (1.0f - 50.0f / 100.0f);
+    const float fp4_expected_v = 0.3f + (0.95f - 0.3f) * (50.0f / 100.0f);
+    Check(mixer_test.fp4_s == fp4_expected_s && mixer_test.fp4_v == fp4_expected_v,
+          "Mixer 中心点 S/V = 0.625");
+    Check(mixer_test.ColorValue() ==
+              core::Color::FromAhsv(0.0f, fp4_expected_s, fp4_expected_v),
+          "Mixer Color = FromAhsv(H,S,V)");
+    Check(int4_mixer_change == 1, "Down 触发 OnChange");
+
+    const int2 int2_px = mixer_test.MixerPxFromValue();
+    const int int4_expected_x = static_cast<int>(
+        100.0f * (fp4_expected_v - 0.3f) / (0.95f - 0.3f));
+    const int int4_expected_y = static_cast<int>(
+        100.0f * (1.0f - (fp4_expected_s - 0.3f) / (0.95f - 0.3f)));
+    Check(int2_px == int2{int4_expected_x, int4_expected_y}, "MixerPxFromValue 往返");
+
+    input_mixer.Event = MouseInputEvent::Move;
+    input_mixer.Location = int2{110, 10};
+    Check(mixer_test.HandleMouseInput(input_mixer), "Mixer Move 消费");
+    Check(mixer_test.fp4_v == 0.95f && int4_mixer_change == 2,
+          "Move 到右缘 V 钳上界");
+    input_mixer.Event = MouseInputEvent::Up;
+    mixer_test.HandleMouseInput(input_mixer);
+
+    mixer_test.Set(core::Color::FromAhsv(0.0f, 1.0f, 1.0f));
+    Check(mixer_test.fp4_s == 0.95f && mixer_test.fp4_v == 0.95f &&
+              int4_mixer_change == 3,
+          "Set 的 S/V 钳域");
+    mixer_test.Set(core::Color::FromAhsv(0.0f, 1.0f, 1.0f));
+    Check(int4_mixer_change == 4 && mixer_test.fp4_s == 0.95f,
+          "越域 Set 恒变更再通知(上游比输入非钳值)");
+  }
+
+  {
+    ui::WidgetArgs args_hue;
+    args_hue.Add("windowSize", int2{1280, 960});
+    auto up_hue = std::make_unique<ui::HueSliderWidget>(args_hue);
+    ui::HueSliderWidget& hue_test = *up_hue;
+    hue_test.Initialize(args_hue);
+    hue_test.bounds_widget = {0, 0, 100, 20};
+    Check(hue_test.fp4_value == 0.0f, "HueSlider 初值 0");
+
+    int int4_hue_change = 0;
+    hue_test.fn_on_change = [&int4_hue_change](float) { ++int4_hue_change; };
+    MouseInput input_hue{.Event = MouseInputEvent::Down,
+                         .Button = MouseButton::Left,
+                         .Location = int2{60, 10}};
+    Check(hue_test.HandleMouseInput(input_hue), "HueSlider thumb 命中消费");
+    const float fp4_expected =
+        1.0f * (60.0f - 0.5f * 20.0f) / (100.0f - 20.0f);
+    Check(hue_test.fp4_value == fp4_expected && int4_hue_change == 1,
+          "HueSlider 值 = 0.625");
+    input_hue.Event = MouseInputEvent::Up;
+    hue_test.HandleMouseInput(input_hue);
+
+    hue_test.Removed();
+    hue_test.Removed();
+    Check(true, "HueSlider Removed 幂等(RAII sheet)");
+  }
+
+  {
+    std::vector<core::Color> vec_custom_stored;
+    auto deps_picker = std::make_shared<ui::Ui::Deps>();
+    deps_picker->ptr_mod_data = &mod_data;
+    deps_picker->ptr_chrome_metrics = &metrics_chrome;
+    deps_picker->fn_window_size = [] { return int2{1280, 960}; };
+    deps_picker->fn_clock = [] { return std::int64_t{0}; };
+    deps_picker->fn_get_custom_colors = [&vec_custom_stored] {
+      return vec_custom_stored;
+    };
+    deps_picker->fn_store_custom_colors =
+        [&vec_custom_stored](const std::vector<core::Color>& vec_in) {
+          vec_custom_stored = vec_in;
+        };
+    ui::Ui::Instance().Initialize(*deps_picker);
+
+    const auto dir_picker =
+        std::filesystem::temp_directory_path() / "ora_ui_test_batch5";
+    std::filesystem::create_directories(dir_picker);
+    const std::string str_tree =
+        "Background@COLOR_CHOOSER:\n"
+        "    Logic: ColorPickerLogic\n"
+        "        PaletteColumns: 8\n"
+        "        PalettePresetRows: 2\n"
+        "        PaletteCustomRows: 1\n"
+        "    Width: 326\n"
+        "    Height: 154\n"
+        "    Children:\n"
+        "        Button@RANDOM_BUTTON:\n"
+        "            Width: 76\n"
+        "            Height: 25\n"
+        "        Button@STORE_BUTTON:\n"
+        "            Width: 76\n"
+        "            Height: 25\n"
+        "        Button@MIXER_TAB_BUTTON:\n"
+        "            Width: 80\n"
+        "            Height: 25\n"
+        "        Button@PALETTE_TAB_BUTTON:\n"
+        "            Width: 80\n"
+        "            Height: 25\n"
+        "        Container@MIXER_TAB:\n"
+        "            Width: 236\n"
+        "            Height: 120\n"
+        "            Children:\n"
+        "                HueSlider@HUE_SLIDER:\n"
+        "                    Width: 232\n"
+        "                    Height: 13\n"
+        "                    Ticks: 5\n"
+        "                ColorMixer@MIXER:\n"
+        "                    Width: 232\n"
+        "                    Height: 90\n"
+        "        Background@PALETTE_TAB:\n"
+        "            Visible: false\n"
+        "            Width: 236\n"
+        "            Height: 120\n"
+        "            Children:\n"
+        "                Container@PALETTE_TAB_PANEL:\n"
+        "                    Width: 236\n"
+        "                    Height: 120\n"
+        "                    Children:\n"
+        "                        Container@PRESET_AREA:\n"
+        "                            Width: 232\n"
+        "                            Children:\n"
+        "                                ColorBlock@COLORPRESET:\n"
+        "                                    Width: 29\n"
+        "                                    Height: 29\n"
+        "                                    Visible: false\n"
+        "                        Container@CUSTOM_AREA:\n"
+        "                            Width: 232\n"
+        "                            Children:\n"
+        "                                ColorBlock@COLORCUSTOM:\n"
+        "                                    Width: 29\n"
+        "                                    Height: 29\n"
+        "                                    Visible: false\n";
+    WriteLayout(dir_picker, "colorpicker.yaml", str_tree);
+    fs::FileSystem fs_picker;
+    fs_picker.Mount(dir_picker.generic_string());
+    const std::vector<std::string> vec_picker{"colorpicker.yaml"};
+    ui::WidgetLoader loader_picker(vec_picker, fs_picker);
+
+    sim::World world_picker(sim::WorldSimParams{});
+    const core::Color color_initial =
+        core::Color::FromArgb(255, 0x39, 0x1D, 0x1D);
+    std::vector<core::Color> vec_changed;
+    int int4_extra_logic = 0;
+    ui::Widget* ptr_extra_widget = nullptr;
+
+    ui::WidgetArgs args_picker;
+    args_picker.Add("modData", static_cast<game::ModData*>(&mod_data));
+    args_picker.Add("world", static_cast<sim::World*>(&world_picker));
+    args_picker.Add("initialColor", color_initial);
+    args_picker.Add(
+        "onChange",
+        std::function<void(core::Color)>{[&vec_changed](core::Color color_c) {
+          vec_changed.push_back(color_c);
+        }});
+    args_picker.Add(
+        "extraLogic",
+        std::function<void(ui::Widget*)>{
+            [&int4_extra_logic, &ptr_extra_widget](ui::Widget* ptr_w) {
+              ++int4_extra_logic;
+              ptr_extra_widget = ptr_w;
+            }});
+    ui::Widget* ptr_root =
+        loader_picker.LoadWidget(args_picker, nullptr, "COLOR_CHOOSER");
+
+    Check(int4_extra_logic == 1 && ptr_extra_widget == ptr_root,
+          "extraLogic(widget) 恰一次");
+    Check(!vec_changed.empty() && vec_changed.back() == color_initial,
+          "末次 onChange = initialColor");
+
+    ui::ColorMixerWidget* ptr_mixer = ptr_root->Get<ui::ColorMixerWidget>("MIXER");
+    ui::HueSliderWidget* ptr_hue = ptr_root->Get<ui::HueSliderWidget>("HUE_SLIDER");
+    ui::ContainerWidget* ptr_preset_area =
+        ptr_root->Get<ui::ContainerWidget>("PRESET_AREA");
+    ui::ContainerWidget* ptr_custom_area =
+        ptr_root->Get<ui::ContainerWidget>("CUSTOM_AREA");
+    ui::ButtonWidget* ptr_palette_tab_button =
+        ptr_root->Get<ui::ButtonWidget>("PALETTE_TAB_BUTTON");
+
+    Check(ptr_preset_area->OwnedChildren().size() == 17,
+          "预设区 = 模板 + 16 克隆");
+    Check(ptr_custom_area->OwnedChildren().size() == 9, "自定义区 = 模板 + 8 克隆");
+    auto* ptr_swatch_i1 =
+        static_cast<ui::ColorBlockWidget*>(ptr_preset_area->OwnedChildren()[2].get());
+    Check(ptr_swatch_i1->bounds_widget.int4_x == 29 &&
+              ptr_swatch_i1->bounds_widget.int4_y == 0,
+          "克隆网格 (i=1,j=0) X=29");
+
+    ui::Widget* ptr_mixer_tab = ptr_root->Get("MIXER_TAB");
+    ui::Widget* ptr_palette_tab = ptr_root->Get("PALETTE_TAB");    Check(ptr_mixer_tab->fn_is_visible() && !ptr_palette_tab->fn_is_visible(),
+          "初始 mixer 页可见");
+
+    vec_custom_stored = {core::Color::FromArgb(255, 10, 20, 30),
+                         core::Color::FromArgb(255, 40, 50, 60)};
+    const std::size_t sz_changed_before_store = vec_changed.size();
+    ptr_root->Get<ui::ButtonWidget>("STORE_BUTTON")->fn_on_click();
+    Check(vec_custom_stored.size() == 3 && vec_custom_stored.back() == ptr_mixer->ColorValue(),
+          "STORE 追加 mixer 色");
+    Check(ptr_palette_tab_button->fn_is_highlighted(),
+          "STORE 后 palette 页闪烁高亮");
+    ptr_root->LogicObjects().front()->Tick();
+    ptr_root->LogicObjects().front()->Tick();
+    ptr_root->LogicObjects().front()->Tick();
+    ptr_root->LogicObjects().front()->Tick();
+    Check(!ptr_palette_tab_button->fn_is_highlighted(), "四次 Tick 闪烁归零");
+    ptr_root->Get<ui::ButtonWidget>("STORE_BUTTON")->fn_on_click();
+    Check(vec_custom_stored.size() == 3 && vec_custom_stored.back() == ptr_mixer->ColorValue(),
+          "重复 STORE 去重再追加(未满员不截)");
+    (void)sz_changed_before_store;
+
+    vec_custom_stored.clear();
+    for (int int4_i = 0; int4_i < 8; ++int4_i)
+      vec_custom_stored.push_back(
+          core::Color::FromArgb(255, 10 + 8 * int4_i, 20, 30));
+    ptr_root->Get<ui::ButtonWidget>("STORE_BUTTON")->fn_on_click();
+    Check(vec_custom_stored.size() == 8 &&
+              vec_custom_stored.front() == core::Color::FromArgb(255, 18, 20, 30) &&
+              vec_custom_stored.back() == ptr_mixer->ColorValue(),
+          "满员 STORE 保留尾 8");
+
+    ptr_palette_tab_button->fn_on_click();
+    Check(ptr_palette_tab->fn_is_visible() && !ptr_mixer_tab->fn_is_visible(),
+          "palette 页切换");
+    ptr_root->Get<ui::ButtonWidget>("MIXER_TAB_BUTTON")->fn_on_click();
+    Check(ptr_mixer_tab->fn_is_visible(), "mixer 页切回");
+
+    const core::Color color_preset0 =
+        core::Color::FromArgb(255, 0x39, 0x1D, 0x1D);
+    const auto [int4_a_p0, fp4_h_p0, fp4_s_p0, fp4_v_p0] = color_preset0.ToAhsv();
+    (void)int4_a_p0;
+    auto* ptr_swatch_p0 =
+        static_cast<ui::ColorBlockWidget*>(ptr_preset_area->OwnedChildren()[1].get());
+    ptr_swatch_p0->fn_on_mouse_up(MouseInput{});
+    Check(ptr_hue->fp4_value == fp4_h_p0, "预设点击 hue = ToAhsv(preset).H");
+    Check(ptr_mixer->fp4_v >= 0.29f && ptr_mixer->fp4_v < 0.31f,
+          "预设 V 低于下界钳 0.3 邻域");
+
+    auto* ptr_swatch_c0 =
+        static_cast<ui::ColorBlockWidget*>(ptr_custom_area->OwnedChildren()[1].get());
+    Check(ptr_swatch_c0->fn_is_visible(), "自定义槽 0 可见(两色已存)");
+    const core::Color color_custom0 = ptr_swatch_c0->fn_get_color();
+    const auto [int4_a_c0, fp4_h_c0, fp4_s_c0, fp4_v_c0] = color_custom0.ToAhsv();
+    (void)int4_a_c0;
+    (void)fp4_h_c0;
+    Check(fp4_s_c0 >= 0.29f && fp4_s_c0 <= 0.96f && fp4_v_c0 >= 0.29f && fp4_v_c0 <= 0.96f,
+          "自定义槽 MakeValid 入域");
+    ptr_swatch_c0->fn_on_mouse_up(MouseInput{});
+    Check(ptr_mixer->fp4_s >= 0.29f && ptr_mixer->fp4_s <= 0.96f &&
+              ptr_mixer->fp4_v >= 0.29f && ptr_mixer->fp4_v <= 0.96f,
+          "自定义槽点击 mixer 入域");
+
+    ptr_root->Get<ui::ButtonWidget>("RANDOM_BUTTON")->fn_on_click();
+    Check(ptr_mixer->fp4_s >= 0.29f && ptr_mixer->fp4_s <= 0.96f &&
+              ptr_mixer->fp4_v >= 0.29f && ptr_mixer->fp4_v <= 0.96f,
+          "RANDOM 的 S/V 入域");
+
+    WriteLayout(dir_picker, "colorpicker_bad.yaml",
+                std::string{str_tree}.replace(str_tree.find("PaletteColumns: 8"),
+                                              std::string_view{"PaletteColumns: 8"}.size(),
+                                              "PaletteColumns: abc"));
+    fs::FileSystem fs_bad;
+    fs_bad.Mount(dir_picker.generic_string());
+    const std::vector<std::string> vec_bad{"colorpicker_bad.yaml"};
+    ui::WidgetLoader loader_bad(vec_bad, fs_bad);
+    ui::WidgetArgs args_bad;
+    args_bad.Add("modData", static_cast<game::ModData*>(&mod_data));
+    args_bad.Add("world", static_cast<sim::World*>(&world_picker));
+    args_bad.Add("initialColor", color_initial);
+    args_bad.Add("onChange",
+                 std::function<void(core::Color)>{[](core::Color) {}});
+    args_bad.Add("extraLogic",
+                 std::function<void(ui::Widget*)>{[](ui::Widget*) {}});
+    CheckThrow("Invalid value for PaletteColumns: abc", [&] {
+      loader_bad.LoadWidget(args_bad, nullptr, "COLOR_CHOOSER");
+    });
   }
 }
 

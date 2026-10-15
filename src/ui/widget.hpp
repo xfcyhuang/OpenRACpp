@@ -21,6 +21,7 @@
 #pragma once
 import std;
 
+#include "core/color.hpp"
 #include "core/int2.hpp"
 #include "core/rectangle.hpp"
 #include "meta/variable_expression.hpp"
@@ -35,6 +36,7 @@ class World;
 }
 namespace ora::net {
 class OrderManager;
+struct SessionClient;
 }
 namespace ora::gfx {
 class WorldRenderer;
@@ -63,8 +65,10 @@ using YamlDictionary = std::vector<std::pair<std::string_view, const yaml::MiniY
 using WidgetArgValue =
     std::variant<std::monostate, int2, std::int32_t, std::string, Widget*, sim::World*,
                  net::OrderManager*, gfx::WorldRenderer*, game::ModData*, ChromeMetrics*,
-                 Mediator*,
+                 Mediator*, net::SessionClient*, core::Color,
                  std::function<std::string()>,         // getText/getDesc 委托 | the getText/getDesc delegates
+                 std::function<void(core::Color)>,     // onChange(Color) 委托 | the onChange(Color) delegate
+                 std::function<void(Widget*)>,         // extraLogic 委托 | the extraLogic delegate
                  const std::map<std::string, std::int32_t>*,  // substitutions
                  const YamlDictionary*>;                      // logicArgs
 

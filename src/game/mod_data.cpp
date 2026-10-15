@@ -225,6 +225,18 @@ map::MapGrid& ModData::GetOrCreateMapGrid() {
 }
 
 const map::ITerrainInfo& ModData::GetTerrainInfo(std::string_view str_id) {
+  TerrainInfos();
+
+  for (const auto& [key, info] : vec_terrain_info_)
+    if (key == str_id)
+      return *info;
+
+  // 上游 IReadOnlyDictionary 索引器缺键抛 KeyNotFoundException
+  throw std::runtime_error("The given key was not present in the dictionary.");
+}
+
+const std::vector<std::pair<std::string, std::unique_ptr<map::ITerrainInfo>>>&
+ModData::TerrainInfos() {
   // DefaultTerrainInfo(ModData.cs L114-131):Manifest.TerrainFormat +
   // "Loader" 名分派(C++ 侧 = DefaultTerrain;D2k/Ts 加载器随各 mod 内容批),
   // 逐 TileSets 文件解析后以 t.Id 缓存;重复键 = 上游 Dictionary.Add 等价抛
@@ -243,12 +255,7 @@ const map::ITerrainInfo& ModData::GetTerrainInfo(std::string_view str_id) {
     }
   }
 
-  for (const auto& [key, info] : vec_terrain_info_)
-    if (key == str_id)
-      return *info;
-
-  // 上游 IReadOnlyDictionary 索引器缺键抛 KeyNotFoundException
-  throw std::runtime_error("The given key was not present in the dictionary.");
+  return vec_terrain_info_;
 }
 
 std::vector<std::vector<yaml::MiniYamlNode>> ModData::GetRulesYaml() {

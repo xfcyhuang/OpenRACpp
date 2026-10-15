@@ -101,6 +101,12 @@ class ModData final {
   /// parses through the TerrainFormat loader, cached by t.Id (lazy).
   const map::ITerrainInfo& GetTerrainInfo(std::string_view str_id);
 
+  /// DefaultTerrainInfo 全表(ColorPickerLogic 的 SelectMany 消费面;同懒初始化)
+  /// The whole DefaultTerrainInfo table (ColorPickerLogic's SelectMany
+  /// consumer; the same lazy initialization).
+  const std::vector<std::pair<std::string, std::unique_ptr<map::ITerrainInfo>>>&
+  TerrainInfos();
+
   /// GetOrCreate<GameSpeeds>()(mod.yaml 的 "GameSpeeds" 节点;缺省 = 空表)
   /// GetOrCreate<GameSpeeds>() (the mod.yaml "GameSpeeds" node; the lazy
   /// default is an empty table).

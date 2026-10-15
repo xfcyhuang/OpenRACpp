@@ -57,4 +57,12 @@ core::Color ColorMakeValid(const ColorPickerManagerData& data,
                            const std::function<void(std::string_view)>&
                                fn_on_error);
 
+/// RandomValidColor(L168-177):三次 NextFloat 后入私有 MakeValid
+/// RandomValidColor (L168-177): three NextFloat draws into the private
+/// MakeValid.
+core::Color ColorRandomValidColor(const ColorPickerManagerData& data,
+                                  MersenneTwister& random,
+                                  std::span<const core::Color> vec_terrain,
+                                  std::span<const core::Color> vec_players);
+
 }  // namespace ora::server

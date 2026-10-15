@@ -6,21 +6,37 @@ import std;
 
 #include "ui/widget_loader.hpp"
 
+#include "ui/logic/button_tooltip_logic.hpp"
+#include "ui/logic/color_picker_logic.hpp"
 #include "ui/logic/simple_tooltip_logic.hpp"
+#include "ui/logic/version_label_logic.hpp"
 #include "ui/widgets/background_widget.hpp"
 #include "ui/widgets/button_widget.hpp"
 #include "ui/widgets/checkbox_widget.hpp"
+#include "ui/widgets/client_tooltip_region_widget.hpp"
 #include "ui/widgets/color_block_widget.hpp"
+#include "ui/widgets/color_mixer_widget.hpp"
 #include "ui/widgets/drop_down_button_widget.hpp"
+#include "ui/widgets/exponential_slider_widget.hpp"
+#include "ui/widgets/hue_slider_widget.hpp"
 #include "ui/widgets/image_widget.hpp"
+#include "ui/widgets/label_for_input_widget.hpp"
 #include "ui/widgets/label_widget.hpp"
+#include "ui/widgets/label_with_highlight_widget.hpp"
 #include "ui/widgets/label_with_tooltip_widget.hpp"
+#include "ui/widgets/logic_key_listener_widget.hpp"
+#include "ui/widgets/logic_ticker_widget.hpp"
+#include "ui/widgets/menu_button_widget.hpp"
+#include "ui/widgets/password_field_widget.hpp"
 #include "ui/widgets/progress_bar_widget.hpp"
+#include "ui/widgets/rgba_sprite_widget.hpp"
 #include "ui/widgets/scroll_item_widget.hpp"
 #include "ui/widgets/scroll_panel_widget.hpp"
 #include "ui/widgets/slider_widget.hpp"
 #include "ui/widgets/text_field_widget.hpp"
 #include "ui/widgets/tooltip_container_widget.hpp"
+#include "ui/widgets/world_button_widget.hpp"
+#include "ui/widgets/world_label_with_tooltip_widget.hpp"
 
 namespace ora::ui {
 namespace {
@@ -293,6 +309,86 @@ namespace {
       "SimpleTooltipLogic",
       [](WidgetArgs& args_args) -> std::unique_ptr<ChromeLogic> {
         return std::make_unique<SimpleTooltipLogic>(args_args);
+      });
+  return true;
+}();
+
+[[maybe_unused]] const bool kWidgetsBatch4Registered = [] {
+  auto& registry_widgets = WidgetTypeRegistry::Instance();
+  registry_widgets.Register(
+      "ClientTooltipRegionWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<ClientTooltipRegionWidget>();
+      });
+  registry_widgets.Register(
+      "ExponentialSliderWidget", [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<ExponentialSliderWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "LabelForInputWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<LabelForInputWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "LabelWithHighlightWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<LabelWithHighlightWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "LogicKeyListenerWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<LogicKeyListenerWidget>();
+      });
+  registry_widgets.Register(
+      "LogicTickerWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<LogicTickerWidget>();
+      });
+  registry_widgets.Register(
+      "MenuButtonWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<MenuButtonWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "PasswordFieldWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<PasswordFieldWidget>();
+      });
+  registry_widgets.Register(
+      "RGBASpriteWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+        return std::make_unique<RGBASpriteWidget>();
+      });
+  registry_widgets.Register(
+      "WorldButtonWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<WorldButtonWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "WorldLabelWithTooltipWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<WorldLabelWithTooltipWidget>(args_args);
+      });
+
+  ChromeLogicRegistry::Instance().Register(
+      "ButtonTooltipLogic",
+      [](WidgetArgs& args_args) -> std::unique_ptr<ChromeLogic> {
+        return std::make_unique<ButtonTooltipLogic>(args_args);
+      });
+  ChromeLogicRegistry::Instance().Register(
+      "ColorPickerLogic",
+      [](WidgetArgs& args_args) -> std::unique_ptr<ChromeLogic> {
+        return std::make_unique<ColorPickerLogic>(args_args);
+      });
+  ChromeLogicRegistry::Instance().Register(
+      "VersionLabelLogic",
+      [](WidgetArgs& args_args) -> std::unique_ptr<ChromeLogic> {
+        return std::make_unique<VersionLabelLogic>(args_args);
+      });
+
+  registry_widgets.Register(
+      "ColorMixerWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<ColorMixerWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "HueSliderWidget", [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<HueSliderWidget>(args_args);
       });
   return true;
 }();
