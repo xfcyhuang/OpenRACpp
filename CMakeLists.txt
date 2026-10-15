@@ -194,6 +194,7 @@ add_library(ora_game STATIC
   src/game/manifest.cpp
   src/game/actor_info.cpp
   src/game/game_records.cpp
+  src/game/perf_history.cpp
   src/game/game_speed.cpp
   src/game/fonts.cpp
   src/game/ruleset.cpp
@@ -574,6 +575,15 @@ add_library(ora_ui STATIC
   src/ui/widgets/map_preview_widget.cpp
   src/ui/widgets/generated_map_preview_widget.cpp
   src/ui/widgets/hotkey_entry_widget.cpp
+  src/ui/widgets/badge_widget.cpp
+  src/ui/widgets/control_groups_widget.cpp
+  src/ui/widgets/line_graph_widget.cpp
+  src/ui/widgets/mouse_attachment_widget.cpp
+  src/ui/widgets/perf_graph_widget.cpp
+  src/ui/widgets/resource_bar_widget.cpp
+  src/ui/widgets/scrollable_line_graph_widget.cpp
+  src/ui/widgets/text_notifications_display_widget.cpp
+  src/ui/player_database.cpp
   src/ui/logic/simple_tooltip_logic.cpp
   src/ui/logic/button_tooltip_logic.cpp
   src/ui/logic/version_label_logic.cpp

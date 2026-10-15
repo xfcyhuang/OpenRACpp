@@ -10,6 +10,14 @@ import std;
 #include "ui/logic/color_picker_logic.hpp"
 #include "ui/logic/simple_tooltip_logic.hpp"
 #include "ui/logic/version_label_logic.hpp"
+#include "ui/widgets/badge_widget.hpp"
+#include "ui/widgets/control_groups_widget.hpp"
+#include "ui/widgets/line_graph_widget.hpp"
+#include "ui/widgets/mouse_attachment_widget.hpp"
+#include "ui/widgets/perf_graph_widget.hpp"
+#include "ui/widgets/resource_bar_widget.hpp"
+#include "ui/widgets/scrollable_line_graph_widget.hpp"
+#include "ui/widgets/text_notifications_display_widget.hpp"
 #include "ui/widgets/background_widget.hpp"
 #include "ui/widgets/button_widget.hpp"
 #include "ui/widgets/checkbox_widget.hpp"
@@ -404,6 +412,43 @@ namespace {
   registry_widgets.Register(
       "HotkeyEntryWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
         return std::make_unique<HotkeyEntryWidget>();
+      });
+
+  registry_widgets.Register("BadgeWidget", [](WidgetArgs&) -> std::unique_ptr<Widget> {
+    return std::make_unique<BadgeWidget>();
+  });
+  registry_widgets.Register(
+      "ControlGroupsWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<ControlGroupsWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "LineGraphWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<LineGraphWidget>(args_args);
+      });
+  registry_widgets.Register("MouseAttachmentWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<MouseAttachmentWidget>(args_args);
+      });
+  registry_widgets.Register("PerfGraphWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<PerfGraphWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "ResourceBarWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<ResourceBarWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "ScrollableLineGraphWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<ScrollableLineGraphWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "TextNotificationsDisplayWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<TextNotificationsDisplayWidget>(args_args);
       });
   return true;
 }();

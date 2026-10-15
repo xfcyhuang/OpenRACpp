@@ -143,53 +143,34 @@ struct IViewportSurface {
   /// RenderableActorsInBox).
   virtual int2 TopLeft() = 0;
   virtual int2 BottomRight() = 0;
+  /// Center 族(Viewport.cs L350-362 的接口面;Center(IEnumerable&lt;Actor&gt;)
+  /// 的均值由调用方求 —— ControlGroupsWidget 消费)
+  /// The Center family (the interface face of Viewport.cs L350-362; the
+  /// Center(IEnumerable&lt;Actor&gt;) mean is the caller's — consumed by
+  /// ControlGroupsWidget).
+  virtual void Center(const WPos& wpos_pos) { (void)wpos_pos; }
+  virtual void Center(core::Vector2 vec_pos) { (void)vec_pos; }
   virtual ~IViewportSurface() = default;
 };
 
-/// Map 的地形渲染面(TerrainSpriteLayer/MarkerTileRenderable 所需的 Map/
-/// Grid/Ramp 查询;完整 Map 随 Phase 5)。默认实现 = 方格网格的中心/包含/
-/// 平地 Ramp(MapGrid.cs L48-57 的 Rectangular 角)。
-/// The Map's terrain-render surface (the Map/Grid/Ramp queries needed by
-/// TerrainSpriteLayer/MarkerTileRenderable; the full Map arrives in Phase
-/// 5). The default implementation = the square grid's cell centers /
-/// containment / flat ramps (the Rectangular corners of MapGrid.cs L48-57).
 struct TerrainMapSurface {
   int2 int2_map_size{0, 0};
   MapGridType kind_grid_type = MapGridType::Rectangular;
   std::int32_t int4_tile_scale = 1024;  // map.Grid.TileScale(世界单位/格)| world units per cell
 
-  /// map.CenterOfCell(默认 = cell*1024 + 512,与 World::TargetFromCell 的
-  /// 默认桩同族)。
-  /// map.CenterOfCell (default = cell*1024 + 512, the same family as
-  /// World::TargetFromCell's default stub).
   std::function<WPos(CPos)> fn_center_of_cell;
 
-  /// map.Tiles.Contains(uv)(默认 = 矩形包含)。
-  /// map.Tiles.Contains(uv) (default = rectangular containment).
   std::function<bool(MPos)> fn_tiles_contains;
 
-  /// map.Grid.Ramps[map.Ramp[cell]].CenterHeightOffset(默认 0 = 平地)。
-  /// map.Grid.Ramps[map.Ramp[cell]].CenterHeightOffset (default 0 = flat).
   std::function<std::int32_t(CPos)> fn_ramp_center_height_offset;
 
-  /// map.Grid.Ramps[map.Ramp[cell]].Corners(恰 4 角;默认 = 方格 ±512)。
-  /// map.Grid.Ramps[map.Ramp[cell]].Corners (exactly 4; default = the
-  /// square ±512).
   std::function<std::span<const WVec>(CPos)> fn_ramp_corners;
 
-  /// 方格默认面(静态便捷;回调为按值捕获的默认实现)。
-  /// The square-grid default surface (a static convenience; the callbacks
-  /// capture the defaults by value).
   static TerrainMapSurface MakeSquareDefault(int2 int2_map_size, std::int32_t int4_tile_scale = 1024);
 };
 
-/// 世界渲染器(WorldRenderer.cs;上游 sealed)。
-/// The world renderer (WorldRenderer.cs; sealed upstream).
 class WorldRenderer {
  public:
-  /// 构造参数(上游从 ModData/Map 的反射链取得;见头注注入面清单)。
-  /// The construction parameters (what upstream pulls from the ModData/Map
-  /// reflection chain; see the injection list in the header note).
   struct Desc {
     int2 int2_tile_size{24, 24};  // map.Rules.TerrainInfo.TileSize | TerrainInfo.TileSize
     std::int32_t int4_tile_scale = 1024;
@@ -197,38 +178,17 @@ class WorldRenderer {
     Renderer* ptr_renderer = nullptr;    // Game.Renderer | Game.Renderer
   };
 
-  /// Phase 5 的 trait 收集面(默认 no-op;见头注)。
-  /// The Phase 5 trait-collection surfaces (no-op by default; see the
-  /// header note).
   struct Hooks {
-    /// GenerateRenderables 的渲染源(上游 L141-160:onScreenActors/WorldActor/
-    /// RenderPlayer/OrderGenerator/两类 effects;回调内经 AddRenderable 入流)。
-    /// The render sources of GenerateRenderables (upstream L141-160:
-    /// onScreenActors/WorldActor/RenderPlayer/OrderGenerator/the two effect
-    /// families; the callback feeds AddRenderable).
     std::function<void(WorldRenderer&, int2, int2)> fn_collect_renderables;
 
-    /// GenerateOverlayRenderables(L178-216)与 GenerateAnnotationRenderables
-    /// (L219-257)的 trait/effect 源(回调内经 Add*Renderable 入流)。
-    /// The trait/effect sources of GenerateOverlayRenderables (L178-216) and
-    /// GenerateAnnotationRenderables (L219-257) (the callbacks feed the
-    /// Add*Renderable entries).
     std::function<void(WorldRenderer&, int2, int2)> fn_collect_overlay;
     std::function<void(WorldRenderer&, int2, int2)> fn_collect_annotations;
 
-    /// IRenderTerrain.RenderTerrain(L289)。
     std::function<void(WorldRenderer&, IViewportSurface&)> fn_render_terrain;
 
-    /// IRenderAboveWorld(L301-305)与 IRenderShroud(L312)的 trait 分发。
-    /// The IRenderAboveWorld (L301-305) and IRenderShroud (L312) trait
-    /// dispatches.
     std::function<void(WorldRenderer&)> fn_render_above_world;
     std::function<void(WorldRenderer&)> fn_render_shroud;
 
-    /// DebugVisualizations 的深度缓冲更新(L281)与几何/ScreenMap 调试绘制
-    /// (L350-382;Phase 5 诊断 trait)。
-    /// DebugVisualizations' depth-buffer update (L281) and the geometry/
-    /// ScreenMap debug drawing (L350-382; the Phase 5 diagnostics trait).
     std::function<void(WorldRenderer&)> fn_debug_update_depth;
     std::function<void(WorldRenderer&)> fn_debug_draw_geometry;
     std::function<void(WorldRenderer&)> fn_debug_draw_screen_map;
@@ -240,8 +200,6 @@ class WorldRenderer {
   WorldRenderer(const WorldRenderer&) = delete;
   WorldRenderer& operator=(const WorldRenderer&) = delete;
 
-  // ———— 常量面(L28-32/53-79 的注入等价物)————
-  // ———— The constant faces (the injected equivalents of L28-32/53-79) ————
   const int2& TileSize() const { return int2_tile_size_; }
   std::int32_t TileScale() const { return int4_tile_scale_; }
   sim::World& World() const { return world_; }
@@ -253,8 +211,6 @@ class WorldRenderer {
   void SetTerrainSurface(TerrainMapSurface surface) { surface_terrain_ = std::move(surface); }
   Renderer* RendererPtr() const { return ptr_renderer_; }
 
-  /// BeginFrame/EndFrame(L81-91:IRenderer trait 逐个)。
-  /// BeginFrame/EndFrame (L81-91: over the IRenderer traits).
   void BeginFrame();
   void EndFrame();
   void SetRendererTraits(std::span<IRendererTrait* const> vec_renderers) {
@@ -264,10 +220,6 @@ class WorldRenderer {
     vec_post_process_passes_.assign(vec_passes.begin(), vec_passes.end());
   }
 
-  /// UpdatePalettesForPlayer(L93-97;ILoadsPlayerPalettes trait 族 Phase 5,
-  /// 订阅面注入)。
-  /// UpdatePalettesForPlayer (L93-97; the ILoadsPlayerPalettes trait family
-  /// is Phase 5, injected as a subscription surface).
   void SetPlayerPaletteLoader(
       std::function<void(WorldRenderer&, std::string_view, core::Color, bool)> fn_load) {
     fn_load_player_palettes_ = std::move(fn_load);
@@ -275,44 +227,23 @@ class WorldRenderer {
   void UpdatePalettesForPlayer(std::string_view str_internal_name, core::Color color_player,
                                bool b_replace_existing);
 
-  // ———— 调色板面(L99-138)————
-  // ———— The palette faces (L99-138) ————
-
-  /// Palette(name)(L105-110;空名 → null;GetOrAdd 缓存)。
-  /// Palette(name) (L105-110; empty name → null; GetOrAdd cached).
   PaletteReference* Palette(std::string_view str_name);
 
-  /// AddPalette(L112-124;allowOverwrite 且已存在走 ReplacePalette;高度
-  /// 增长才触发 PaletteInvalidated)。
-  /// AddPalette (L112-124; allowOverwrite + present routes through
-  /// ReplacePalette; only a height growth fires PaletteInvalidated).
   void AddPalette(std::string_view str_name, ImmutablePalette palette_p, bool b_allow_modifiers = false,
                   bool b_allow_overwrite = false);
 
-  /// ReplacePalette(L126-133;缓存引用同步)。
-  /// ReplacePalette (L126-133; cached references sync).
   void ReplacePalette(std::string_view str_name, const IPalette& palette_p);
 
   void SetPaletteColorShift(std::string_view str_name, float float_hue_offset, float float_sat_offset,
                             float float_value_multiplier, float float_min_hue, float float_max_hue);
 
-  /// RefreshPalette(L393-397):modifier 应用 + Renderer.SetPalette;modifier
-  /// 表由调用方收集(上游 WorldActor.TraitsImplementing&lt;IPaletteModifier&gt;)。
-  /// RefreshPalette (L393-397): applies the modifiers and calls
-  /// Renderer.SetPalette; the modifier table is collected by the caller
-  /// (upstream WorldActor.TraitsImplementing&lt;IPaletteModifier&gt;).
   void RefreshPalette(std::span<IPaletteModifier* const> vec_modifiers);
 
   HardwarePalette& hardware_palette() { return hardware_palette_; }
 
-  /// PaletteInvalidated 事件(L34;token 订阅表,成对注销)。
-  /// The PaletteInvalidated event (L34; a token subscription table, paired
-  /// unsubscribe).
   std::uint64_t SubscribePaletteInvalidated(std::function<void()> fn_listener);
   void UnsubscribePaletteInvalidated(std::uint64_t uint8_token);
 
-  // ———— 坐标换算面(L399-471 逐行)————
-  // ———— The coordinate-conversion faces (L399-471 line by line) ————
   core::Vector2 ScreenPosition(const WPos& wpos_pos) const;
   core::Vector2 ScreenPosition(core::Vector2 vec_pos) const;
   core::Vector3 Screen3DPosition(const WPos& wpos_pos) const;
@@ -323,48 +254,20 @@ class WorldRenderer {
   int2 ScreenPxOffset(const WVec& wvec_vec) const;
   WPos ProjectedPosition(int2 int2_screen_px) const;
 
-  // ———— 收集流(OPT-A7;上游 L44-51 的三列表 + L141-274)————
-  // ———— The collection flow (OPT-A7; upstream's three lists of L44-51 plus
-  //        L141-274) ————
-
-  /// 收集入口(上游 renderablesBuffer 的 AddRange 落点;Overlay/Annotation
-  /// 上游在生成点即 PrepareRender —— 引擎 kind 恒等,Custom 调虚接口)。
-  /// The collection entries (the AddRange landing spots of upstream's
-  /// renderablesBuffer; Overlay/Annotation PrepareRender at the generation
-  /// point upstream — the identity for engine kinds, the virtual call for
-  /// Custom).
   void AddRenderable(const RenderItem& item_r);
   void AddOverlayRenderable(const RenderItem& item_r);
   void AddAnnotationRenderable(const RenderItem& item_r);
 
-  /// PrepareRenderables(L259-274):refresh → 收集(注入源)→ 排序 →
-  /// Prepare → 清缓冲。
-  /// PrepareRenderables (L259-274): refresh → collect (the injected
-  /// sources) → sort → prepare → clear the buffer.
   void PrepareRenderables(std::span<IPaletteModifier* const> vec_palette_modifiers);
 
-  /// Draw(L276-328:scissor → depth → terrain → prepared → 后处理/aboveWorld/
-  /// shroud → overlay 分组 → Flush)。
-  /// Draw (L276-328: scissor → depth → terrain → prepared → the post-
-  /// process/aboveWorld/shroud interleaves → the overlay grouping → Flush).
   void Draw();
 
-  /// DrawAnnotations(L342-391:抗锯齿档 → annotation 绘制 → 调试钩子 →
-  /// 后处理 → Flush → 清三列表)。
-  /// DrawAnnotations (L342-391: the antialiasing toggle → the annotation
-  /// drawing → the debug hooks → post process → Flush → clearing the three
-  /// lists).
   void DrawAnnotations();
 
   Hooks& hooks() { return hooks_; }
 
-  /// OPT-A7 帧临时区(排序 key/分段;DrawAnnotations 末 rewind)。
-  /// The OPT-A7 frame arena (sort keys/segmentation; rewound at the end of
-  /// DrawAnnotations).
   FrameArena& frame_arena() { return arena_frame_; }
 
-  /// —— 测试面:三列表与收集缓冲观察 ——
-  /// —— Test surface: the three lists and the collection buffer ——
   std::span<const RenderItem> PreparedRenderablesForTest() const { return vec_prepared_renderables_; }
   std::span<const RenderItem> PreparedOverlayForTest() const { return vec_prepared_overlay_; }
   std::span<const RenderItem> PreparedAnnotationForTest() const { return vec_prepared_annotation_; }

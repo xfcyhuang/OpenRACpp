@@ -239,8 +239,8 @@ class Viewport : public IViewportSurface {
 
   /// Center(WPos)(L350-355)/ Center(Vector2)(L357-362)。
   /// Center (WPos) (L350-355) / Center (Vector2) (L357-362).
-  void Center(const WPos& wpos_pos);
-  void Center(core::Vector2 vec_pos);
+  void Center(const WPos& wpos_pos) override;
+  void Center(core::Vector2 vec_pos) override;
 
   /// Scroll(L364-373):世界像素 → 视口像素换算后加位移。
   /// Scroll (L364-373): converts the world-px delta to viewport-px before

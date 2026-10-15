@@ -63,6 +63,17 @@ void RegisterGeneratedAll();
 #include "ui/widgets/password_field_widget.hpp"
 #include "ui/widgets/rgba_sprite_widget.hpp"
 #include "ui/widgets/world_button_widget.hpp"
+#include "ui/widgets/badge_widget.hpp"
+#include "ui/widgets/control_groups_widget.hpp"
+#include "ui/widgets/line_graph_widget.hpp"
+#include "ui/widgets/mouse_attachment_widget.hpp"
+#include "ui/widgets/perf_graph_widget.hpp"
+#include "ui/widgets/resource_bar_widget.hpp"
+#include "ui/widgets/scrollable_line_graph_widget.hpp"
+#include "ui/widgets/text_notifications_display_widget.hpp"
+#include "ui/player_database.hpp"
+#include "game/perf_history.hpp"
+#include "game/settings.hpp"
 #include "ui/widgets/hue_slider_widget.hpp"
 #include "ui/widgets/color_mixer_widget.hpp"
 #include "ui/widgets/color_block_widget.hpp"
@@ -830,10 +841,10 @@ void TestChromeWidgetsBatch5(game::ModData& mod_data, ui::ChromeMetrics& metrics
 void TestChromeWidgetsBatch6(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
                              ui::WidgetLoader& loader_chrome);
 
+void TestChromeWidgetsBatch7(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
+                             ui::WidgetLoader& loader_chrome);
+
 void TestBaseWidgetsChrome(const std::string& str_root) {
-  // ButtonWidget ctor 的 ModData.DefaultRules 需要全装载链注册(map_test 同序)
-  // ButtonWidget's ctor's ModData.DefaultRules needs the full loading-chain
-  // registration (the same order as map_test).
   gen::RegisterGeneratedAll();
   game::RegisterGameLoaders();
   sim::RegisterWorldTraits();
@@ -846,7 +857,6 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
     return;
   game::ModData mod_data{*manifest_ra, mods_installed, str_root};
 
-  // Fluent 面(标签/按钮文本解析所需)
   mod_data.InitializeLoaders([&mod_data](const std::string& str_name) {
     std::optional<std::vector<char>> opt_bytes;
     try {
@@ -878,7 +888,6 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   };
   ui::Ui::Instance().Initialize(deps_ui);
 
-  // —— THREEBUTTON_PROMPT:Background + Label×2 + Button×3 ——
   ui::WidgetArgs args_prompt;
   args_prompt.Add("modData", static_cast<game::ModData*>(&mod_data));
   args_prompt.Add("chromeMetrics", static_cast<ui::ChromeMetrics*>(&metrics_chrome));
@@ -887,7 +896,6 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
       loader_chrome.LoadWidget(args_prompt, nullptr, "THREEBUTTON_PROMPT");
   Check(ptr_prompt != nullptr && ptr_prompt->TypeName() == "BackgroundWidget",
         "THREEBUTTON_PROMPT 根类型");
-  // X = (1280-600)/2 = 340
   Check(ptr_prompt->RenderBounds().X == 340, "PARENT_WIDTH 方程求值(窗口 1280)");
 
   ui::ButtonWidget* ptr_confirm = ptr_prompt->GetOrNull<ui::ButtonWidget>("CONFIRM_BUTTON");
@@ -901,7 +909,6 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   Check(ptr_confirm->key_hotkey.GetValue().key_kind == Keycode::RETURN,
         "按钮 Key: return 命名键");
 
-  // Key 激活路径(yaml Visible:false → Logic 重绑可见后可交互)
   KeyInput input_return{};
   input_return.Event = KeyInputEvent::Down;
   input_return.Key = Keycode::RETURN;
@@ -911,8 +918,6 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   Check(ptr_confirm->HandleKeyPressOuter(input_return), "Return 键激活消费");
   Check(b_clicked, "Return 键触发 OnClick");
 
-  // 鼠标三态:Down 持焦 + Depressed → Up 让焦触发(yaml Visible:false →
-  // Logic 重绑可见)
   b_clicked = false;
   ptr_cancel->fn_is_visible = [] { return true; };
   ptr_cancel->fn_on_click = [&b_clicked] { b_clicked = true; };
@@ -930,7 +935,6 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   Check(b_clicked, "Up 触发 OnClick");
   Check(!ptr_cancel->b_depressed, "Up 后 Depressed 复位");
 
-  // —— MULTIPLAYER_FILTER_PANEL:ScrollPanel + Checkbox 族 ——
   ui::WidgetArgs args_filter;
   ui::Widget* ptr_filter =
       loader_chrome.LoadWidget(args_filter, nullptr, "MULTIPLAYER_FILTER_PANEL");
@@ -941,11 +945,6 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   const ui::CheckboxWidget* ptr_first_check =
       dynamic_cast<const ui::CheckboxWidget*>(ptr_panel->OwnedChildren().front().get());
   Check(ptr_first_check != nullptr, "子为 Checkbox");
-  // 装载序 quirk:AddChild 先于字段装载 → 加载毕 content 只剩首项基座;
-  // Logic 侧以 AdjustChildren 重排(上游同序)
-  // The load-order quirk: AddChild precedes field loading → after loading
-  // the content holds only the first-item base; Logic re-runs AdjustChildren
-  // (upstream's same order).
   ptr_panel->ptr_layout->AdjustChildren();
   const int int4_expected_content = [&] {
     int int4_sum = ptr_panel->int4_top_bottom_spacing;
@@ -958,7 +957,6 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   Check(ptr_panel->int4_content_height == 104 && ptr_panel->bounds_widget.int4_height == 130,
         "过滤器面板 content(2+5×20+2=104)< 视口 130");
 
-  // 滚轮:target offset 按 UIScrollSpeed(50)移动(取上界夹取)
   MouseInput input_scroll{.Location = int2{0, 0},
                           .Button = MouseButton::None,
                           .Event = MouseInputEvent::Scroll,
@@ -968,12 +966,10 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   ptr_panel->HandleMouseInput(input_scroll);
   ptr_panel->ScrollToBottom();
   Check(ptr_panel->ScrolledToBottom(), "ScrollToBottom");
-  // content(104)< 视口(130)→ min(0, 26) = 0
   Check(ptr_panel->CurrentListOffset() == 0.0f, "content<视口时底 offset = 0");
   ptr_panel->ScrollToTop();
   Check(ptr_panel->CurrentListOffset() == 0.0f, "ScrollToTop");
 
-  // —— LABEL_DROPDOWN_TEMPLATE:ScrollItem 模板面 ——
   ui::WidgetArgs args_dropdown;
   ui::Widget* ptr_dropdown =
       loader_chrome.LoadWidget(args_dropdown, nullptr, "LABEL_DROPDOWN_TEMPLATE");
@@ -984,17 +980,12 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   const ui::Widget& widget_header = *ptr_list->OwnedChildren().front();
   Check(widget_header.TypeName() == "ScrollItemWidget", "子为 ScrollItem");
   Check(!widget_header.fn_is_visible(), "模板 IsVisible 恒 false");
-  // 字段装载后于 AddChild → yaml 的 Y:0 终值(上游同序)
-  // Field loading follows AddChild → yaml's Y:0 is final (upstream's same
-  // order).
   Check(widget_header.bounds_widget.int4_y == 0, "装载序 Y 终值 = yaml 值");
 
-  // 定界滚动面:面板高度注入 + AdjustChildren 后 content = 2+13+25+2 = 42
   ptr_list->bounds_widget.int4_height = 40;
   ptr_list->ptr_layout->AdjustChildren();
   Check(ptr_list->int4_content_height == 42, "dropdown content = 2+13+25+2");
 
-  // Setup 装配方:克隆模板 → 可见 + 选中态
   auto* ptr_template_item = static_cast<ui::ScrollItemWidget*>(
       ptr_list->OwnedChildren()[1].get());
   bool b_selected = false;
@@ -1013,21 +1004,15 @@ void TestBaseWidgetsChrome(const std::string& str_root) {
   Check(ptr_list->CurrentListOffset() == -2.0f, "dropdown 底 offset = 40-42");
   Check(ptr_label_inner->fn_get_text().empty(), "Label 无 Text = 空串直通");
 
-  // ———— Phase 6 第三批:Slider/TextField/LabelWithTooltip/DropDown/
-  // SimpleTooltipLogic(真 ra chrome + fake 字体注入)————
   TestSliderWidget();
   TestChromeWidgetsBatch3(mod_data, metrics_chrome, loader_chrome);
   TestChromeWidgetsBatch4(mod_data, metrics_chrome, loader_chrome);
   TestChromeWidgetsBatch5(mod_data, metrics_chrome);
   TestChromeWidgetsBatch6(mod_data, metrics_chrome, loader_chrome);
+  TestChromeWidgetsBatch7(mod_data, metrics_chrome, loader_chrome);
 }
 
-// ———— Phase 6 第三批:SliderWidget(纯逻辑面)————
-
 void TestSliderWidget() {
-  // 前序测试的局部 widget 可能未让焦即亡(GC 域等价面):焦点三指针清悬垂
-  // Prior tests' local widgets may die without yielding (the GC-domain
-  // equivalent): clear dangling focus pointers first.
   ui::Ui::Instance().SetKeyboardFocusWidget(nullptr);
   ui::Ui::Instance().SetMouseFocusWidget(nullptr);
   ui::Ui::Instance().SetMouseOverWidget(nullptr);
@@ -1039,7 +1024,6 @@ void TestSliderWidget() {
   int int4_changes = 0;
   slider_test.fn_on_change = [&int4_changes](float) { ++int4_changes; };
 
-  // UpdateValue:夹取 + 变更通知
   slider_test.fp4_minimum_value = 0.0f;
   slider_test.fp4_maximum_value = 1.0f;
   slider_test.UpdateValue(0.5f);
@@ -1050,7 +1034,6 @@ void TestSliderWidget() {
   slider_test.UpdateValue(1.0f);
   Check(int4_changes == 2, "同值不再通知");
 
-  // 拖拽:Down@50 → 0.5;Move@90 → 1.0;Up 让焦
   slider_test.fp4_value = 0.0f;
   MouseInput input_slide{.Event = MouseInputEvent::Down,
                          .Button = MouseButton::Left,
@@ -1065,7 +1048,6 @@ void TestSliderWidget() {
   Check(slider_test.HandleMouseInput(input_slide), "Up 消费");
   Check(ui::Ui::Instance().MouseFocusWidget() != &slider_test, "Up 让出鼠标焦点");
 
-  // 禁用面:非左键/IsDisabled 恒拒
   input_slide.Event = MouseInputEvent::Down;
   input_slide.Button = MouseButton::Right;
   Check(!slider_test.HandleMouseInput(input_slide), "右键拒绝");
@@ -1074,7 +1056,6 @@ void TestSliderWidget() {
   Check(!slider_test.HandleMouseInput(input_slide), "禁用拒绝");
   slider_test.b_disabled = false;
 
-  // Clone 保值
   auto up_clone = std::unique_ptr<ui::SliderWidget>(
       static_cast<ui::SliderWidget*>(slider_test.Clone().release()));
   Check(up_clone->fp4_value == slider_test.fp4_value &&
@@ -1082,18 +1063,12 @@ void TestSliderWidget() {
         "Slider 克隆字段");
 }
 
-// ———— Phase 6 第三批:TextField/LabelWithTooltip/DropDown/SimpleTooltip ————
-
 void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
                              ui::WidgetLoader& loader_chrome) {
-  // 焦点三指针清悬垂(TestWidgetFocusInput 的局部 widget 未让焦即亡)
-  // Clear the dangling focus trio (TestWidgetFocusInput's local widgets die
-  // without yielding).
   ui::Ui::Instance().SetKeyboardFocusWidget(nullptr);
   ui::Ui::Instance().SetMouseFocusWidget(nullptr);
   ui::Ui::Instance().SetMouseOverWidget(nullptr);
 
-  // fake 字体注入(Regular = TextField/Bold = SIMPLE_TOOLTIP 的 LABEL)
   gfx::SheetBuilder builder_fonts(gfx::SheetType::BGRA, 128);
   constexpr auto fn_flat_noop = [](const gfx::Sprite&, core::Vector3, float, core::Vector3,
                                   float) {};
@@ -1111,9 +1086,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
   auto deps_fonts = std::make_shared<ui::Ui::Deps>();
   deps_fonts->ptr_mod_data = &mod_data;
   deps_fonts->fn_window_size = [] { return int2{1280, 960}; };
-  // 大时钟:TooltipContainer 的 delay 门常开(懒装载即时可见)
-  // A large clock: TooltipContainer's delay gate stays open (the lazy load
-  // is immediately visible).
   deps_fonts->fn_clock = [] { return std::int64_t{100000}; };
   deps_fonts->ptr_chrome_metrics = &metrics_chrome;
   deps_fonts->fn_load_widget = [&loader_chrome](ui::WidgetArgs& args_load, ui::Widget* ptr_parent,
@@ -1132,7 +1104,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
   };
   ui::Ui::Instance().Initialize(*deps_fonts);
 
-  // —— TextFieldWidget:类型过滤/插入/光标/选择/删除族 ——
   {
     ui::WidgetArgs args_field;
     auto up_field = std::make_unique<ui::TextFieldWidget>(args_field);
@@ -1140,7 +1111,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     field_test.bounds_widget = {0, 0, 100, 20};
     Check(field_test.str_font == "Regular", "TextField Font = TextfieldFont 指标");
 
-    // 类型过滤
     field_test.SetType(ui::TextFieldType::Filename);
     field_test.SetText("a<b>:c*?");
     Check(field_test.Text() == "abc", "Filename 过滤 9 标点");
@@ -1149,14 +1119,12 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     Check(field_test.Text() == "123", "Integer 只留数字");
     field_test.SetType(ui::TextFieldType::General);
 
-    // 焦点门:未聚焦不消费
     KeyInput input_key{};
     input_key.Event = KeyInputEvent::Down;
     input_key.Key = Keycode::LEFT;
     Check(!field_test.HandleKeyPress(input_key), "未聚焦按键不消费");
     Check(field_test.TakeKeyboardFocus(), "TakeKeyboardFocus");
 
-    // 插入:光标位插字
     int int4_edited = 0;
     field_test.fn_on_text_edited = [&int4_edited] { ++int4_edited; };
     field_test.SetText("ab");
@@ -1165,7 +1133,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
               field_test.int4_cursor_position == 2 && int4_edited == 1,
           "光标位插入");
 
-    // MaxLength 门
     field_test.int4_max_length = 3;
     Check(field_test.HandleTextInput("Y") && field_test.Text() == "aXb" && int4_edited == 1,
           "MaxLength 满员拒插");
@@ -1176,7 +1143,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
           "粘贴截断到 MaxLength");
     field_test.int4_max_length = 0;
 
-    // 光标移动:END/LEFT/Ctrl+LEFT/HOME/RIGHT/Ctrl+RIGHT
     field_test.SetText("hello world");
     input_key.Key = Keycode::END;
     field_test.HandleKeyPress(input_key);
@@ -1200,7 +1166,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     Check(field_test.int4_cursor_position == 5, "Ctrl+RIGHT 词跳到 5");
     input_key.ModifierFlags = Modifiers::None;
 
-    // 选择:Ctrl+A 全选 → BACKSPACE 删选区
     input_key.Key = Keycode::A;
     input_key.ModifierFlags = Modifiers::Ctrl;
     field_test.HandleKeyPress(input_key);
@@ -1212,7 +1177,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
               field_test.SelectionStartIndex() == -1,
           "BACKSPACE 删选区");
 
-    // Ctrl+U:光标前全删
     field_test.SetText("ab cd");
     field_test.int4_cursor_position = 5;
     input_key.Key = Keycode::U;
@@ -1220,21 +1184,18 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     field_test.HandleKeyPress(input_key);
     Check(field_test.Text().empty() && field_test.int4_cursor_position == 0, "Ctrl+U 全删");
 
-    // Ctrl+K:光标后全删
     field_test.SetText("ab cd");
     field_test.int4_cursor_position = 2;
     input_key.Key = Keycode::K;
     field_test.HandleKeyPress(input_key);
     Check(field_test.Text() == "ab", "Ctrl+K 删尾");
 
-    // Ctrl+D:光标处删一字
     field_test.SetText("abc");
     field_test.int4_cursor_position = 0;
     input_key.Key = Keycode::D;
     field_test.HandleKeyPress(input_key);
     Check(field_test.Text() == "bc", "Ctrl+D");
 
-    // DELETE:单字与词删
     field_test.SetText("ab cd");
     field_test.int4_cursor_position = 0;
     input_key.Key = Keycode::DELETE;
@@ -1248,7 +1209,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     Check(field_test.Text() == " cd", "Ctrl+DELETE 词删(保留分隔空格)");
     input_key.ModifierFlags = Modifiers::None;
 
-    // blink:10 tick 翻相位;LEFT 复位
     input_key.Key = Keycode::LEFT;
     input_key.ModifierFlags = Modifiers::None;
     field_test.SetText("abc");
@@ -1259,13 +1219,11 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
       field_test.Tick();
     Check(!field_test.ShowCursor(), "10 tick 后光标隐藏(相位翻转)");
 
-    // 让焦回调
     bool b_lost_focus = false;
     field_test.fn_on_lose_focus = [&b_lost_focus] { b_lost_focus = true; };
     field_test.YieldKeyboardFocus();
     Check(b_lost_focus, "YieldKeyboardFocus 触发 OnLoseFocus");
 
-    // 鼠标点击取位(fake 字体 advance 4:x=7 → 最近 i=1)
     field_test.SetText("ab");
     field_test.int4_cursor_position = 0;
     field_test.TakeKeyboardFocus();
@@ -1279,7 +1237,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     field_test.YieldKeyboardFocus();
   }
 
-  // —— SimpleTooltipLogic(装载 args 仿容器的 tooltipContainer/getText 注入)——
   {
     ui::TooltipContainerWidget container_logic;
     std::string str_tooltip_text = "AB\nCD";
@@ -1307,7 +1264,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     Check(widget_line1.bounds_widget.int4_y == 21 && widget_line1.bounds_widget.int4_width == 8,
           "第二行 Y=21(−1+3+19)/宽 8");
 
-    // cachedText 门:同文本不重建
     std::string str_child_ptr = [&] {
       std::ostringstream oss_stream;
       oss_stream << up_panel_root->OwnedChildren()[0].get();
@@ -1324,7 +1280,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
           "新文本重建(单行 25+3)");
   }
 
-  // —— LabelWithTooltip 挂真容器端到端(懒装载 + BeforeRender)——
   {
     auto up_container = std::make_unique<ui::TooltipContainerWidget>();
     up_container->str_id = "TOOLTIP_CONTAINER";
@@ -1344,7 +1299,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     ptr_label_lwt->MouseEntered();
     Check(ptr_container->OwnedChildren().empty(), "未过期前懒装载不触发");
 
-    // 时钟越过 delay → 可见 → DrawOuter 经 IsVisible 触发懒装载 + BeforeRender
     gfx::Viewport::int8_last_move_run_time = 0;
     ptr_container->DrawOuter();
     Check(ptr_container->OwnedChildren().size() == 1, "懒装载 SIMPLE_TOOLTIP");
@@ -1359,7 +1313,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     ui::Ui::Instance().Root()->RemoveChild(*ptr_container);
   }
 
-  // —— DropDownButtonWidget:ShowDropDown/Mask/ESC/双挂异常 ——
   {
     ui::WidgetArgs args_dropdown_button;
     args_dropdown_button.Add("modData", static_cast<game::ModData*>(&mod_data));
@@ -1379,7 +1332,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
               [&b_option_clicked, str_option] { b_option_clicked = str_option == "two"; }, [] {});
         });
 
-    // Root 新增 Mask + panel;面板锚在按钮下方,高 = min(60, 2+25+25+2=54)
     ui::Widget* ptr_mask = nullptr;
     ui::ScrollPanelWidget* ptr_drop_panel = nullptr;
     for (const auto& up_child : ui::Ui::Instance().Root()->OwnedChildren()) {
@@ -1397,7 +1349,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     Check(ptr_drop_panel->bounds_widget.int4_height == 54, "面板高 = min(60, content 54)");
     Check(ptr_drop_panel->OwnedChildren().size() == 2, "两选项项");
 
-    // 双挂异常
     bool b_double_threw = false;
     try {
       auto up_dummy = std::make_unique<ui::ContainerWidget>();
@@ -1409,7 +1360,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     }
     Check(b_double_threw, "开面板再挂抛出");
 
-    // 项点击 → 原回调 + RemovePanel
     ui::ScrollItemWidget* ptr_item_two =
         static_cast<ui::ScrollItemWidget*>(ptr_drop_panel->OwnedChildren()[1].get());
     ptr_item_two->fn_on_click();
@@ -1420,7 +1370,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
         b_panel_gone = false;
     Check(b_panel_gone, "点击后面板与 Mask 移除");
 
-    // 重开 → ESC 撤销
     ptr_button_drop->ShowDropDown<std::string>(
         "LABEL_DROPDOWN_TEMPLATE", 60, vec_options,
         [](const std::string& str_option, ui::ScrollItemWidget& item_template) {
@@ -1433,7 +1382,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     input_esc.Key = Keycode::ESCAPE;
     Check(ptr_button_drop->HandleKeyPress(input_esc), "ESC 撤销面板");
 
-    // Mask 点击路径:开面板 → Mask 吞输入并撤
     ptr_button_drop->ShowDropDown<std::string>(
         "LABEL_DROPDOWN_TEMPLATE", 60, vec_options,
         [](const std::string& str_option, ui::ScrollItemWidget& item_template) {
@@ -1457,8 +1405,6 @@ void TestChromeWidgetsBatch3(game::ModData& mod_data, ui::ChromeMetrics& metrics
     ui::Ui::Instance().Root()->RemoveChild(*ptr_button_drop);
   }
 }
-
-// ———— Phase 6 第四批:菜单/大厅 widget 族第二批 + ButtonTooltip/VersionLabel ————
 
 void TestChromeWidgetsBatch4(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
                              ui::WidgetLoader& loader_chrome) {
@@ -2385,6 +2331,375 @@ void TestChromeWidgetsBatch6(game::ModData& mod_data, ui::ChromeMetrics& metrics
   }
 
   chrome_provider.Deinitialize();
+}
+
+void TestChromeWidgetsBatch7(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
+                             ui::WidgetLoader& loader_chrome) {
+  ui::Ui::Instance().SetKeyboardFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseFocusWidget(nullptr);
+  ui::Ui::Instance().SetMouseOverWidget(nullptr);
+
+  {
+    game::PerfHistory& history_perf = game::PerfHistory::Instance();
+    history_perf.Reset();
+    game::PerfItem& item_a = history_perf.Item("b7-a");
+    Check(item_a.C() == core::Color::FromArgb(255, 255, 0, 0), "PerfHistory 首项 Red");
+    game::PerfItem& item_b = history_perf.Item("b7-b");
+    Check(item_b.C() == core::Color::FromArgb(255, 0, 128, 0), "次项 Green");
+
+    history_perf.Increment("b7-a", 2.0);
+    history_perf.Increment("b7-a", 3.0);
+    item_b.fp8_val = 7.0;
+    history_perf.Tick(true);
+    Check(item_a.LastValue() == 5.0 && item_a.fp8_val == 0.0,
+          "Tick 入账 5 并清 Val");
+    Check(item_b.LastValue() == 7.0, "b 项 7");
+    Check(item_a.ActiveGameTotalAverage() == 5.0 &&
+              item_a.Average(25) == 2.5,
+          "平均域(Average 含 tail 槽的 0)");
+    Check(history_perf.Item("b7-a").Samples().size() == 2 &&
+              history_perf.Item("b7-a").Samples()[0] == 5.0 &&
+              history_perf.Item("b7-a").Samples()[1] == 0.0,
+          "Samples 倒序(含 tail 槽)");
+
+    for (int int4_t = 0; int4_t < 150; ++int4_t)
+      history_perf.Tick(false);
+    Check(item_a.Samples().size() == 99, "环形稳态 99(tail 紧随)");
+    Check(item_a.ActiveGameTotalSamplesCount() == 1, "gameIsActive=false 不积总");
+
+    history_perf.Reset();
+    Check(item_a.Samples().size() == 1 && item_a.Samples()[0] == 0.0 &&
+              item_a.fp8_val == 0.0,
+          "Reset 清样(回初始单槽)");
+  }
+
+  {
+    const auto fn_fmt = [](double fp8_v) {
+      std::string str_out;
+      ui::PerfGraphWidget::SixCharacterFormatFloat(str_out, fp8_v);
+      return str_out;
+    };
+    Check(fn_fmt(std::nan("")) == "NaN   ", "fmt NaN");
+    Check(fn_fmt(std::numeric_limits<double>::infinity()) == "+Inf  " &&
+              fn_fmt(-std::numeric_limits<double>::infinity()) == "-Inf  ", "fmt ±Inf");
+    Check(fn_fmt(-0.000001) == "<0    ", "fmt 负值");
+    Check(fn_fmt(0) == ".00000", "fmt 0");
+    Check(fn_fmt(0.000004) == ".00000", "fmt 4e-6");
+    Check(fn_fmt(0.000005) == ".00001", "fmt 5e-6 进位");
+    Check(fn_fmt(0.0001) == ".00010", "fmt 1e-4");
+    Check(fn_fmt(0.5) == ".50000", "fmt 0.5");
+    Check(fn_fmt(1) == "1.0000", "fmt 1");
+    Check(fn_fmt(9.00005) == "9.0001", "fmt 9.00005 进位");
+    Check(fn_fmt(10) == "10.000", "fmt 10");
+    Check(fn_fmt(99.0005) == "99.001", "fmt 99.0005");
+    Check(fn_fmt(100) == "100.00", "fmt 100");
+    Check(fn_fmt(123.4321) == "123.43", "fmt 123.4321");
+    Check(fn_fmt(999.005) == "999.01", "fmt 999.005");
+    Check(fn_fmt(1000) == "1000.0", "fmt 1000");
+    Check(fn_fmt(9999.04999999) == "9999.0", "fmt 9999.049");
+    Check(fn_fmt(9999.05000001) == "9999.1", "fmt 9999.05 进位");
+    Check(fn_fmt(10000) == "10000.", "fmt 10000");
+    Check(fn_fmt(99999.9) == "100000", "fmt 99999.9 进六位");
+    Check(fn_fmt(100000) == "100000", "fmt 100000");
+    Check(fn_fmt(999999) == "999999", "fmt 999999");
+    Check(fn_fmt(1000000) == "TooBig", "fmt 1e6 TooBig");
+    Check(fn_fmt(1234321) == "TooBig", "fmt 1234321 TooBig");
+  }
+
+  Check(ui::FormatCurrent("{0}", 1234.5) == "1234.5", "FormatCurrent 1234.5");
+  Check(ui::FormatCurrent("v={0}x", 42.0) == "v=42x", "FormatCurrent 前后缀");
+  Check(ui::FormatCurrent("{0}", 0.5) == "0.5", "FormatCurrent 0.5");
+  {
+    ui::EWMA lerp_ewma{0.3f};
+    Check(lerp_ewma.Update(100.0f) == 100.0f, "EWMA 首值直通");
+    Check(lerp_ewma.Update(0.0f) == 70.0f, "EWMA 0.3 步");
+    Check(lerp_ewma.Update(0.0f) == 49.0f, "EWMA 链");
+  }
+
+  {
+    game::Settings settings_debug;
+    const game::SettingsModule* ptr_module = settings_debug.Module("Debug");
+    Check(ptr_module != nullptr, "Settings Debug 段装配");
+    const meta::GeneratedRecord& record_debug = ptr_module->Record();
+    const auto& vec_debug = record_debug.Values();
+    Check(std::get<std::int64_t>(vec_debug[2].val) == 25, "Debug Samples 默认 25");
+    Check(std::get<bool>(vec_debug[1].val) == false, "PerfGraph 默认 false");
+    Check(std::get<bool>(vec_debug[3].val) == true, "CheckVersion 默认 true");
+    Check(std::get<float>(vec_debug[12].val) == 1.0f, "LongTickThresholdMs 默认 1");
+    const std::string& str_uuid = std::get<std::string>(vec_debug[6].val);
+    Check(str_uuid.size() == 36 && str_uuid[8] == '-' && str_uuid[13] == '-' &&
+              str_uuid[18] == '-' && str_uuid[23] == '-',
+          "UUID 36 位连字符形");
+  }
+
+  gfx::ChromeProvider chrome_provider7;
+  chrome_provider7.Initialize(
+      {.ptr_file_system = &mod_data.ModFiles(),
+       .vec_chrome_files = &mod_data.ManifestRef().Chrome(),
+       .fp4_dpi_scale = 1.0f});
+
+  gfx::SheetBuilder builder_fonts7(gfx::SheetType::BGRA, 128);
+  constexpr auto fn_flat7 = [](const gfx::Sprite&, core::Vector3, float, core::Vector3,
+                               float) {};
+  constexpr auto fn_quad7 = [](const gfx::Sprite&, core::Vector3, core::Vector3,
+                               core::Vector3, core::Vector3, core::Vector3, float) {};
+  auto up_font_tiny7 = std::make_unique<gfx::SpriteFont>(
+      "tiny7", std::span<const std::uint8_t>{}, std::make_unique<FakeFont>(), 10, 8,
+      1.0f, builder_fonts7, fn_flat7, fn_quad7);
+  auto up_font_regular7 = std::make_unique<gfx::SpriteFont>(
+      "regular7", std::span<const std::uint8_t>{}, std::make_unique<FakeFont>(), 10, 8,
+      1.0f, builder_fonts7, fn_flat7, fn_quad7);
+  gfx::SpriteFont* ptr_font_tiny7 = up_font_tiny7.get();
+  gfx::SpriteFont* ptr_font_regular7 = up_font_regular7.get();
+
+  std::int64_t int8_clock7 = 0;
+  auto deps_batch7 = std::make_shared<ui::Ui::Deps>();
+  deps_batch7->ptr_mod_data = &mod_data;
+  deps_batch7->fn_window_size = [] { return int2{1280, 960}; };
+  deps_batch7->fn_clock = [&int8_clock7] { return int8_clock7; };
+  deps_batch7->ptr_chrome_metrics = &metrics_chrome;
+  deps_batch7->ptr_chrome_provider = &chrome_provider7;
+  deps_batch7->fn_load_widget = [&loader_chrome](ui::WidgetArgs& args_load,
+                                                 ui::Widget* ptr_parent,
+                                                 const std::string& str_id) {
+    return loader_chrome.LoadWidget(args_load, ptr_parent, str_id);
+  };
+  deps_batch7->fn_release_root = [&loader_chrome](ui::Widget* ptr_root) {
+    return ptr_root != nullptr ? loader_chrome.ReleaseRoot(*ptr_root) : nullptr;
+  };
+  deps_batch7->fn_try_get_font = [ptr_font_tiny7,
+                                  ptr_font_regular7](const std::string& str_key) {
+    if (str_key == "Tiny")
+      return ptr_font_tiny7;
+    if (str_key == "Regular")
+      return ptr_font_regular7;
+    return static_cast<gfx::SpriteFont*>(nullptr);
+  };
+  ui::Ui::Instance().Initialize(*deps_batch7);
+
+  {
+    ui::Widget* ptr_chat_line =
+        loader_chrome.LoadWidget(*(new ui::WidgetArgs()), nullptr, "CHAT_LINE_TEMPLATE");
+    std::unique_ptr<ui::Widget> up_chat_line_owned =
+        loader_chrome.ReleaseRoot(*ptr_chat_line);
+    Check(ptr_chat_line != nullptr && ptr_chat_line->TypeName() == "ContainerWidget",
+          "CHAT_LINE_TEMPLATE 真 ra 模板装载");
+    const net::TextNotification notification_chat{
+        net::TextNotificationPool::Chat, 1, std::string{"Alice"},
+        std::string{"hello world"}, core::Color::FromArgb(255, 9, 8, 7), std::nullopt};
+    ui::SetupTextNotification(*ptr_chat_line, notification_chat, 200, true);
+
+    ui::LabelWidget* ptr_time = ptr_chat_line->Get<ui::LabelWidget>("TIME");
+    ui::LabelWidget* ptr_prefix = ptr_chat_line->Get<ui::LabelWidget>("PREFIX");
+    ui::LabelWidget* ptr_text = ptr_chat_line->Get<ui::LabelWidget>("TEXT");
+
+    Check(ptr_time->fn_get_text().size() == 5 && ptr_time->fn_get_text()[2] == ':',
+          "TIME = HH:MM");
+    Check(ptr_time->bounds_widget.int4_x == 5 + 37 + 5,
+          "timeOffset = TIME.Width + TIME.X");
+    Check(ptr_prefix->fn_get_text() == "Alice:", "PREFIX = 'Alice:'");
+    Check(ptr_prefix->fn_get_color() == core::Color::FromArgb(255, 9, 8, 7),
+          "PREFIX 色 = PrefixColor");
+    Check(ptr_prefix->bounds_widget.int4_x == 5 + 42,
+          "PREFIX 随 timeOffset 右移");
+    Check(ptr_text->bounds_widget.int4_x == 5 + 42 - 42 + 4 * 6 + 5,
+          "TEXT X = X + prefixOffset - timeOffset");
+    Check(ptr_text->fn_get_text() == "hello world", "TEXT 短文不换行");
+    Check(ptr_text->fn_get_color() == ptr_text->color_text,
+          "无 TextColor 回落默认");
+    Check(ptr_chat_line->bounds_widget.int4_width == 200,
+          "行宽 = boxWidth - X");
+
+  }
+
+  const auto dir_batch7 = std::filesystem::temp_directory_path() / "ora_ui_test_batch7";
+  std::filesystem::create_directories(dir_batch7);
+  WriteLayout(dir_batch7, "batch7.yaml",
+              "Container@BATCH7_ROOT:\n"
+              "\tWidth: 300\n"
+              "\tHeight: 200\n"
+              "\tChildren:\n"
+              "\t\tTextNotificationsDisplay@CHAT_DISPLAY:\n"
+              "\t\t\tWidth: 200\n"
+              "\t\t\tHeight: 60\n"
+              "\t\t\tLogLength: 3\n"
+              "\t\t\tDisplayDurationMs: 100\n"
+              "\t\t\tBottomSpacing: 3\n"
+              "\t\tLineGraph@GRAPH:\n"
+              "\t\t\tXAxisSize: 20\n"
+              "\t\t\tXAxisTicksPerLabel: 5\n"
+              "\t\t\tLabelFont: Tiny\n"
+              "\t\t\tAxisFont: Tiny\n"
+              "\t\t\tPadding: 7\n"
+              "\t\t\tBackgroundColorDark: 101010\n"
+              "\t\tScrollableLineGraph@SCROLL_GRAPH:\n"
+              "\t\t\tScrollbarHeight: 12\n"
+              "\t\t\tSmoothScrollSpeed: 0.25\n"
+              "\t\t\tMinimumThumbWidth: 15\n"
+              "\t\tPerfGraph@PERF\n"
+              "\t\tResourceBar@RBAR:\n"
+              "\t\t\tOrientation: Horizontal\n"
+              "\t\t\tIndicatorCollection: lobby-bits\n"
+              "\t\t\tIndicatorImage: huepicker\n"
+              "\t\tMouseAttachment@MOUSE\n"
+              "\t\tControlGroups@GROUPS:\n"
+              "\t\t\tSelectGroupKeyPrefix: b7-select\n"
+              "\t\tBadge@BADGE\n");
+  fs::FileSystem fs_batch7;
+  fs_batch7.Mount(dir_batch7.generic_string());
+  const std::vector<std::string> vec_batch7{"batch7.yaml"};
+  ui::WidgetLoader loader_batch7(vec_batch7, fs_batch7);
+
+  ui::WidgetArgs args_batch7;
+  args_batch7.Add("modData", static_cast<game::ModData*>(&mod_data));
+  args_batch7.Add("chromeMetrics", static_cast<ui::ChromeMetrics*>(&metrics_chrome));
+  args_batch7.Add("windowSize", int2{1280, 960});
+  ui::Widget* ptr_root7 =
+      loader_batch7.LoadWidget(args_batch7, nullptr, "BATCH7_ROOT");
+
+  ui::TextNotificationsDisplayWidget* ptr_display =
+      ptr_root7->Get<ui::TextNotificationsDisplayWidget>("CHAT_DISPLAY");
+  Check(ptr_display != nullptr, "CHAT_DISPLAY 装载");
+  Check(ptr_display->int4_display_duration_ms == 100 &&
+            ptr_display->int4_log_length == 3 && ptr_display->int4_bottom_spacing == 3,
+        "通知字段装载");
+
+  const auto fn_add_chat = [&ptr_display](const char* str_prefix, const char* str_text) {
+    ptr_display->AddNotification(net::TextNotification{
+        net::TextNotificationPool::Chat, 1, std::string{str_prefix},
+        std::string{str_text}, std::nullopt, std::nullopt});
+  };
+
+  fn_add_chat("A", "one");
+  Check(ptr_display->OwnedChildren().size() == 1 &&
+            ptr_display->OwnedChildren().back()->bounds_widget.int4_y == 60 - 16 - 3,
+        "首行 Y = Height - 行高 - BottomSpacing");
+  fn_add_chat("B", "two");
+  Check(ptr_display->OwnedChildren().size() == 2 &&
+            ptr_display->OwnedChildren()[0]->bounds_widget.int4_y ==
+                60 - 16 - 3 - 20 &&
+            ptr_display->OwnedChildren()[1]->bounds_widget.int4_y == 60 - 16 - 3,
+        "第二行:旧行上移 20,新行落底");
+  fn_add_chat("C", "three");
+  fn_add_chat("D", "four");
+  Check(ptr_display->OwnedChildren().size() == 3,
+        "LogLength=3 首行淘汰");
+
+  ptr_display->RemoveMostRecentNotification();
+  Check(ptr_display->OwnedChildren().size() == 2 &&
+            ptr_display->OwnedChildren()[0]->bounds_widget.int4_y == 21 &&
+            ptr_display->OwnedChildren()[1]->bounds_widget.int4_y == 41,
+        "RemoveMostRecent 回推 20");
+
+  int8_clock7 = 99;
+  ptr_display->Tick();
+  Check(ptr_display->OwnedChildren().size() == 2, "99ms 未到期");
+  int8_clock7 = 100;
+  ptr_display->Tick();
+  Check(ptr_display->OwnedChildren().empty(), "100ms 全部到期");
+
+  ui::LineGraphWidget* ptr_graph =
+      ptr_root7->Get<ui::LineGraphWidget>("GRAPH");
+  Check(ptr_graph != nullptr && ptr_graph->int4_x_axis_size == 20 &&
+            ptr_graph->int4_x_axis_ticks_per_label == 5 &&
+            ptr_graph->str_label_font == "Tiny" && ptr_graph->int4_padding == 7 &&
+            ptr_graph->color_background_dark == core::Color::FromArgb(255, 0x10, 0x10, 0x10),
+        "LineGraph 字段装载");
+  Check(ptr_graph->fn_get_series == nullptr, "GetSeries 未装 = null");
+  ptr_graph->fn_get_series = [] {
+    return std::vector<ui::LineGraphSeries>{
+        ui::LineGraphSeries{std::string{"k1"}, core::Color::FromArgb(255, 1, 2, 3),
+                            std::vector<float>{1.0f, 2.0f, 3.0f}}};
+  };
+  ptr_graph->Draw();
+  std::unique_ptr<ui::Widget> up_graph_clone = ptr_graph->Clone();
+  auto* ptr_graph_clone = static_cast<ui::LineGraphWidget*>(up_graph_clone.get());
+  Check(ptr_graph_clone->int4_x_axis_size == 20 &&
+            ptr_graph_clone->fn_get_series != nullptr,
+        "LineGraph Clone 携字段与委托");
+
+  ui::ScrollableLineGraphWidget* ptr_scroll_graph =
+      ptr_root7->Get<ui::ScrollableLineGraphWidget>("SCROLL_GRAPH");
+  Check(ptr_scroll_graph != nullptr && ptr_scroll_graph->int4_scrollbar_height == 12 &&
+            ptr_scroll_graph->fp4_smooth_scroll_speed == 0.25f &&
+            ptr_scroll_graph->int4_minimum_thumb_width == 15,
+        "ScrollableLineGraph 字段装载");
+  std::unique_ptr<ui::Widget> up_scroll_clone = ptr_scroll_graph->Clone();
+  Check(static_cast<ui::ScrollableLineGraphWidget*>(up_scroll_clone.get())
+                ->int4_scrollbar_height == 12,
+        "ScrollableLineGraph Clone");
+
+  ui::PerfGraphWidget widget_perf7;
+  game::PerfHistory::Instance().Reset();
+  game::PerfHistory::Instance().Increment("b7-perf", 1.5);
+  widget_perf7.Draw();
+
+  ui::ResourceBarWidget* ptr_rbar = ptr_root7->Get<ui::ResourceBarWidget>("RBAR");
+  Check(ptr_rbar != nullptr &&
+            ptr_rbar->kind_orientation == ui::ResourceBarOrientation::Horizontal,
+        "ResourceBar Orientation 装载");
+  Check(ptr_rbar->IndicatorSprite().ptr_sheet != nullptr,
+        "Indicator = chrome lobby-bits/huepicker");
+  ptr_rbar->fn_get_provided = [] { return 50.0f; };
+  ptr_rbar->fn_get_used = [] { return 25.0f; };
+  ptr_rbar->Draw();
+  ptr_rbar->MouseEntered();
+  ptr_rbar->MouseExited();
+
+  ui::MouseAttachmentWidget* ptr_mouse =
+      ptr_root7->Get<ui::MouseAttachmentWidget>("MOUSE");
+  Check(ptr_mouse != nullptr && ptr_mouse->b_click_through, "MouseAttachment 装载");
+  ptr_mouse->SetAttachment(int2{4, 5}, gfx::Sprite{}, std::string{"pal"});
+  Check(ptr_mouse->ChildOrigin() == int2{4, 5}, "ChildOrigin = location");
+  ptr_mouse->Reset();
+  ptr_mouse->Draw();
+
+  ui::ControlGroupsWidget* ptr_groups =
+      ptr_root7->Get<ui::ControlGroupsWidget>("GROUPS");
+  Check(ptr_groups != nullptr &&
+            ptr_groups->str_select_group_key_prefix == "b7-select",
+        "ControlGroups 前缀装载");
+  KeyInput input_groups7{};
+  input_groups7.Event = KeyInputEvent::Down;
+  input_groups7.Key = Keycode::NUMBER_1;
+  Check(!ptr_groups->HandleKeyPress(input_groups7), "空热键表不消费");
+
+  ui::BadgeWidget* ptr_badge = ptr_root7->Get<ui::BadgeWidget>("BADGE");
+  Check(ptr_badge != nullptr, "BadgeWidget 装载");
+  ptr_badge->Draw();
+
+  {
+    yaml::StringPool pool_badge;
+    const std::vector<yaml::MiniYamlNode> vec_badge_yaml = yaml::MiniYaml::FromString(
+        "Badge:\n\tLabel: MyBadge\n\tIcon24: a24.png\n\tIcon48: b48.png\n",
+        "badge", true, pool_badge);
+    std::optional<ui::PlayerBadge> opt_badge_yaml =
+        ui::PlayerDatabase::Instance().LoadBadge(vec_badge_yaml.front().Value);
+    Check(opt_badge_yaml.has_value() && opt_badge_yaml->str_label == "MyBadge" &&
+              opt_badge_yaml->opt_icon == std::optional<std::string>{"a24.png"} &&
+              opt_badge_yaml->opt_icon3x == std::nullopt,
+          "LoadBadge 四节点提取");
+
+    const std::vector<yaml::MiniYamlNode> vec_badge_empty =
+        yaml::MiniYaml::FromString("Badge:\n\tIcon24: x.png\n", "badge", true,
+                                   pool_badge);
+    Check(!ui::PlayerDatabase::Instance()
+               .LoadBadge(vec_badge_empty.front().Value)
+               .has_value(),
+          "缺 Label = 空徽章");
+
+    const gfx::Sprite sprite_icon1 =
+        ui::PlayerDatabase::Instance().GetIcon(*opt_badge_yaml);
+    const gfx::Sprite sprite_icon2 =
+        ui::PlayerDatabase::Instance().GetIcon(*opt_badge_yaml);
+    Check(sprite_icon1.ptr_sheet != nullptr &&
+              sprite_icon1.Bounds == sprite_icon2.Bounds,
+          "GetIcon 分配并缓存(空 RendererDeps = density 1)");
+    ptr_badge->opt_badge = opt_badge_yaml;
+    std::this_thread::sleep_for(std::chrono::milliseconds{300});
+  }
+
+  chrome_provider7.Deinitialize();
 }
 
 }  // namespace

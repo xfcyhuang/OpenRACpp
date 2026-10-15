@@ -30,10 +30,15 @@ namespace ora::game {
 class ModData;
 }  // namespace ora::game
 
+namespace ora::net {
+class TextNotification;
+}  // namespace ora::net
+
 namespace ora::ui {
 
 class ButtonWidget;
 class ImageWidget;
+class Widget;
 
 /// widget 族的 Game.* 静态注入访问(widget_utils.cpp 定义;未注入面抛上游
 /// KeyNotFoundException 等价/回落 null)
@@ -135,5 +140,17 @@ void TruncateButtonToTooltip(ButtonWidget& button_target, const std::string& str
 /// BindButtonIcon(L341-347)。
 /// BindButtonIcon (L341-347).
 void BindButtonIcon(ButtonWidget& button_target);
+
+/// FormatCurrent(Exts.cs L44-46;消费域 = 图表 widget 的 "{0}" 单占位值
+/// 模板;数值走最短十进制表示 —— 复合格式说明域随其消费批)。
+/// FormatCurrent (Exts.cs L44-46; the consumer domain = the graph widgets'
+/// "{0}" single-placeholder value templates; numbers take the shortest
+/// decimal form — the composite-format-specifier domain rides its consumer
+/// batch).
+std::string FormatCurrent(std::string_view str_format, double fp8_value);
+
+void SetupTextNotification(Widget& widget_notification,
+                           const net::TextNotification& notification,
+                           int int4_box_width, bool b_with_timestamp);
 
 }  // namespace ora::ui

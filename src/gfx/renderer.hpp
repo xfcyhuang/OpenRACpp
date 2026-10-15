@@ -231,22 +231,22 @@ class Renderer {
   /// CursorManager's software-cursor scaling).
   float EffectiveWindowScale() const { return window_.Geom().float_scale; }
 
+  /// NativeWindowScale(Renderer.cs L390:Window.NativeWindowScale;MouseAttachment
+  /// 的光标缩放消费;与 EffectiveWindowScale 的 scaleModifier 分离面随
+  /// UIScale 批)。
+  /// NativeWindowScale (Renderer.cs L390: Window.NativeWindowScale; consumed
+  /// by MouseAttachment's cursor scaling; the scaleModifier split from
+  /// EffectiveWindowScale rides the UIScale batch).
+  float NativeWindowScale() const { return window_.Geom().float_scale; }
+
  private:
-  /// BeginFrame(Renderer.cs L164-199;OPT-B1 后仅剩 UI 投影参数更新 ——
-  /// 默认 FB 的 Clear 与 screen buffer/sprite 重建全数消失)。
-  /// BeginFrame (Renderer.cs L164-199; after OPT-B1 only the UI projection
-  /// update remains — the default-FB Clear and the screen buffer/sprite
-  /// rebuilds are all gone).
   void BeginFrame();
 
-  /// 表面尺寸(drawable 像素;Sdl2PlatformWindow.SurfaceSize)。
-  /// The surface size (drawable pixels; Sdl2PlatformWindow.SurfaceSize).
   int2 SurfaceSize() const {
     const auto geom = window_.Geom();
     return int2{static_cast<std::int32_t>(geom.int4_width * geom.float_scale),
                 static_cast<std::int32_t>(geom.int4_height * geom.float_scale)};
   }
-
 
   enum class RenderType { None, World, UI };
 

@@ -177,11 +177,98 @@ constexpr meta::RecordDesc kGameSettingsDesc = {
     .interfaces = {},
 };
 
+/// DebugSettings 字段表(Settings.cs L188-234;全字段手写 —— schema_dumper
+/// 未导出 Settings 扩展,同 Player/Game/Graphics 段先例)
+/// The DebugSettings field table (Settings.cs L188-234; every field
+/// hand-written — schema_dumper exports no Settings extension, the
+/// Player/Game/Graphics precedent).
+constexpr FieldDesc kDebugSettingsFields[] = {
+    {.str_name = "PerfText", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "PerfGraph", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "Samples", .type = FieldType::Int32, .b_required = false},
+    {.str_name = "CheckVersion", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "SendSystemInformation", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "SystemInformationVersionPrompt", .type = FieldType::Int32,
+     .b_required = false},
+    {.str_name = "UUID", .type = FieldType::String, .b_required = false},
+    {.str_name = "DisplayDeveloperSettings", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "BotDebug", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "LuaDebug", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "EnableDebugCommandsInReplays", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "EnableSimulationPerfLogging", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "LongTickThresholdMs", .type = FieldType::Float,
+     .b_required = false},
+    {.str_name = "SyncCheckUnsyncedCode", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "SyncCheckBotModuleCode", .type = FieldType::Bool,
+     .b_required = false},
+};
+
 constexpr meta::RecordDesc kGraphicSettingsDesc = {
     .str_name = "GraphicSettings",
     .str_full_name = "OpenRA.GraphicSettings",
     .str_base = "",
     .fields = kGraphicSettingsFields,
+    .requires_types = {},
+    .not_before_types = {},
+    .interfaces = {},
+};
+
+/// DebugSettings 默认值(Settings.cs L188-234 字面量;UUID 的 Guid.NewGuid()
+/// → 进程级首构造随机 128 位 hex)
+/// The DebugSettings defaults (Settings.cs L188-234's literals; UUID's
+/// Guid.NewGuid() becomes a random 128-bit hex minted once per process).
+const std::vector<GenericValue>& DebugSettingsDefaults() {
+  static const std::string str_uuid = [] {
+    std::array<char, 36> arr_out{};
+    std::random_device device_random;
+    const auto fn_hex = [&](std::size_t sz_from, std::size_t sz_count) {
+      for (std::size_t sz_i = 0; sz_i < sz_count; ++sz_i) {
+        const std::uint32_t uint4_nibble = device_random() & 0xF;
+        arr_out[sz_from + sz_i] =
+            static_cast<char>(uint4_nibble < 10 ? '0' + uint4_nibble : 'a' + uint4_nibble - 10);
+      }
+    };
+    fn_hex(0, 8);
+    arr_out[8] = '-';
+    fn_hex(9, 4);
+    arr_out[13] = '-';
+    fn_hex(14, 4);
+    arr_out[18] = '-';
+    fn_hex(19, 4);
+    arr_out[23] = '-';
+    fn_hex(24, 12);
+    return std::string(arr_out.data(), arr_out.size());
+  }();
+  static const std::vector<GenericValue> vec_defaults = {
+      GenericValue::Of(false),
+      GenericValue::Of(false),
+      GenericValue::Of(static_cast<std::int64_t>(25)),
+      GenericValue::Of(true),
+      GenericValue::Of(true),
+      GenericValue::Of(static_cast<std::int64_t>(0)),
+      GenericValue::Of(str_uuid),
+      GenericValue::Of(false),
+      GenericValue::Of(false),
+      GenericValue::Of(false),
+      GenericValue::Of(false),
+      GenericValue::Of(false),
+      GenericValue::Of(1.0f),
+      GenericValue::Of(false),
+      GenericValue::Of(false),
+  };
+  return vec_defaults;
+}
+
+constexpr meta::RecordDesc kDebugSettingsDesc = {
+    .str_name = "DebugSettings",
+    .str_full_name = "OpenRA.DebugSettings",
+    .str_base = "",
+    .fields = kDebugSettingsFields,
     .requires_types = {},
     .not_before_types = {},
     .interfaces = {},
@@ -226,6 +313,8 @@ const meta::RecordDesc* SettingsDescOf(std::string_view str_section) {
     return &kGameSettingsDesc;
   if (str_section == "Graphics")
     return &kGraphicSettingsDesc;
+  if (str_section == "Debug")
+    return &kDebugSettingsDesc;
   return nullptr;
 }
 
@@ -242,7 +331,9 @@ SettingsModule::SettingsModule(const meta::RecordDesc& desc,
   else if (&desc == &kGraphicSettingsDesc) {
     RegisterGraphicSettingsEnums();
     ptr_defaults = &GraphicSettingsDefaults();
-  } else {
+  } else if (&desc == &kDebugSettingsDesc)
+    ptr_defaults = &DebugSettingsDefaults();
+  else {
     // 未知段:空字段承载(上游 Activator.CreateInstance 的缺省面)
     // An unknown section: the empty carrier (upstream's
     // Activator.CreateInstance default face).
@@ -302,6 +393,9 @@ Settings::Settings() {
   if (const meta::RecordDesc* ptr_desc = SettingsDescOf("Graphics"))
     vec_modules_.push_back(
         std::make_unique<SettingsModule>(*ptr_desc, "Graphics", true));
+  if (const meta::RecordDesc* ptr_desc = SettingsDescOf("Debug"))
+    vec_modules_.push_back(
+        std::make_unique<SettingsModule>(*ptr_desc, "Debug", true));
 }
 
 void Settings::Load(const std::vector<yaml::MiniYamlNode>& vec_nodes,

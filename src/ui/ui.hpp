@@ -102,13 +102,17 @@ class Ui {
     /// the CustomColors write + Game.Settings.Save() persistence face.
     std::function<void(const std::vector<core::Color>&)> fn_store_custom_colors =
         [](const std::vector<core::Color>&) {};
+    /// Game.Settings.Debug.Samples(缺省 25;Settings.cs L197;PerfGraph 的
+    /// Average 计数消费)
+    /// Game.Settings.Debug.Samples (default 25; Settings.cs L197; consumed by
+    /// PerfGraph's Average count).
+    std::function<int()> fn_debug_samples = [] { return 25; };
+    std::function<void(std::function<void()>)> fn_run_after_tick =
+        [](std::function<void()>) {};
   };
 
   void Initialize(Deps deps);
 
-  /// widget 族静态面访问(Game.* 的注入承载;未注入 = 缺省面)
-  /// the widget family's static-face access (the Game.* injection carrier;
-  /// uninjected = the default faces).
   gfx::Renderer* RendererDeps() const { return deps_.ptr_renderer; }
   gfx::ChromeProvider* ChromeProviderDeps() const { return deps_.ptr_chrome_provider; }
   ChromeMetrics* ChromeMetricsDeps() const { return deps_.ptr_chrome_metrics; }
@@ -119,6 +123,10 @@ class Ui {
   }
   float UiScrollSpeed() const { return deps_.fn_ui_scroll_speed(); }
   bool CursorDouble() const { return deps_.fn_cursor_double(); }
+  int DebugSamples() const { return deps_.fn_debug_samples(); }
+  void RunAfterTickDefer(std::function<void()> fn_action) const {
+    deps_.fn_run_after_tick(std::move(fn_action));
+  }
   HotkeyReference Hotkey(std::string_view str_name) const {
     return deps_.fn_hotkey_lookup(str_name);
   }
@@ -143,28 +151,17 @@ class Ui {
 
   Widget* Root() const { return ptr_root_.get(); }
 
-  /// 步长恒 kTimestep(L30) | the timestep fixed at kTimestep (L30).
   net::TickTime& LastTickTime() { return last_tick_time_; }
 
-  /// L46-66:Pop → RemoveChild → BecameHidden 序照抄,含对已 Dispose Logic
-  /// 仍通知的上游怪癖(快照指针在析构前逐个调用)
-  /// L46-66: the pop → RemoveChild → BecameHidden order kept, including the
-  /// upstream quirk of notifying already-disposed Logic (snapshot pointers
-  /// called one by one before destruction).
   void CloseWindow();
 
-  /// L68-83 | the OpenWindow family (L68-83).
   Widget* OpenWindow(const std::string& str_id, WidgetArgs args_args);
   Widget* OpenWindow(const std::string& str_id) { return OpenWindow(str_id, WidgetArgs{}); }
 
   Widget* CurrentWindow() const;
 
-  /// L90-104;不入树时须传 Root 持有 | L90-104; pass Root even off-tree.
   Widget* LoadWidget(const std::string& str_id, Widget* ptr_parent, WidgetArgs args_args);
 
-  /// 无 parent 根的所有权移交(fn_release_root 的访问面;未接线 = null)
-  /// The parentless-root ownership handover (the fn_release_root access
-  /// face; unwired = null).
   std::unique_ptr<Widget> ReleaseWidget(Widget* ptr_widget) {
     if (deps_.fn_release_root)
       return deps_.fn_release_root(ptr_widget);
@@ -181,16 +178,12 @@ class Ui {
 
   bool HandleInput(const MouseInput& mi_input);  // L119-147
 
-  /// 有键盘焦点走焦点 widget,否则 Root(L152-158)
-  /// keyboard focus goes to the focused widget, else Root (L152-158).
   bool HandleKeyPress(const KeyInput& e_input);
 
   bool HandleTextInput(std::string_view str_text);  // L160-166
 
   void ResetAll();  // L168-174
 
-  /// no-op 鼠标移动强制重算(L176-181) | a no-op mouse move forces
-  /// recalculation (L176-181).
   void ResetTooltips();
 
   template <class T>

@@ -10,8 +10,10 @@ import std;
 #include "gfx/sprite_font.hpp"
 #include "gfx/sprite_renderer.hpp"
 #include "ui/ui.hpp"
+#include "net/text_notifications.hpp"
 #include "ui/widgets/button_widget.hpp"
 #include "ui/widgets/image_widget.hpp"
+#include "ui/widgets/label_widget.hpp"
 
 namespace ora::ui {
 
@@ -394,4 +396,85 @@ void BindButtonIcon(ButtonWidget& button_target) {
                                               false, ptr_button->fn_is_highlighted()});
   };
 }
+std::string FormatCurrent(std::string_view str_format, double fp8_value) {
+  const std::size_t sz_slot = str_format.find("{0}");
+  if (sz_slot == std::string_view::npos)
+    return std::string{str_format};
+  return std::string{str_format.substr(0, sz_slot)} +
+         std::format("{}", fp8_value) +
+         std::string{str_format.substr(sz_slot + 3)};
+}
+
+void SetupTextNotification(Widget& widget_notification,
+                           const net::TextNotification& notification,
+                           int int4_box_width, bool b_with_timestamp) {
+  LabelWidget* ptr_time_label = widget_notification.GetOrNull<LabelWidget>("TIME");
+  LabelWidget* ptr_prefix_label = widget_notification.GetOrNull<LabelWidget>("PREFIX");
+  LabelWidget* ptr_text_label = widget_notification.Get<LabelWidget>("TEXT");
+
+  gfx::SpriteFont& font_text = RequireWidgetFont(ptr_text_label->str_font);
+  int int4_text_width =
+      int4_box_width - widget_notification.bounds_widget.int4_x -
+      ptr_text_label->bounds_widget.int4_x;
+
+  const bool b_has_prefix = !notification.Prefix().empty() && ptr_prefix_label != nullptr;
+  int int4_time_offset = 0;
+
+  if (b_with_timestamp && ptr_time_label != nullptr) {
+    const auto time_total = std::chrono::floor<std::chrono::minutes>(
+        notification.time_time.time_since_epoch());
+    const auto time_day = std::chrono::floor<std::chrono::hours>(notification.time_time.time_since_epoch());
+    const int int4_hour = static_cast<int>((time_total - time_day).count() / 60);
+    const int int4_minute = static_cast<int>((time_total - time_day).count() % 60);
+    const std::string str_time = std::format("{:02}:{:02}", int4_hour, int4_minute);
+    int4_time_offset =
+        ptr_time_label->bounds_widget.int4_width + ptr_time_label->bounds_widget.int4_x;
+
+    ptr_time_label->fn_get_text = [str_time] { return str_time; };
+
+    int4_text_width -= int4_time_offset;
+    ptr_time_label->bounds_widget.int4_x += int4_time_offset;
+
+    if (b_has_prefix)
+      ptr_prefix_label->bounds_widget.int4_x += int4_time_offset;
+  }
+
+  if (b_has_prefix) {
+    const std::string str_prefix = notification.Prefix() + ":";
+    const int2 int2_prefix_size =
+        RequireWidgetFont(ptr_prefix_label->str_font).Measure(str_prefix);
+    const int int4_prefix_offset =
+        int2_prefix_size.X + ptr_prefix_label->bounds_widget.int4_x;
+
+    ptr_prefix_label->fn_get_color = [ptr_prefix_label,
+                                       notification_copy = notification]() {
+      return notification_copy.PrefixColor().value_or(ptr_prefix_label->color_text);
+    };
+    ptr_prefix_label->fn_get_text = [str_prefix] { return str_prefix; };
+    ptr_prefix_label->bounds_widget.int4_width = int2_prefix_size.X;
+
+    int4_text_width -= int4_prefix_offset;
+    ptr_text_label->bounds_widget.int4_x += int4_prefix_offset - int4_time_offset;
+  }
+
+  ptr_text_label->fn_get_color = [ptr_text_label,
+                                    notification_copy = notification]() {
+    return notification_copy.TextColor().value_or(ptr_text_label->color_text);
+  };
+  ptr_text_label->bounds_widget.int4_width = int4_text_width;
+
+  const std::string str_text =
+      WrapText(notification.Text(), ptr_text_label->bounds_widget.int4_width, font_text);
+  ptr_text_label->fn_get_text = [str_text] { return str_text; };
+  const int int4_dh =
+      font_text.Measure(str_text).Y - ptr_text_label->bounds_widget.int4_height;
+  if (int4_dh > 0) {
+    ptr_text_label->bounds_widget.int4_height += int4_dh;
+    widget_notification.bounds_widget.int4_height += int4_dh;
+  }
+
+  widget_notification.bounds_widget.int4_width =
+      int4_box_width - widget_notification.bounds_widget.int4_x;
+}
+
 }  // namespace ora::ui

@@ -3,6 +3,7 @@
 import std;
 
 #include "game/game.hpp"
+#include "game/perf_history.hpp"
 
 #include "gfx/chrome_provider.hpp"
 #include "gfx/cursor_manager.hpp"
@@ -223,10 +224,9 @@ void Game::InnerLogicTick(net::OrderManager& om_order) {
   }
 
   if (om_order.LastTickTime().ShouldAdvance(int8_tick)) {
-    // PerfHistory.Reset 桩(GameStarted && LocalFrameNumber == 0;Phase 5)
-    // the PerfHistory.Reset stub (Phase 5).
+    if (om_order.GameStarted() && om_order.LocalFrameNumber() == 0)
+      PerfHistory::Instance().Reset();
 
-    // PerfSample("tick_time") 域 | the PerfSample("tick_time") scope
     om_order.LastTickTime().AdvanceTickTime(int8_tick);
 
     if (deps_.ptr_sound != nullptr)
@@ -234,8 +234,11 @@ void Game::InnerLogicTick(net::OrderManager& om_order) {
 
     sim::RunUnsynced(true, ptr_world, [&om_order] { om_order.TickImmediate(); });
 
-    if (ptr_world == nullptr)
-      return;  // PerfHistory.Reset 桩 | the PerfHistory.Reset stub
+    if (ptr_world == nullptr) {
+      if (om_order.GameStarted())
+        PerfHistory::Instance().Reset();
+      return;
+    }
 
     if (om_order.TryTick()) {
       sim::RunUnsynced(true, ptr_world, [&] {
@@ -245,7 +248,7 @@ void Game::InnerLogicTick(net::OrderManager& om_order) {
 
       ptr_world->Tick();
 
-      // PerfHistory.Tick(!world.Paused) 桩 | the PerfHistory.Tick stub
+      PerfHistory::Instance().Tick(!ptr_world->Paused());
     }
 
     // Wait until we have done our first world Tick before TickRendering(上游注释)
