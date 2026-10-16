@@ -66,6 +66,10 @@ struct TurretedInfoData {
       ActorInitializer& init, std::string_view info_instance_name,
       WAngle default_facing);
 
+  static std::function<WAngle()> WorldFacingFromInit(
+      sim::TypeDictionary& dict, std::string_view info_instance_name,
+      WAngle default_facing);
+
   /// L89-103:LocalFacingFromInit
   /// L89-103: LocalFacingFromInit.
   std::function<WAngle()> LocalFacingFromInit(

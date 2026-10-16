@@ -463,4 +463,9 @@ int2 Viewport::BottomRightPx() const {
   return int2::FromVector(vec_center_location_) + int2_viewport_size_ / 2;
 }
 
+WorldViewportSizes& GlobalViewportSizes() {
+  static WorldViewportSizes sizes;
+  return sizes;
+}
+
 }  // namespace ora::gfx

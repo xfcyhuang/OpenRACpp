@@ -33,6 +33,41 @@ namespace ora::sim {
 
 class Actor;
 
+/// ActorInitializer.GetOrDefault<T>(L50-63) 的字典直查形(ActorInitializer
+/// 与 ActorPreviewInitializer 共用的过滤体)
+/// The dictionary-direct form of ActorInitializer.GetOrDefault<T> (L50-63;
+/// the shared filter body of ActorInitializer and ActorPreviewInitializer).
+template <class T>
+T* FindInitByInstanceName(TypeDictionary& dict,
+                          std::string_view info_instance_name) {
+  auto inits = dict.WithInterface<T>();
+
+  // Traits tagged with an instance name prefer inits with the same name.
+  // If a more specific init is not available, fall back to an unnamed init.
+  // If duplicate inits are defined, take the last to match standard yaml
+  // override expectations
+  if (!info_instance_name.empty()) {
+    T* named = nullptr;
+    for (T* i : inits)
+      if (i->InstanceName() == info_instance_name)
+        named = i;
+    if (named != nullptr)
+      return named;
+    T* unnamed = nullptr;
+    for (T* i : inits)
+      if (i->InstanceName().empty())
+        unnamed = i;
+    return unnamed;
+  }
+
+  // Untagged traits will only use untagged inits
+  T* unnamed = nullptr;
+  for (T* i : inits)
+    if (i->InstanceName().empty())
+      unnamed = i;
+  return unnamed;
+}
+
 /// ActorInitializer.cs L37-109
 class ActorInitializer {
  public:
@@ -47,35 +82,7 @@ class ActorInitializer {
   /// GetOrDefault<T> (L50-63): the InstanceName filter of the trait info.
   template <class T>
   T* GetOrDefault(std::string_view info_instance_name) const {
-    auto inits = dict_.WithInterface<T>();
-
-    // Traits tagged with an instance name prefer inits with the same name.
-    // If a more specific init is not available, fall back to an unnamed init.
-    // If duplicate inits are defined, take the last to match standard yaml
-    // override expectations
-    if (!info_instance_name.empty()) {
-      // 两次独立扫描,语义同 LastOrDefault(同名) ?? LastOrDefault(无名)
-      // Two independent scans, equivalent to LastOrDefault(same name) ??
-      // LastOrDefault(unnamed).
-      T* named = nullptr;
-      for (T* i : inits)
-        if (i->InstanceName() == info_instance_name)
-          named = i;
-      if (named != nullptr)
-        return named;
-      T* unnamed = nullptr;
-      for (T* i : inits)
-        if (i->InstanceName().empty())
-          unnamed = i;
-      return unnamed;
-    }
-
-    // Untagged traits will only use untagged inits
-    T* unnamed = nullptr;
-    for (T* i : inits)
-      if (i->InstanceName().empty())
-        unnamed = i;
-    return unnamed;
+    return FindInitByInstanceName<T>(dict_, info_instance_name);
   }
 
   /// Get<T>(L65-72)
@@ -244,6 +251,20 @@ class DynamicFacingInit
                 gen::TypeId::OpenRA_ISingleInstanceInit)
   explicit DynamicFacingInit(std::function<WAngle()> value)
       : ValueActorInit<std::function<WAngle()>>(std::move(value)) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+class TerrainOrientationInit : public ValueActorInit<WRot>,
+                               public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(TerrainOrientationInit,
+                OpenRA_Mods_Common_TerrainOrientationInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit TerrainOrientationInit(WRot value)
+      : ValueActorInit<WRot>(value) {}
 
   std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
     return {};

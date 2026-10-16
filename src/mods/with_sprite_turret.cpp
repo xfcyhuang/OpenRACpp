@@ -4,10 +4,12 @@
 //          header note lives in with_sprite_turret.hpp).
 #include "mods/with_sprite_turret.hpp"
 
+#include "game/actor_info.hpp"
 #include "mods/armament.hpp"
 #include "mods/body_orientation.hpp"
 #include "mods/render_utils.hpp"
 #include "mods/turreted.hpp"
+#include "sim/actor_init.hpp"
 #include "sim/trait_registry.hpp"
 #include "sim/world.hpp"
 

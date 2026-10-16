@@ -40,6 +40,10 @@ namespace ora::gfx {
 class WorldRenderer;
 }
 
+namespace ora::sim {
+class World;
+}
+
 namespace ora::mods {
 
 using sim::Actor;
@@ -182,6 +186,7 @@ class RenderSprites : public TraitBase,
   /// dependencies; injected by the test/assembly site — upstream itself
   /// throws when Map::Sequences is unassembled).
   static gfx::Animation::Deps MakeAnimationDeps(Actor& self);
+  static gfx::Animation::Deps MakeAnimationDeps(sim::World& world);
 
  private:
   /// RenderAnimations(L203-213):可见动画的逐项展开(上游 yield 序)

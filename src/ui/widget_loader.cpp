@@ -48,6 +48,9 @@ import std;
 #include "ui/widgets/tooltip_container_widget.hpp"
 #include "ui/widgets/world_button_widget.hpp"
 #include "ui/widgets/world_label_with_tooltip_widget.hpp"
+#include "ui/widgets/actor_preview_widget.hpp"
+#include "ui/widgets/resource_preview_widget.hpp"
+#include "ui/widgets/terrain_template_preview_widget.hpp"
 
 namespace ora::ui {
 namespace {
@@ -374,6 +377,21 @@ namespace {
       "WorldLabelWithTooltipWidget",
       [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
         return std::make_unique<WorldLabelWithTooltipWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "ActorPreviewWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<ActorPreviewWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "ResourcePreviewWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<ResourcePreviewWidget>(args_args);
+      });
+  registry_widgets.Register(
+      "TerrainTemplatePreviewWidget",
+      [](WidgetArgs& args_args) -> std::unique_ptr<Widget> {
+        return std::make_unique<TerrainTemplatePreviewWidget>(args_args);
       });
 
   ChromeLogicRegistry::Instance().Register(

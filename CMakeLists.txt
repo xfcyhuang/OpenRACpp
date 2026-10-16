@@ -431,7 +431,8 @@ add_library(ora_gfx STATIC
   src/gfx/cursor_manager.cpp
   src/gfx/chrome_provider.cpp
   src/gfx/sprite_font.cpp
-  src/gfx/viewport.cpp)
+  src/gfx/viewport.cpp
+  src/gfx/actor_preview.cpp)
 target_link_libraries(ora_gfx PUBLIC ora_platform ora_sim PRIVATE ora_formats)
 ora_link_std(ora_gfx)
 
@@ -503,6 +504,7 @@ add_library(ora_mods STATIC
   src/mods/with_sprite_body.cpp
   src/mods/with_infantry_body.cpp
   src/mods/with_sprite_turret.cpp
+  src/mods/actor_preview_faces.cpp
   src/mods/with_make_animation.cpp
   src/mods/proximity_capturable.cpp
   src/mods/trait_registry_batch8.cpp
@@ -576,6 +578,9 @@ add_library(ora_ui STATIC
   src/ui/widgets/generated_map_preview_widget.cpp
   src/ui/widgets/hotkey_entry_widget.cpp
   src/ui/widgets/badge_widget.cpp
+  src/ui/widgets/actor_preview_widget.cpp
+  src/ui/widgets/resource_preview_widget.cpp
+  src/ui/widgets/terrain_template_preview_widget.cpp
   src/ui/widgets/control_groups_widget.cpp
   src/ui/widgets/line_graph_widget.cpp
   src/ui/widgets/mouse_attachment_widget.cpp

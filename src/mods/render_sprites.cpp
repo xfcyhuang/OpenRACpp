@@ -7,6 +7,7 @@
 #include "game/actor_info.hpp"
 #include "gfx/world_renderer.hpp"
 #include "map/map.hpp"
+#include "mods/body_orientation.hpp"
 #include "sim/actor_init.hpp"
 #include "sim/player.hpp"
 #include "sim/trait_registry.hpp"
@@ -125,9 +126,13 @@ std::string RenderSpritesInfoData::GetImage(
 // ———— RenderSprites (L160-301) ————
 
 gfx::Animation::Deps RenderSprites::MakeAnimationDeps(Actor& self) {
+  return MakeAnimationDeps(self.world());
+}
+
+gfx::Animation::Deps RenderSprites::MakeAnimationDeps(sim::World& world) {
   gfx::Animation::Deps deps;
-  deps.ptr_sequences = self.world().Map().Sequences();
-  const map::Map* ptr_map = &self.world().Map();
+  deps.ptr_sequences = world.Map().Sequences();
+  const map::Map* ptr_map = &world.Map();
   deps.fn_distance_above_terrain =
       [ptr_map](WPos pos) { return ptr_map->DistanceAboveTerrain(pos); };
   return deps;

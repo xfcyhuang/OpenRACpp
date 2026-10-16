@@ -65,20 +65,26 @@ TurretedInfoData TurretedInfoData::Parse(const meta::RecordObject& rec_info) {
 std::function<WAngle()> TurretedInfoData::WorldFacingFromInit(
     ActorInitializer& init, std::string_view info_instance_name,
     WAngle default_facing) {
+  return WorldFacingFromInit(init.Dict(), info_instance_name, default_facing);
+}
+
+std::function<WAngle()> TurretedInfoData::WorldFacingFromInit(
+    sim::TypeDictionary& dict, std::string_view info_instance_name,
+    WAngle default_facing) {
   // L58-82
   // (Dynamic)TurretFacingInit is specified relative to the actor body.
   // We need to add the body facing to return an absolute world angle.
   // (上游注释)
   std::function<WAngle()> fn_body_facing;
   if (sim::FacingInit* facing_init =
-          init.GetOrDefault<sim::FacingInit>()) {
+          sim::FindInitByInstanceName<sim::FacingInit>(dict, {})) {
     const WAngle facing = facing_init->Value();
     fn_body_facing = [facing]() { return facing; };
   }
 
   if (sim::TurretFacingInit* turret_facing_init =
-          init.GetOrDefault<sim::TurretFacingInit>(
-              info_instance_name)) {
+          sim::FindInitByInstanceName<sim::TurretFacingInit>(
+              dict, info_instance_name)) {
     const WAngle facing = turret_facing_init->Value();
     if (fn_body_facing != nullptr)
       return [fn_body_facing, facing]() {
@@ -88,8 +94,8 @@ std::function<WAngle()> TurretedInfoData::WorldFacingFromInit(
   }
 
   if (sim::DynamicTurretFacingInit* dynamic_facing_init =
-          init.GetOrDefault<sim::DynamicTurretFacingInit>(
-              info_instance_name)) {
+          sim::FindInitByInstanceName<sim::DynamicTurretFacingInit>(
+              dict, info_instance_name)) {
     const std::function<WAngle()> dynamic = dynamic_facing_init->Value();
     if (fn_body_facing != nullptr)
       return [fn_body_facing, dynamic]() {

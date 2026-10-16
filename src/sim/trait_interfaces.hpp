@@ -72,7 +72,13 @@ class WorldRenderer;  // 渲染域注入面(Phase 4)| the render-domain injectio
 struct RenderItem;  // 渲染出参域(renderable.hpp;第八批接口面)| the render
                     // out-parameter domain (renderable.hpp; the batch-8
                     // interface faces).
+struct Sprite;
 }  // namespace ora::gfx
+
+namespace ora::terrain {
+class TerrainTemplateInfo;
+struct TerrainTile;
+}  // namespace ora::terrain
 
 namespace ora::net {
 struct Order;
@@ -2085,5 +2091,43 @@ MakeTraitUpcasts() {
   std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {\
     return kTraitUpcasts;\
   }
+
+class ITiledTerrainRenderer {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ITiledTerrainRenderer;
+  virtual ~ITiledTerrainRenderer() = default;
+  virtual const gfx::Sprite* MissingTile() = 0;
+  virtual const gfx::Sprite* TileSprite(terrain::TerrainTile tile,
+                                        const int* ptr_variant) = 0;
+  virtual Rectangle TemplateBounds(
+      const terrain::TerrainTemplateInfo& template_info) = 0;
+  virtual void RenderUIPreview(gfx::WorldRenderer& wr,
+                               const terrain::TerrainTemplateInfo& template_info,
+                               int2 origin, float scale,
+                               std::vector<gfx::RenderItem>& vec_out) = 0;
+  virtual void RenderPreview(gfx::WorldRenderer& wr,
+                             const terrain::TerrainTemplateInfo& template_info,
+                             WPos origin, std::vector<gfx::RenderItem>& vec_out) = 0;
+  virtual void RenderPreview(gfx::WorldRenderer& wr, terrain::TerrainTile tile,
+                             WPos origin, std::vector<gfx::RenderItem>& vec_out) = 0;
+};
+
+class IResourceRenderer {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IResourceRenderer;
+  virtual ~IResourceRenderer() = default;
+  virtual std::vector<std::string> ResourceTypes() = 0;
+  virtual std::string GetRenderedResourceType(CPos cell) = 0;
+  virtual std::string GetRenderedResourceTooltip(CPos cell) = 0;
+  virtual void RenderUIPreview(gfx::WorldRenderer& wr,
+                               const std::string& resource_type, int2 origin,
+                               float scale,
+                               std::vector<gfx::RenderItem>& vec_out) = 0;
+  virtual void RenderPreview(gfx::WorldRenderer& wr,
+                             const std::string& resource_type, WPos origin,
+                             std::vector<gfx::RenderItem>& vec_out) = 0;
+};
 
 }  // namespace ora::sim

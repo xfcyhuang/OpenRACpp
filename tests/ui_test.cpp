@@ -77,6 +77,10 @@ void RegisterGeneratedAll();
 #include "ui/widgets/hue_slider_widget.hpp"
 #include "ui/widgets/color_mixer_widget.hpp"
 #include "ui/widgets/color_block_widget.hpp"
+#include "gfx/world_renderer.hpp"
+#include "ui/widgets/actor_preview_widget.hpp"
+#include "ui/widgets/resource_preview_widget.hpp"
+#include "ui/widgets/terrain_template_preview_widget.hpp"
 #include "ui/widgets/label_widget.hpp"
 #include "ui/widgets/label_with_tooltip_widget.hpp"
 #include "ui/widgets/scroll_item_widget.hpp"
@@ -2333,6 +2337,73 @@ void TestChromeWidgetsBatch6(game::ModData& mod_data, ui::ChromeMetrics& metrics
   chrome_provider.Deinitialize();
 }
 
+void TestPreviewWidgetsBatch8() {
+  const auto dir_layout =
+      std::filesystem::temp_directory_path() / "ora_ui_test_preview8";
+  std::filesystem::create_directories(dir_layout);
+  WriteLayout(dir_layout, "preview8.yaml",
+              "Container@ROOT:\n\tChildren:\n"
+              "\t\tActorPreview@APREV:\n\t\t\tX: 1\n\t\t\tWidth: 32\n"
+              "\t\tResourcePreview@RPREV:\n\t\t\tX: 2\n");
+  WriteLayout(dir_layout, "terrain8.yaml",
+              "Container@ROOT:\n\tChildren:\n"
+              "\t\tTerrainTemplatePreview@TPREV:\n\t\t\tX: 3\n");
+
+  fs::FileSystem fs_preview8;
+  fs_preview8.Mount(dir_layout.generic_string());
+
+  sim::World world_preview8(sim::WorldSimParams{});
+  gfx::WorldRenderer wr_preview8{world_preview8, gfx::WorldRenderer::Desc{}};
+
+  const std::vector<std::string> vec_preview8{"preview8.yaml"};
+  ui::WidgetLoader loader_preview8(vec_preview8, fs_preview8);
+  ui::WidgetArgs args_preview8;
+  args_preview8.Add("worldRenderer", static_cast<gfx::WorldRenderer*>(&wr_preview8));
+  args_preview8.Add("world", static_cast<sim::World*>(&world_preview8));
+  ui::ContainerWidget root_preview8;
+  ui::Widget* ptr_root8 =
+      loader_preview8.LoadWidget(args_preview8, &root_preview8, "ROOT");
+  Check(ptr_root8 != nullptr, "p6b8 loader root");
+
+  ui::ActorPreviewWidget* ptr_aprev =
+      ptr_root8->Get<ui::ActorPreviewWidget>("APREV");
+  Check(ptr_aprev != nullptr, "p6b8 ActorPreview loaded");
+  if (ptr_aprev != nullptr) {
+    Check(ptr_aprev->bounds_widget.int4_x == 1, "p6b8 ActorPreview X=1");
+    Check(ptr_aprev->PreviewOffset() == int2{0, 0} &&
+              ptr_aprev->IdealPreviewSize() == int2{0, 0},
+          "p6b8 ActorPreview empty before SetPreview");
+    ptr_aprev->Tick();
+    auto up_clone = ptr_aprev->Clone();
+    Check(up_clone->TypeName() == std::string_view{"ActorPreviewWidget"},
+          "p6b8 ActorPreview clone");
+  }
+
+  ui::ResourcePreviewWidget* ptr_rprev =
+      ptr_root8->Get<ui::ResourcePreviewWidget>("RPREV");
+  Check(ptr_rprev != nullptr, "p6b8 ResourcePreview loaded");
+  if (ptr_rprev != nullptr) {
+    ptr_rprev->SetResourceType("ore");
+    Check(ptr_rprev->IdealPreviewSize() == Size{0, 0},
+          "p6b8 ResourcePreview mapless fallback 0");
+    ptr_rprev->fp4_scale = 2.0f;
+    ptr_rprev->Draw();
+  }
+
+  const std::vector<std::string> vec_terrain8{"terrain8.yaml"};
+  ui::WidgetLoader loader_terrain8(vec_terrain8, fs_preview8);
+  ui::WidgetArgs args_terrain8;
+  args_terrain8.Add("worldRenderer", static_cast<gfx::WorldRenderer*>(&wr_preview8));
+  args_terrain8.Add("world", static_cast<sim::World*>(&world_preview8));
+  ui::ContainerWidget root_terrain8;
+  CheckThrow(
+      "TerrainTemplatePreviewWidget requires a tile-based terrain renderer.",
+      [&] {
+        (void)loader_terrain8.LoadWidget(args_terrain8, &root_terrain8, "ROOT");
+      });
+}
+
+
 void TestChromeWidgetsBatch7(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
                              ui::WidgetLoader& loader_chrome) {
   ui::Ui::Instance().SetKeyboardFocusWidget(nullptr);
@@ -2715,6 +2786,7 @@ int main(int argc, char** argv) {
   TestUiWindowStack();
   TestChromeMetrics();
   TestWidgetLoader();
+  TestPreviewWidgetsBatch8();
 
   // Phase 6 第二批(mod 根经 argv[1] 注入;缺省跳过 —— 与 platform_test 的
   // SKIP 门同形)

@@ -116,4 +116,7 @@ void SetBodyOrientationFacingsResolver(
     std::function<int(const game::ActorInfo&, const std::string&)>
         fn_resolve);
 
+int ResolvePreviewQuantizedBodyFacings(const game::ActorInfo& actor,
+                                       const std::string& str_faction);
+
 }  // namespace ora::mods

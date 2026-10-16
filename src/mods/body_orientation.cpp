@@ -161,4 +161,18 @@ WAngle BodyOrientation::QuantizeFacing(WAngle facing) const {
   return info_.QuantizeFacing(facing, QuantizedFacings());
 }
 
+int ResolvePreviewQuantizedBodyFacings(const game::ActorInfo& actor,
+                                       const std::string& str_faction) {
+  const bool has_qboi =
+      sim::FindTraitInfoOfInterface(
+          actor, "OpenRA.Mods.Common.Traits.IQuantizeBodyOrientationInfo") !=
+      nullptr;
+  if (!has_qboi)
+    return 1;
+
+  return fn_facings_resolver_ != nullptr
+             ? fn_facings_resolver_(actor, str_faction)
+             : 0;
+}
+
 }  // namespace ora::mods

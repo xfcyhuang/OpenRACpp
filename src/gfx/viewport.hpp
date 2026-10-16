@@ -135,6 +135,8 @@ struct WorldViewportSizes {
   }
 };
 
+WorldViewportSizes& GlobalViewportSizes();
+
 /// Viewport(Viewport.cs L43)。
 class Viewport : public IViewportSurface {
  public:

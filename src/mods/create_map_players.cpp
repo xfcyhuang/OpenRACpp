@@ -4,6 +4,7 @@
 //          mods-trait registry assembly.
 import std;
 
+#include "mods/actor_preview_faces.hpp"
 #include "mods/create_map_players.hpp"
 
 #include "meta/field_loader.hpp"
@@ -221,6 +222,7 @@ void InstallBitSetAllocatorBridges() {
 // ———— mods trait 注册表装配(与 sim::RegisterWorldTraits 同形)————
 void RegisterCommonTraits() {
   InstallBitSetAllocatorBridges();
+  RegisterActorPreviewFaces();
   static const bool b_registered = [] {
     sim::TraitRegistry& registry = sim::TraitRegistry::Instance();
 

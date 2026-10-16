@@ -15,6 +15,9 @@ import std;
 #include <cstdio>
 
 #include "game/game.hpp"
+#include "gfx/actor_preview.hpp"
+#include "ui/widget.hpp"
+#include "ui/widgets/actor_preview_widget.hpp"
 #include "game/manifest.hpp"
 #include "game/mod_data.hpp"
 #include "game/settings.hpp"
@@ -748,6 +751,137 @@ int main(int argc, char** argv) {
     }
   }
 
+  {
+    const game::ActorInfo* info_e1 = world->Map().Rules().FindActor("e1");
+    Check(info_e1 != nullptr, "p6b8: e1 info");
+    const game::ActorInfo* info_2tnk = world->Map().Rules().FindActor("2tnk");
+    Check(info_2tnk != nullptr, "p6b8: 2tnk info");
+    if (info_e1 == nullptr || info_2tnk == nullptr)
+      return g_failures != 0;
+
+    sim::TypeDictionary dict;
+    sim::OwnerInit owner_init{player_a};
+    sim::FactionInit faction_init{player_a->Faction().InternalName};
+    dict.Add(&owner_init);
+    dict.Add(&faction_init);
+
+    gfx::ActorPreviewInitializer init_default(*info_e1, wr, dict);
+    Check(init_default.World().Map().Sequences() != nullptr,
+          "p6b8: initializer world reaches the sequence set");
+    CheckEq(init_default.GetFacing()().Angle, 0, "p6b8: default facing 0");
+    CheckEq(init_default.GetOrientation()().Yaw.Angle, 0,
+            "p6b8: default orientation yaw 0");
+    Check(init_default.GetDamageState() == sim::DamageState::Undamaged,
+          "p6b8: no HealthInit = Undamaged");
+
+    sim::FacingInit facing_init{WAngle{298}};
+    dict.Add(&facing_init);
+    CheckEq(init_default.GetFacing()().Angle, 298, "p6b8: FacingInit 298");
+
+    std::int64_t int8_dynamic_facing = 128;
+    sim::DynamicFacingInit dynamic_init{
+        [&int8_dynamic_facing] { return WAngle{static_cast<int>(int8_dynamic_facing)}; }};
+    dict.Add(&dynamic_init);
+    CheckEq(init_default.GetFacing()().Angle, 128,
+            "p6b8: DynamicFacingInit overrides FacingInit");
+    int8_dynamic_facing = 512;
+    CheckEq(init_default.GetFacing()().Angle, 512,
+            "p6b8: dynamic facing is live");
+    dict.Remove(&dynamic_init);
+    dict.Remove(&facing_init);
+
+    sim::HealthInit health_dead{0};
+    dict.Add(&health_dead);
+    Check(init_default.GetDamageState() == sim::DamageState::Dead,
+          "p6b8: hp 0 = Dead");
+    dict.Remove(&health_dead);
+    sim::HealthInit health_critical{24};
+    dict.Add(&health_critical);
+    Check(init_default.GetDamageState() == sim::DamageState::Critical,
+          "p6b8: hp 24 = Critical");
+    dict.Remove(&health_critical);
+    sim::HealthInit health_heavy{49};
+    dict.Add(&health_heavy);
+    Check(init_default.GetDamageState() == sim::DamageState::Heavy,
+          "p6b8: hp 49 = Heavy");
+    dict.Remove(&health_heavy);
+    sim::HealthInit health_medium{74};
+    dict.Add(&health_medium);
+    Check(init_default.GetDamageState() == sim::DamageState::Medium,
+          "p6b8: hp 74 = Medium");
+    dict.Remove(&health_medium);
+    sim::HealthInit health_light{99};
+    dict.Add(&health_light);
+    Check(init_default.GetDamageState() == sim::DamageState::Light,
+          "p6b8: hp 99 = Light");
+    dict.Remove(&health_light);
+
+    Rectangle rect_e1_preview = Rectangle::Empty();
+    auto vec_e1 = gfx::RenderActorPreviewOf(*info_e1, init_default);
+    CheckEq(vec_e1.size(), std::size_t{1},
+            "p6b8: e1 preview = 1 (parachute body disabled by default)");
+    if (vec_e1.size() == 1) {
+      std::vector<gfx::RenderItem> vec_items;
+      vec_e1.front()->RenderUI(wr, int2{10, 10}, 1.0f, vec_items);
+      Check(!vec_items.empty(), "p6b8: e1 RenderUI yields items");
+      bool b_sprite_item = false;
+      for (const gfx::RenderItem& item : vec_items)
+        if (item.kind == gfx::RenderableKind::UISprite)
+          b_sprite_item = true;
+      Check(b_sprite_item, "p6b8: e1 preview item is a sprite");
+
+      std::vector<Rectangle> vec_bounds;
+      vec_e1.front()->ScreenBounds(wr, WPos::Zero(), vec_bounds);
+      Check(vec_bounds.size() == 1 && vec_bounds[0].Width > 0 &&
+                vec_bounds[0].Height > 0,
+            "p6b8: e1 ScreenBounds positive");
+      rect_e1_preview = vec_bounds[0];
+
+      vec_e1.front()->Tick();
+      vec_e1.front()->Tick();
+      Check(true, "p6b8: e1 preview Tick");
+    }
+
+    gfx::ActorPreviewInitializer init_2tnk(*info_2tnk, wr, dict);
+    auto vec_2tnk = gfx::RenderActorPreviewOf(*info_2tnk, init_2tnk);
+    CheckEq(vec_2tnk.size(), std::size_t{2},
+            "p6b8: 2tnk preview = facing body + turret");
+    if (vec_2tnk.size() == 2) {
+      std::vector<gfx::RenderItem> vec_body;
+      vec_2tnk[0]->Render(wr, WPos::Zero(), vec_body);
+      Check(!vec_body.empty(), "p6b8: 2tnk body Render yields items");
+      std::vector<gfx::RenderItem> vec_turret;
+      vec_2tnk[1]->Render(wr, WPos::Zero(), vec_turret);
+      Check(!vec_turret.empty(), "p6b8: 2tnk turret Render yields items");
+    }
+
+    ui::WidgetArgs args_preview;
+    args_preview.Add("worldRenderer", static_cast<gfx::WorldRenderer*>(&wr));
+    ui::ActorPreviewWidget widget_preview(args_preview);
+    widget_preview.bounds_widget.int4_x = 4;
+    widget_preview.bounds_widget.int4_y = 6;
+    widget_preview.bounds_widget.int4_width = 64;
+    widget_preview.bounds_widget.int4_height = 48;
+    widget_preview.SetPreview(*info_e1, dict);
+    Check(widget_preview.IdealPreviewSize().X > 0 &&
+              widget_preview.IdealPreviewSize().Y > 0,
+          "p6b8: widget IdealPreviewSize positive");
+    CheckEq(widget_preview.PreviewOffset().X,
+            rect_e1_preview.Left() + widget_preview.IdealPreviewSize().X / 2,
+            "p6b8: widget PreviewOffset.X = topLeft + width/2");
+    CheckEq(widget_preview.PreviewOffset().Y,
+            rect_e1_preview.Top() + widget_preview.IdealPreviewSize().Y / 2,
+            "p6b8: widget PreviewOffset.Y = topLeft + height/2");
+    widget_preview.b_animate = true;
+    widget_preview.Tick();
+    widget_preview.PrepareRenderables();
+    Check(true, "p6b8: widget PrepareRenderables");
+    auto widget_clone = widget_preview.Clone();
+    Check(widget_clone->TypeName() == std::string_view{"ActorPreviewWidget"},
+          "p6b8: widget clone type");
+  }
+
   std::println("render_test: {} failures", g_failures);
+
   return g_failures != 0;
 }
