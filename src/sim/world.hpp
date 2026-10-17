@@ -240,6 +240,12 @@ class World final {
     vec_actor_removed_handlers_.push_back(std::move(fn));
   }
 
+  /// RenderPlayerChanged(World.cs L101;RadarWidget 的换观察者面)
+  /// RenderPlayerChanged (World.cs L101; RadarWidget's viewer-switch face).
+  void AddRenderPlayerChangedHandler(std::function<void(Player*)> fn) {
+    vec_render_player_changed_handlers_.push_back(std::move(fn));
+  }
+
   /// actor 对象所有权(arena 直构;测试构造路径同)—— AdoptActor 保留给
   /// 需要外部生命周期的注入面
   Actor* AdoptActor(std::unique_ptr<Actor> a);
@@ -473,6 +479,11 @@ class World final {
   // of upstream's event multicast).
   std::vector<std::function<void(Actor&)>> vec_actor_added_handlers_;
   std::vector<std::function<void(Actor&)>> vec_actor_removed_handlers_;
+
+  // RenderPlayerChanged 的订阅表(World.cs L101;RadarWidget 消费面)
+  // The RenderPlayerChanged subscription table (World.cs L101; the
+  // RadarWidget consumption face).
+  std::vector<std::function<void(Player*)>> vec_render_player_changed_handlers_;
 
   // RulesContainTemporaryBlocker 的首查物化(上游 ctor 一次性扫描)
   // The first-query materialization of RulesContainTemporaryBlocker

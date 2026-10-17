@@ -185,7 +185,10 @@ void World::SetRenderPlayer(Player* p) {
   // L91-104
   if (p_local_player_ == nullptr || p_local_player_->UnlockedRenderPlayer()) {
     p_render_player_ = p;
-    // RenderPlayerChanged 事件(L101):消费面随渲染 trait 批
+    // RenderPlayerChanged 事件(L101)
+    // The RenderPlayerChanged event (L101).
+    for (const auto& fn : vec_render_player_changed_handlers_)
+      fn(p);
   }
 }
 

@@ -8,6 +8,11 @@ import std;
 #include "mods/create_map_players.hpp"
 #include "mods/viewport_controller.hpp"
 #include "mods/production_palette_widget.hpp"
+#include "mods/radar_widget.hpp"
+#include "mods/support_powers_widget.hpp"
+#include "mods/support_power_timer_widget.hpp"
+#include "mods/observer_widgets.hpp"
+#include "mods/video_player_widget.hpp"
 #include "mods/production_tabs_widget.hpp"
 #include "mods/production_type_button_widget.hpp"
 #include "mods/world_interaction_controller.hpp"
@@ -233,6 +238,11 @@ void RegisterCommonTraits() {
   RegisterProductionPaletteWidget();
   RegisterProductionTabsWidget();
   RegisterProductionTypeButtonWidget();
+  RegisterRadarWidget();
+  RegisterSupportPowersWidget();
+  RegisterSupportPowerTimerWidget();
+  RegisterObserverWidgets();
+  RegisterVideoPlayerWidget();
   static const bool b_registered = [] {
     sim::TraitRegistry& registry = sim::TraitRegistry::Instance();
 
@@ -903,6 +913,7 @@ void RegisterCommonTraits() {
 
     RegisterCommonTraitsBatch9();
     RegisterCommonTraitsBatch10();
+    RegisterCommonTraitsBatch11();
     RegisterCommonTraitsBatch12();
     RegisterCommonTraitsBatch12Objectives();
     RegisterCommonTraitsBatch12Seeds();

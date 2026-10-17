@@ -93,8 +93,24 @@ class CellLayer final : public CellLayerBase<T> {
   void AddCellEntryChangedListener(std::function<void(CPos)> fn_listener) {
     vec_cell_entry_changed_.push_back(std::move(fn_listener));
   }
+
+  /// CellEntryChanged -=(RadarWidget/PlayerRadarTerrain 的退订面):
+  /// 返回订阅令牌,RemoveCellEntryChangedListener 按 -1 槽清退。
+  /// CellEntryChanged -= (RadarWidget/PlayerRadarTerrain's unsubscribe
+  /// face): returns the token; the remove clears the -1 slot.
+  std::size_t SubscribeCellEntryChanged(std::function<void(CPos)> fn_listener) {
+    vec_cell_entry_changed_.push_back(std::move(fn_listener));
+    return vec_cell_entry_changed_.size() - 1;
+  }
+  void RemoveCellEntryChangedListener(std::size_t n_token) {
+    if (n_token < vec_cell_entry_changed_.size())
+      vec_cell_entry_changed_[n_token] = nullptr;
+  }
   bool HasCellEntryChangedListeners() const {
-    return !vec_cell_entry_changed_.empty();
+    for (const auto& fn : vec_cell_entry_changed_)
+      if (fn)
+        return true;
+    return false;
   }
 
   /// CopyValuesFrom(CellLayer.cs L28-35):有监听者时 InvalidOperationException
@@ -152,7 +168,8 @@ class CellLayer final : public CellLayerBase<T> {
   void Set(CPos cell, T value) {
     Base::vec_entries_[Index(cell)] = std::move(value);
     for (const auto& fn : vec_cell_entry_changed_)
-      fn(cell);
+      if (fn)
+        fn(cell);
   }
 
   /// this[MPos](L93-103) | this[MPos] (L93-103).
@@ -161,7 +178,8 @@ class CellLayer final : public CellLayerBase<T> {
   void Set(MPos uv, T value) {
     Base::vec_entries_[Index(uv)] = std::move(value);
     for (const auto& fn : vec_cell_entry_changed_)
-      fn(uv.ToCPos(Base::grid_type_));
+      if (fn)
+        fn(uv.ToCPos(Base::grid_type_));
   }
 
   /// TryGetValue(L105-125):等距 X<Y 预滤怪癖照抄 | TryGetValue (L105-125):

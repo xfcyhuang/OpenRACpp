@@ -540,7 +540,17 @@ add_library(ora_mods STATIC
   src/mods/ai_utils.cpp
   src/mods/trait_registry_batch10.cpp
   src/mods/production_palette_widget.cpp
-  src/mods/production_tabs_widget.cpp)
+  src/mods/production_tabs_widget.cpp
+  src/mods/tooltip.cpp
+  src/mods/radar.cpp
+  src/mods/support_powers.cpp
+  src/mods/player_statistics.cpp
+  src/mods/trait_registry_batch11.cpp
+  src/mods/radar_widget.cpp
+  src/mods/support_powers_widget.cpp
+  src/mods/support_power_timer_widget.cpp
+  src/mods/observer_widgets.cpp
+  src/mods/video_player_widget.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui)
 ora_link_std(ora_mods)
 

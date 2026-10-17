@@ -103,6 +103,20 @@ class Shroud final : public TraitBase,
     vec_on_shroud_changed_.push_back(std::move(fn));
   }
 
+  /// OnShroudChanged -=(RadarWidget/PlayerRadarTerrain 的换玩家退订面):
+  /// 返回订阅令牌,RemoveShroudChangedCallback 按 -1 槽清退。
+  /// OnShroudChanged -= (RadarWidget/PlayerRadarTerrain's player-switch
+  /// unsubscribe face): returns the subscription token; the remove clears
+  /// the -1 slot.
+  std::size_t SubscribeShroudChanged(std::function<void(PPos)> fn) {
+    vec_on_shroud_changed_.push_back(std::move(fn));
+    return vec_on_shroud_changed_.size() - 1;
+  }
+  void RemoveShroudChangedCallback(std::size_t n_token) {
+    if (n_token < vec_on_shroud_changed_.size())
+      vec_on_shroud_changed_[n_token] = nullptr;
+  }
+
   void Created(Actor& self) override;  // L146-157(INotifyCreated)
   void Tick(Actor& self) override;     // L159-205
 

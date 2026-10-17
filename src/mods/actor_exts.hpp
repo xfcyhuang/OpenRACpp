@@ -121,4 +121,15 @@ inline CPos ClosestCell(sim::Actor& self, std::span<const CPos> vec_cells) {
   return best != nullptr ? *best : CPos{};
 }
 
+/// Exts.cs L30-36:OwnerColor(EffectiveOwner 伪装分支:RenderPlayer 非
+/// 空且 Disguised 时取伪装主色)
+/// Exts.cs L30-36: OwnerColor (the EffectiveOwner disguise branch: the
+/// disguised owner's color when RenderPlayer is non-null).
+inline core::Color OwnerColor(sim::Actor& self) {
+  if (self.EffectiveOwner() != nullptr && self.EffectiveOwner()->Disguised() &&
+      self.world().RenderPlayer() != nullptr)
+    return self.EffectiveOwner()->Owner()->Color();
+  return self.Owner()->Color();
+}
+
 }  // namespace ora::mods

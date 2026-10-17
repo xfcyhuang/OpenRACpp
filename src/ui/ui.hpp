@@ -26,6 +26,15 @@ class Renderer;
 class ChromeProvider;
 class SpriteFont;
 }
+
+namespace ora::sound {
+class Sound;
+}
+
+namespace ora::fmt {
+struct IVideo;
+}
+
 namespace ora::game {
 class Ruleset;
 }
@@ -115,6 +124,27 @@ class Ui {
     std::function<GameSettingsInputFace()> fn_game_settings_input = [] {
       return GameSettingsInputFace{};
     };
+    /// Game.ModData.Cursors.ContainsKey(name)(RadarWidget 的 -minimap 后缀
+    /// 解析;未接线 = false = 恒裸名)
+    /// Game.ModData.Cursors.ContainsKey(name) (RadarWidget's -minimap
+    /// suffix resolution; unwired = false = always the bare name).
+    std::function<bool(std::string_view)> fn_cursor_exists =
+        [](std::string_view) { return false; };
+    /// Game.LocalTick(OrderManager.LocalFrameNumber;SupportPowerTimer 的
+    /// 闪烁节拍;未接线 = 0)
+    /// Game.LocalTick (OrderManager.LocalFrameNumber; SupportPowerTimer's
+    /// blink beat; unwired = 0).
+    std::function<int()> fn_local_tick = [] { return 0; };
+    /// Game.Sound 的直连面(VideoPlayerWidget 的视频音频;未接线 = null =
+    /// 静默)
+    /// The Game.Sound direct face (VideoPlayerWidget's video audio;
+    /// unwired = null = silent).
+    std::function<sound::Sound*()> fn_sound = [] { return static_cast<sound::Sound*>(nullptr); };
+    /// VideoLoader.GetVideo(ModData.DefaultFileSystem.Open(name),
+    /// padding, ModData.VideoLoaders)(未接线 = null = 无视频)
+    /// VideoLoader.GetVideo (unwired = null = no video).
+    std::function<std::unique_ptr<fmt::IVideo>(std::string_view, bool)>
+        fn_load_video;
   };
 
   void Initialize(Deps deps);
@@ -129,6 +159,15 @@ class Ui {
   }
   float UiScrollSpeed() const { return deps_.fn_ui_scroll_speed(); }
   bool CursorDouble() const { return deps_.fn_cursor_double(); }
+  bool CursorExists(std::string_view str_name) const {
+    return deps_.fn_cursor_exists(str_name);
+  }
+  int LocalTick() const { return deps_.fn_local_tick(); }
+  sound::Sound* SoundDeps() const { return deps_.fn_sound(); }
+  std::function<std::unique_ptr<fmt::IVideo>(std::string_view, bool)>
+  LoadVideoDeps() const {
+    return deps_.fn_load_video;
+  }
   int DebugSamples() const { return deps_.fn_debug_samples(); }
   Modifiers GetModifierKeys() const { return deps_.fn_get_modifier_keys(); }
   bool WindowHasInputFocus() const { return deps_.fn_window_has_input_focus(); }

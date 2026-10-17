@@ -89,6 +89,7 @@ void RegisterCommonTraitsBatch8();
 /// called from within RegisterCommonTraits).
 void RegisterCommonTraitsBatch9();
 void RegisterCommonTraitsBatch10();
+void RegisterCommonTraitsBatch11();
 void RegisterCommonTraitsBatch12();
 void RegisterCommonTraitsBatch12Objectives();
 void RegisterCommonTraitsBatch12Seeds();

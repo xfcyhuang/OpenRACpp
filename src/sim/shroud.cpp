@@ -128,7 +128,8 @@ void Shroud::UpdateCell(int index, Actor& self) {
     const PPos puv = layer_touched_.PPosFromIndex(index);
     if (map_.Contains(puv))
       for (const auto& fn : vec_on_shroud_changed_)
-        fn(puv);
+        if (fn)
+          fn(puv);
 
     if (!b_disabled_changed_ && (b_fog_enabled_ || !b_explore_map_enabled_)) {
       if (type == ShroudCellType::Visible)

@@ -89,33 +89,11 @@ struct FrozenActorLayerInfoData {
   int int4_bin_size = 10;  // L31 BinSize
 };
 
-/// ITooltip 消费的最小值面(ITooltipInfo 的 Name 承载;具体 trait 批展开)
-/// The minimal value face consumed by ITooltip (ITooltipInfo's Name
-/// carrier; expanded by the concrete-trait batch).
-struct TooltipInfoValue {
-  std::string str_name;
-};
-
-/// TraitsInterfaces.cs 的 ITooltipInfo(ITooltip.Info 的返回面)
-/// TraitsInterfaces.cs's ITooltipInfo (the return face of ITooltip.Info).
-class ITooltipInfo {
- public:
-  static constexpr gen::TypeId kTypeId =
-      gen::TypeId::OpenRA_Traits_ITooltipInfo;
-  virtual ~ITooltipInfo() = default;
-  virtual const TooltipInfoValue& TooltipInfo() const = 0;
-};
-
-/// TraitsInterfaces.cs 的 ITooltip(首个非禁用者供 RefreshState)
-/// TraitsInterfaces.cs's ITooltip (the first non-disabled one feeds
-/// RefreshState).
-class ITooltip {
- public:
-  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_ITooltip;
-  virtual ~ITooltip() = default;
-  virtual const ITooltipInfo* TooltipInfo() const = 0;
-  virtual Player* Owner() const = 0;
-};
+/// ITooltip/ITooltipInfo 的权威定义随第十一批迁入 trait_interfaces.hpp
+/// (Tooltip trait 批的真形)
+/// The authoritative ITooltip/ITooltipInfo definitions moved into
+/// trait_interfaces.hpp with batch 11 (the Tooltip trait batch's true
+/// shape).
 
 /// FrozenActor(FrozenActorLayer.cs L36-244;World arena 内构造)
 /// FrozenActor (FrozenActorLayer.cs L36-244; constructed inside the World

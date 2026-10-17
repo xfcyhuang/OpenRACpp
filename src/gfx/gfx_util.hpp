@@ -240,4 +240,11 @@ inline core::Color PremultiplyAlpha(core::Color color_c) {
   return core::Color::FromArgbRaw((uint4_a << 24) | (uint4_r << 16) | (uint4_g << 8) | uint4_b);
 }
 
+/// Util.cs L369:FromAngle(RadarPing 的三点星箭头方向单位向量)
+/// Util.cs L369: FromAngle (the unit direction vector for RadarPing's
+/// three-point star).
+inline core::Vector2 FromAngle(float fp4_angle) {
+  return core::Vector2{std::sin(fp4_angle), std::cos(fp4_angle)};
+}
+
 }  // namespace ora::gfx

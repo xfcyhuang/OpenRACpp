@@ -47,6 +47,12 @@ void RegisterGeneratedAll();
 #include "mods/production_palette_widget.hpp"
 #include "mods/production_tabs_widget.hpp"
 #include "mods/production_type_button_widget.hpp"
+#include "mods/radar_widget.hpp"
+#include "mods/support_powers_widget.hpp"
+#include "mods/support_power_timer_widget.hpp"
+#include "mods/observer_widgets.hpp"
+#include "mods/video_player_widget.hpp"
+#include "formats/video.hpp"
 #include "ui/chrome_metrics.hpp"
 #include "ui/default_input_handler.hpp"
 #include "ui/hotkey.hpp"
@@ -3021,6 +3027,230 @@ void TestChromeWidgetsBatch7(game::ModData& mod_data, ui::ChromeMetrics& metrics
 
 }  // namespace
 
+
+void TestRadarObserversBatch11() {
+  using namespace ora;
+
+  static ui::ChromeMetrics metrics_batch11;
+  {
+    const auto dir_metrics = std::filesystem::temp_directory_path() /
+                             "ora_ui_test_batch11_metrics";
+    std::filesystem::create_directories(dir_metrics);
+    {
+      std::ofstream out_metrics(dir_metrics / "metrics.yaml");
+      out_metrics << "Chrome:\n";
+      out_metrics << "\tTextContrastColorDark: 00000080\n";
+      out_metrics << "\tTextContrastColorLight: FFFFFF80\n";
+      out_metrics << "\tClickSound: click_sound\n";
+      out_metrics << "\tWorldSelectCursor: select\n";
+      out_metrics << "\tWorldDefaultCursor: default\n";
+    }
+    fs::FileSystem fs_metrics;
+    fs_metrics.Mount(dir_metrics.generic_string());
+    const std::vector<std::string> vec_files_metrics{"metrics.yaml"};
+    metrics_batch11.Initialize({&fs_metrics, &vec_files_metrics});
+
+    ui::Ui::Deps deps_batch11;
+    deps_batch11.ptr_chrome_metrics = &metrics_batch11;
+    deps_batch11.fn_window_size = [] { return int2{1280, 720}; };
+    ui::Ui::Instance().Initialize(std::move(deps_batch11));
+  }
+
+  // VideoPlayerWidget:字段装载 + 合成 IVideo 的缩放方程
+  // VideoPlayerWidget: field loading + the scale equation on a synthetic
+  // IVideo.
+  ui::WidgetArgs args_video;
+  mods::VideoPlayerWidget widget_video(args_video);
+  Check(widget_video.LoadFieldOrProperty("AspectRatio", "1.5") &&
+            widget_video.fp4_aspect_ratio == 1.5f,
+        "p6b11: VideoPlayer AspectRatio loads");
+  Check(widget_video.LoadFieldOrProperty("Skippable", "False") &&
+            !widget_video.b_skippable,
+        "p6b11: VideoPlayer Skippable False loads");
+  Check(widget_video.LoadFieldOrProperty("DrawOverlay", "False") &&
+            !widget_video.b_draw_overlay,
+        "p6b11: VideoPlayer DrawOverlay False loads");
+  Check(widget_video.LoadFieldOrProperty("CancelKey", "ESCAPE Ctrl") &&
+            widget_video.hk_cancel_key.key_kind == Keycode::ESCAPE,
+        "p6b11: VideoPlayer CancelKey loads");
+  auto widget_video_clone = widget_video.Clone();
+  Check(widget_video_clone->TypeName() ==
+            std::string_view{"VideoPlayerWidget"},
+        "p6b11: VideoPlayer clone type");
+  Check(widget_video.Video() == nullptr && widget_video.Paused(),
+        "p6b11: VideoPlayer starts empty and paused");
+
+  class FakeVideo final : public fmt::IVideo {
+   public:
+    std::uint16_t FrameCount() const override { return 10; }
+    std::uint8_t Framerate() const override { return 10; }
+    std::uint16_t Width() const override { return 320; }
+    std::uint16_t Height() const override { return 200; }
+    std::span<const std::byte> CurrentFrameData() const override {
+      return vec_frame;
+    }
+    std::int32_t CurrentFrameIndex() const override { return 0; }
+    void AdvanceFrame() override {}
+    bool HasAudio() const override { return false; }
+    std::span<const std::byte> AudioData() const override { return {}; }
+    std::int32_t AudioChannels() const override { return 0; }
+    std::int32_t SampleBits() const override { return 0; }
+    std::int32_t SampleRate() const override { return 0; }
+    void Reset() override {}
+
+    std::vector<std::byte> vec_frame =
+        std::vector<std::byte>(320 * 200 * 4, std::byte{7});
+  };
+  FakeVideo fake_video;
+  widget_video.bounds_widget = {0, 0, 640, 480};
+  widget_video.Play(std::shared_ptr<fmt::IVideo>(
+      std::shared_ptr<fmt::IVideo>{}, &fake_video));
+  Check(widget_video.Video() == &fake_video,
+        "p6b11: VideoPlayer adopts the video");
+  Check(widget_video.VideoSizeForTest().X == 512.0f &&
+            widget_video.VideoSizeForTest().Y == 480.0f,
+        "p6b11: 320x200@1.5 fits 640x480 as 512x480 (scale 1.6)");
+  Check(widget_video.VideoOriginForTest().X == 64.0f &&
+            widget_video.VideoOriginForTest().Y == 0.0f,
+        "p6b11: centered origin lands at 64,0");
+  widget_video.PlayThen([] {});
+  Check(!widget_video.Paused(), "p6b11: PlayThen starts playback");
+  widget_video.Pause();
+  Check(widget_video.Paused(), "p6b11: Pause stops playback");
+  widget_video.Stop();
+  Check(widget_video.Paused() && widget_video.Video() == &fake_video,
+        "p6b11: Stop resets without dropping the video");
+  widget_video.CloseVideo();
+  Check(widget_video.Video() == nullptr,
+        "p6b11: CloseVideo drops the video");
+
+  // RadarWidget:字段装载面(无世界形态不 Initialize —— sheet 面随世界)
+  // RadarWidget: the field-loading face (no Initialize in the worldless
+  // form — the sheet face rides a world).
+  ui::WidgetArgs args_radar;
+  mods::RadarWidget widget_radar(args_radar);
+  Check(widget_radar.LoadFieldOrProperty("AnimationLength", "7") &&
+            widget_radar.int4_animation_length == 7,
+        "p6b11: Radar AnimationLength loads");
+  Check(widget_radar.LoadFieldOrProperty("WorldInteractionController",
+                                         "SIDEBAR_CONTROLLER") &&
+            widget_radar.str_world_interaction_controller ==
+                "SIDEBAR_CONTROLLER",
+        "p6b11: Radar WorldInteractionController loads");
+  Check(widget_radar.LoadFieldOrProperty("SoundUp", "beep_up") &&
+            widget_radar.str_sound_up == "beep_up",
+        "p6b11: Radar SoundUp loads");
+  Check(widget_radar.LoadFieldOrProperty("ColorFog", "00000080") &&
+            widget_radar.uint4_color_fog == 0x80000000u,
+        "p6b11: Radar ColorFog parses to argb");
+  Check(widget_radar.LoadFieldOrProperty("ColorShroud", "000000FF") &&
+            widget_radar.uint4_color_shroud == 0xFF000000u,
+        "p6b11: Radar ColorShroud parses to argb");
+  widget_radar.fn_is_enabled = [] { return true; };
+  widget_radar.fn_animating = [&](float) {};
+  auto widget_radar_clone = widget_radar.Clone();
+  Check(widget_radar_clone->TypeName() == std::string_view{"RadarWidget"},
+        "p6b11: Radar clone type");
+
+  // SupportPowersWidget/Timer/Observer 族:字段矩阵 + 空态 no-op
+  // The SupportPowersWidget/Timer/Observer family: the field matrix +
+  // the empty-state no-ops.
+  ui::WidgetArgs args_powers;
+  mods::SupportPowersWidget widget_powers(args_powers);
+  Check(widget_powers.LoadFieldOrProperty("IconSize", "48, 36") &&
+            widget_powers.int2_icon_size == int2{48, 36},
+        "p6b11: SupportPowers IconSize loads");
+  Check(widget_powers.LoadFieldOrProperty("IconMargin", "4") &&
+            widget_powers.int4_icon_margin == 4,
+        "p6b11: SupportPowers IconMargin loads");
+  Check(widget_powers.LoadFieldOrProperty("Horizontal", "True") &&
+            widget_powers.b_horizontal,
+        "p6b11: SupportPowers Horizontal loads");
+  Check(widget_powers.LoadFieldOrProperty("HotkeyPrefix", "sp") &&
+            widget_powers.LoadFieldOrProperty("HotkeyCount", "3") &&
+            widget_powers.int4_hotkey_count == 3,
+        "p6b11: SupportPowers hotkey pair loads");
+  Check(widget_powers.LoadFieldOrProperty("ClockPalette", "chromefoo") &&
+            widget_powers.str_clock_palette == "chromefoo",
+        "p6b11: SupportPowers ClockPalette loads");
+  ui::WidgetArgs args_powers_init;
+  widget_powers.Initialize(args_powers_init);
+  widget_powers.Tick();
+  Check(widget_powers.IconCount() == 0,
+        "p6b11: SupportPowers worldless Tick stays empty");
+  KeyInput key_probe{};
+  key_probe.Event = KeyInputEvent::Down;
+  Check(!widget_powers.HandleKeyPress(key_probe),
+        "p6b11: SupportPowers empty icons ignore keys");
+  MouseInput mi_probe{};
+  mi_probe.Event = MouseInputEvent::Down;
+  Check(widget_powers.HandleMouseInput(mi_probe),
+        "p6b11: SupportPowers Down swallows with no icons");
+  auto widget_powers_clone = widget_powers.Clone();
+  Check(widget_powers_clone->TypeName() ==
+            std::string_view{"SupportPowersWidget"},
+        "p6b11: SupportPowers clone type");
+
+  ui::WidgetArgs args_timer;
+  mods::SupportPowerTimerWidget widget_timer(args_timer);
+  Check(widget_timer.LoadFieldOrProperty("Font", "Tiny") &&
+            widget_timer.str_font == "Tiny",
+        "p6b11: Timer Font loads");
+  Check(widget_timer.LoadFieldOrProperty("Align", "Right") &&
+            widget_timer.kind_align == mods::TextAlign::Right,
+        "p6b11: Timer Align Right loads");
+  Check(widget_timer.LoadFieldOrProperty("Order", "Ascending") &&
+            widget_timer.kind_order == mods::TimerOrder::Ascending,
+        "p6b11: Timer Order Ascending loads");
+  widget_timer.Tick();
+  widget_timer.Draw();
+  Check(widget_timer.TextsForTest().empty(),
+        "p6b11: Timer worldless Tick draws nothing");
+  auto widget_timer_clone = widget_timer.Clone();
+  Check(widget_timer_clone->TypeName() ==
+            std::string_view{"SupportPowerTimerWidget"},
+        "p6b11: Timer clone type");
+
+  ui::WidgetArgs args_army;
+  mods::ObserverArmyIconsWidget widget_army(args_army);
+  widget_army.int4_icon_width = 40;
+  auto widget_army_clone = widget_army.Clone();
+  Check(widget_army_clone->TypeName() ==
+            std::string_view{"ObserverArmyIconsWidget"},
+        "p6b11: ObserverArmy clone type");
+  widget_army.fn_get_player = [] { return nullptr; };
+  widget_army.Draw();
+  widget_army.Tick();
+  Check(widget_army.ArmyIconsForTest().empty(),
+        "p6b11: ObserverArmy null player draws nothing");
+
+  ui::WidgetArgs args_prod_icons;
+  mods::ObserverProductionIconsWidget widget_prod_icons(args_prod_icons);
+  auto widget_prod_clone = widget_prod_icons.Clone();
+  Check(widget_prod_clone->TypeName() ==
+            std::string_view{"ObserverProductionIconsWidget"},
+        "p6b11: ObserverProduction clone type");
+  widget_prod_icons.fn_get_player = [] { return nullptr; };
+  widget_prod_icons.Draw();
+  Check(widget_prod_icons.ProductionIconsForTest().empty(),
+        "p6b11: ObserverProduction null player draws nothing");
+
+  ui::WidgetArgs args_sp_icons;
+  mods::ObserverSupportPowerIconsWidget widget_sp_icons(args_sp_icons);
+  auto widget_sp_clone = widget_sp_icons.Clone();
+  Check(widget_sp_clone->TypeName() ==
+            std::string_view{"ObserverSupportPowerIconsWidget"},
+        "p6b11: ObserverSupportPower clone type");
+  widget_sp_icons.fn_get_player = [] { return nullptr; };
+  widget_sp_icons.Draw();
+  Check(widget_sp_icons.SupportPowerIconsForTest().empty(),
+        "p6b11: ObserverSupportPower null player draws nothing");
+
+  mods::SupportPowerIcon icon_default;
+  Check(icon_default.ptr_power == nullptr && !icon_default.b_has_hotkey,
+        "p6b11: SupportPowerIcon defaults");
+}
+
 int main(int argc, char** argv) {
   setvbuf(stdout, nullptr, _IONBF, 0);
   TestActionQueue();
@@ -3035,6 +3265,7 @@ int main(int argc, char** argv) {
   TestPreviewWidgetsBatch8();
   TestInputAssemblyBatch9();
   TestProductionPaletteBatch10();
+  TestRadarObserversBatch11();
 
   // Phase 6 第二批(mod 根经 argv[1] 注入;缺省跳过 —— 与 platform_test 的
   // SKIP 门同形)

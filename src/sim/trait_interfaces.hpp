@@ -2197,4 +2197,70 @@ class INotifyBuildingPlaced {
   virtual void BuildingPlaced(Actor& self, Actor& placed) = 0;
 };
 
+/// Mods.Common/TraitsInterfaces.cs L562-565:IRadarSignature(minimap 签名
+/// 单元格的填充面)
+/// Mods.Common/TraitsInterfaces.cs L562-565: IRadarSignature (the
+/// minimap-signature cell population face).
+class IRadarSignature {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IRadarSignature;
+  virtual ~IRadarSignature() = default;
+  virtual void PopulateRadarSignatureCells(
+      Actor& self, std::vector<std::pair<CPos, core::Color>>& vec_dest) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L567:IRadarColorModifier
+class IRadarColorModifier {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IRadarColorModifier;
+  virtual ~IRadarColorModifier() = default;
+  virtual core::Color RadarColorOverride(Actor& self, core::Color color) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L848-852:IRadarTerrainLayer(事件 →
+/// 回调表;雷达地形单元格变更面)
+/// Mods.Common/TraitsInterfaces.cs L848-852: IRadarTerrainLayer (the
+/// event as a callback table; the radar terrain cell-change face).
+class IRadarTerrainLayer {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IRadarTerrainLayer;
+  virtual ~IRadarTerrainLayer() = default;
+  virtual std::size_t SubscribeCellEntryChanged(std::function<void(CPos)> fn) = 0;
+  virtual void RemoveCellEntryChangedListener(std::size_t n_token) = 0;
+  virtual bool TryGetTerrainColorPair(
+      MPos uv, std::optional<std::pair<core::Color, core::Color>>& out_pair) = 0;
+};
+
+/// Mods.Common/TraitsInterfaces.cs L575-581:INotifyWinStateChanged
+class INotifyWinStateChanged {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyWinStateChanged;
+  virtual ~INotifyWinStateChanged() = default;
+  virtual void OnPlayerLost(Player& player) = 0;
+  virtual void OnPlayerWon(Player& player) = 0;
+};
+
+/// Game/Traits/TraitsInterfaces.cs L210-214:ITooltip
+class ITooltip {
+ public:
+  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_ITooltip;
+  virtual ~ITooltip() = default;
+  virtual const class ITooltipInfo* TooltipInfo() const = 0;
+  virtual Player* Owner() const = 0;
+};
+
+/// Game/Traits/TraitsInterfaces.cs L216-220:ITooltipInfo
+class ITooltipInfo {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_ITooltipInfo;
+  virtual ~ITooltipInfo() = default;
+  virtual std::string TooltipForPlayerStance(PlayerRelationship stance) = 0;
+  virtual bool IsOwnerRowVisible() const = 0;
+};
+
 }  // namespace ora::sim

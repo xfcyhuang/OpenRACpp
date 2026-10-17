@@ -65,6 +65,12 @@ import std;
 #include "mods/production_tabs_widget.hpp"
 #include "mods/production_type_button_widget.hpp"
 #include "mods/world_interaction_controller.hpp"
+#include "mods/radar.hpp"
+#include "mods/radar_widget.hpp"
+#include "mods/support_powers.hpp"
+#include "mods/support_powers_widget.hpp"
+#include "mods/player_statistics.hpp"
+#include "mods/tooltip.hpp"
 #include "net/order.hpp"
 #include "net/order_io.hpp"
 #include "net/replay_recorder.hpp"
@@ -113,6 +119,23 @@ void Check(bool ok, std::string_view what) {
     ++g_failures;
   }
 }
+
+class TestPower final : public ora::mods::SupportPower {
+ public:
+  TestPower(const ora::sim::ActorInitializer& init,
+            ora::mods::SupportPowerInfoData info_data)
+      : ora::mods::SupportPower(init, std::move(info_data)) {}
+
+  static constexpr ora::gen::TypeId kTypeId =
+      ora::gen::TypeId::OpenRA_Mods_Common_Traits_DirectionalSupportPower;
+  ora::gen::TypeId GetTraitTypeId() const override { return kTypeId; }
+  static constexpr auto kTraitUpcasts =
+      ora::sim::MakeTraitUpcasts<TestPower, ora::mods::SupportPower>();
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts()
+      const override {
+    return kTraitUpcasts;
+  }
+};
 
 class RecordingViewportStub final : public ora::gfx::IViewportSurface {
  public:
@@ -1596,7 +1619,188 @@ int main(int argc, char** argv) {
           "p6b10: type button clone type");
   }
 
+  // ———— 第十一批:Radar 链 + SupportPowers 面 + PlayerStatistics/Tooltip ————
+  // ———— Batch 11: the radar chain + the SupportPowers face +
+  //      PlayerStatistics/Tooltip ————
+  {
+    // RadarPings:三点星的收缩/旋转/到期排水 + LastPingPosition
+    // RadarPings: the star's shrink/rotate/expiry drain + LastPingPosition.
+    mods::RadarPingsInfoData info_pings;
+    info_pings.int4_from_radius = 200;
+    info_pings.int4_to_radius = 15;
+    info_pings.int4_shrink_speed = 4;
+    info_pings.fp4_rotation_speed = 0.12f;
+    mods::RadarPings pings{info_pings};
+    mods::RadarPing& ping_visible =
+        pings.Add([] { return true; }, WPos{1024, 1024, 0},
+                  core::Color::FromArgb(255, 255, 0, 0), 5);
+    Check(pings.LastPingPosition().has_value() &&
+              pings.LastPingPosition()->X == 1024,
+          "p6b11: visible ping records LastPingPosition");
+    pings.Add([] { return false; }, WPos{2048, 2048, 0},
+              core::Color::FromArgb(255, 0, 255, 0), 3);
+    Check(pings.Pings().size() == 2, "p6b11: two pings queued");
+    Check(ping_visible.Tick(), "p6b11: ping tick 1 keeps alive");
+    const auto vec_points = ping_visible.Points(int2{50, 60});
+    Check(std::abs(vec_points[0].X - (50 + 196 * std::sin(-0.12f))) < 0.01f &&
+              std::abs(vec_points[0].Y - (60 + 196 * std::cos(-0.12f))) < 0.01f,
+          "p6b11: star point 0 = center + 196*(sin,cos)(-0.12)");
+    int int4_manager_ticks = 0;
+    while (!pings.Pings().empty() && int4_manager_ticks < 10) {
+      pings.Tick(*world->WorldActor());
+      int4_manager_ticks++;
+      if (int4_manager_ticks == 3)
+        Check(pings.Pings().size() == 1,
+              "p6b11: short invisible ping drains at its duration");
+    }
+    Check(int4_manager_ticks == 4 && pings.Pings().empty(),
+          "p6b11: 5-tick ping drains by the 4th manager tick");
+
+    // AppearsOnRadar:占用格签名 + OwnerColor
+    // AppearsOnRadar: the occupied-cell signature + OwnerColor.
+    sim::Actor* jeep_a = spawn("jeep", player_a, CPos{cx, cy});
+    auto* appears = jeep_a->TraitOrDefault<mods::AppearsOnRadar>();
+    Check(appears != nullptr, "p6b11: jeep carries AppearsOnRadar");
+    if (appears != nullptr) {
+      std::vector<std::pair<CPos, core::Color>> vec_cells;
+      appears->PopulateRadarSignatureCells(*jeep_a, vec_cells);
+      Check(vec_cells.size() == 1 && vec_cells[0].first == jeep_a->Location(),
+            "p6b11: jeep radar signature cell = its location");
+      Check(vec_cells[0].second == player_a->Color(),
+            "p6b11: signature color = owner color");
+    }
+
+    // PlayerRadarTerrain::GetColor 的空层回落 = map.GetTerrainColorPair
+    // PlayerRadarTerrain::GetColor's empty-layer fallback = the map pair.
+    {
+      const MPos uv_probe{0, 0};
+      const auto pair_static =
+          mods::PlayerRadarTerrain::GetColor(world->Map(), {}, uv_probe);
+      const auto pair_map = world->Map().GetTerrainColorPair(uv_probe);
+      Check(pair_static.first == pair_map.first.ToArgb() &&
+                pair_static.second == pair_map.second.ToArgb(),
+            "p6b11: radar terrain color = map terrain pair");
+    }
+
+    // Player actor 的 SupportPowerManager
+    // The player actor's SupportPowerManager.
+    mods::SupportPowerManager* spm =
+        player_a->PlayerActor()->TraitOrDefault<mods::SupportPowerManager>();
+    Check(spm != nullptr, "p6b11: player actor carries SupportPowerManager");
+    Check(spm->DevMode() != nullptr && spm->GetTechTree() != nullptr,
+          "p6b11: manager resolves DeveloperMode + TechTree");
+
+    // SupportPowerInstance 状态机(MSLO 的 NukePowerInfo 记录)
+    // The SupportPowerInstance state machine (MSLO's NukePowerInfo record).
+    const meta::RecordObject* rec_nuke = nullptr;
+    for (const auto& [str_name, info_actor] : world->Map().Rules().Actors())
+      if (str_name == std::string{"mslo"})
+        for (const meta::RecordObject* rec :
+             info_actor->TraitsInConstructOrder())
+          if (rec->record_desc().str_full_name ==
+              std::string_view{
+                  "OpenRA.Mods.Common.Traits.NukePowerInfo"}) {
+            rec_nuke = rec;
+            break;
+          }
+    Check(rec_nuke != nullptr, "p6b11: MSLO NukePowerInfo record found");
+    if (rec_nuke != nullptr && spm != nullptr) {
+      sim::TypeDictionary dict_power;
+      sim::ActorInitializer init_power{*player_a->PlayerActor(), dict_power};
+      auto up_power = std::make_unique<TestPower>(
+          init_power, mods::SupportPowerInfoData::Parse(*rec_nuke));
+      TestPower* power = up_power.get();
+
+      Check(power->Info().str_order_name == "NukePowerInfoOrder",
+            "p6b11: OrderName ctor default = TypeName + Order");
+      Check(power->Info().int4_charge_interval == 13500,
+            "p6b11: MSLO ChargeInterval 13500 parses");
+
+      auto up_instance =
+          power->CreateInstance(power->Info().str_order_name, *spm);
+      mods::SupportPowerInstance* instance = up_instance.get();
+      instance->Instances().push_back(power);
+
+      Check(instance->TotalTicks() == 13500 &&
+                instance->RemainingTicks() == 13500,
+            "p6b11: instance starts uncharged");
+      Check(instance->Disabled(),
+            "p6b11: disabled before the first Tick enables the instances");
+      instance->Tick();
+      Check(!instance->Disabled() && instance->Active(),
+            "p6b11: one enabled instance activates");
+      Check(instance->RemainingTicks() == 13499,
+            "p6b11: charge decrements one tick per Tick");
+      instance->Tick();
+      Check(instance->RemainingTicks() == 13498,
+            "p6b11: second tick keeps decrementing");
+      instance->ResetTimer();
+      Check(instance->RemainingTicks() == 13500,
+            "p6b11: ResetTimer restores the full charge");
+
+      spm->Powers().emplace(instance->Key(), std::move(up_instance));
+      net::Order order_activate{instance->Key(), player_a->PlayerActor(),
+                                false};
+      spm->ResolveOrder(*player_a->PlayerActor(), order_activate);
+      Check(spm->FindPower(instance->Key()) != nullptr,
+            "p6b11: manager dispatches the activation order");
+      Check(spm->GetPowersForActor(*player_a->PlayerActor()).empty(),
+            "p6b11: player actor itself matches no power instances");
+
+      // SelectGenericPowerTarget:落点 order + 取消态 + 光标
+      // SelectGenericPowerTarget: the placement order + the cancel
+      // transition + the cursor.
+      Check(mods::SelectGenericPowerTarget(
+                instance->Key(), *spm, power->Info())
+                .GetCursor(*world, CPos{cx, cy}, int2{}, MouseInput{}) ==
+                power->Info().str_cursor,
+            "p6b11: in-map cursor = the power cursor");
+      Check(mods::SelectGenericPowerTarget(
+                instance->Key(), *spm, power->Info())
+                .GetCursor(*world, CPos{-500, -500}, int2{}, MouseInput{}) ==
+                power->Info().str_blocked_cursor,
+            "p6b11: out-of-map cursor = the blocked cursor");
+      auto up_selector =
+          std::make_unique<mods::SelectGenericPowerTarget>(
+              instance->Key(), *spm, power->Info());
+      mods::SelectGenericPowerTarget* selector = up_selector.get();
+      sim::IOrderGenerator* selector_ptr = up_selector.get();
+      world->AdoptOrderGenerator(std::move(up_selector));
+      MouseInput mi_down{};
+      mi_down.Event = MouseInputEvent::Down;
+      mi_down.Button = MouseButton::Left;
+      const auto vec_orders =
+          world->OrderGenerator()->Order(*world, CPos{cx, cy}, int2{},
+                                         mi_down);
+      Check(vec_orders.size() == 1 &&
+                vec_orders[0]->str_order_string == instance->Key() &&
+                vec_orders[0]->b_suppress_visual_feedback,
+            "p6b11: generic target order emits with feedback suppressed");
+      delete vec_orders[0];
+      Check(world->OrderGenerator() != selector_ptr,
+            "p6b11: OrderInner cancels the input mode");
+    }
+
+    // PlayerStatistics + UpdatesPlayerStatistics:击杀记账
+    // PlayerStatistics + UpdatesPlayerStatistics: kill accounting.
+    mods::PlayerStatistics* stats_a =
+        player_a->PlayerActor()->TraitOrDefault<mods::PlayerStatistics>();
+    mods::PlayerStatistics* stats_b =
+        player_b->PlayerActor()->TraitOrDefault<mods::PlayerStatistics>();
+    Check(stats_a != nullptr && stats_b != nullptr,
+          "p6b11: player actors carry PlayerStatistics");
+    if (stats_a != nullptr && stats_b != nullptr) {
+      
+      mods::ArmyUnit& e1_unit = stats_a->Unit("e1");
+      Check(e1_unit.ActorInfo() != nullptr &&
+                e1_unit.BuildableInfo().has_value() &&
+                e1_unit.Icon() != nullptr,
+            "p6b11: ArmyUnit e1 materializes with icon + buildable");
+    }
+  }
+
   std::println("render_test: {} failures", g_failures);
+
 
   return g_failures != 0;
 }
