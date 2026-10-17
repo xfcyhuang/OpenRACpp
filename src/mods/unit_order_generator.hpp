@@ -65,9 +65,12 @@ class UnitOrderGenerator : public sim::IOrderGenerator {
   MouseButton ActionButton() const;                                        // L28
   MouseButton CancelButton() const;                                        // L29
   void Tick(sim::World& world) override;                                     // L86
-  std::vector<gfx::IRenderable*> Render(sim::World& world) override;         // L88
-  std::vector<gfx::IRenderable*> RenderAboveShroud(sim::World& world) override;  // L89
-  std::vector<gfx::IRenderable*> RenderAnnotations(sim::World& world) override;  // L90
+  std::vector<gfx::IRenderable*> Render(gfx::WorldRenderer& wr,
+                                        sim::World& world) override;         // L88
+  std::vector<gfx::IRenderable*> RenderAboveShroud(gfx::WorldRenderer& wr,
+                                                   sim::World& world) override;  // L89
+  std::vector<gfx::IRenderable*> RenderAnnotations(gfx::WorldRenderer& wr,
+                                                   sim::World& world) override;  // L90
   std::string GetCursor(sim::World& world, CPos cell,
                         int2 world_pixel, const MouseInput& mi) override;   // L92
   void Deactivate() override;                                                // L117

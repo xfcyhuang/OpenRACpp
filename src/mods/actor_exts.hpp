@@ -101,4 +101,24 @@ inline WPos ClosestToIgnoringPath(const std::vector<WPos>& vec_positions,
   return *best;
 }
 
+
+/// ActorExts.cs L78-80:ClosestCell(MinByOrDefault(LengthSquared);空集 =
+/// CPos.Zero —— MinByOrDefault 的缺省值语义)
+/// ActorExts.cs L78-80: ClosestCell (MinByOrDefault of LengthSquared; the
+/// empty set = CPos.Zero — MinByOrDefault's default-value semantics).
+inline CPos ClosestCell(sim::Actor& self, std::span<const CPos> vec_cells) {
+  const CPos* best = nullptr;
+  std::int64_t best_length = 0;
+  for (const CPos& c : vec_cells) {
+    const auto dx = static_cast<std::int64_t>(self.Location().X() - c.X());
+    const auto dy = static_cast<std::int64_t>(self.Location().Y() - c.Y());
+    const std::int64_t length = dx * dx + dy * dy;
+    if (best == nullptr || length < best_length) {
+      best = &c;
+      best_length = length;
+    }
+  }
+  return best != nullptr ? *best : CPos{};
+}
+
 }  // namespace ora::mods

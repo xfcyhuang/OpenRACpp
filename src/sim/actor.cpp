@@ -348,6 +348,15 @@ void Actor::Initialize(bool add_to_world) {
     world_.Add(this);
 }
 
+void Actor::Kill(Actor* attacker,
+                 const core::BitSet<DamageType>& damage_types) {
+  if (Disposed())
+    return;
+
+  if (auto* health = TraitOrDefault<IHealth>())
+    health->Kill(*this, attacker, damage_types);
+}
+
 void Actor::Dispose() {
   // L419-444
   // If CurrentActivity isn't null, run OnActorDisposeOuter in case some

@@ -2160,4 +2160,41 @@ class IResourceRenderer {
                              std::vector<gfx::RenderItem>& vec_out) = 0;
 };
 
+/// Mods.Common/TraitsInterfaces.cs L325-332:IProductionIconOverlay
+/// Mods.Common/TraitsInterfaces.cs L325-332: IProductionIconOverlay.
+class IProductionIconOverlay {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IProductionIconOverlay;
+  virtual ~IProductionIconOverlay() = default;
+  virtual const gfx::Sprite* OverlaySprite() const = 0;
+  virtual std::string_view OverlayPalette() const = 0;
+  virtual core::Vector2 OverlayOffset(core::Vector2 vec_icon_size) const = 0;
+  virtual bool IsOverlayActive(const game::ActorInfo& ai) const = 0;
+};
+
+/// Mods.Common/Traits/Buildings/LineBuild.cs L46-50:
+/// INotifyLineBuildSegmentsChanged
+/// Mods.Common/Traits/Buildings/LineBuild.cs L46-50:
+/// INotifyLineBuildSegmentsChanged.
+class INotifyLineBuildSegmentsChanged {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyLineBuildSegmentsChanged;
+  virtual ~INotifyLineBuildSegmentsChanged() = default;
+  virtual void SegmentAdded(Actor& self, Actor* segment) = 0;
+  virtual void SegmentRemoved(Actor& self, Actor* segment) = 0;
+};
+
+/// TraitsInterfaces.cs 的 INotifyBuildingPlaced(Player trait 消费面)
+/// TraitsInterfaces.cs's INotifyBuildingPlaced (the player-trait
+/// consumption face).
+class INotifyBuildingPlaced {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyBuildingPlaced;
+  virtual ~INotifyBuildingPlaced() = default;
+  virtual void BuildingPlaced(Actor& self, Actor& placed) = 0;
+};
+
 }  // namespace ora::sim

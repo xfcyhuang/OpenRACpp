@@ -33,6 +33,7 @@ class MiniYaml;
 
 namespace ora::sim {
 class World;
+class Player;
 }
 namespace ora::net {
 class OrderManager;
@@ -65,7 +66,7 @@ using YamlDictionary = std::vector<std::pair<std::string_view, const yaml::MiniY
 using WidgetArgValue =
     std::variant<std::monostate, int2, std::int32_t, bool, std::string, Widget*, sim::World*,
                  net::OrderManager*, gfx::WorldRenderer*, game::ModData*, ChromeMetrics*,
-                 Mediator*, net::SessionClient*, core::Color,
+                 Mediator*, net::SessionClient*, core::Color, sim::Player*,
                  std::function<std::string()>,         // getText/getDesc 委托 | the getText/getDesc delegates
                  std::function<void(core::Color)>,     // onChange(Color) 委托 | the onChange(Color) delegate
                  std::function<void(Widget*)>,         // extraLogic 委托 | the extraLogic delegate

@@ -185,6 +185,12 @@ struct ProductionQueueInfoData {
   std::string str_queued_audio;         // L100
   std::string str_on_hold_audio;        // L110
   std::string str_cancelled_audio;      // L120
+  std::string str_ready_text_notification;      // L70
+  std::string str_blocked_text_notification;    // L81
+  std::string str_limited_text_notification;    // L92
+  std::string str_queued_text_notification;     // L107
+  std::string str_on_hold_text_notification;    // L116
+  std::string str_cancelled_text_notification;  // L125
 
   static ProductionQueueInfoData Parse(const meta::RecordObject& rec_info);
 };

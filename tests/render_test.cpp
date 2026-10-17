@@ -54,6 +54,16 @@ import std;
 #include "mods/with_make_animation.hpp"
 #include "mods/with_sprite_body.hpp"
 #include "mods/with_sprite_turret.hpp"
+#include "mods/building.hpp"
+#include "mods/building_utils.hpp"
+#include "mods/line_build.hpp"
+#include "mods/place_building.hpp"
+#include "mods/primary_building.hpp"
+#include "mods/player_resources.hpp"
+#include "mods/production_icon_overlay.hpp"
+#include "mods/production_palette_widget.hpp"
+#include "mods/production_tabs_widget.hpp"
+#include "mods/production_type_button_widget.hpp"
 #include "mods/world_interaction_controller.hpp"
 #include "net/order.hpp"
 #include "net/order_io.hpp"
@@ -1186,6 +1196,404 @@ int main(int argc, char** argv) {
           "p6b9: explored tooltip falls through to None");
 
     wr.SetViewport(nullptr);
+  }
+
+  // ———— 第十批:生产 palette 全链(BuildingUtils/LineBuild/PlaceBuilding/
+  //      PrimaryBuilding/ProductionIconOverlay/palette widget)————
+  // ———— Batch ten: the production-palette chain (BuildingUtils/LineBuild/
+  //      PlaceBuilding/PrimaryBuilding/ProductionIconOverlay/the palette
+  //      widget) ————
+  {
+    mods::DeveloperMode* dev_mode =
+        player_a->PlayerActor()->TraitOrDefault<mods::DeveloperMode>();
+    Check(dev_mode != nullptr, "p6b10: player DeveloperMode resolved");
+    if (dev_mode != nullptr)
+      dev_mode->AllTech = true;
+
+    const game::ActorInfo* tent_info = map_world->Rules().FindActor("tent");
+    Check(tent_info != nullptr, "p6b10: tent ActorInfo found");
+    const meta::RecordObject* rec_tent_building =
+        tent_info != nullptr
+            ? mods::FindTraitInfoRecord(*tent_info, "BuildingInfo")
+            : nullptr;
+    Check(rec_tent_building != nullptr, "p6b10: tent BuildingInfo record");
+    mods::BuildingInfoData tent_bi =
+        rec_tent_building != nullptr
+            ? mods::BuildingInfoData::Parse(*rec_tent_building)
+            : mods::BuildingInfoData{};
+
+    CPos site_tent{cx, cy};
+    bool b_found_site = false;
+    for (int dy = 0; dy < 10 && !b_found_site; dy++)
+      for (int dx = 0; dx < 10 && !b_found_site; dx++) {
+        const CPos c{cx + dx, cy + dy};
+        if (mods::CanPlaceBuilding(*world, c, tent_info, tent_bi, nullptr)) {
+          site_tent = c;
+          b_found_site = true;
+        }
+      }
+    Check(b_found_site, "p6b10: clear site found for TENT");
+    Check(!mods::CanPlaceBuilding(*world, site_tent + CVec{-500, 0},
+                                  tent_info, tent_bi, nullptr),
+          "p6b10: off-map site rejected");
+
+    sim::Actor* tent_existing = spawn("tent", player_a, site_tent);
+    world->Tick();
+    Check(tent_existing != nullptr, "p6b10: existing TENT spawned");
+    Check(!mods::CanPlaceBuilding(*world, site_tent, tent_info, tent_bi,
+                                  nullptr),
+          "p6b10: occupied site not placeable");
+    Check(!mods::CanPlaceBuilding(*world, site_tent, tent_info, tent_bi,
+                                  tent_existing),
+          "p6b10: building influence blocks even with the occupant ignored");
+
+    // ———— LineBuild:SBAG 连线(cell 展开方向 + 节点连接)————
+    // ———— LineBuild: the SBAG run (the cell expansion directions + the
+    //      node connections) ————
+    const game::ActorInfo* sbag_info = map_world->Rules().FindActor("sbag");
+    Check(sbag_info != nullptr, "p6b10: sbag ActorInfo found");
+    const meta::RecordObject* rec_sbag_building =
+        sbag_info != nullptr
+            ? mods::FindTraitInfoRecord(*sbag_info, "BuildingInfo")
+            : nullptr;
+    mods::BuildingInfoData sbag_bi =
+        rec_sbag_building != nullptr
+            ? mods::BuildingInfoData::Parse(*rec_sbag_building)
+            : mods::BuildingInfoData{};
+
+    CPos run[3] = {CPos{0, 0}, CPos{0, 0}, CPos{0, 0}};
+    bool b_found_run = false;
+    for (int dy = 0; dy < 12 && !b_found_run; dy++)
+      for (int dx = 0; dx < 12 && !b_found_run; dx++) {
+        const CPos c0{cx + dx, cy + dy};
+        bool b_all_clear = true;
+        for (int i = 0; i < 3; i++)
+          if (!mods::IsCellBuildable(*world, CPos{c0.X() + i, c0.Y()},
+                                     sbag_info, sbag_bi))
+            b_all_clear = false;
+        if (b_all_clear) {
+          for (int i = 0; i < 3; i++)
+            run[i] = CPos{c0.X() + i, c0.Y()};
+          b_found_run = true;
+        }
+      }
+    Check(b_found_run, "p6b10: three-clear-cell run found");
+    if (player_a->GetShroud() != nullptr)
+      player_a->GetShroud()->ExploreAll();
+    sim::Actor* sbag_node = spawn("sbag", player_a, run[2]);
+    world->Tick();
+    Check(sbag_node != nullptr, "p6b10: sbag node spawned");
+    Check(sbag_node->TraitOrDefault<mods::LineBuild>() != nullptr &&
+              sbag_node->TraitOrDefault<mods::LineBuildNode>() != nullptr,
+          "p6b10: sbag carries LineBuild + LineBuildNode");
+
+    const std::vector<std::pair<CPos, sim::Actor*>> vec_line_cells =
+        mods::GetLineBuildCells(*world, run[0], *sbag_info, sbag_bi,
+                                *player_a);
+    bool b_cell_run0 = false;
+    bool b_cell_run1 = false;
+    bool b_connector_is_node = true;
+    for (const auto& [cell, connector] : vec_line_cells) {
+      if (cell == run[0])
+        b_cell_run0 = true;
+      if (cell == run[1])
+        b_cell_run1 = connector == sbag_node;
+      if (cell == run[2])
+        b_connector_is_node = false;
+    }
+    Check(b_cell_run0, "p6b10: GetLineBuildCells yields the buildable origin");
+    Check(b_cell_run1,
+          "p6b10: intermediate cell yielded with the node connector");
+    Check(b_connector_is_node, "p6b10: node cell itself not yielded");
+
+    // 段出生经 LineBuildParentInit 驱动父节点的 SegmentAdded
+    // A segment's birth drives the parent's SegmentAdded through
+    // LineBuildParentInit.
+    {
+      sim::TypeDictionary dict_segment;
+      dict_segment.Add(world->Arena().Create<sim::LocationInit>(run[1]));
+      dict_segment.Add(world->Arena().Create<sim::OwnerInit>(player_a));
+      dict_segment.Add(world->Arena().Create<sim::FactionInit>(
+          std::string{player_a->Faction().InternalName}));
+      dict_segment.Add(world->Arena().Create<mods::LineBuildDirectionInit>(
+          mods::LineBuildDirection::X));
+      dict_segment.Add(world->Arena().Create<mods::LineBuildParentInit>(
+          std::vector<sim::Actor*>{sbag_node}));
+      sim::Actor* sbag_segment =
+          world->CreateActor(true, "sbag", dict_segment);
+      world->Tick();
+      Check(sbag_segment != nullptr, "p6b10: sbag segment spawned");
+    }
+
+    // ———— PrimaryBuilding:双 FACT 的主建筑互斥 ————
+    // ———— PrimaryBuilding: the two-FACT primary mutual exclusion ————
+    const game::ActorInfo* fact_info = map_world->Rules().FindActor("weap");
+    const meta::RecordObject* rec_fact_building =
+        fact_info != nullptr
+            ? mods::FindTraitInfoRecord(*fact_info, "BuildingInfo")
+            : nullptr;
+    mods::BuildingInfoData fact_bi =
+        rec_fact_building != nullptr
+            ? mods::BuildingInfoData::Parse(*rec_fact_building)
+            : mods::BuildingInfoData{};
+    CPos site_fact_a{0, 0};
+    CPos site_fact_b{0, 0};
+    bool b_found_fact_sites = false;
+    for (int dy = 0; dy < 14 && !b_found_fact_sites; dy++)
+      for (int dx = 0; dx < 14 && !b_found_fact_sites; dx++) {
+        const CPos c{cx + dx, cy + dy};
+        if (mods::CanPlaceBuilding(*world, c, fact_info, fact_bi,
+                                   nullptr) &&
+            mods::CanPlaceBuilding(*world, c + CVec{0, 4}, fact_info,
+                                   fact_bi, nullptr)) {
+          site_fact_a = c;
+          site_fact_b = c + CVec{0, 4};
+          b_found_fact_sites = true;
+        }
+      }
+    sim::Actor* fact_a = spawn("weap", player_a, site_fact_a);
+    sim::Actor* fact_b = spawn("weap", player_a, site_fact_b);
+    world->Tick();
+    mods::PrimaryBuilding* primary_a =
+        fact_a != nullptr ? fact_a->TraitOrDefault<mods::PrimaryBuilding>()
+                          : nullptr;
+    mods::PrimaryBuilding* primary_b =
+        fact_b != nullptr ? fact_b->TraitOrDefault<mods::PrimaryBuilding>()
+                          : nullptr;
+    Check(primary_a != nullptr && primary_b != nullptr,
+          "p6b10: both WEAPs carry PrimaryBuilding");
+    if (primary_a != nullptr && primary_b != nullptr) {
+      net::Order order_primary{"PrimaryProducer", fact_a, false};
+      fact_a->ResolveOrder(order_primary);
+      Check(primary_a->IsPrimary(), "p6b10: WEAP A primary set");
+      net::Order order_primary_b{"PrimaryProducer", fact_b, false};
+      fact_b->ResolveOrder(order_primary_b);
+      world->Tick();
+      Check(primary_b->IsPrimary() && !primary_a->IsPrimary(),
+            "p6b10: WEAP B primary revokes A");
+    }
+
+    // FACT 的 Production@Building 使能 Building 队(ra 的生产主建筑)
+    // FACT's Production@Building enables the Building queue (ra's
+    // production main).
+    CPos site_fact_prod{0, 0};
+    bool b_found_fact_prod = false;
+    for (int dy = 0; dy < 14 && !b_found_fact_prod; dy++)
+      for (int dx = 0; dx < 14 && !b_found_fact_prod; dx++) {
+        const CPos c{cx + dx, cy + dy};
+        if (mods::CanPlaceBuilding(*world, c, map_world->Rules().FindActor("fact"),
+                                   mods::BuildingInfoData::Parse(
+                                       *mods::FindTraitInfoRecord(
+                                           *map_world->Rules().FindActor("fact"),
+                                           "BuildingInfo")),
+                                   nullptr)) {
+          site_fact_prod = c;
+          b_found_fact_prod = true;
+        }
+      }
+    sim::Actor* fact_prod = spawn("fact", player_a, site_fact_prod);
+    Check(fact_prod != nullptr, "p6b10: production FACT spawned");
+
+    // ———— PlaceBuilding:TENT 经 Building 队完成 + 放置 order 落地 ————
+    // ———— PlaceBuilding: the TENT through the Building queue's completion
+    //      + the placement order landing ————
+    mods::ProductionQueue* queue_building = nullptr;
+    for (auto* q :
+         player_a->PlayerActor()->TraitsImplementing<mods::ProductionQueue>())
+      if (q->Info().str_type == "Building")
+        queue_building = q;
+    Check(queue_building != nullptr,
+          "p6b10: player ClassicProductionQueue@Building resolved");
+    if (queue_building != nullptr && tent_info != nullptr) {
+      world->Tick();
+      Check(queue_building->Enabled(),
+            "p6b10: Building queue enabled (FACT Production Building)");
+
+      if (mods::PlayerResources* resources =
+              player_a->PlayerActor()->Trait<mods::PlayerResources>())
+        resources->GiveCash(10000);
+      net::Order order_start = net::Order::StartProduction(
+          player_a->PlayerActor(), "tent", 1, false);
+      queue_building->ResolveOrder(*player_a->PlayerActor(), order_start);
+      CheckEq(queue_building->AllQueued().size(), std::size_t{1},
+              "p6b10: TENT queued");
+
+      for (int tick = 0;
+           tick < 3200 && !queue_building->AllQueued().empty() &&
+               !queue_building->AllQueued().front()->Done();
+           tick++)
+        world->Tick();
+      Check(!queue_building->AllQueued().empty() &&
+                queue_building->AllQueued().front()->Done(),
+            "p6b10: TENT item done (awaiting placement)");
+
+      CPos site_place{0, 0};
+      bool b_found_place = false;
+      for (int dy = 0; dy < 14 && !b_found_place; dy++)
+        for (int dx = 0; dx < 14 && !b_found_place; dx++) {
+          const CPos c{cx + dx, cy + dy};
+          if (mods::CanPlaceBuilding(*world, c, tent_info, tent_bi, nullptr)) {
+            site_place = c;
+            b_found_place = true;
+          }
+        }
+      Check(b_found_place, "p6b10: placement site found");
+
+      net::Order order_place{"PlaceBuilding", player_a->PlayerActor(),
+                             sim::Target::FromCell(*world, site_place),
+                             false};
+      order_place.str_target_string = "tent";
+      order_place.uint4_extra_data =
+          queue_building->Actor()->ActorID();
+      player_a->PlayerActor()->ResolveOrder(order_place);
+      world->Tick();
+      Check(queue_building->AllQueued().empty(),
+            "p6b10: placement order ends production");
+
+      std::size_t tent_count = 0;
+      for (sim::Actor* a : world->Actors())
+        if (a->Info()->Name() == "tent" && a->Owner() == player_a &&
+            a->Location() == site_place)
+          tent_count++;
+      CheckEq(tent_count, std::size_t{1},
+              "p6b10: placed TENT stands at the site");
+    }
+
+    // ———— ProductionIconOverlayManager(player actor;ra player.yaml)————
+    // ———— ProductionIconOverlayManager (the player actor; ra player.yaml)
+    //      ————
+    mods::ProductionIconOverlayManager* overlay_manager = nullptr;
+    for (auto* m : player_a->PlayerActor()
+                       ->TraitsImplementing<
+                           mods::ProductionIconOverlayManager>())
+      overlay_manager = m;
+    Check(overlay_manager != nullptr,
+          "p6b10: ProductionIconOverlayManager resolved");
+    if (overlay_manager != nullptr) {
+      Check(overlay_manager->Info().str_type == "Veterancy",
+            "p6b10: overlay type Veterancy (ra player.yaml)");
+      Check(!overlay_manager->IsOverlayActive(*tent_info),
+            "p6b10: overlay inactive without prerequisites");
+      const core::Vector2 vec_offset =
+          overlay_manager->OverlayOffset(core::Vector2{64.0f, 48.0f});
+      CheckEq(vec_offset.X, -28.0f,
+              "p6b10: overlay offset X = (8 - 64) / 2 (iconchevrons 8px)");
+    }
+
+    // ———— palette widget:icon 刷新 + BuildPaletteOrder 序 ————
+    // ———— The palette widget: the icon refresh + the BuildPaletteOrder
+    //      ordering ————
+    ui::WidgetArgs args_palette;
+    args_palette.Add("world", world.get());
+    args_palette.Add("worldRenderer", &wr);
+    mods::ProductionPaletteWidget widget_palette(args_palette);
+    Check(widget_palette.LoadFieldOrProperty("Columns", "4") &&
+              widget_palette.LoadFieldOrProperty("IconMargin", "2, 2"),
+          "p6b10: palette fields load");
+    Check(widget_palette.LoadFieldOrProperty("MaxIconRowOffset", "4"),
+          "p6b10: MaxIconRowOffset loads (ClassicProductionLogic's setting)");
+    ui::WidgetArgs args_palette_init;
+    widget_palette.Initialize(args_palette_init);
+    widget_palette.SetCurrentQueue(queue_building);
+    widget_palette.Tick();
+    const std::size_t n_icons = widget_palette.IconsForTest().size();
+    const std::size_t n_buildables = widget_palette.AllBuildables().size();
+    Check(n_icons > 0 &&
+              n_icons == std::min(n_buildables, std::size_t{16}),
+          "p6b10: refresh materializes one icon per buildable (row cap 4x4)");
+    CheckEq(static_cast<std::size_t>(widget_palette.int4_total_icon_count),
+            n_buildables,
+            "p6b10: TotalIconCount tracks AllBuildables (uncapped)");
+    if (n_buildables >= 2) {
+      bool b_ordered = true;
+      const auto& vec_icons = widget_palette.IconsForTest();
+      int prev_order = -0x7fffffff;
+      for (const auto& [rect, icon_entry] : vec_icons) {
+        static_cast<void>(rect);
+        int order = 0;
+        if (const meta::RecordObject* rec_b = mods::FindTraitInfoRecord(
+                *icon_entry.actor, "BuildableInfo"))
+          order = mods::BuildableInfoData::Parse(*rec_b)
+                      .int4_build_palette_order;
+        if (order < prev_order)
+          b_ordered = false;
+        prev_order = order;
+      }
+      Check(b_ordered, "p6b10: icons ordered by BuildPaletteOrder");
+      const Rectangle rect_first = widget_palette.IconsForTest().front().first;
+      CheckEq(rect_first.Width, 64, "p6b10: icon rect width 64");
+    }
+    widget_palette.Tick();
+    CheckEq(widget_palette.IconsForTest().size(), n_icons,
+            "p6b10: Tick re-refreshes the same icon count");
+    Check(widget_palette.GetCursor(int2{-4096, -4096}) == nullptr,
+          "p6b10: GetCursor null outside every icon");
+
+    // ———— tabs widget:规则组表 + TypeButton 字段面 ————
+    // ———— The tabs widget: the rules group table + TypeButton's field
+    //      face ————
+    ui::WidgetArgs args_tabs;
+    args_tabs.Add("world", world.get());
+    mods::ProductionTabsWidget widget_tabs(args_tabs);
+    Check(!widget_tabs.GroupsForTest().empty() &&
+              widget_tabs.GroupsForTest().begin()->second.vec_tabs.empty(),
+          "p6b10: tab groups gathered (ra queues share the null Group)");
+    Check(widget_tabs.LoadFieldOrProperty("TabWidth", "24") &&
+              widget_tabs.LoadFieldOrProperty("ArrowWidth", "16"),
+          "p6b10: tabs fields load");
+    ui::WidgetArgs args_tabs_init;
+    widget_tabs.Initialize(args_tabs_init);
+    Check(widget_tabs.TabsForTest().empty(),
+          "p6b10: tabs empty before a queue group is selected");
+
+    static ui::ChromeMetrics metrics_palette;
+    {
+      const auto dir_metrics = std::filesystem::temp_directory_path() /
+                               "ora_render_test_metrics";
+      std::filesystem::create_directories(dir_metrics);
+      {
+        std::ofstream out_metrics(dir_metrics / "metrics.yaml");
+        out_metrics << "Chrome:\n";
+        out_metrics << "\tButtonDepth: 1\n";
+        out_metrics << "\tButtonFont: Regular\n";
+        out_metrics << "\tButtonTextColor: FFFFFFFF\n";
+        out_metrics << "\tButtonTextColorDisabled: 808080FF\n";
+        out_metrics << "\tButtonTextContrast: True\n";
+        out_metrics << "\tButtonTextShadow: False\n";
+        out_metrics << "\tButtonTextContrastColorDark: 000000FF\n";
+        out_metrics << "\tButtonTextContrastColorLight: FFFFFFFF\n";
+        out_metrics << "\tButtonTextContrastRadius: 1\n";
+        out_metrics << "\tClickSound: click_sound\n";
+        out_metrics << "\tClickDisabledSound: click_disabled_sound\n";
+        out_metrics << "\tButtonCursor: default\n";
+        out_metrics << "\tWorldDefaultCursor: default\n";
+        out_metrics << "\tInfiniteOffset: 4, 2\n";
+      }
+      fs::FileSystem fs_metrics;
+      fs_metrics.Mount(dir_metrics.generic_string());
+      const std::vector<std::string> vec_files_metrics{"metrics.yaml"};
+      metrics_palette.Initialize({&fs_metrics, &vec_files_metrics});
+
+      ui::Ui::Deps deps_metrics;
+      deps_metrics.ptr_chrome_metrics = &metrics_palette;
+      deps_metrics.fn_window_size = [] { return int2{1280, 720}; };
+      ui::Ui::Instance().Initialize(std::move(deps_metrics));
+    }
+    core::Vector2 vec_infinite_check{};
+    Check(metrics_palette.TryGetVector2("InfiniteOffset", vec_infinite_check) &&
+              vec_infinite_check.X == 4.0f && vec_infinite_check.Y == 2.0f,
+          "p6b10: ChromeMetrics TryGetVector2 parses");
+    ui::WidgetArgs args_type_button;
+    args_type_button.Add("world", world.get());
+    mods::ProductionTypeButtonWidget widget_type_button(args_type_button);
+    Check(widget_type_button.LoadFieldOrProperty("ProductionGroup",
+                                                 "Infantry") &&
+              widget_type_button.ProductionGroup() == "Infantry",
+          "p6b10: type button ProductionGroup loads");
+    auto widget_type_clone = widget_type_button.Clone();
+    Check(widget_type_clone->TypeName() ==
+              std::string_view{"ProductionTypeButtonWidget"},
+          "p6b10: type button clone type");
   }
 
   std::println("render_test: {} failures", g_failures);

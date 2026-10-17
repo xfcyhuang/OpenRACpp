@@ -137,13 +137,16 @@ std::vector<net::Order*> UnitOrderGenerator::OrderInner(
 
 // ———— Tick/Render 族(L86-90/L117/L156)————
 void UnitOrderGenerator::Tick(sim::World&) {}
-std::vector<gfx::IRenderable*> UnitOrderGenerator::Render(sim::World&) {
+std::vector<gfx::IRenderable*> UnitOrderGenerator::Render(gfx::WorldRenderer&,
+                                                            sim::World&) {
   return {};
 }
-std::vector<gfx::IRenderable*> UnitOrderGenerator::RenderAboveShroud(sim::World&) {
+std::vector<gfx::IRenderable*> UnitOrderGenerator::RenderAboveShroud(
+    gfx::WorldRenderer&, sim::World&) {
   return {};
 }
-std::vector<gfx::IRenderable*> UnitOrderGenerator::RenderAnnotations(sim::World&) {
+std::vector<gfx::IRenderable*> UnitOrderGenerator::RenderAnnotations(
+    gfx::WorldRenderer&, sim::World&) {
   return {};
 }
 void UnitOrderGenerator::Deactivate() {}

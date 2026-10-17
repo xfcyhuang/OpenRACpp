@@ -1,5 +1,6 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Production.cs + OpenRA.Mods.Common/Traits/Player/ProductionQueue.cs + OpenRA.Mods.Common/Traits/Buildings/Exit.cs 实现部分
 //          The implementation half.
+#include "mods/primary_building.hpp"
 #include "mods/production.hpp"
 #include "mods/power.hpp"
 
@@ -456,6 +457,18 @@ ProductionQueueInfoData ProductionQueueInfoData::Parse(
     data.str_on_hold_audio = *v;
   if (const auto v = RecString(rec_info, "CancelledAudio"))
     data.str_cancelled_audio = *v;
+  if (const auto v = RecString(rec_info, "ReadyTextNotification"))
+    data.str_ready_text_notification = std::string{*v};
+  if (const auto v = RecString(rec_info, "BlockedTextNotification"))
+    data.str_blocked_text_notification = std::string{*v};
+  if (const auto v = RecString(rec_info, "LimitedTextNotification"))
+    data.str_limited_text_notification = std::string{*v};
+  if (const auto v = RecString(rec_info, "QueuedTextNotification"))
+    data.str_queued_text_notification = std::string{*v};
+  if (const auto v = RecString(rec_info, "OnHoldTextNotification"))
+    data.str_on_hold_text_notification = std::string{*v};
+  if (const auto v = RecString(rec_info, "CancelledTextNotification"))
+    data.str_cancelled_text_notification = std::string{*v};
   return data;
 }
 
@@ -962,11 +975,25 @@ void ProductionQueue::ResolveOrder(sim::Actor& self,
               // ProductionItem ticking and this FrameEndTask running
               // (上游注释)
               bool any_done = false;
-              for (auto& i : queue_this->AllQueued())
+              bool b_self_alive = false;
+              for (auto& i : queue_this->AllQueued()) {
+                if (i.get() == self_item)
+                  b_self_alive = true;
                 if (i->Done() && i->Item == unit_name) {
                   any_done = true;
                   break;
                 }
+              }
+              // 上游闭包对已出队 item 的字段写在 GC 域不可观测;C++ 侧
+              // 悬垂指针不触(放置路径的本 tick 配对任务可晚于
+              // EndProduction 运行 —— 第十批建筑放置暴露)
+              // Upstream's closure writes a dequeued item's field in the
+              // GC domain unobservably; the C++ dangling pointer stays
+              // untouched (this tick's paired task can run after
+              // EndProduction — exposed by the batch-10 building
+              // placement).
+              if (!b_self_alive)
+                return;
               if (!any_done) {
                 if (self_item != nullptr)
                   self_item->b_notified = false;
@@ -1289,14 +1316,17 @@ ClassicProductionQueue::BuildableItems() {
 
 Production* ClassicProductionQueue::MostLikelyProducer() {
   // L85-99(OrderBy(paused).ThenByDescending(IsPrimaryBuilding).
-  // ThenByDescending(ActorID) —— IsPrimaryBuilding 未移植,序退化为
-  // (paused asc, ActorID desc);无 PrimaryBuilding trait 的世界等价;
-  // 登记 COVERAGE)
+  // ThenByDescending(ActorID) —— 第十批 PrimaryBuilding 落地后的真形)
   // (OrderBy(paused).ThenByDescending(IsPrimaryBuilding).
-  // ThenByDescending(ActorID) — IsPrimaryBuilding is unported, the
-  // order degrades to (paused asc, ActorID desc); the equivalent of a
-  // world without the PrimaryBuilding trait; registered in COVERAGE).
-  std::vector<Production*> vec_candidates;
+  // ThenByDescending(ActorID) — the true shape after the batch-10
+  // PrimaryBuilding landing).
+  struct Candidate {
+    Production* trait;
+    bool b_paused;
+    bool b_primary;
+    std::uint32_t uint4_actor_id;
+  };
+  std::vector<Candidate> vec_candidates;
   for (auto& [actor, trait] :
        Actor()->world().ActorsWithTrait<Production>()) {
     if (actor->Owner() != Actor()->Owner() ||
@@ -1306,26 +1336,40 @@ Production* ClassicProductionQueue::MostLikelyProducer() {
                   trait->Info().vec_produces.end(),
                   Info().str_type) == trait->Info().vec_produces.end())
       continue;
-    vec_candidates.push_back(trait);
+    const PrimaryBuilding* primary =
+        actor->TraitOrDefault<PrimaryBuilding>();
+    vec_candidates.push_back(Candidate{
+        trait, trait->IsTraitPaused(),
+        primary != nullptr && primary->IsPrimary(), actor->ActorID()});
   }
 
   Production* best = nullptr;
-  for (Production* p : vec_candidates) {
+  for (const Candidate& c : vec_candidates) {
     if (best == nullptr) {
-      best = p;
+      best = c.trait;
       continue;
     }
-    // (paused asc, ActorID desc) 的逐项择优
-    // The per-item pick of (paused asc, ActorID desc).
-    const bool p_paused = p->IsTraitPaused();
+    // (paused asc, primary desc, ActorID desc) 的逐项择优
+    // The per-item pick of (paused asc, primary desc, ActorID desc).
+    const bool p_paused = c.b_paused;
     const bool b_paused = best->IsTraitPaused();
     if (p_paused != b_paused) {
       if (!p_paused)
-        best = p;
+        best = c.trait;
       continue;
     }
-    if (p->HostActor().ActorID() > best->HostActor().ActorID())
-      best = p;
+    const PrimaryBuilding* primary_best =
+        best->HostActor().TraitOrDefault<PrimaryBuilding>();
+    const bool p_primary = c.b_primary;
+    const bool b_primary =
+        primary_best != nullptr && primary_best->IsPrimary();
+    if (p_primary != b_primary) {
+      if (p_primary)
+        best = c.trait;
+      continue;
+    }
+    if (c.trait->HostActor().ActorID() > best->HostActor().ActorID())
+      best = c.trait;
   }
   return best;
 }

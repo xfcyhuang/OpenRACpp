@@ -267,6 +267,12 @@ class Actor final {
   void Initialize(bool add_to_world = true);
   void Dispose();
 
+  /// Kill(L503-509):health trait 委托(上游缓存字段;此处接口直查)
+  /// Kill (L503-509): the health-trait delegation (upstream caches the
+  /// field; this queries the interface).
+  void Kill(Actor* attacker,
+            const core::BitSet<DamageType>& damage_types = {});
+
   // ———— order 分发(L446-450)————
   void ResolveOrder(const net::Order& order);
 

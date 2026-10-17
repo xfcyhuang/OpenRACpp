@@ -152,6 +152,9 @@ class Player final {
                                                // 指针承载;上游 get;即此)
                                                // (nullable under the test
                                                // ctor; the pointer carries it.)
+  World* world_ptr() const { return world_; }  // null 判面(消费侧守卫)| the
+                                               // null-check face (the
+                                               // consumer-side guard).
 
   /// PlayerMask 族(L91-93) | the mask family (L91-93).
   PlayerMaskSet PlayerMask;          // public 字段(上游同名)| the public field.

@@ -7,6 +7,9 @@ import std;
 #include "mods/actor_preview_faces.hpp"
 #include "mods/create_map_players.hpp"
 #include "mods/viewport_controller.hpp"
+#include "mods/production_palette_widget.hpp"
+#include "mods/production_tabs_widget.hpp"
+#include "mods/production_type_button_widget.hpp"
 #include "mods/world_interaction_controller.hpp"
 
 #include "meta/field_loader.hpp"
@@ -227,6 +230,9 @@ void RegisterCommonTraits() {
   RegisterActorPreviewFaces();
   RegisterWorldInteractionControllerWidget();
   RegisterViewportControllerWidget();
+  RegisterProductionPaletteWidget();
+  RegisterProductionTabsWidget();
+  RegisterProductionTypeButtonWidget();
   static const bool b_registered = [] {
     sim::TraitRegistry& registry = sim::TraitRegistry::Instance();
 
@@ -896,6 +902,7 @@ void RegisterCommonTraits() {
     //      annotation/decoration/death/damage/progress-bar family) ————
 
     RegisterCommonTraitsBatch9();
+    RegisterCommonTraitsBatch10();
     RegisterCommonTraitsBatch12();
     RegisterCommonTraitsBatch12Objectives();
     RegisterCommonTraitsBatch12Seeds();

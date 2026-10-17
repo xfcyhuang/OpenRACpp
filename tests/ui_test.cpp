@@ -44,6 +44,9 @@ void RegisterGeneratedAll();
 #include "gfx/chrome_provider.hpp"
 #include "platform/ifont.hpp"
 #include "sim/world.hpp"
+#include "mods/production_palette_widget.hpp"
+#include "mods/production_tabs_widget.hpp"
+#include "mods/production_type_button_widget.hpp"
 #include "ui/chrome_metrics.hpp"
 #include "ui/default_input_handler.hpp"
 #include "ui/hotkey.hpp"
@@ -2340,6 +2343,141 @@ void TestChromeWidgetsBatch6(game::ModData& mod_data, ui::ChromeMetrics& metrics
   chrome_provider.Deinitialize();
 }
 
+void TestProductionPaletteBatch10() {
+  using namespace ora;
+
+  static ui::ChromeMetrics metrics_batch10;
+  {
+    const auto dir_metrics = std::filesystem::temp_directory_path() /
+                             "ora_ui_test_batch10_metrics";
+    std::filesystem::create_directories(dir_metrics);
+    {
+      std::ofstream out_metrics(dir_metrics / "metrics.yaml");
+      out_metrics << "Chrome:\n";
+      out_metrics << "\tButtonDepth: 1\n";
+      out_metrics << "\tButtonFont: Regular\n";
+      out_metrics << "\tButtonTextColor: FFFFFFFF\n";
+      out_metrics << "\tButtonTextColorDisabled: 808080FF\n";
+      out_metrics << "\tButtonTextContrast: True\n";
+      out_metrics << "\tButtonTextShadow: False\n";
+      out_metrics << "\tButtonTextContrastColorDark: 000000FF\n";
+      out_metrics << "\tButtonTextContrastColorLight: FFFFFFFF\n";
+      out_metrics << "\tButtonTextContrastRadius: 1\n";
+      out_metrics << "\tClickSound: click_sound\n";
+      out_metrics << "\tClickDisabledSound: click_disabled_sound\n";
+      out_metrics << "\tButtonCursor: default\n";
+      out_metrics << "\tWorldDefaultCursor: default\n";
+      out_metrics << "\tInfiniteOffset: 4, 2\n";
+    }
+    fs::FileSystem fs_metrics;
+    fs_metrics.Mount(dir_metrics.generic_string());
+    const std::vector<std::string> vec_files_metrics{"metrics.yaml"};
+    metrics_batch10.Initialize({&fs_metrics, &vec_files_metrics});
+
+    ui::Ui::Deps deps_batch10;
+    deps_batch10.ptr_chrome_metrics = &metrics_batch10;
+    deps_batch10.fn_window_size = [] { return int2{1280, 720}; };
+    ui::Ui::Instance().Initialize(std::move(deps_batch10));
+  }
+
+  // 无世界形态:字段装载 + 滚动算术 + tabs 空组面
+  // The worldless form: the field loading + the scroll arithmetic + the
+  // tabs' empty-group face.
+  ui::WidgetArgs args_palette;
+  mods::ProductionPaletteWidget widget_palette(args_palette);
+  Check(widget_palette.LoadFieldOrProperty("Columns", "5") &&
+            widget_palette.int4_columns == 5,
+        "p6b10: palette Columns loads");
+  Check(widget_palette.LoadFieldOrProperty("ReadyTextStyle", "Blinking") &&
+            widget_palette.kind_ready_text_style ==
+                mods::ReadyTextStyleOptions::Blinking,
+        "p6b10: ReadyTextStyle Blinking loads");
+  Check(widget_palette.LoadFieldOrProperty("QueuedTextAlign", "Center") &&
+            widget_palette.kind_queued_text_align == mods::TextAlign::Center,
+        "p6b10: QueuedTextAlign Center loads");
+  Check(widget_palette.LoadFieldOrProperty("DrawTime", "False") &&
+            !widget_palette.b_draw_time,
+        "p6b10: DrawTime False loads");
+  Check(widget_palette.LoadFieldOrProperty("IconSize", "64, 48") &&
+            widget_palette.int2_icon_size == int2{64, 48},
+        "p6b10: IconSize tuple loads");
+  Check(widget_palette.LoadFieldOrProperty("TooltipTemplate",
+                                           "PRODUCTION_TOOLTIP_CUSTOM") &&
+            widget_palette.str_tooltip_template ==
+                "PRODUCTION_TOOLTIP_CUSTOM",
+        "p6b10: TooltipTemplate loads");
+  ui::WidgetArgs args_palette_init;
+  widget_palette.Initialize(args_palette_init);
+  Check(widget_palette.CanScrollUp() == false && widget_palette.int4_icon_row_offset == 0,
+        "p6b10: palette starts unscrolled");
+  widget_palette.ScrollDown();
+  Check(widget_palette.int4_icon_row_offset == 0,
+        "p6b10: scroll down clamped with no icons");
+  widget_palette.int4_total_icon_count = 13;
+  widget_palette.int4_columns = 3;
+  widget_palette.int4_max_icon_row_offset = 5;
+  Check(widget_palette.CanScrollDown() == false,
+        "p6b10: 13 icons / 3 cols / cap 5 rows cannot scroll (5 rows total)");
+  widget_palette.int4_max_icon_row_offset = 1;
+  Check(widget_palette.CanScrollDown() == true,
+        "p6b10: 13 icons / 3 cols / cap 1 row can scroll");
+  widget_palette.ScrollToTop();
+  Check(widget_palette.int4_icon_row_offset == 0,
+        "p6b10: ScrollToTop resets");
+  auto widget_palette_clone = widget_palette.Clone();
+  Check(widget_palette_clone->TypeName() ==
+            std::string_view{"ProductionPaletteWidget"},
+        "p6b10: palette clone type");
+  Check(static_cast<mods::ProductionPaletteWidget*>(widget_palette_clone.get())
+            ->int4_columns == 3,
+        "p6b10: palette clone carries the loaded Columns field");
+
+  ui::WidgetArgs args_tabs;
+  mods::ProductionTabsWidget widget_tabs(args_tabs);
+  Check(widget_tabs.GroupsForTest().empty(),
+        "p6b10: worldless tabs gather no groups");
+  Check(widget_tabs.LoadFieldOrProperty("TabWidth", "30") &&
+            widget_tabs.LoadFieldOrProperty("DecorationScrollLeft",
+                                            "scroll-left") &&
+            widget_tabs.LoadFieldOrProperty("TabColorDone", "FFD700FF"),
+        "p6b10: tabs fields load");
+  ui::WidgetArgs args_tabs_init;
+  widget_tabs.Initialize(args_tabs_init);
+  Check(widget_tabs.HandleKeyPress(KeyInput{
+            .Event = KeyInputEvent::Down,
+            .Key = Keycode::A,
+            .ModifierFlags = Modifiers::None,
+            .MultiTapCount = 0,
+            .UnicodeChar = u'a',
+            .IsRepeat = false}) == false,
+        "p6b10: tabs keys unbound without hotkeys");
+  auto widget_tabs_clone = widget_tabs.Clone();
+  Check(widget_tabs_clone->TypeName() ==
+            std::string_view{"ProductionTabsWidget"},
+        "p6b10: tabs clone type");
+
+  // ProductionTabGroup 纯逻辑(命名链续接 + 移除)
+  // ProductionTabGroup's pure logic (the naming-chain continuation + the
+  // removal).
+  mods::ProductionTabGroup group;
+  group.group = "Building";
+  mods::ProductionTab tab_keep{.name = "2", .queue = nullptr};
+  mods::ProductionTab tab_stale{.name = "5", .queue = nullptr};
+  group.vec_tabs = {tab_keep, tab_stale};
+  group.Update({});
+  Check(group.vec_tabs.empty(),
+        "p6b10: every tab goes stale against an empty queue set");
+  Check(group.int4_next_queue_name == 1,
+        "p6b10: stale names leave NextQueueName at 1 (kept-tab naming only)");
+
+  ui::WidgetArgs args_type_button;
+  mods::ProductionTypeButtonWidget widget_type_button(args_type_button);
+  Check(widget_type_button.LoadFieldOrProperty("ProductionGroup",
+                                               "Vehicle") &&
+            widget_type_button.ProductionGroup() == "Vehicle",
+        "p6b10: worldless type button ProductionGroup loads");
+}
+
 void TestInputAssemblyBatch9() {
   using namespace ora;
 
@@ -2896,6 +3034,7 @@ int main(int argc, char** argv) {
   TestWidgetLoader();
   TestPreviewWidgetsBatch8();
   TestInputAssemblyBatch9();
+  TestProductionPaletteBatch10();
 
   // Phase 6 第二批(mod 根经 argv[1] 注入;缺省跳过 —— 与 platform_test 的
   // SKIP 门同形)

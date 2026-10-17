@@ -38,10 +38,12 @@ class ChromeMetrics {
   bool GetBool(std::string_view str_key) const;
   core::Color GetColor(std::string_view str_key) const;
   int2 GetInt2(std::string_view str_key) const;
+  core::Vector2 GetVector2(std::string_view str_key) const;
 
   /// TryGet(L37-47) | TryGet (L37-47).
   bool TryGet(std::string_view str_key, std::string& str_result) const;
   bool TryGetColor(std::string_view str_key, core::Color& color_result) const;
+  bool TryGetVector2(std::string_view str_key, core::Vector2& vec_result) const;
 
  private:
   const std::string* Find(std::string_view str_key) const;

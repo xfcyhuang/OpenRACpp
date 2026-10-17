@@ -11,6 +11,10 @@ namespace ora::net {
 struct Order;
 }
 
+namespace ora::gfx {
+class WorldRenderer;
+}
+
 namespace ora::sim {
 
 class World;
@@ -23,9 +27,12 @@ class IOrderGenerator {
   virtual std::vector<net::Order*> Order(World& world, CPos cell, int2 world_pixel,
                                          const MouseInput& mi) = 0;
   virtual void Tick(World& world) = 0;
-  virtual std::vector<gfx::IRenderable*> Render(World& world) = 0;
-  virtual std::vector<gfx::IRenderable*> RenderAboveShroud(World& world) = 0;
-  virtual std::vector<gfx::IRenderable*> RenderAnnotations(World& world) = 0;
+  virtual std::vector<gfx::IRenderable*> Render(gfx::WorldRenderer& wr,
+                                                World& world) = 0;
+  virtual std::vector<gfx::IRenderable*> RenderAboveShroud(gfx::WorldRenderer& wr,
+                                                           World& world) = 0;
+  virtual std::vector<gfx::IRenderable*> RenderAnnotations(
+      gfx::WorldRenderer& wr, World& world) = 0;
   virtual std::string GetCursor(World& world, CPos cell, int2 world_pixel,
                                 const MouseInput& mi) = 0;
   virtual void Deactivate() = 0;

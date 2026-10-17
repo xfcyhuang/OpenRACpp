@@ -527,7 +527,20 @@ add_library(ora_mods STATIC
   src/mods/immobile.cpp
   src/mods/seeds_resource.cpp
   src/mods/world_interaction_controller.cpp
-  src/mods/viewport_controller.cpp)
+  src/mods/viewport_controller.cpp
+  src/mods/line_build.cpp
+  src/mods/plug.cpp
+  src/mods/place_building.cpp
+  src/mods/primary_building.cpp
+  src/mods/building_utils.cpp
+  src/mods/bulk_production_queue.cpp
+  src/mods/production_icon_overlay.cpp
+  src/mods/footprint_place_building_preview.cpp
+  src/mods/place_building_order_generator.cpp
+  src/mods/ai_utils.cpp
+  src/mods/trait_registry_batch10.cpp
+  src/mods/production_palette_widget.cpp
+  src/mods/production_tabs_widget.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui)
 ora_link_std(ora_mods)
 
