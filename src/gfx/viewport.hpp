@@ -52,35 +52,6 @@ import std;
 
 namespace ora::gfx {
 
-/// 滚动方向(Viewport.cs L22;[Flags])。
-/// Scroll directions (Viewport.cs L22; [Flags]).
-enum class ScrollDirection : std::uint8_t {
-  None = 0,
-  Up = 1,
-  Left = 2,
-  Down = 4,
-  Right = 8,
-};
-
-/// ViewportExts.Includes(L31-35):(d &amp; s) == s(上游 PERF 注释:快于
-/// Enum.HasFlag 且零分配)。
-/// ViewportExts.Includes (L31-35): (d & s) == s (the upstream PERF note:
-/// faster than Enum.HasFlag with zero allocations).
-constexpr bool Includes(ScrollDirection d_kind, ScrollDirection s_kind) {
-  return (static_cast<std::uint8_t>(d_kind) & static_cast<std::uint8_t>(s_kind)) ==
-         static_cast<std::uint8_t>(s_kind);
-}
-
-/// ViewportExts.Set(L37-40):包含态与 val 不一致时翻转 s。
-/// ViewportExts.Set (L37-40): toggles s when the inclusion state differs
-/// from val.
-constexpr ScrollDirection SetDirection(ScrollDirection d_kind, ScrollDirection s_kind, bool b_val) {
-  return Includes(d_kind, s_kind) != b_val
-             ? static_cast<ScrollDirection>(static_cast<std::uint8_t>(d_kind) ^
-                                            static_cast<std::uint8_t>(s_kind))
-             : d_kind;
-}
-
 /// 视口距离档(Settings.cs L50)。
 /// The viewport-distance tiers (Settings.cs L50).
 enum class WorldViewport : std::uint8_t { Native, Close, Medium, Far };

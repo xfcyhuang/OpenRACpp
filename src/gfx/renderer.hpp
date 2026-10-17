@@ -70,6 +70,7 @@ import std;
 #include "gfx/sprite_font.hpp"
 #include "gfx/sprite_renderer.hpp"
 #include "gfx/vertex_buffer.hpp"
+#include "platform/sdl2_input.hpp"
 #include "platform/sdl2_window.hpp"
 
 namespace ora::gfx {
@@ -129,7 +130,7 @@ class Renderer {
 
   void BeginWorld(core::Vector2 vec_viewport_location, int2 int2_viewport_size);
   void BeginUI();
-  void EndFrame();
+  void EndFrame(IInputHandler* ptr_input_handler = nullptr);
 
   /// InitializeFonts(Renderer.cs L129-153):旧字体释放 → 新 SheetBuilder
   /// (BGRA,FontSheetSize)→ 逐 FontList 项构造 SpriteFont。上游的
@@ -213,6 +214,10 @@ class Renderer {
   platform::Sdl2Window& window() { return window_; }
   RenderThread& render() { return render_; }
 
+  Sdl2Input& input() { return input_; }
+  bool InputQuitRequested() const { return b_input_quit_requested_; }
+  void ClearInputQuitRequested() { b_input_quit_requested_ = false; }
+
   /// 剪贴板对(Renderer.cs L568-575 的 Window 转发;TextFieldWidget 的
   /// Ctrl+C/X/V 消费)。
   /// The clipboard pair (Renderer.cs L568-575's Window forwarding; consumed
@@ -252,6 +257,8 @@ class Renderer {
 
   platform::Sdl2Window& window_;
   RenderThread& render_;
+  Sdl2Input input_{window_};
+  bool b_input_quit_requested_ = false;
 
   std::optional<VertexBuffer> opt_vertex_buffer_;
   std::optional<IndexBuffer> opt_index_buffer_;

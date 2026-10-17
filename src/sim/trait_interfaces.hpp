@@ -1734,6 +1734,36 @@ class ISelectable {
   virtual std::string_view Class() const = 0;
 };
 
+class IVoiced {
+ public:
+  static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IVoiced;
+  virtual ~IVoiced() = default;
+  virtual std::string_view VoiceSet() const = 0;
+  virtual bool PlayVoice(Actor& self, std::string_view str_phrase,
+                         std::string_view str_variant) = 0;
+  virtual bool PlayVoiceLocal(Actor& self, std::string_view str_phrase,
+                              std::string_view str_variant, float fp4_volume) = 0;
+  virtual bool HasVoice(Actor& self, std::string_view str_voice) = 0;
+};
+
+class INotifyOrderIssued {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyOrderIssued;
+  virtual ~INotifyOrderIssued() = default;
+  virtual bool OrderIssued(World& world, std::string_view str_order_string,
+                           const Target& target) = 0;
+};
+
+class IProvideTooltipInfo {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Traits_IProvideTooltipInfo;
+  virtual ~IProvideTooltipInfo() = default;
+  virtual bool IsTooltipVisible(Player* for_player) = 0;
+  virtual std::string_view TooltipText() const = 0;
+};
+
 /// ExternalCondition.cs L17-20:IConditionTimerWatcher(计时型外部条件
 /// 的观察者;Duration/Remaining 每 tick 通知)
 /// ExternalCondition.cs L17-20: IConditionTimerWatcher (the observer of

@@ -8,7 +8,9 @@ import std;
 #include "game/actor_info.hpp"
 #include "net/order.hpp"
 #include "sim/actor.hpp"
+#include "sim/frozen_actor_layer.hpp"
 #include "sim/screen_map.hpp"
+#include "sim/selectable_exts.hpp"
 #include "sim/selection.hpp"
 #include "sim/world.hpp"
 
@@ -34,30 +36,48 @@ UnitOrderGenerator::UnitOrderGenerator(sim::World& world,
 sim::Target UnitOrderGenerator::TargetForInput(sim::World& world, CPos cell,
                                                int2 world_pixel,
                                                const MouseInput& mi) {
-  sim::Actor* best = nullptr;
+  std::vector<sim::ActorBoundsPair> eligible;
   for (const sim::ActorBoundsPair& a : world.ScreenMapFace()->ActorsAtMouse(
            int2{mi.Location.X, mi.Location.Y})) {
-    // Where 谓词(L40)| the Where predicate (L40).
     if (a.ptr_actor->IsDead() || a.ptr_actor->Info() == nullptr ||
         !a.ptr_actor->Info()->HasTraitInfoOfInterface(
             "OpenRA.Traits.ITargetableInfo") ||
         world.FogObscures(*a.ptr_actor))
       continue;
-
-    // WithHighestSelectionPriority(worldPixel, mi.Modifiers)(L41):
-    // 选择优先级 trait 面随 Selection 批 —— 空优先级面下的首达形态
-    // (头注)| (the header note).
-    best = a.ptr_actor;
-    break;
+    eligible.push_back(a);
   }
+
+  sim::Actor* best =
+      sim::WithHighestSelectionPriority(eligible, world_pixel,
+                                         mi.ModifierFlags);
 
   if (best != nullptr)
     return sim::Target::FromActor(best);
 
-  // FrozenActorsAtMouse 分支(L46-51):FrozenActorLayer 随其批 —— 部分覆盖
-  // 装配面下恒空(头注)| (the header note).
+  std::vector<sim::FrozenActor*> frozen_eligible;
+  for (sim::FrozenActor* a : world.ScreenMapFace()->FrozenActorsAtMouse(
+           world.RenderPlayer(), int2{mi.Location.X, mi.Location.Y})) {
+    if (!a->Info().HasTraitInfoOfInterface("OpenRA.Traits.ITargetableInfo") ||
+        !a->Visible() || !a->HasRenderables())
+      continue;
+    frozen_eligible.push_back(a);
+  }
+
+  sim::FrozenActor* frozen = sim::WithHighestSelectionPriority(
+      frozen_eligible, world_pixel, mi.ModifierFlags);
+
+  if (frozen != nullptr)
+    return sim::Target::FromFrozenActor(frozen);
 
   return world.TargetFromCell(cell, sim::SubCell::Any);
+}
+
+MouseButton UnitOrderGenerator::ActionButton() const {
+  return game_settings_.ResolveActionButton(ActionType());
+}
+
+MouseButton UnitOrderGenerator::CancelButton() const {
+  return game_settings_.ResolveCancelButton(ActionType());
 }
 
 // ———— Order(L56-64)————
@@ -106,7 +126,7 @@ std::vector<net::Order*> UnitOrderGenerator::OrderInner(
                                actors_involved[0]->Owner()->PlayerActor(),
                                false, actors_involved));
 
-  const bool queued = HasModifier(mi.Modifiers, Modifiers::Shift);
+  const bool queued = HasModifier(mi.ModifierFlags, Modifiers::Shift);
   for (UnitOrderResult& o : orders)
     out.push_back(CheckSameOrder(
         o.order,
@@ -132,13 +152,8 @@ void UnitOrderGenerator::SelectionChanged(sim::World&,
 
 // ———— GetCursor(L92-115)————
 std::string UnitOrderGenerator::GetCursor(sim::World& world, CPos cell,
-                                          int2 world_pixel) {
-  // GetCursor(world, cell, worldPixel, mi) 的 UI 输入重载随输入装配批;
-  // 无 mi 的接口面以默认 MouseInput 承载(部分覆盖装配面)
-  // The mi-carrying overload lands with the input-assembly batch; the
-  // mi-free interface face stands in with a default MouseInput (the
-  // partial-coverage assembly face).
-  const MouseInput mi{};
+                                          int2 world_pixel,
+                                          const MouseInput& mi) {
   const sim::Target target = TargetForInput(world, cell, world_pixel, mi);
 
   bool use_select;
@@ -189,22 +204,20 @@ std::string UnitOrderGenerator::GetCursor(sim::World& world, CPos cell,
 // ———— InputOverridesSelection(L122-154)————
 bool UnitOrderGenerator::InputOverridesSelection(sim::World& world, int2 xy,
                                                  const MouseInput& mi) {
-  sim::Actor* actor = nullptr;
+  std::vector<sim::ActorBoundsPair> eligible;
   for (const sim::ActorBoundsPair& a :
        world.ScreenMapFace()->ActorsAtMouse(xy)) {
-    // Where(L124-129)| (L124-129).
     if (a.ptr_actor->IsDead() || a.ptr_actor->Info() == nullptr ||
         !a.ptr_actor->Info()->HasTraitInfoOfInterface(
             "OpenRA.Traits.ISelectableInfo"))
       continue;
-    // (a.Actor.Owner.IsAlliedWith(world.RenderPlayer) ||
-    //  !world.FogObscures(a.Actor))(L128)
     if (!(a.ptr_actor->Owner()->IsAlliedWith(world.RenderPlayer()) ||
           !world.FogObscures(*a.ptr_actor)))
       continue;
-    actor = a.ptr_actor;
-    break;  // WithHighestSelectionPriority 的首达形态(头注)
+    eligible.push_back(a);
   }
+  sim::Actor* actor =
+      sim::WithHighestSelectionPriority(eligible, xy, mi.ModifierFlags);
 
   if (actor == nullptr)
     return true;
@@ -214,11 +227,11 @@ bool UnitOrderGenerator::InputOverridesSelection(sim::World& world, int2 xy,
   const std::vector<Actor*> actors_at = world.ActorMapFace()->GetActorsAt(cell);
 
   TargetModifiers modifiers = TargetModifiers::None;
-  if (HasModifier(mi.Modifiers, Modifiers::Ctrl))
+  if (HasModifier(mi.ModifierFlags, Modifiers::Ctrl))
     modifiers = modifiers | TargetModifiers::ForceAttack;
-  if (HasModifier(mi.Modifiers, Modifiers::Shift))
+  if (HasModifier(mi.ModifierFlags, Modifiers::Shift))
     modifiers = modifiers | TargetModifiers::ForceQueue;
-  if (HasModifier(mi.Modifiers, Modifiers::Alt))
+  if (HasModifier(mi.ModifierFlags, Modifiers::Alt))
     modifiers = modifiers | TargetModifiers::ForceMove;
 
   if (ISelection* selection = world.Selection()) {
@@ -250,11 +263,11 @@ std::optional<UnitOrderResult> UnitOrderGenerator::OrderForUnit(
     return std::nullopt;
 
   TargetModifiers modifiers = TargetModifiers::None;
-  if (HasModifier(mi.Modifiers, Modifiers::Ctrl))
+  if (HasModifier(mi.ModifierFlags, Modifiers::Ctrl))
     modifiers = modifiers | TargetModifiers::ForceAttack;
-  if (HasModifier(mi.Modifiers, Modifiers::Shift))
+  if (HasModifier(mi.ModifierFlags, Modifiers::Shift))
     modifiers = modifiers | TargetModifiers::ForceQueue;
-  if (HasModifier(mi.Modifiers, Modifiers::Alt))
+  if (HasModifier(mi.ModifierFlags, Modifiers::Alt))
     modifiers = modifiers | TargetModifiers::ForceMove;
 
   // orders = TraitsImplementing<IIssueOrder>().SelectMany(Orders) 按

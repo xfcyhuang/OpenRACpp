@@ -22,28 +22,37 @@ std::vector<WDist> ParseWDistArray(const meta::RecordObject& rec,
   if (const auto* gv = sim::RecordFieldValue(rec, str_name))
     if (const auto* arr = std::get_if<std::vector<meta::GenericValue>>(
             &gv->val))
-      for (const meta::GenericValue& element : *arr)
+      for (const meta::GenericValue& element : *arr) {
         if (const auto* tuple =
-                std::get_if<meta::GenericTuple>(&element.val))
+                std::get_if<meta::GenericTuple>(&element.val)) {
           if (tuple->uint1_count >= 1)
             out.push_back(
                 WDist{static_cast<int>(tuple->arr_ints[0])});
+        } else if (const auto* n = std::get_if<std::int64_t>(&element.val)) {
+          out.push_back(WDist{static_cast<int>(*n)});
+        }
+      }
   return out;
 }
 
 std::vector<int2> ParseInt2Array(const meta::RecordObject& rec,
                                  std::string_view str_name) {
   std::vector<int2> out;
+  std::vector<std::int32_t> vec_flat;
   if (const auto* gv = sim::RecordFieldValue(rec, str_name))
     if (const auto* arr = std::get_if<std::vector<meta::GenericValue>>(
             &gv->val))
-      for (const meta::GenericValue& element : *arr)
+      for (const meta::GenericValue& element : *arr) {
         if (const auto* tuple =
-                std::get_if<meta::GenericTuple>(&element.val))
-          if (tuple->uint1_count >= 2)
-            out.push_back(int2{
-                static_cast<std::int32_t>(tuple->arr_ints[0]),
-                static_cast<std::int32_t>(tuple->arr_ints[1])});
+                std::get_if<meta::GenericTuple>(&element.val)) {
+          for (std::size_t i = 0; i < tuple->uint1_count; i++)
+            vec_flat.push_back(static_cast<std::int32_t>(tuple->arr_ints[i]));
+        } else if (const auto* n = std::get_if<std::int64_t>(&element.val)) {
+          vec_flat.push_back(static_cast<std::int32_t>(*n));
+        }
+      }
+  for (std::size_t i = 0; i + 1 < vec_flat.size(); i += 2)
+    out.push_back(int2{vec_flat[i], vec_flat[i + 1]});
   return out;
 }
 

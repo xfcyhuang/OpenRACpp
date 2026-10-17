@@ -79,6 +79,15 @@ bool ChromeMetrics::TryGet(std::string_view str_key, std::string& str_result) co
   return true;
 }
 
+bool ChromeMetrics::TryGetColor(std::string_view str_key,
+                                core::Color& color_result) const {
+  const std::string* ptr_value = Find(str_key);
+  if (ptr_value == nullptr)
+    return false;
+  color_result = meta::GetColorValue(str_key, *ptr_value);
+  return true;
+}
+
 const std::string* ChromeMetrics::Find(std::string_view str_key) const {
   for (const auto& [str_entry_key, str_entry_value] : vec_data_)
     if (str_entry_key == str_key)

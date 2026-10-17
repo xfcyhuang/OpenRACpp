@@ -8,21 +8,6 @@
 //    The base's ActionButton/CancelButton → the GameSettingsFace injection
 //    (replaced in the D101 Settings batch); the classic-style ctor's
 //    selection clear (L26-28) kept.
-//  - TargetForInput 的 FrozenActorsAtMouse 分支(L46-51)与 FogObscures 过滤
-//    (L40):FrozenActorLayer/Shroud 随其批 —— 部分覆盖装配面下 frozen 分支
-//    恒空、fog 恒假(World.FogObscures 的注入面缺省;COVERAGE 登记)
-//    The TargetForInput FrozenActorsAtMouse branch (L46-51) and the
-//    FogObscures filter (L40): FrozenActorLayer/Shroud land with their
-//    batches — under the partial-coverage assembly face the frozen branch
-//    stays empty and fog stays false (the default of World.FogObscures's
-//    injection face; in COVERAGE).
-//  - WithHighestSelectionPriority(Exts.cs):IIssueOrder trait 未注册时空集
-//    等价(上游扩展随 Selection trait 批接入 —— 本批先以最低优先序首达
-//    形态承载,消耗面 = 空 actor 集)
-//    WithHighestSelectionPriority: with no IIssueOrder traits registered
-//    the empty-set equivalence holds (the upstream extension lands with
-//    the Selection trait batch — carried this batch as a first-hit
-//    lowest-priority form over the empty actor set).
 //  - TextNotificationsManager.Debug(CheckSameOrder,L204-211)→ 注入钩子
 //    (通知管理器随 Phase 6)| the injected hook (the notification manager
 //    lands in Phase 6).
@@ -69,7 +54,7 @@ class UnitOrderGenerator : public sim::IOrderGenerator {
 
   /// Order(L56-64) | Order (L56-64).
   std::vector<net::Order*> Order(sim::World& world, CPos cell,
-                                 int2 world_pixel, const MouseInput& mi);
+                                 int2 world_pixel, const MouseInput& mi) override;
 
   /// OrderInner(L66-84) | OrderInner (L66-84).
   std::vector<net::Order*> OrderInner(sim::World& world, CPos cell,
@@ -77,14 +62,16 @@ class UnitOrderGenerator : public sim::IOrderGenerator {
                                       const MouseInput& mi);
 
   // ———— IOrderGenerator 全量(IOrderGenerator.cs L20-27)————
+  MouseButton ActionButton() const;                                        // L28
+  MouseButton CancelButton() const;                                        // L29
   void Tick(sim::World& world) override;                                     // L86
   std::vector<gfx::IRenderable*> Render(sim::World& world) override;         // L88
   std::vector<gfx::IRenderable*> RenderAboveShroud(sim::World& world) override;  // L89
   std::vector<gfx::IRenderable*> RenderAnnotations(sim::World& world) override;  // L90
   std::string GetCursor(sim::World& world, CPos cell,
-                        int2 world_pixel) override;                        // L92
+                        int2 world_pixel, const MouseInput& mi) override;   // L92
   void Deactivate() override;                                                // L117
-  bool HandleKeyPress() override { return false; }                           // L119
+  bool HandleKeyPress(const KeyInput& e_input) override { return false; }    // L119
   void SelectionChanged(sim::World& world,
                         std::span<sim::Actor* const> selected) override;     // L156
 
@@ -102,6 +89,11 @@ class UnitOrderGenerator : public sim::IOrderGenerator {
   bool ClearSelectionOnLeftClick() const { return b_clear_selection_on_left_click_; }
   bool HasIssuedQueuedCommand() const { return b_has_issued_queued_command_; }
   void SetHasIssuedQueuedCommand(bool b) { b_has_issued_queued_command_ = b; }
+
+ protected:
+  virtual MouseActionType ActionType() const {
+    return MouseActionType::Contextual;
+  }
 
  private:
   /// CheckSameOrder(L204-211) | CheckSameOrder (L204-211).

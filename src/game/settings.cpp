@@ -108,8 +108,8 @@ const std::vector<GenericValue>& GameSettingsDefaults() {
       GenericValue::Of(true),
       GenericValue::Of(static_cast<std::int64_t>(5)),
       GenericValue::Of(false),
-      GenericValue::Of(static_cast<std::int64_t>(0)),
-      GenericValue::Of(static_cast<std::int64_t>(0)),
+      GenericValue::Of(static_cast<std::int64_t>(1)),
+      GenericValue::Of(static_cast<std::int64_t>(3)),
       GenericValue::Of(30.0f),
       GenericValue::Of(50.0f),
       GenericValue::Of(0.04f),
@@ -118,7 +118,7 @@ const std::vector<GenericValue>& GameSettingsDefaults() {
       GenericValue::Of(false),
       GenericValue::Of(false),
       GenericValue::Of(static_cast<std::int64_t>(0)),
-      GenericValue::Of(static_cast<std::int64_t>(0)),
+      GenericValue::Of(static_cast<std::int64_t>(1)),
       GenericValue::Of(false),
   };
   return vec_defaults;
@@ -304,6 +304,35 @@ void RegisterGraphicSettingsEnums() {
   meta::RegisterEnum("OpenRA.WorldViewport", kEnumWorldViewport);
 }
 
+constexpr meta::EnumMemberDesc kEnumMouseControlStyle[] = {
+    {.str_name = "Classic", .int4_value = 0},
+    {.str_name = "Modern", .int4_value = 1},
+    {.str_name = "OtherRTS", .int4_value = 2},
+};
+constexpr meta::EnumMemberDesc kEnumMouseScrollType[] = {
+    {.str_name = "Disabled", .int4_value = 0},
+    {.str_name = "Standard", .int4_value = 1},
+    {.str_name = "Inverted", .int4_value = 2},
+    {.str_name = "Joystick", .int4_value = 3},
+};
+constexpr meta::EnumMemberDesc kEnumStatusBarsType[] = {
+    {.str_name = "Standard", .int4_value = 0},
+    {.str_name = "DamageShow", .int4_value = 1},
+    {.str_name = "AlwaysShow", .int4_value = 2},
+};
+constexpr meta::EnumMemberDesc kEnumTargetLinesType[] = {
+    {.str_name = "Disabled", .int4_value = 0},
+    {.str_name = "Manual", .int4_value = 1},
+    {.str_name = "Automatic", .int4_value = 2},
+};
+
+void RegisterGameSettingsEnums() {
+  meta::RegisterEnum("OpenRA.MouseControlStyle", kEnumMouseControlStyle);
+  meta::RegisterEnum("OpenRA.MouseScrollType", kEnumMouseScrollType);
+  meta::RegisterEnum("OpenRA.StatusBarsType", kEnumStatusBarsType);
+  meta::RegisterEnum("OpenRA.TargetLinesType", kEnumTargetLinesType);
+}
+
 }  // namespace
 
 const meta::RecordDesc* SettingsDescOf(std::string_view str_section) {
@@ -326,9 +355,10 @@ SettingsModule::SettingsModule(const meta::RecordDesc& desc,
   const std::vector<GenericValue>* ptr_defaults = nullptr;
   if (&desc == &kPlayerSettingsDesc)
     ptr_defaults = &PlayerSettingsDefaults();
-  else if (&desc == &kGameSettingsDesc)
+  else if (&desc == &kGameSettingsDesc) {
+    RegisterGameSettingsEnums();
     ptr_defaults = &GameSettingsDefaults();
-  else if (&desc == &kGraphicSettingsDesc) {
+  } else if (&desc == &kGraphicSettingsDesc) {
     RegisterGraphicSettingsEnums();
     ptr_defaults = &GraphicSettingsDefaults();
   } else if (&desc == &kDebugSettingsDesc)

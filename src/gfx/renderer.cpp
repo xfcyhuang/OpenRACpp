@@ -298,7 +298,7 @@ void Renderer::BeginUI() {
   kind_render_type_ = RenderType::UI;
 }
 
-void Renderer::EndFrame() {
+void Renderer::EndFrame(IInputHandler* ptr_input_handler) {
   if (kind_render_type_ != RenderType::UI)
     throw std::runtime_error(std::format("EndFrame called with renderType = {}, expected RenderType.UI.",
                                          static_cast<std::int32_t>(kind_render_type_)));
@@ -312,6 +312,9 @@ void Renderer::EndFrame() {
 
   Present();
   kind_render_type_ = RenderType::None;
+
+  if (ptr_input_handler != nullptr && input_.PumpInput(*ptr_input_handler))
+    b_input_quit_requested_ = true;
 }
 
 void Renderer::Present() {

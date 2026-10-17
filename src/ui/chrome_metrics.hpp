@@ -41,6 +41,7 @@ class ChromeMetrics {
 
   /// TryGet(L37-47) | TryGet (L37-47).
   bool TryGet(std::string_view str_key, std::string& str_result) const;
+  bool TryGetColor(std::string_view str_key, core::Color& color_result) const;
 
  private:
   const std::string* Find(std::string_view str_key) const;

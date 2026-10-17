@@ -163,6 +163,7 @@ class FrozenActor final {
   bool Shrouded() const { return b_shrouded_; }        // L71
   bool NeedRenderables() const { return b_need_renderables_; }  // L72
   void SetNeedRenderables(bool b) { b_need_renderables_ = b; }
+  bool HasRenderables() const { return Renderables != nullptr; }
   bool UpdateVisibilityNextTick() const {  // L73
     return b_update_visibility_next_tick_;
   }

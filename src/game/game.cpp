@@ -19,6 +19,7 @@ import std;
 #include "sim/trait_registry.hpp"
 #include "sim/world.hpp"
 #include "sound/sound.hpp"
+#include "ui/default_input_handler.hpp"
 
 namespace ora::game {
 
@@ -346,8 +347,18 @@ void Game::RenderTick() {
     deps_.ptr_cursor->Render(*deps_.ptr_renderer);
   }
 
-  // 上游 EndFrame(new DefaultInputHandler(OM.World));输入面随 Phase 7 接线
-  deps_.ptr_renderer->EndFrame();
+  // EndFrame(new DefaultInputHandler(OM.World))(Game.cs L753;无 OM 世界 =
+  // NullInputHandler 的上游等价缺省)
+  // EndFrame(new DefaultInputHandler(OM.World)) (Game.cs L753; a missing OM
+  // world falls to the NullInputHandler equivalent).
+  net::OrderManager* ptr_om_input = OrderManagerFace();
+  if (ptr_om_input != nullptr && ptr_om_input->World() != nullptr) {
+    ui::DefaultInputHandler handler_input(*this, ptr_om_input->World());
+    deps_.ptr_renderer->EndFrame(&handler_input);
+  } else {
+    NullInputHandler handler_input_null{};
+    deps_.ptr_renderer->EndFrame(&handler_input_null);
+  }
 
   // takeScreenshot/PerfHistory 计面桩(Phase 5) | the takeScreenshot/
   // PerfHistory stubs (Phase 5)
@@ -436,6 +447,8 @@ void Game::Loop() {
         int8_forced_next_render = int8_now + int8_max_render_interval;
 
         RenderTick();
+        if (deps_.ptr_renderer != nullptr && deps_.ptr_renderer->InputQuitRequested())
+          Exit();
         b_render_before_next_tick = false;
       }
 

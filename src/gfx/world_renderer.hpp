@@ -123,6 +123,32 @@ struct ITerrainLighting {
 /// Viewport 的最小渲染面(完整 Viewport 随 Phase 5 的 Map;上游 Viewport.cs)。
 /// The minimal render surface of the Viewport (the full Viewport arrives with
 /// Phase 5's Map; upstream Viewport.cs).
+enum class ScrollDirection : std::uint8_t {
+  None = 0,
+  Up = 1,
+  Left = 2,
+  Down = 4,
+  Right = 8,
+};
+
+constexpr bool Includes(ScrollDirection d_kind, ScrollDirection s_kind) {
+  return (static_cast<std::uint8_t>(d_kind) & static_cast<std::uint8_t>(s_kind)) ==
+         static_cast<std::uint8_t>(s_kind);
+}
+
+constexpr ScrollDirection operator|(ScrollDirection d_a, ScrollDirection d_b) {
+  return static_cast<ScrollDirection>(static_cast<std::uint8_t>(d_a) |
+                                      static_cast<std::uint8_t>(d_b));
+}
+
+constexpr ScrollDirection SetDirection(ScrollDirection d_kind, ScrollDirection s_kind,
+                                       bool b_val) {
+  return Includes(d_kind, s_kind) != b_val
+             ? static_cast<ScrollDirection>(static_cast<std::uint8_t>(d_kind) ^
+                                            static_cast<std::uint8_t>(s_kind))
+             : d_kind;
+}
+
 struct IViewportSurface {
   virtual int2 WorldToViewPx(int2 int2_world) = 0;
   virtual int2 WorldToViewPx(const core::Vector3& vec_world) = 0;
@@ -146,10 +172,34 @@ struct IViewportSurface {
   /// Center 族(Viewport.cs L350-362 的接口面;Center(IEnumerable&lt;Actor&gt;)
   /// 的均值由调用方求 —— ControlGroupsWidget 消费)
   /// The Center family (the interface face of Viewport.cs L350-362; the
-  /// Center(IEnumerable&lt;Actor&gt;) mean is the caller's — consumed by
+  /// Center(IEnumerable<Actor>) mean is the caller's — consumed by
   /// ControlGroupsWidget).
   virtual void Center(const WPos& wpos_pos) { (void)wpos_pos; }
   virtual void Center(core::Vector2 vec_pos) { (void)vec_pos; }
+  virtual CPos ViewToWorld(int2 int2_view) {
+    (void)int2_view;
+    return CPos{0, 0};
+  }
+  virtual int2 ViewToWorldPx(int2 int2_view) {
+    (void)int2_view;
+    return int2{0, 0};
+  }
+  virtual WPos CenterPosition() const { return WPos{}; }
+  virtual void Scroll(core::Vector2 vec_delta, bool b_ignore_borders) {
+    (void)vec_delta;
+    (void)b_ignore_borders;
+  }
+  virtual void AdjustZoom(float fp4_dz) { (void)fp4_dz; }
+  virtual void AdjustZoom(float fp4_dz, int2 int2_center) {
+    (void)fp4_dz;
+    (void)int2_center;
+  }
+  virtual ScrollDirection GetBlockedDirections() const { return ScrollDirection::None; }
+  virtual std::uint64_t SubscribeViewportTick(std::function<void()> fn_listener) {
+    (void)fn_listener;
+    return 0;
+  }
+  virtual void UnsubscribeViewportTick(std::uint64_t uint8_token) { (void)uint8_token; }
   virtual ~IViewportSurface() = default;
 };
 

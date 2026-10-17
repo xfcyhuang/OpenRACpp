@@ -57,7 +57,8 @@ constexpr Modifiers operator|(Modifiers v_a, Modifiers v_b) {
 }
 constexpr Modifiers& operator|=(Modifiers& v_a, Modifiers v_b) { v_a = v_a | v_b; return v_a; }
 constexpr bool HasModifier(Modifiers v_m, Modifiers v_flag) {
-  return (static_cast<std::uint8_t>(v_m) & static_cast<std::uint8_t>(v_flag)) != 0;
+  return (static_cast<std::uint8_t>(v_m) & static_cast<std::uint8_t>(v_flag)) ==
+         static_cast<std::uint8_t>(v_flag);
 }
 
 /// 鼠标输入事件(IInputHandler.cs L26 的 record struct;字段名保留上游)。

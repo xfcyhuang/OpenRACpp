@@ -41,6 +41,7 @@ import std;
 #include "sim/order_generator.hpp"
 #include "sim/player.hpp"
 #include "sim/selection.hpp"
+#include "sim/shroud.hpp"
 #include "sim/screen_map.hpp"
 #include "sim/target.hpp"
 #include "sim/sync_hash.hpp"
@@ -188,6 +189,10 @@ class World final {
   bool FogObscures(const WPos& pos) {
     return RenderPlayer() != nullptr &&
            (fn_fog_obscures_pos_ ? fn_fog_obscures_pos_(pos) : false);
+  }
+  bool ShroudObscures(const CPos& p) {
+    return RenderPlayer() != nullptr && RenderPlayer()->GetShroud() != nullptr &&
+           !RenderPlayer()->GetShroud()->IsExplored(p);
   }
 
   /// 上游 trait 查询的"缺实例"异常文本(ActorMap/ControlGroups 等待补批)

@@ -28,6 +28,8 @@ import std;
 #include "map/map.hpp"
 #include "map/map_cache.hpp"
 #include "mods/create_map_players.hpp"
+#include "mods/viewport_controller.hpp"
+#include "mods/world_interaction_controller.hpp"
 #include "net/session.hpp"
 #include "server/game_information.hpp"
 #include "server/game_server.hpp"
@@ -43,6 +45,7 @@ void RegisterGeneratedAll();
 #include "platform/ifont.hpp"
 #include "sim/world.hpp"
 #include "ui/chrome_metrics.hpp"
+#include "ui/default_input_handler.hpp"
 #include "ui/hotkey.hpp"
 #include "ui/ui.hpp"
 #include "ui/widget_loader.hpp"
@@ -2337,6 +2340,111 @@ void TestChromeWidgetsBatch6(game::ModData& mod_data, ui::ChromeMetrics& metrics
   chrome_provider.Deinitialize();
 }
 
+void TestInputAssemblyBatch9() {
+  using namespace ora;
+
+  GameSettingsFace face_settings;
+  Check(face_settings.ResolveActionButton(MouseActionType::Contextual) ==
+            MouseButton::Right,
+        "p6b9: modern Contextual action = Right");
+  Check(face_settings.ResolveActionButton(MouseActionType::ConfirmOrder) ==
+            MouseButton::Right,
+        "p6b9: modern ConfirmOrder action = Right");
+  Check(face_settings.ResolveActionButton(MouseActionType::GlobalCommand) ==
+            MouseButton::Left,
+        "p6b9: modern GlobalCommand action = Left");
+  face_settings.mouse_control_style = MouseControlStyle::Classic;
+  Check(face_settings.ResolveActionButton(MouseActionType::Contextual) ==
+            MouseButton::Left,
+        "p6b9: classic Contextual action = Left");
+  Check(face_settings.ResolveActionButton(MouseActionType::Contextual) ==
+                MouseButton::Left
+            ? face_settings.ResolveCancelButton(MouseActionType::Contextual) ==
+                  MouseButton::Right
+            : false,
+        "p6b9: cancel mirrors action");
+
+  const GameSettingsInputFace face_input_defaults{};
+  Check(face_input_defaults.b_viewport_edge_scroll &&
+            face_input_defaults.int4_viewport_edge_scroll_margin == 5 &&
+            face_input_defaults.fp4_viewport_edge_scroll_step == 30.0f &&
+            face_input_defaults.fp4_zoom_speed == 0.04f &&
+            face_input_defaults.int4_selection_deadzone == 24 &&
+            face_input_defaults.int4_mouse_scroll_deadzone == 8 &&
+            face_input_defaults.kind_mouse_scroll == MouseScrollType::Joystick,
+        "p6b9: GameSettingsInputFace upstream defaults");
+
+  Check(HasModifier(Modifiers::Ctrl | Modifiers::Shift, Modifiers::Ctrl) &&
+            !HasModifier(Modifiers::Ctrl, Modifiers::Ctrl | Modifiers::Shift),
+        "p6b9: HasModifier exact-flag semantics");
+
+  Check(ui::Ui::Instance().SelectionDeadzone() == 24,
+        "p6b9: Ui SelectionDeadzone default 24");
+
+  game::Game game_input{game::Game::Deps{}};
+  game_input.JoinLocal();
+  CapturingWidget widget_capture;
+  ui::Ui::Instance().SetKeyboardFocusWidget(&widget_capture);
+  ui::DefaultInputHandler handler_input(game_input, nullptr);
+  handler_input.ModifierKeys(Modifiers::Ctrl);
+  Check(game_input.GetModifierKeys() == Modifiers::Ctrl,
+        "p6b9: DefaultInputHandler ModifierKeys forwards to Game");
+  const int int4_keys_before = widget_capture.int4_key_presses;
+  handler_input.OnKeyInput(KeyInput{.Event = KeyInputEvent::Down,
+                                    .Key = Keycode::A,
+                                    .ModifierFlags = Modifiers::None,
+                                    .MultiTapCount = 0,
+                                    .UnicodeChar = u'a',
+                                    .IsRepeat = false});
+  Check(widget_capture.int4_key_presses == int4_keys_before + 1,
+        "p6b9: DefaultInputHandler OnKeyInput routes through Ui focus");
+  ui::Ui::Instance().SetKeyboardFocusWidget(nullptr);
+
+  mods::RegisterCommonTraits();
+
+  ui::WidgetArgs args_wic;
+  args_wic.Add("world", static_cast<sim::World*>(nullptr));
+  args_wic.Add("worldRenderer", static_cast<gfx::WorldRenderer*>(nullptr));
+  auto up_wic = ui::WidgetTypeRegistry::Instance().Create(
+      "WorldInteractionControllerWidget", args_wic);
+  Check(up_wic != nullptr &&
+            up_wic->TypeName() ==
+                std::string_view{"WorldInteractionControllerWidget"},
+        "p6b9: WIC registry creation");
+  Check(up_wic->Clone()->TypeName() ==
+            std::string_view{"WorldInteractionControllerWidget"},
+        "p6b9: WIC clone type");
+
+  ui::WidgetArgs args_vcw;
+  args_vcw.Add("world", static_cast<sim::World*>(nullptr));
+  args_vcw.Add("worldRenderer", static_cast<gfx::WorldRenderer*>(nullptr));
+  auto up_vcw = ui::WidgetTypeRegistry::Instance().Create(
+      "ViewportControllerWidget", args_vcw);
+  Check(up_vcw != nullptr &&
+            up_vcw->TypeName() ==
+                std::string_view{"ViewportControllerWidget"},
+        "p6b9: VCW registry creation");
+  Check(up_vcw->Clone()->TypeName() ==
+            std::string_view{"ViewportControllerWidget"},
+        "p6b9: VCW clone type");
+
+  auto* ptr_vcw = dynamic_cast<mods::ViewportControllerWidget*>(up_vcw.get());
+  Check(ptr_vcw != nullptr, "p6b9: VCW dynamic type");
+  if (ptr_vcw != nullptr) {
+    Check(ptr_vcw->LoadFieldOrProperty("ZoomInKey", "Z"), "p6b9: ZoomInKey load");
+    Check(ptr_vcw->LoadFieldOrProperty("BookmarkSaveKeyPrefix", "Save"),
+          "p6b9: BookmarkSaveKeyPrefix load");
+    Check(ptr_vcw->LoadFieldOrProperty("BookmarkRestoreKeyPrefix", "Restore"),
+          "p6b9: BookmarkRestoreKeyPrefix load");
+    Check(ptr_vcw->LoadFieldOrProperty("BookmarkKeyCount", "2") &&
+              ptr_vcw->int4_bookmark_key_count == 2,
+          "p6b9: BookmarkKeyCount load");
+    Check(ptr_vcw->LoadFieldOrProperty("TooltipContainer",
+                                       "TOOLTIP_CONTAINER"),
+          "p6b9: TooltipContainer load");
+  }
+}
+
 void TestPreviewWidgetsBatch8() {
   const auto dir_layout =
       std::filesystem::temp_directory_path() / "ora_ui_test_preview8";
@@ -2787,6 +2895,7 @@ int main(int argc, char** argv) {
   TestChromeMetrics();
   TestWidgetLoader();
   TestPreviewWidgetsBatch8();
+  TestInputAssemblyBatch9();
 
   // Phase 6 第二批(mod 根经 argv[1] 注入;缺省跳过 —— 与 platform_test 的
   // SKIP 门同形)

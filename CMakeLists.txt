@@ -239,7 +239,8 @@ add_library(ora_sim STATIC
   src/sim/debug_pause_state.cpp
   src/sim/conditional_trait.cpp
   src/sim/weapons.cpp
-  src/sim/world.cpp)
+  src/sim/world.cpp
+  src/sim/selectable_exts.cpp)
 # gen/interfaces_gen.h 位于仓库根(gen/ 目录),TypeId 头需根 include
 # gen/interfaces_gen.h lives at the repo root (gen/); the TypeId header
 # needs the root on the include path.
@@ -268,6 +269,7 @@ add_library(ora_net STATIC
   src/net/session.cpp
   src/net/unit_orders.cpp
   src/net/text_notifications.cpp
+  src/net/voice_exts.cpp
   src/net/fluent_message.cpp
   src/net/handshake.cpp
   src/net/sanitize.cpp
@@ -523,8 +525,10 @@ add_library(ora_mods STATIC
   src/mods/changes_health.cpp
   src/mods/scaredy_cat.cpp
   src/mods/immobile.cpp
-  src/mods/seeds_resource.cpp)
-target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats)
+  src/mods/seeds_resource.cpp
+  src/mods/world_interaction_controller.cpp
+  src/mods/viewport_controller.cpp)
+target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui)
 ora_link_std(ora_mods)
 
 # 声音门面(第十四批):格式链分派 + Sound 调度/音乐/视频 + MusicInfo.Load
@@ -544,6 +548,8 @@ ora_link_std(ora_sound)
 add_library(ora_ui STATIC
   src/ui/widget.cpp
   src/ui/ui.cpp
+  src/ui/selection_utils.cpp
+  src/ui/default_input_handler.cpp
   src/ui/chrome_metrics.cpp
   src/ui/widget_loader.cpp
   src/ui/hotkey.cpp

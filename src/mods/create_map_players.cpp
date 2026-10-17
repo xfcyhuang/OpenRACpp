@@ -6,6 +6,8 @@ import std;
 
 #include "mods/actor_preview_faces.hpp"
 #include "mods/create_map_players.hpp"
+#include "mods/viewport_controller.hpp"
+#include "mods/world_interaction_controller.hpp"
 
 #include "meta/field_loader.hpp"
 
@@ -223,6 +225,8 @@ void InstallBitSetAllocatorBridges() {
 void RegisterCommonTraits() {
   InstallBitSetAllocatorBridges();
   RegisterActorPreviewFaces();
+  RegisterWorldInteractionControllerWidget();
+  RegisterViewportControllerWidget();
   static const bool b_registered = [] {
     sim::TraitRegistry& registry = sim::TraitRegistry::Instance();
 

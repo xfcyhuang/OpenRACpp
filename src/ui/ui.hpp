@@ -15,6 +15,7 @@
 #pragma once
 import std;
 
+#include "game/input.hpp"
 #include "net/tick_time.hpp"
 #include "ui/hotkey.hpp"
 #include "ui/widget.hpp"
@@ -109,6 +110,11 @@ class Ui {
     std::function<int()> fn_debug_samples = [] { return 25; };
     std::function<void(std::function<void()>)> fn_run_after_tick =
         [](std::function<void()>) {};
+    std::function<Modifiers()> fn_get_modifier_keys = [] { return Modifiers::None; };
+    std::function<bool()> fn_window_has_input_focus = [] { return true; };
+    std::function<GameSettingsInputFace()> fn_game_settings_input = [] {
+      return GameSettingsInputFace{};
+    };
   };
 
   void Initialize(Deps deps);
@@ -124,6 +130,14 @@ class Ui {
   float UiScrollSpeed() const { return deps_.fn_ui_scroll_speed(); }
   bool CursorDouble() const { return deps_.fn_cursor_double(); }
   int DebugSamples() const { return deps_.fn_debug_samples(); }
+  Modifiers GetModifierKeys() const { return deps_.fn_get_modifier_keys(); }
+  bool WindowHasInputFocus() const { return deps_.fn_window_has_input_focus(); }
+  GameSettingsInputFace GameSettingsInput() const {
+    return deps_.fn_game_settings_input();
+  }
+  std::int32_t SelectionDeadzone() const {
+    return deps_.fn_game_settings_input().int4_selection_deadzone;
+  }
   void RunAfterTickDefer(std::function<void()> fn_action) const {
     deps_.fn_run_after_tick(std::move(fn_action));
   }
@@ -132,6 +146,9 @@ class Ui {
   }
   std::int64_t RunTime() const { return deps_.fn_clock ? deps_.fn_clock() : 0; }
   int2 Resolution() const { return deps_.fn_window_size ? deps_.fn_window_size() : int2{}; }
+  HotkeyReference HotkeyLookup(std::string_view str_name) const {
+    return deps_.fn_hotkey_lookup(str_name);
+  }
   gfx::SpriteFont* TryGetFontDeps(const std::string& str_key) const {
     return deps_.fn_try_get_font ? deps_.fn_try_get_font(str_key) : nullptr;
   }

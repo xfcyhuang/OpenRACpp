@@ -26,10 +26,13 @@ import std;
 #include "gfx/renderable.hpp"
 #include "gfx/sequence_set.hpp"
 #include "gfx/sprite_loader.hpp"
+#include "gfx/viewport.hpp"
 #include "gfx/world_renderer.hpp"
 #include "map/map.hpp"
 #include "map/map_cache.hpp"
 #include "meta/field_loader.hpp"
+#include "meta/generic_record.hpp"
+#include "sim/trait_registry.hpp"
 #include "meta/field_saver.hpp"
 #include "mods/body_orientation.hpp"
 #include "mods/create_map_players.hpp"
@@ -41,6 +44,8 @@ import std;
 #include "mods/sequence_loader_factory.hpp"
 #include "mods/sprite_effect.hpp"
 #include "mods/turreted.hpp"
+#include "mods/unit_order_generator.hpp"
+#include "mods/viewport_controller.hpp"
 #include "mods/with_damage_overlay.hpp"
 #include "mods/with_death_animation.hpp"
 #include "mods/with_decoration.hpp"
@@ -49,6 +54,7 @@ import std;
 #include "mods/with_make_animation.hpp"
 #include "mods/with_sprite_body.hpp"
 #include "mods/with_sprite_turret.hpp"
+#include "mods/world_interaction_controller.hpp"
 #include "net/order.hpp"
 #include "net/order_io.hpp"
 #include "net/replay_recorder.hpp"
@@ -56,8 +62,11 @@ import std;
 #include "sim/actor.hpp"
 #include "sim/actor_init.hpp"
 #include "sim/player.hpp"
+#include "sim/selectable_exts.hpp"
 #include "sim/trait_interfaces.hpp"
 #include "sim/world.hpp"
+#include "ui/selection_utils.hpp"
+#include "ui/ui.hpp"
 
 namespace {
 std::string_view TestMapFilter() {
@@ -94,6 +103,52 @@ void Check(bool ok, std::string_view what) {
     ++g_failures;
   }
 }
+
+class RecordingViewportStub final : public ora::gfx::IViewportSurface {
+ public:
+  ora::int2 WorldToViewPx(ora::int2 int2_world) override { return int2_world; }
+  ora::int2 WorldToViewPx(const ora::core::Vector3& vec_world) override {
+    return ora::int2{static_cast<std::int32_t>(vec_world.X),
+                     static_cast<std::int32_t>(vec_world.Y)};
+  }
+  ora::Rectangle GetScissorBounds(bool) override { return ora::Rectangle{}; }
+  ora::int2 TopLeft() override { return ora::int2{}; }
+  ora::int2 BottomRight() override { return ora::int2{}; }
+  ora::CPos ViewToWorld(ora::int2 int2_view) override {
+    return ora::CPos{int2_view.X / 1024, int2_view.Y / 1024};
+  }
+  ora::int2 ViewToWorldPx(ora::int2 int2_view) override { return int2_view; }
+  ora::WPos CenterPosition() const override { return wpos_center; }
+  void Center(const ora::WPos& wpos_pos) override {
+    b_center_called = true;
+    wpos_last_center = wpos_pos;
+  }
+  void Scroll(ora::core::Vector2 vec_delta, bool) override {
+    b_scroll_called = true;
+    vec_last_scroll = vec_delta;
+  }
+  void AdjustZoom(float fp4_dz) override {
+    b_zoom_called = true;
+    fp4_last_zoom_delta = fp4_dz;
+  }
+  void AdjustZoom(float fp4_dz, ora::int2) override {
+    b_zoom_anchored_called = true;
+    fp4_last_zoom_delta = fp4_dz;
+  }
+  ora::gfx::ScrollDirection GetBlockedDirections() const override {
+    return kind_blocked;
+  }
+
+  ora::WPos wpos_center{};
+  ora::WPos wpos_last_center{};
+  ora::core::Vector2 vec_last_scroll{};
+  float fp4_last_zoom_delta = 0.0f;
+  ora::gfx::ScrollDirection kind_blocked = ora::gfx::ScrollDirection::None;
+  bool b_center_called = false;
+  bool b_scroll_called = false;
+  bool b_zoom_called = false;
+  bool b_zoom_anchored_called = false;
+};
 
 int main(int argc, char** argv) {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
@@ -219,6 +274,40 @@ int main(int argc, char** argv) {
       Rectangle GetScissorBounds(bool) override { return Rectangle{}; }
       int2 TopLeft() override { return int2{}; }
       int2 BottomRight() override { return int2{}; }
+      CPos ViewToWorld(int2 int2_view) override {
+        return CPos{int2_view.X / 1024, int2_view.Y / 1024};
+      }
+      int2 ViewToWorldPx(int2 int2_view) override { return int2_view; }
+      WPos CenterPosition() const override { return wpos_center; }
+      void Center(const WPos& wpos_pos) override {
+        b_center_called = true;
+        wpos_last_center = wpos_pos;
+      }
+      void Scroll(core::Vector2 vec_delta, bool) override {
+        b_scroll_called = true;
+        vec_last_scroll = vec_delta;
+      }
+      void AdjustZoom(float fp4_dz) override {
+        b_zoom_called = true;
+        fp4_last_zoom_delta = fp4_dz;
+      }
+      void AdjustZoom(float fp4_dz, int2) override {
+        b_zoom_anchored_called = true;
+        fp4_last_zoom_delta = fp4_dz;
+      }
+      gfx::ScrollDirection GetBlockedDirections() const override {
+        return kind_blocked;
+      }
+
+      WPos wpos_center{};
+      WPos wpos_last_center{};
+      core::Vector2 vec_last_scroll{};
+      float fp4_last_zoom_delta = 0.0f;
+      gfx::ScrollDirection kind_blocked = gfx::ScrollDirection::None;
+      bool b_center_called = false;
+      bool b_scroll_called = false;
+      bool b_zoom_called = false;
+      bool b_zoom_anchored_called = false;
     };
     static ViewportStub viewport_stub;
     wr.SetViewport(&viewport_stub);
@@ -879,6 +968,224 @@ int main(int argc, char** argv) {
     auto widget_clone = widget_preview.Clone();
     Check(widget_clone->TypeName() == std::string_view{"ActorPreviewWidget"},
           "p6b8: widget clone type");
+  }
+
+  // ———— 第九批:输入装配(SelectableExts/SelectionUtils/WIC/VCW)————
+  // ———— Batch nine: the input assembly (SelectableExts/SelectionUtils/
+  //      WIC/VCW) ————
+  {
+    world->SetRenderPlayer(player_a);
+    world->ScreenMapFace()->SetActorBoundsSources(
+        [&wr](sim::Actor& a) { return a.MouseBounds(wr); },
+        [&wr](sim::Actor& a) { return a.ScreenBounds(wr); });
+
+    sim::Actor* e1_ally1 = spawn("e1", player_a, CPos{cx + 5, cy});
+    sim::Actor* e1_ally2 = spawn("e1", player_a, CPos{cx + 8, cy});
+    sim::Actor* e1_enemy = spawn("e1", player_b, CPos{cx + 11, cy});
+    Check(e1_ally1 != nullptr && e1_ally2 != nullptr && e1_enemy != nullptr,
+          "p6b9: three e1 combatants spawned");
+    for (int i = 0; i < 5; i++) {
+      world->Tick();
+      world->TickRender();
+    }
+
+    const int int4_base_priority =
+        sim::SelectionPriority(*e1_ally1, Modifiers::None);
+    Check(sim::SelectionPriority(*e1_enemy, Modifiers::None) ==
+              int4_base_priority - 90,
+          "p6b9: enemy actor priority = base - 3*30");
+
+    const sim::ActorBoundsPair pair_near{
+        e1_ally1, Polygon{Rectangle::FromLTRB(-16, -16, 16, 16)}};
+    const sim::ActorBoundsPair pair_far{
+        e1_ally2, Polygon{Rectangle::FromLTRB(484, -16, 516, 16)}};
+    const sim::ActorBoundsPair vec_pairs[] = {pair_near, pair_far};
+    Check(sim::WithHighestSelectionPriority(vec_pairs, int2{0, 0},
+                                            Modifiers::None) == e1_ally1,
+          "p6b9: nearest bounds wins the priority key");
+    const sim::ActorBoundsPair vec_pairs_tie[] = {pair_near, pair_near};
+    Check(sim::WithHighestSelectionPriority(vec_pairs_tie, int2{0, 0},
+                                            Modifiers::None) == e1_ally1,
+          "p6b9: equal keys keep the first entry");
+
+    sim::Actor* vec_subset_in[] = {e1_ally1, e1_ally2, e1_enemy};
+    const std::vector<sim::Actor*> vec_subset =
+        sim::SubsetWithHighestSelectionPriority(vec_subset_in, Modifiers::None);
+    Check(vec_subset.size() == 2 &&
+              std::find(vec_subset.begin(), vec_subset.end(), e1_ally1) !=
+                  vec_subset.end() &&
+              std::find(vec_subset.begin(), vec_subset.end(), e1_ally2) !=
+                  vec_subset.end(),
+          "p6b9: subset keeps the max-priority group only");
+
+    const std::vector<sim::Player*> vec_include =
+        ui::GetPlayersToIncludeInSelection(*world);
+    Check(vec_include.size() == 1 && vec_include[0] == player_a,
+          "p6b9: viewer-only players to include");
+
+    const int2 px_ally1 = wr.ScreenPxPosition(e1_ally1->CenterPosition());
+    const int2 px_ally2 = wr.ScreenPxPosition(e1_ally2->CenterPosition());
+    const std::vector<sim::Actor*> vec_point = ui::SelectActorsInBoxWithDeadzone(
+        *world, px_ally1, px_ally1, Modifiers::None);
+    Check(vec_point.size() == 1 && vec_point[0] == e1_ally1,
+          "p6b9: deadzone point query picks the single ally");
+    const std::vector<sim::Actor*> vec_box = ui::SelectActorsInBoxWithDeadzone(
+        *world, px_ally1, px_ally2, Modifiers::None);
+    Check(vec_box.size() == 2,
+          "p6b9: box query returns both allies (same priority group)");
+
+    Check(world->OrderGenerator()->ActionButton() == MouseButton::Right,
+          "p6b9: default generator ActionButton = modern Right");
+
+    ui::WidgetArgs args_wic;
+    args_wic.Add("world", world.get());
+    args_wic.Add("worldRenderer", &wr);
+    mods::WorldInteractionControllerWidget widget_wic(args_wic);
+    const auto mi_click = [&](MouseInputEvent kind_event, int2 xy) {
+      return MouseInput{.Event = kind_event,
+                        .Button = MouseButton::Left,
+                        .Location = xy,
+                        .Delta = int2{0, 0},
+                        .ModifierFlags = Modifiers::None,
+                        .MultiTapCount = 0};
+    };
+    Check(widget_wic.HandleMouseInput(mi_click(MouseInputEvent::Down, px_ally1)),
+          "p6b9: WIC consumes left down");
+    Check(widget_wic.HandleMouseInput(mi_click(MouseInputEvent::Up, px_ally1)),
+          "p6b9: WIC consumes left up");
+    Check(world->Selection()->Contains(e1_ally1),
+          "p6b9: left click selects the ally");
+    Check(widget_wic.HandleMouseInput(mi_click(MouseInputEvent::Down, px_ally2)) &&
+              widget_wic.HandleMouseInput(mi_click(MouseInputEvent::Up, px_ally2)) &&
+              world->Selection()->Contains(e1_ally2) &&
+              !world->Selection()->Contains(e1_ally1),
+          "p6b9: second click re-selects (combine replaces on click)");
+    widget_wic.Draw();
+    Check(world->Selection()->RolloverContains(e1_ally2),
+          "p6b9: Draw sets the rollover");
+
+    Check(widget_wic.HandleKeyPress(KeyInput{.Event = KeyInputEvent::Up,
+                                             .Key = Keycode::LSHIFT,
+                                             .ModifierFlags = Modifiers::None,
+                                             .MultiTapCount = 0,
+                                             .UnicodeChar = u'\0',
+                                             .IsRepeat = false}) == false,
+          "p6b9: shift-up ignored without queued command");
+
+    const std::string* ptr_cursor_wic = widget_wic.GetCursor(px_ally2);
+    Check(ptr_cursor_wic != nullptr && *ptr_cursor_wic == "select",
+          "p6b9: WIC GetCursor over selectable ally = select");
+
+    RecordingViewportStub viewport_recording;
+    wr.SetViewport(&viewport_recording);
+    mods::ViewportControllerWidget widget_vcw(args_wic);
+    widget_vcw.hk_zoom_in = ui::HotkeyReference(
+        [] { return ui::Hotkey{Keycode::Z, Modifiers::None}; });
+    widget_vcw.hk_zoom_out = ui::HotkeyReference(
+        [] { return ui::Hotkey{Keycode::X, Modifiers::None}; });
+    widget_vcw.hk_jump_to_top_edge = ui::HotkeyReference(
+        [] { return ui::Hotkey{Keycode::W, Modifiers::None}; });
+    widget_vcw.HandleKeyPress(KeyInput{.Event = KeyInputEvent::Down,
+                                       .Key = Keycode::Z,
+                                       .ModifierFlags = Modifiers::None,
+                                       .MultiTapCount = 0,
+                                       .UnicodeChar = u'z',
+                                       .IsRepeat = false});
+    Check(viewport_recording.b_zoom_called &&
+              viewport_recording.fp4_last_zoom_delta == 0.25f,
+          "p6b9: ZoomInKey AdjustZoom(+0.25)");
+    widget_vcw.HandleKeyPress(KeyInput{.Event = KeyInputEvent::Down,
+                                       .Key = Keycode::X,
+                                       .ModifierFlags = Modifiers::None,
+                                       .MultiTapCount = 0,
+                                       .UnicodeChar = u'x',
+                                       .IsRepeat = false});
+    Check(viewport_recording.fp4_last_zoom_delta == -0.25f,
+          "p6b9: ZoomOutKey AdjustZoom(-0.25)");
+    viewport_recording.wpos_center = WPos{4096, 4096, 0};
+    widget_vcw.HandleKeyPress(KeyInput{.Event = KeyInputEvent::Down,
+                                       .Key = Keycode::W,
+                                       .ModifierFlags = Modifiers::None,
+                                       .MultiTapCount = 0,
+                                       .UnicodeChar = u'w',
+                                       .IsRepeat = false});
+    Check(viewport_recording.b_center_called &&
+              viewport_recording.wpos_last_center == WPos{4096, 0, 0},
+          "p6b9: JumpToTopEdgeKey centers (x, 0)");
+
+    ui::Ui::Deps deps_ui_input;
+    std::map<std::string, ui::Hotkey> map_hotkeys_input;
+    map_hotkeys_input.emplace("Save01", ui::Hotkey{Keycode::F1, Modifiers::None});
+    map_hotkeys_input.emplace("Save02", ui::Hotkey{Keycode::F2, Modifiers::None});
+    map_hotkeys_input.emplace("Restore01",
+                              ui::Hotkey{Keycode::F3, Modifiers::None});
+    map_hotkeys_input.emplace("Restore02",
+                              ui::Hotkey{Keycode::F4, Modifiers::None});
+    deps_ui_input.fn_hotkey_lookup =
+        [&map_hotkeys_input](std::string_view sv_name) {
+          const auto it = map_hotkeys_input.find(std::string{sv_name});
+          if (it != map_hotkeys_input.end())
+            return ui::HotkeyReference(
+                [hk = it->second] { return hk; });
+          return ui::HotkeyReferenceFromNameOrCode(sv_name);
+        };
+    deps_ui_input.fn_window_size = [] { return int2{1280, 720}; };
+    ui::Ui::Instance().Initialize(std::move(deps_ui_input));
+
+    Check(widget_vcw.LoadFieldOrProperty("BookmarkSaveKeyPrefix", "Save") &&
+              widget_vcw.LoadFieldOrProperty("BookmarkRestoreKeyPrefix",
+                                             "Restore") &&
+              widget_vcw.LoadFieldOrProperty("BookmarkKeyCount", "2"),
+          "p6b9: bookmark fields load");
+    ui::WidgetArgs args_vcw_init;
+    widget_vcw.Initialize(args_vcw_init);
+    viewport_recording.wpos_center = WPos{8192, 8192, 0};
+    widget_vcw.HandleKeyPress(KeyInput{.Event = KeyInputEvent::Down,
+                                       .Key = Keycode::F1,
+                                       .ModifierFlags = Modifiers::None,
+                                       .MultiTapCount = 0,
+                                       .UnicodeChar = u'\0',
+                                       .IsRepeat = false});
+    viewport_recording.wpos_center = WPos{0, 0, 0};
+    widget_vcw.HandleKeyPress(KeyInput{.Event = KeyInputEvent::Down,
+                                       .Key = Keycode::F3,
+                                       .ModifierFlags = Modifiers::None,
+                                       .MultiTapCount = 0,
+                                       .UnicodeChar = u'\0',
+                                       .IsRepeat = false});
+    Check(viewport_recording.wpos_last_center == WPos{8192, 8192, 0},
+          "p6b9: bookmark restore centers on the saved position");
+
+    gfx::Viewport::int2_last_mouse_pos =
+        int2{(cx + 20) * 1024, cy * 1024};
+    ui::Ui::Instance().SetMouseOverWidget(&widget_vcw);
+    widget_vcw.UpdateCameraTick();
+    Check(widget_vcw.kind_tooltip_type == mods::WorldTooltipType::Unexplored,
+          "p6b9: pre-explore tooltip type = Unexplored");
+    gfx::Viewport::int2_last_mouse_pos = int2{0, 0};
+    widget_vcw.UpdateCameraTick();
+    const std::string* ptr_cursor_edge = widget_vcw.GetCursor(int2{0, 0});
+    Check(ptr_cursor_edge != nullptr && *ptr_cursor_edge == "scroll-tl",
+          "p6b9: edge scroll cursor = scroll-tl at the top-left corner");
+    viewport_recording.kind_blocked = gfx::ScrollDirection::Up;
+    ptr_cursor_edge = widget_vcw.GetCursor(int2{0, 0});
+    gfx::Viewport::int2_last_mouse_pos = int2{0, 360};
+    widget_vcw.UpdateCameraTick();
+    viewport_recording.kind_blocked =
+        gfx::ScrollDirection::Left | gfx::ScrollDirection::Up;
+    ptr_cursor_edge = widget_vcw.GetCursor(int2{0, 360});
+    Check(ptr_cursor_edge != nullptr && *ptr_cursor_edge == "scroll-l-blocked",
+          "p6b9: blocked edge cursor gains the -blocked suffix");
+    viewport_recording.kind_blocked = gfx::ScrollDirection::None;
+    ui::Ui::Instance().SetMouseOverWidget(nullptr);
+
+    if (player_a->GetShroud() != nullptr)
+      player_a->GetShroud()->ExploreAll();
+    widget_vcw.UpdateCameraTick();
+    Check(widget_vcw.kind_tooltip_type == mods::WorldTooltipType::None,
+          "p6b9: explored tooltip falls through to None");
+
+    wr.SetViewport(nullptr);
   }
 
   std::println("render_test: {} failures", g_failures);
