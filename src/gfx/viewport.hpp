@@ -201,7 +201,7 @@ class Viewport : public IViewportSurface {
   /// ViewToWorld(L263-301):粗滤 + Ramp 角多边形精确命中 + 最近格回退。
   /// ViewToWorld (L263-301): the coarse filter + the ramp-corner polygon
   /// exact hit + the closest-cell fallback.
-  CPos ViewToWorld(int2 int2_view);
+  CPos ViewToWorld(int2 int2_view) override;
 
   /// ViewToWorldPx(L330-331)。
   int2 ViewToWorldPx(int2 int2_view);

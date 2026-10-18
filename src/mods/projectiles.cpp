@@ -125,6 +125,12 @@ void SetProjectileSoundPlayer(
   fn_projectile_sound_play_ = std::move(fn_play);
 }
 
+void PlayProjectileSoundIfWired(const std::string& str_name,
+                                sim::World& world, const WPos& wpos_pos) {
+  if (fn_projectile_sound_play_ != nullptr)
+    fn_projectile_sound_play_(str_name, world, wpos_pos);
+}
+
 gfx::Animation* MakeBulletAnimation(
     sim::World& world, const std::string& str_image,
     const std::string& str_sequence, std::function<WAngle()> fn_facing) {

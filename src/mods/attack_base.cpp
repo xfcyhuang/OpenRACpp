@@ -4,7 +4,10 @@
 
 #include "meta/field_loader.hpp"
 #include "meta/generic_record.hpp"
+#include "mods/air_activities.hpp"
+#include "mods/aircraft.hpp"
 #include "mods/attack_activity.hpp"
+#include "mods/attack_aircraft.hpp"
 #include "mods/mobile.hpp"
 #include "net/order.hpp"
 #include "sim/frozen_actor_layer.hpp"
@@ -234,12 +237,19 @@ void AttackBaseCore<Derived>::ResolveOrder(Actor& self,
 
 template <class Derived>
 void AttackBaseCore<Derived>::OnStopOrder(Actor& self) {
-  // L214-223(Resupply/ReturnToBase 活动未移植 → is 判恒 false —— 空集
-  // 等价面,COVERAGE 登记)
-  // L214-223 (Resupply/ReturnToBase unported → the `is` checks stay false
-  // — the empty-set equivalent face, registered in COVERAGE).
+  // L214-223
   if (self.CurrentActivity() == nullptr)
     return;
+
+  if (dynamic_cast<activities::Resupply*>(self.CurrentActivity()) != nullptr)
+    return;
+
+  if (dynamic_cast<activities::ReturnToBase*>(self.CurrentActivity()) !=
+      nullptr) {
+    auto* aircraft = self.TraitOrDefault<Aircraft>();
+    if (aircraft != nullptr && aircraft->GetActorBelow() != nullptr)
+      return;
+  }
 
   self.CancelActivity();
 }
@@ -685,6 +695,8 @@ sim::Activity* AttackFrontal::GetAttackActivity(
 // AttackFollow — the instantiation point sits in this TU: the template
 // bodies are defined here).
 template class AttackBaseCore<AttackFrontal>;
+
+template class AttackBaseCore<AttackBomber>;
 
 // ———— [VerifySync] 哈希注册(gen/sync_gen.cpp:AttackFrontal {IsAiming})————
 // ———— The [VerifySync] hash registration (gen/sync_gen.cpp:

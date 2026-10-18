@@ -285,7 +285,7 @@ class SupportPowerManager final : public TraitBase,
 /// SelectGenericPowerTarget(L283-320):泛型落点 order generator
 /// SelectGenericPowerTarget (L283-320): the generic target-pick order
 /// generator.
-class SelectGenericPowerTarget final : public sim::IOrderGenerator {
+class SelectGenericPowerTarget : public sim::IOrderGenerator {
  public:
   SelectGenericPowerTarget(std::string str_order,
                            SupportPowerManager& manager,
@@ -326,6 +326,7 @@ class SelectGenericPowerTarget final : public sim::IOrderGenerator {
   std::vector<net::Order*> OrderInner(sim::World& world, CPos cell,
                                       int2, const MouseInput&);
 
+ protected:
   SupportPowerManager& manager_;
   std::string str_order_key_;
   const SupportPowerInfoData& info_;

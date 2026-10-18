@@ -58,6 +58,11 @@ import std;
 #include "mods/building_utils.hpp"
 #include "mods/line_build.hpp"
 #include "mods/place_building.hpp"
+#include "mods/aircraft.hpp"
+#include "mods/air_activities.hpp"
+#include "mods/air_support.hpp"
+#include "mods/attack_aircraft.hpp"
+#include "mods/airstrike_power.hpp"
 #include "mods/primary_building.hpp"
 #include "mods/player_resources.hpp"
 #include "mods/production_icon_overlay.hpp"
@@ -68,6 +73,8 @@ import std;
 #include "mods/radar.hpp"
 #include "mods/radar_widget.hpp"
 #include "mods/support_powers.hpp"
+#include "mods/support_power_effects.hpp"
+#include "mods/concrete_support_powers.hpp"
 #include "mods/support_powers_widget.hpp"
 #include "mods/player_statistics.hpp"
 #include "mods/tooltip.hpp"
@@ -1619,6 +1626,8 @@ int main(int argc, char** argv) {
           "p6b10: type button clone type");
   }
 
+  mods::SupportPowerManager* spm = nullptr;
+
   // ———— 第十一批:Radar 链 + SupportPowers 面 + PlayerStatistics/Tooltip ————
   // ———— Batch 11: the radar chain + the SupportPowers face +
   //      PlayerStatistics/Tooltip ————
@@ -1684,8 +1693,7 @@ int main(int argc, char** argv) {
 
     // Player actor 的 SupportPowerManager
     // The player actor's SupportPowerManager.
-    mods::SupportPowerManager* spm =
-        player_a->PlayerActor()->TraitOrDefault<mods::SupportPowerManager>();
+    spm = player_a->PlayerActor()->TraitOrDefault<mods::SupportPowerManager>();
     Check(spm != nullptr, "p6b11: player actor carries SupportPowerManager");
     Check(spm->DevMode() != nullptr && spm->GetTechTree() != nullptr,
           "p6b11: manager resolves DeveloperMode + TechTree");
@@ -1779,6 +1787,8 @@ int main(int argc, char** argv) {
       delete vec_orders[0];
       Check(world->OrderGenerator() != selector_ptr,
             "p6b11: OrderInner cancels the input mode");
+
+      spm->Powers().erase(instance->Key());
     }
 
     // PlayerStatistics + UpdatesPlayerStatistics:击杀记账
@@ -1798,6 +1808,510 @@ int main(int argc, char** argv) {
             "p6b11: ArmyUnit e1 materializes with icon + buildable");
     }
   }
+
+    // ———— 第十二批:具体 support power(Nuke/SpawnActor/IRON)—— 
+    // The batch-12 concrete support powers (Nuke/SpawnActor/IRON).
+    {
+      const auto find_record =
+          [world = world.get()](
+              std::string_view str_actor,
+              std::string_view str_full_name) -> const meta::RecordObject* {
+        for (const auto& [name, info] : world->Map().Rules().Actors())
+          if (name == str_actor)
+            for (const meta::RecordObject* rec :
+                 info->TraitsInConstructOrder())
+              if (rec->record_desc().str_full_name == str_full_name)
+                return rec;
+        return nullptr;
+      };
+
+      // NukePowerInfo:MSLO 的字段面
+      // NukePowerInfo: MSLO's field face.
+      const meta::RecordObject* rec_mslo =
+          find_record("mslo", "OpenRA.Mods.Common.Traits.NukePowerInfo");
+      Check(rec_mslo != nullptr, "p6b12: MSLO NukePowerInfo record found");
+      mods::NukePowerInfoData nuke_info_data;
+      if (rec_mslo != nullptr) {
+        nuke_info_data =
+            mods::NukePowerInfoData::Parse(*rec_mslo, *world);
+        Check(nuke_info_data.str_missile_weapon == "atomic" &&
+                  nuke_info_data.ptr_weapon_info != nullptr,
+              "p6b12: NukeMissileWeapon atomic resolves against the rules");
+        Check(nuke_info_data.int4_missile_delay == 5,
+              "p6b12: MissileDelay 5 parses");
+        Check(nuke_info_data.wvec_spawn_offset == WVec{1024, 427, 0},
+              "p6b12: SpawnOffset 1c0,427,0 parses");
+        Check(nuke_info_data.dist_camera_range == WDist{10240},
+              "p6b12: CameraRange 10c0 parses");
+        Check(nuke_info_data.str_beacon_poster == "atomicon" &&
+                  nuke_info_data.b_display_beacon &&
+                  nuke_info_data.b_display_radar_ping,
+              "p6b12: beacon poster + display flags parse");
+        Check(!nuke_info_data.b_has_circle_ranges,
+              "p6b12: absent CircleRanges stays null");
+        Check(nuke_info_data.str_order_name == "NukePowerInfoOrder",
+              "p6b12: NukePowerInfo OrderName default");
+        Check(nuke_info_data.int4_flight_delay == 400 &&
+                  nuke_info_data.dist_flight_velocity == WDist{512},
+              "p6b12: FlightDelay/FlightVelocity defaults");
+      }
+
+      // NukeLaunch 弹道:turn 中点 + 落地爆点 + 帧末移除
+      // The NukeLaunch trajectory: the turn midpoint + the impact + the
+      // frame-end removal.
+      const game::WeaponInfo* weapon_carbine = nullptr;
+      for (const auto& [name, weapon] : world->Map().Rules().Weapons())
+        if (name == "m1carbine")
+          weapon_carbine = weapon.get();
+      Check(weapon_carbine != nullptr, "p6b12: M1Carbine weapon resolved");
+      if (weapon_carbine != nullptr) {
+        const WPos pos_launch{cx * 1024, cy * 1024, 0};
+        const WPos pos_target{(cx + 6) * 1024, cy * 1024, 0};
+        auto up_launch = std::make_unique<mods::NukeLaunch>(
+            *player_a, "", *weapon_carbine, "effect", "up", "down",
+            pos_launch, pos_target, WDist{1}, false, WDist{0}, 0, 40,
+            false, "", std::vector<std::string>{}, "", false, 0, 1);
+        mods::NukeLaunch* launch = up_launch.get();
+        world->Add(std::move(up_launch));
+        Check(launch->PositionForTest() == pos_launch,
+              "p6b12: ascending launch starts at the launch position");
+        world->Tick();
+        Check(launch->PositionForTest() == pos_launch,
+              "p6b12: zero launch delay fires this tick at the source");
+        Check(std::abs(launch->FractionComplete() - 0.025f) < 1e-6f,
+              "p6b12: FractionComplete = ticks / impactDelay");
+        for (int i = 0; i < 20; i++)
+          world->Tick();
+        Check(launch->DetonatedForTest(),
+              "p6b12: detonation altitude triggers the explosion");
+        Check(launch->InWorldForTest(),
+              "p6b12: removeOnDetonation false keeps the projectile");
+        Check(launch->PositionForTest() == pos_target,
+              "p6b12: the turn point sits at the target when velocity is 0");
+      }
+
+      // SpawnActorPower:sonarpulse 的字段面 + 地形验证 + 出生/到期
+      // SpawnActorPower: sonarpulse's field face + the terrain validation +
+      // the spawn/expiry.
+      const meta::RecordObject* rec_sonar =
+          find_record("powerproxy.sonarpulse",
+                      "OpenRA.Mods.Common.Traits.SpawnActorPowerInfo");
+      Check(rec_sonar != nullptr,
+            "p6b12: powerproxy.sonarpulse SpawnActorPowerInfo found");
+      mods::SpawnActorPowerInfoData spawn_info_data;
+      if (rec_sonar != nullptr) {
+        spawn_info_data =
+            mods::SpawnActorPowerInfoData::Parse(*rec_sonar);
+        Check(spawn_info_data.str_actor == "sonar" &&
+                  spawn_info_data.int4_life_time == 250,
+              "p6b12: SpawnActor actor/LifeTime parse");
+        Check(spawn_info_data.b_has_terrain &&
+                  spawn_info_data.vec_terrain.size() == 1 &&
+                  spawn_info_data.vec_terrain[0] == "Water",
+              "p6b12: SpawnActor Terrain Water parses");
+        Check(!spawn_info_data.b_allow_under_shroud &&
+                  spawn_info_data.str_deploy_sound == "sonpulse.aud",
+              "p6b12: AllowUnderShroud false + DeploySound parse");
+      }
+
+      sim::Actor* sonar_proxy =
+          spawn("powerproxy.sonarpulse", player_a, CPos{cx, cy});
+      auto* spawn_power =
+          sonar_proxy != nullptr
+              ? sonar_proxy->TraitOrDefault<mods::SpawnActorPower>()
+              : nullptr;
+      Check(spawn_power != nullptr,
+            "p6b12: powerproxy.sonarpulse constructs SpawnActorPower");
+      if (spawn_power != nullptr) {
+        Check(spawn_power->Validate(*world, CPos{cx, cy}) == false,
+              "p6b12: land cell fails the Water terrain gate");
+        std::optional<CPos> opt_water;
+        for (int y = bounds.Top(); y < bounds.Bottom() && !opt_water;
+             y++)
+          for (int x = bounds.Left(); x < bounds.Right(); x++)
+            if (world->Map().GetTerrainInfo(CPos{x, y}).Type == "Water") {
+              opt_water = CPos{x, y};
+              break;
+            }
+        if (opt_water.has_value()) {
+          Check(spawn_power->Validate(*world, *opt_water),
+                "p6b12: water cell passes the Water terrain gate");
+          net::Order order_spawn{
+              "SpawnActorPowerInfoOrder", sonar_proxy,
+              sim::Target::FromCell(*world, *opt_water), false};
+          spawn_power->Activate(*sonar_proxy, order_spawn, *spm);
+          world->Tick();
+          sim::Actor* sonar_actor = nullptr;
+          for (sim::Actor* a : world->Actors())
+            if (a->Info() != nullptr && a->Info()->Name() == "sonar")
+              sonar_actor = a;
+          Check(sonar_actor != nullptr,
+                "p6b12: SpawnActorPower creates the sonar actor");
+          if (sonar_actor != nullptr) {
+            for (int i = 0; i < 260 && sonar_actor->IsInWorld(); i++)
+              world->Tick();
+            Check(!sonar_actor->IsInWorld(),
+                  "p6b12: LifeTime Wait then RemoveSelf removes it");
+          }
+        }
+      }
+
+      // GrantExternalConditionPower:IRON 的字段面 + footprint 展开
+      // GrantExternalConditionPower: IRON's field face + the footprint.
+      const meta::RecordObject* rec_iron =
+          find_record(
+              "iron",
+              "OpenRA.Mods.Common.Traits.GrantExternalConditionPowerInfo");
+      Check(rec_iron != nullptr, "p6b12: IRON condition power record found");
+      if (rec_iron != nullptr) {
+        const mods::GrantExternalConditionPowerInfoData ic_info =
+            mods::GrantExternalConditionPowerInfoData::Parse(*rec_iron);
+        Check(ic_info.str_condition == "invulnerability" &&
+                  ic_info.int4_duration == 400,
+              "p6b12: condition/duration parse");
+        Check(ic_info.cvec_dimensions == CVec{3, 3} &&
+                  ic_info.kind_valid_relationships ==
+                      sim::PlayerRelationship::Ally,
+              "p6b12: Dimensions 3,3 + the Ally default");
+        std::vector<char> vec_footprint;
+        for (const char c : ic_info.str_footprint)
+          if (!std::isspace(static_cast<unsigned char>(c)))
+            vec_footprint.push_back(c);
+        const std::vector<CPos> vec_cells = mods::SupportPower::CellsMatching(
+            CPos{10, 10}, vec_footprint, ic_info.cvec_dimensions);
+        Check(vec_cells.size() == 5 &&
+                  vec_cells[0] == CPos{10, 9} &&
+                  vec_cells[1] == CPos{9, 10} &&
+                  vec_cells[2] == CPos{10, 10} &&
+                  vec_cells[3] == CPos{11, 10} &&
+                  vec_cells[4] == CPos{10, 11},
+              "p6b12: '_x_ xxx _x_' expands to the five cross cells");
+      }
+
+      sim::Actor* iron = spawn("iron", player_a, CPos{cx, cy});
+      auto* ic_power =
+          iron != nullptr
+              ? iron->TraitOrDefault<mods::GrantExternalConditionPower>()
+              : nullptr;
+      Check(ic_power != nullptr, "p6b12: IRON carries the condition power");
+      if (ic_power != nullptr) {
+        sim::Actor* jeep_ally =
+            spawn("jeep", player_a, CPos{cx + 5, cy + 4});
+        sim::Actor* jeep_enemy =
+            spawn("jeep", player_b, CPos{cx + 5, cy + 6});
+        Check(jeep_ally != nullptr && jeep_enemy != nullptr,
+              "p6b12: ally + enemy jeeps spawned");
+        const std::vector<sim::Actor*> vec_in_range =
+            ic_power->UnitsInRange(CPos{cx + 5, cy + 5});
+        const bool b_has_ally =
+            std::find(vec_in_range.begin(), vec_in_range.end(), jeep_ally) !=
+            vec_in_range.end();
+        const bool b_has_enemy =
+            std::find(vec_in_range.begin(), vec_in_range.end(),
+                      jeep_enemy) != vec_in_range.end();
+        Check(b_has_ally && !b_has_enemy,
+              "p6b12: UnitsInRange keeps allies and filters enemies");
+      }
+
+      // SelectNukePowerTarget:CircleRanges 注释圈
+      // SelectNukePowerTarget: the CircleRanges annotations.
+      if (spm != nullptr) {
+        mods::NukePowerInfoData circle_info = nuke_info_data;
+        circle_info.b_has_circle_ranges = true;
+        circle_info.vec_circle_ranges = {WDist{2048}, WDist{3072}};
+        mods::SelectNukePowerTarget selector{"NukePowerInfoOrder", *spm,
+                                             circle_info};
+        class CircleViewportStub final : public gfx::IViewportSurface {
+         public:
+          int2 WorldToViewPx(int2 int2_world) override {
+            return int2_world;
+          }
+          int2 WorldToViewPx(const core::Vector3& vec_world) override {
+            return int2{static_cast<std::int32_t>(vec_world.X),
+                        static_cast<std::int32_t>(vec_world.Y)};
+          }
+          Rectangle GetScissorBounds(bool) override { return Rectangle{}; }
+          int2 TopLeft() override { return int2{}; }
+          int2 BottomRight() override { return int2{}; }
+          CPos ViewToWorld(int2 int2_view) override {
+            return CPos{int2_view.X / 1024, int2_view.Y / 1024};
+          }
+          int2 ViewToWorldPx(int2 int2_view) override { return int2_view; }
+          WPos CenterPosition() const override { return WPos{}; }
+        };
+        CircleViewportStub viewport_circle;
+        wr.SetViewport(&viewport_circle);
+        gfx::Viewport::int2_last_mouse_pos = int2{10 * 1024, 20 * 1024};
+        const auto vec_annotations =
+            selector.RenderAnnotations(wr, *world);
+        Check(vec_annotations.size() == 2,
+              "p6b12: two circle ranges yield two annotations");
+        if (vec_annotations.size() == 2) {
+          Check(vec_annotations[0]->Pos() ==
+                    world->Map().CenterOfCell(CPos{10, 20}),
+                "p6b12: circle centered on the last mouse cell");
+        }
+        wr.SetViewport(nullptr);
+      }
+
+      // Beacon:箭头高度振荡 + duration 到期移除
+      // Beacon: the arrow-height oscillation + the duration expiry.
+      {
+        auto up_beacon = std::make_unique<mods::Beacon>(
+            *player_a, WPos{cx * 1024, cy * 1024, 0}, 10, "player", false,
+            "beacon", "", "arrow", "");
+        mods::Beacon* beacon = up_beacon.get();
+        world->Add(std::move(up_beacon));
+        world->Tick();
+        Check(beacon->ArrowHeightForTest() == 512,
+              "p6b12: first beacon tick clamps the arrow at max");
+        world->Tick();
+        Check(beacon->ArrowHeightForTest() == 462,
+              "p6b12: the arrow descends by 50 per tick after the flip");
+      }
+    }
+
+    // ———— 第十三批:空中机动链(Aircraft/Fly 族/AmmoPool/Airstrike)———
+    // The batch-13 air-mobility chain (Aircraft/the Fly family/AmmoPool/
+    // Airstrike).
+    {
+      const auto find_record =
+          [world = world.get()](
+              std::string_view str_actor,
+              std::string_view str_full_name) -> const meta::RecordObject* {
+        for (const auto& [name, info] : world->Map().Rules().Actors())
+          if (name == str_actor)
+            for (const meta::RecordObject* rec :
+                 info->TraitsInConstructOrder())
+              if (rec->record_desc().str_full_name == str_full_name)
+                return rec;
+        return nullptr;
+      };
+
+      const meta::RecordObject* rec_mig_air =
+          find_record("mig", "OpenRA.Mods.Common.Traits.AircraftInfo");
+      Check(rec_mig_air != nullptr, "p6b13: MIG AircraftInfo record found");
+      mods::AircraftInfoData mig_air;
+      if (rec_mig_air != nullptr) {
+        mig_air = mods::AircraftInfoData::Parse(*rec_mig_air);
+        Check(mig_air.dist_cruise_altitude == WDist{2560} &&
+                  mig_air.angle_turn_speed.Angle == 16 &&
+                  mig_air.int4_speed == 223,
+              "p6b13: MIG CruiseAltitude/TurnSpeed/Speed parse");
+        Check(mig_air.str_airborne_condition == "airborne" &&
+                  !mig_air.b_can_hover && mig_air.b_take_off_on_creation,
+              "p6b13: MIG inherits ^NeutralPlane's airborne faces");
+        Check(mig_air.angle_maximum_pitch.Angle == 56,
+              "p6b13: MIG MaximumPitch 56 parses");
+      }
+
+      const meta::RecordObject* rec_mig_ammo =
+          find_record("mig", "OpenRA.Mods.Common.Traits.AmmoPoolInfo");
+      Check(rec_mig_ammo != nullptr, "p6b13: MIG AmmoPoolInfo record found");
+      if (rec_mig_ammo != nullptr) {
+        const mods::AmmoPoolInfoData mig_ammo =
+            mods::AmmoPoolInfoData::Parse(*rec_mig_ammo);
+        Check(mig_ammo.int4_ammo == 8 && mig_ammo.str_ammo_condition == "ammo",
+              "p6b13: MIG Ammo 8 + AmmoCondition ammo parse");
+      }
+
+      const meta::RecordObject* rec_mig_rearm =
+          find_record("mig", "OpenRA.Mods.Common.Traits.RearmableInfo");
+      Check(rec_mig_rearm != nullptr,
+            "p6b13: MIG RearmableInfo record found");
+      if (rec_mig_rearm != nullptr) {
+        const mods::RearmableInfoData mig_rearm =
+            mods::RearmableInfoData::Parse(*rec_mig_rearm);
+        Check(mig_rearm.vec_rearm_actors.size() == 2 &&
+                  mig_rearm.vec_rearm_actors[0] == "afld",
+              "p6b13: MIG RearmActors afld,afld.ukraine parse");
+      }
+
+      Check(mods::activities::Fly::CalculateTurnRadius(223, WAngle{16}) ==
+                    180 * 223 / 16 &&
+                mods::activities::Fly::CalculateTurnRadius(223, WAngle{0}) ==
+                    0,
+            "p6b13: CalculateTurnRadius follows 180*speed/turn");
+
+      const auto mig_spawn = [&](CPos cell) {
+        sim::TypeDictionary dict;
+        sim::LocationInit location{cell};
+        sim::OwnerInit owner_init{player_a};
+        dict.Add(&location);
+        dict.Add(&owner_init);
+        return world->CreateActor(true, "mig", dict);
+      };
+
+      sim::Actor* mig = mig_spawn(CPos{cx + 3, cy + 3});
+      Check(mig != nullptr, "p6b13: MIG spawns into the world");
+      mods::Aircraft* mig_aircraft =
+          mig != nullptr ? mig->Trait<mods::Aircraft>() : nullptr;
+      if (mig_aircraft != nullptr) {
+        Check(mig_aircraft->CenterPosition() ==
+                  world->Map().CenterOfCell(CPos{cx + 3, cy + 3}),
+              "p6b13: MIG ctor SetPosition anchors the center");
+
+        Check(mig_aircraft->OccupiedCells().empty(),
+              "p6b13: airborne MIG holds no landing influence");
+
+        Check(!mig_aircraft->CanLand(CPos{cx + 3, cy + 3}),
+              "p6b13: MIG's empty LandableTerrainTypes rejects bare terrain");
+        sim::Actor* afld =
+            spawn("afld", player_a, CPos{cx + 3, cy + 5});
+        Check(afld != nullptr, "p6b13: afld spawns for the docking face");
+        if (afld != nullptr)
+          Check(mig_aircraft->CanLand(CPos{cx + 3, cy + 5}, afld),
+                "p6b13: docking at the afld ignores terrain type");
+
+        auto* ammo_pool = mig->Trait<mods::AmmoPool>();
+        Check(ammo_pool->CurrentAmmoCount() == 8 && ammo_pool->HasFullAmmo(),
+              "p6b13: MIG spawns with a full ammo pool");
+        ammo_pool->TakeAmmo(*mig, 3);
+        Check(ammo_pool->CurrentAmmoCount() == 5 && !ammo_pool->HasFullAmmo(),
+              "p6b13: TakeAmmo drains to 5");
+        Check(ammo_pool->GiveAmmo(*mig, 2) &&
+                  ammo_pool->CurrentAmmoCount() == 7,
+              "p6b13: GiveAmmo refills to 7");
+
+        Check(mig->CurrentActivity() == nullptr,
+              "p6b13: map-spawned MIG has no creation activity");
+
+        net::Order order_move{
+            "Move", mig,
+            sim::Target::FromCell(*world, world->Map().Clamp(CPos{cx, cy})),
+            false};
+        mig->ResolveOrder(order_move);
+        Check(mig->CurrentActivity() != nullptr,
+              "p6b13: the Move order queues the Fly activity");
+
+        for (int i = 0; i < 300; i++)
+          world->Tick();
+        Check(mig_aircraft->CenterPosition().Z >= 2560,
+              "p6b13: the landed MIG takes off and climbs to 2560");
+
+        mods::AmmoPool* pool_probe = mig->Trait<mods::AmmoPool>();
+        Check(pool_probe != nullptr &&
+                  pool_probe->Info().int4_reload_delay == 50,
+              "p6b13: AmmoPool default ReloadDelay 50");
+      }
+
+      sim::Actor* mig2 = mig_spawn(CPos{cx + 6, cy + 6});
+      if (mig2 != nullptr && mig_aircraft != nullptr) {
+        mods::Aircraft* mig2_aircraft = mig2->Trait<mods::Aircraft>();
+        auto* mig2_fly = world->Arena().Create<mods::activities::Fly>(
+            *mig2, sim::Target::FromCell(
+                       *world, world->Map().Clamp(CPos{cx, cy})),
+            WDist::FromCells(1));
+        mig2->QueueActivity(mig2_fly);
+        const auto wpos_start = mig2_aircraft->CenterPosition();
+        for (int i = 0; i < 200; i++)
+          world->Tick();
+        const auto wpos_end = mig2_aircraft->CenterPosition();
+        Check((wpos_end - wpos_start).HorizontalLengthSquared() > 0,
+              "p6b13: Fly moves the aircraft horizontally");
+      }
+
+      const meta::RecordObject* rec_badr_bomber =
+          find_record("badr.bomber",
+                      "OpenRA.Mods.Common.Traits.AttackBomberInfo");
+      Check(rec_badr_bomber != nullptr,
+            "p6b13: badr.bomber AttackBomberInfo record found");
+      if (rec_badr_bomber != nullptr) {
+        const mods::AttackBomberInfoData badr_bomber =
+            mods::AttackBomberInfoData::Parse(*rec_badr_bomber);
+        Check(badr_bomber.angle_facing_tolerance.Angle == 8,
+              "p6b13: badr.bomber FacingTolerance 8 parses");
+      }
+
+      const meta::RecordObject* rec_parabombs = find_record(
+          "powerproxy.parabombs",
+          "OpenRA.Mods.Common.Traits.AirstrikePowerInfo");
+      Check(rec_parabombs != nullptr,
+            "p6b13: parabombs AirstrikePowerInfo record found");
+      mods::AirstrikePowerInfoData parabombs;
+      if (rec_parabombs != nullptr) {
+        parabombs = mods::AirstrikePowerInfoData::Parse(*rec_parabombs);
+        Check(parabombs.str_unit_type == "badr.bomber" &&
+                  parabombs.int4_squad_size == 1,
+              "p6b13: parabombs UnitType badr.bomber + SquadSize 1");
+        Check(parabombs.int4_quantized_facings == 8 &&
+                  parabombs.str_camera_actor == "camera" &&
+                  parabombs.int4_camera_remove_delay == 150,
+              "p6b13: parabombs QuantizedFacings/Camera parse");
+        Check(parabombs.b_one_shot && parabombs.b_allow_multiple,
+              "p6b13: parabombs OneShot + AllowMultiple parse");
+        Check(parabombs.b_display_beacon &&
+                  parabombs.str_beacon_poster == "pbmbicon",
+              "p6b13: parabombs beacon faces parse");
+      }
+
+      if (spm != nullptr) {
+        sim::Actor* parabombs_proxy =
+            spawn("powerproxy.parabombs", player_a, CPos{cx, cy});
+        auto* strike_power =
+            parabombs_proxy != nullptr
+                ? parabombs_proxy->TraitOrDefault<mods::AirstrikePower>()
+                : nullptr;
+        Check(strike_power != nullptr,
+              "p6b13: powerproxy.parabombs constructs AirstrikePower");
+        if (strike_power != nullptr) {
+          auto vec_sent = strike_power->SendAirstrike(
+              *parabombs_proxy,
+              world->Map().CenterOfCell(CPos{cx, cy}), WAngle{0});
+          Check(vec_sent.size() == 1,
+                "p6b13: SendAirstrike spawns the single bomber");
+          if (vec_sent.size() == 1) {
+            Check(!vec_sent[0]->IsInWorld(),
+                  "p6b13: the bomber waits outside the world pre-frame-end");
+            world->Tick();
+            Check(vec_sent[0]->IsInWorld(),
+                  "p6b13: the frame-end task adds the bomber");
+            mods::AttackBomber* bomber =
+                vec_sent[0]->Trait<mods::AttackBomber>();
+            Check(bomber != nullptr && bomber->BomberTarget().Type() ==
+                                            sim::TargetType::Terrain,
+                  "p6b13: the bomber carries the scripted target");
+            const auto wpos_bomber_start = vec_sent[0]->CenterPosition();
+            for (int i = 0; i < 60; i++)
+              world->Tick();
+            Check((vec_sent[0]->CenterPosition() - wpos_bomber_start)
+                          .HorizontalLengthSquared() > 0,
+                  "p6b13: the bomber flies its ingress");
+          }
+        }
+      }
+
+      const meta::RecordObject* rec_falls =
+          find_record("mig.husk",
+                      "OpenRA.Mods.Common.Traits.FallsToEarthInfo");
+      if (rec_falls != nullptr) {
+        mods::FallsToEarthInfoData falls_info =
+            mods::FallsToEarthInfoData::Parse(*rec_falls);
+        const game::ActorInfo* husk_info = nullptr;
+        for (const auto& [name, info] : world->Map().Rules().Actors())
+          if (name == "mig.husk")
+            husk_info = info.get();
+        if (husk_info != nullptr)
+          falls_info.RulesetLoaded(world->Map().Rules(), *husk_info);
+        Check(falls_info.ptr_explosion_weapon != nullptr,
+              "p6b13: husk explosion weapon resolves");
+      }
+
+      sim::Actor* mig3 = mig_spawn(CPos{cx + 9, cy + 9});
+      if (mig3 != nullptr && mig_aircraft != nullptr) {
+        mods::Aircraft* mig3_aircraft = mig3->Trait<mods::Aircraft>();
+        mig3_aircraft->SetPosition(
+            mig3, WPos{(cx + 9) * 1024 + 512, (cy + 9) * 1024 + 512, 2400});
+        mods::FallsToEarthInfoData falls_fall{};
+        auto* fall = world->Arena().Create<mods::activities::FallToEarth>(
+            *mig3, falls_fall);
+        mig3->QueueActivity(false, fall);
+        const auto int4_z_start = mig3_aircraft->CenterPosition().Z;
+        world->Tick();
+        Check(mig3_aircraft->CenterPosition().Z < int4_z_start,
+              "p6b13: FallToEarth drags the aircraft down");
+      }
+    }
 
   std::println("render_test: {} failures", g_failures);
 

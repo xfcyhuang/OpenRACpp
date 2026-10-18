@@ -1132,6 +1132,9 @@ class IMove {
                                WDist min_range, WDist max_range,
                                std::optional<WPos> initial_target_position,
                                std::optional<core::Color> target_line_color) = 0;
+  virtual Activity* MoveToTarget(Actor* self, const Target& target,
+                                 std::optional<WPos> initial_target_position = {},
+                                 std::optional<core::Color> target_line_color = {}) = 0;
   virtual Activity* ReturnToCell(Actor* self) = 0;
   virtual Activity* MoveIntoTarget(Actor* self, const Target& target) = 0;
   virtual Activity* MoveOntoTarget(Actor* self, const Target& target,
@@ -2261,6 +2264,82 @@ class ITooltipInfo {
   virtual ~ITooltipInfo() = default;
   virtual std::string TooltipForPlayerStance(PlayerRelationship stance) = 0;
   virtual bool IsOwnerRowVisible() const = 0;
+};
+
+/// TraitsInterfaces.cs L429-434:INotifyTakeOff
+class INotifyTakeOff {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyTakeOff;
+  virtual ~INotifyTakeOff() = default;
+  virtual void TakeOff(Actor& self) = 0;
+};
+
+/// TraitsInterfaces.cs L238-243:INotifyLanding
+class INotifyLanding {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyLanding;
+  virtual ~INotifyLanding() = default;
+  virtual void Landing(Actor& self) = 0;
+};
+
+/// TraitsInterfaces.cs L36-40:IAircraftCenterPositionOffset
+class IAircraftCenterPositionOffset {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IAircraftCenterPositionOffset;
+  virtual ~IAircraftCenterPositionOffset() = default;
+  virtual WVec PositionOffset() const = 0;
+};
+
+/// TraitsInterfaces.cs L188-192:IOverrideAircraftLanding
+class IOverrideAircraftLanding {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_IOverrideAircraftLanding;
+  virtual ~IOverrideAircraftLanding() = default;
+  virtual std::span<const std::string> LandableTerrainTypes() = 0;
+};
+
+/// TraitsInterfaces.cs L559-565:ResupplyType([Flags])
+enum class ResupplyType : std::int32_t {
+  None = 0,
+  Rearm = 1,
+  Repair = 2,
+};
+
+inline constexpr ResupplyType operator|(ResupplyType a, ResupplyType b) {
+  return static_cast<ResupplyType>(static_cast<std::int32_t>(a) |
+                                   static_cast<std::int32_t>(b));
+}
+
+inline constexpr ResupplyType operator&(ResupplyType a, ResupplyType b) {
+  return static_cast<ResupplyType>(static_cast<std::int32_t>(a) &
+                                   static_cast<std::int32_t>(b));
+}
+
+inline constexpr ResupplyType operator~(ResupplyType a) {
+  return static_cast<ResupplyType>(~static_cast<std::int32_t>(a));
+}
+
+inline constexpr ResupplyType& operator|=(ResupplyType& a, ResupplyType b) {
+  return a = a | b;
+}
+
+inline constexpr ResupplyType& operator&=(ResupplyType& a, ResupplyType b) {
+  return a = a & b;
+}
+
+/// TraitsInterfaces.cs L529-542:INotifyResupply
+class INotifyResupply {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyResupply;
+  virtual ~INotifyResupply() = default;
+  virtual void BeforeResupply(Actor& self, Actor& unit,
+                              ResupplyType types) = 0;
+  virtual void ResupplyTick(Actor& self, Actor& unit, ResupplyType types) = 0;
 };
 
 }  // namespace ora::sim

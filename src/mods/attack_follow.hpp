@@ -18,13 +18,6 @@
 //    AttackFollowInfo's `new` Info hiding → the base-slice copy + the
 //    derived-field member (info is immutable; both copies hold the same
 //    values).
-//  - Rearmable/Resupply/ReturnToBase/AircraftInfo 未移植:AttackActivity 的
-//    补给分支不可达(rearmable == null / isAircraft = false 的上游等价
-//    面;COVERAGE 登记)
-//    Rearmable/Resupply/ReturnToBase/AircraftInfo unported: the
-//    AttackActivity resupply branch is unreachable (upstream's
-//    rearmable == null / isAircraft = false equivalent faces; registered
-//    in COVERAGE).
 #pragma once
 import std;
 
@@ -44,6 +37,8 @@ namespace ora::mods {
 
 class Turreted;
 class AttackFollow;
+class Rearmable;
+class Aircraft;
 
 namespace activities {
 
@@ -74,12 +69,9 @@ class AttackFollowActivity final : public sim::Activity,
   sim::IMove* p_move_ = nullptr;
   bool b_force_attack_;
   std::optional<core::Color> opt_target_line_color_;
-  // Rearmable trait 未移植:恒 null(补给分支不可达;COVERAGE 登记)
-  // The Rearmable trait is unported: constantly null (the resupply
-  // branch is unreachable; registered in COVERAGE).
-  // readonly Rearmable rearmable;
+  Rearmable* rearmable_ = nullptr;
   AttackSource source_;
-  bool b_is_aircraft_ = false;  // AircraftInfo 未注册 → 恒 false(同上)
+  bool b_is_aircraft_ = false;
   MoveCooldownHelper move_cooldown_helper_;
 
   sim::Target target_;

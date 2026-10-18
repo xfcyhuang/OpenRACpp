@@ -89,6 +89,11 @@ inline WAngle TickFacing(WAngle facing, WAngle desired_facing, WAngle step) {
   return right_turn < left_turn ? facing + step : facing - step;
 }
 
+/// Util.cs L70-73:GetTurnDirection
+inline int GetTurnDirection(WAngle facing, WAngle desired_facing) {
+  return (facing - desired_facing).Angle < 512 ? -1 : 1;
+}
+
 /// Util.cs L78-84:IndexFacing
 inline int IndexFacing(WAngle facing, int num_frames) {
   // 1024 here is the max angle, so we divide the max angle by the total

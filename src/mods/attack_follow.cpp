@@ -5,8 +5,12 @@
 #include "meta/field_loader.hpp"
 #include "meta/generic_record.hpp"
 #include "mods/affects_shroud.hpp"
+#include "mods/air_activities.hpp"
+#include "mods/air_support.hpp"
+#include "mods/aircraft.hpp"
 #include "mods/armament.hpp"
 #include "mods/move_activities.hpp"
+#include "mods/production_support.hpp"
 #include "game/actor_info.hpp"
 #include "mods/turreted.hpp"
 #include "mods/util.hpp"
@@ -297,10 +301,8 @@ AttackFollowActivity::AttackFollowActivity(
   p_attack_ = self.Trait<AttackFollow>();
   p_move_ = allow_move ? self.TraitOrDefault<sim::IMove>() : nullptr;
   vec_reveals_shroud_ = self.TraitsImplementing<RevealsShroud>();
-  // Rearmable trait 未移植:rearmable == null 恒成立(补给分支不可达;
-  // COVERAGE 登记)
-  // The Rearmable trait is unported: rearmable == null holds constantly
-  // (the resupply branch is unreachable; registered in COVERAGE).
+  rearmable_ = self.TraitOrDefault<Rearmable>();
+  b_is_aircraft_ = dynamic_cast<Aircraft*>(p_move_) != nullptr;
   move_cooldown_helper_.SetRetryIfDestinationBlocked(true);
 
   b_child_has_priority_ = false;
@@ -429,10 +431,72 @@ bool AttackFollowActivity::Tick(sim::Actor& self) {
     return true;
 
   // If all valid weapons have depleted their ammo and Rearmable trait
-  // exists, return to RearmActor to reload(上游注释;Rearmable 未移植 →
-  // 分支不可达)
-  // (upstream's comment; Rearmable is unported → the branch is
-  // unreachable.)
+  // exists, return to RearmActor to reload(上游注释)
+  // (upstream's comment.)
+  if (rearmable_ != nullptr && !b_use_last_visible_target_) {
+    auto all_invalid = true;
+    for (auto* x : p_attack_->Armaments()) {
+      if (x->IsTraitPaused() ||
+          !sim::WeaponIsValidAgainst(*x->Weapon, target_, self.world(),
+                                      &self))
+        continue;
+      all_invalid = false;
+    }
+    if (all_invalid) {
+      // Attack moves never resupply(上游注释)
+      // (upstream's comment.)
+      if (source_ == AttackSource::AttackMove)
+        return true;
+
+      sim::Activity* rearm_activity = nullptr;
+      if (b_is_aircraft_)
+        rearm_activity =
+            self.world().Arena().Create<activities::ReturnToBase>(self);
+      else {
+        struct Entry {
+          Actor* actor;
+          bool own;
+          std::int64_t dist;
+        };
+        std::vector<Entry> vec_entries;
+        for (auto* a : self.world().ActorsHavingTrait<Reservable>()) {
+          if (a->IsDead() || !a->IsInWorld())
+            continue;
+          if (!a->Owner()->IsAlliedWith(self.Owner()))
+            continue;
+          if (std::find(rearmable_->Info().vec_rearm_actors.begin(),
+                        rearmable_->Info().vec_rearm_actors.end(),
+                        a->InfoName()) ==
+              rearmable_->Info().vec_rearm_actors.end())
+            continue;
+          vec_entries.push_back(
+              Entry{a, a->Owner() == self.Owner(),
+                    (self.Location() - a->Location()).LengthSquared()});
+        }
+        std::stable_sort(vec_entries.begin(), vec_entries.end(),
+                         [](const Entry& a, const Entry& b) {
+                           if (a.own != b.own)
+                             return a.own;
+                           return a.dist < b.dist;
+                         });
+        if (!vec_entries.empty())
+          rearm_activity = self.world().Arena().Create<activities::Resupply>(
+              self, *vec_entries.front().actor, WDist{512});
+      }
+
+      if (rearm_activity != nullptr) {
+        if (p_attack_->FollowInfo().b_abort_on_resupply) {
+          if (NextActivity() != nullptr)
+            NextActivity()->Cancel(self);
+          Queue(rearm_activity);
+        } else
+          QueueChild(rearm_activity);
+
+        b_return_to_base_ = true;
+        return p_attack_->FollowInfo().b_abort_on_resupply;
+      }
+    }
+  }
 
   const WPos pos = self.CenterPosition();
   const sim::Target& check_target =

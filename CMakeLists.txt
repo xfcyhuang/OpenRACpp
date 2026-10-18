@@ -550,7 +550,16 @@ add_library(ora_mods STATIC
   src/mods/support_powers_widget.cpp
   src/mods/support_power_timer_widget.cpp
   src/mods/observer_widgets.cpp
-  src/mods/video_player_widget.cpp)
+  src/mods/video_player_widget.cpp
+  src/mods/support_power_effects.cpp
+  src/mods/concrete_support_powers.cpp
+  src/mods/trait_registry_batch13.cpp
+  src/mods/aircraft.cpp
+  src/mods/air_activities.cpp
+  src/mods/air_support.cpp
+  src/mods/attack_aircraft.cpp
+  src/mods/airstrike_power.cpp
+  src/mods/trait_registry_batch14.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui)
 ora_link_std(ora_mods)
 

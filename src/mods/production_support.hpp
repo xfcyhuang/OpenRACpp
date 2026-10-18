@@ -215,18 +215,16 @@ class Reservable final : public sim::TraitBase,
   static bool IsAvailableFor(sim::Actor& reservable,
                              sim::Actor* for_actor);
 
-  /// L55-64:Reserve(Aircraft 面空集:登记 forActor;DisposableAction
-  /// 的 GC 面 = 布尔登记)
-  /// L55-64: Reserve (the empty Aircraft face: record forActor; the
-  /// DisposableAction's GC face = the boolean record).
+  /// L55-64:Reserve(登记 forActor;DisposableAction 的 GC 面 = 布尔登记)
+  /// L55-64: Reserve (record forActor; the DisposableAction's GC face =
+  /// the boolean record).
   void Reserve(sim::Actor* for_actor);
 
- private:
-  /// L95-102:UnReserve(Aircraft 调度空集;仅清登记)
-  /// L95-102: UnReserve (the aircraft scheduling is empty; only the
-  /// record clears).
+  /// L95-102:UnReserve(reservation.Dispose 的消费面)
+  /// L95-102: UnReserve (reservation.Dispose's consumer face).
   void UnReserve();
 
+ private:
   sim::Actor* p_reserved_for_ = nullptr;
 };
 

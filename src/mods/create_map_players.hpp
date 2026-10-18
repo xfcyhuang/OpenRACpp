@@ -93,5 +93,7 @@ void RegisterCommonTraitsBatch11();
 void RegisterCommonTraitsBatch12();
 void RegisterCommonTraitsBatch12Objectives();
 void RegisterCommonTraitsBatch12Seeds();
+void RegisterCommonTraitsBatch13();
+void RegisterCommonTraitsBatch14();
 
 }  // namespace ora::mods

@@ -145,6 +145,12 @@ class Ui {
     /// VideoLoader.GetVideo (unwired = null = no video).
     std::function<std::unique_ptr<fmt::IVideo>(std::string_view, bool)>
         fn_load_video;
+    /// Game.Cursor.Lock/Unlock(SelectDirectionalTarget 的拖拽锁定;未接线
+    /// = no-op)
+    /// Game.Cursor.Lock/Unlock (SelectDirectionalTarget's drag lock;
+    /// unwired = no-op).
+    std::function<void()> fn_cursor_lock = [] {};
+    std::function<void()> fn_cursor_unlock = [] {};
   };
 
   void Initialize(Deps deps);
@@ -164,6 +170,8 @@ class Ui {
   }
   int LocalTick() const { return deps_.fn_local_tick(); }
   sound::Sound* SoundDeps() const { return deps_.fn_sound(); }
+  void LockCursor() const { deps_.fn_cursor_lock(); }
+  void UnlockCursor() const { deps_.fn_cursor_unlock(); }
   std::function<std::unique_ptr<fmt::IVideo>(std::string_view, bool)>
   LoadVideoDeps() const {
     return deps_.fn_load_video;

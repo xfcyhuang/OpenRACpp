@@ -259,7 +259,7 @@ class Mobile final : public TraitBase,
   sim::Activity* MoveToTarget(
       Actor* self, const sim::Target& target,
       std::optional<WPos> initial_target_position,
-      std::optional<core::Color> target_line_color);                 // L707-714
+      std::optional<core::Color> target_line_color) override;  // L707-714
   sim::Activity* MoveIntoTarget(
       Actor* self, const sim::Target& target) override;              // L716-724
   sim::Activity* MoveOntoTarget(

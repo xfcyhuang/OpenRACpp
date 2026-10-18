@@ -359,6 +359,22 @@ class SpawnedByMapInit : public ActorInit,
   }
 };
 
+/// EffectiveOwnerInit(ActorInitializer.cs L70)
+class Player;
+
+class EffectiveOwnerInit : public ValueActorInit<Player*>,
+                           public ISingleInstanceInit {
+ public:
+  ORA_INIT_TYPE(EffectiveOwnerInit, OpenRA_Mods_Common_EffectiveOwnerInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit EffectiveOwnerInit(Player* value)
+      : ValueActorInit<Player*>(value) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
 /// HiddenUnderFogInit(FrozenUnderFog.cs L189;RuntimeFlagInit 标记)
 /// HiddenUnderFogInit (FrozenUnderFog.cs L189; the RuntimeFlagInit
 /// marker).

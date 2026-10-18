@@ -158,6 +158,12 @@ void SetProjectileSoundPlayer(
     std::function<void(const std::string&, sim::World&, const WPos&)>
         fn_play);
 
+/// 注入面的消费入口(NukeLaunch 等跨文件构造;未接线 = 静默)
+/// The injection face's consumption entry (cross-file construction such as
+/// NukeLaunch; unwired = silent).
+void PlayProjectileSoundIfWired(const std::string& str_name,
+                                sim::World& world, const WPos& wpos_pos);
+
 /// 已知同步弹丸的效果哈希装配(World.SetSyncEffectHasher 的 dynamic_cast
 /// 分派;含 Bullet —— 引擎装配/测试接线)
 /// The known-synced-projectile effect-hash assembly (World.
