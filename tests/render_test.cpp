@@ -63,6 +63,12 @@ import std;
 #include "mods/air_support.hpp"
 #include "mods/attack_aircraft.hpp"
 #include "mods/airstrike_power.hpp"
+#include "mods/cargo.hpp"
+#include "mods/cargo_activities.hpp"
+#include "mods/parachutable.hpp"
+#include "mods/passenger.hpp"
+#include "mods/paratroopers_power.hpp"
+#include "mods/with_parachute.hpp"
 #include "mods/primary_building.hpp"
 #include "mods/player_resources.hpp"
 #include "mods/production_icon_overlay.hpp"
@@ -2310,6 +2316,235 @@ int main(int argc, char** argv) {
         world->Tick();
         Check(mig3_aircraft->CenterPosition().Z < int4_z_start,
               "p6b13: FallToEarth drags the aircraft down");
+      }
+    }
+
+    // ———— 第十四批:运输链(Cargo/Passenger/ParaDrop/Parachutable/
+    // WithParachute/ParatroopersPower)————
+    {
+      const auto find_record =
+          [world = world.get()](
+              std::string_view str_actor,
+              std::string_view str_full_name) -> const meta::RecordObject* {
+        for (const auto& [name, info] : world->Map().Rules().Actors())
+          if (name == str_actor)
+            for (const meta::RecordObject* rec :
+                 info->TraitsInConstructOrder())
+              if (rec->record_desc().str_full_name == str_full_name)
+                return rec;
+        return nullptr;
+      };
+
+      const meta::RecordObject* rec_badr_cargo =
+          find_record("badr", "OpenRA.Mods.Common.Traits.CargoInfo");
+      Check(rec_badr_cargo != nullptr,
+            "p6b14: BADR CargoInfo record found");
+      if (rec_badr_cargo != nullptr) {
+        const mods::CargoInfoData badr_cargo =
+            mods::CargoInfoData::Parse(*rec_badr_cargo);
+        Check(badr_cargo.int4_max_weight == 10,
+              "p6b14: BADR Cargo MaxWeight 10 parses");
+        Check(badr_cargo.b_eject_on_sell && !badr_cargo.b_eject_on_death,
+              "p6b14: BADR Cargo EjectOnSell true + EjectOnDeath false");
+      }
+
+      const meta::RecordObject* rec_badr_drop =
+          find_record("badr", "OpenRA.Mods.Common.Traits.ParaDropInfo");
+      Check(rec_badr_drop != nullptr, "p6b14: BADR ParaDropInfo found");
+      if (rec_badr_drop != nullptr) {
+        const mods::ParaDropInfoData badr_drop =
+            mods::ParaDropInfoData::Parse(*rec_badr_drop);
+        Check(badr_drop.dist_drop_range == WDist::FromCells(4) &&
+                  badr_drop.int4_drop_interval == 5 &&
+                  badr_drop.str_chute_sound == "chute1.aud",
+              "p6b14: BADR ParaDrop DropRange/DropInterval/ChuteSound");
+      }
+
+      const meta::RecordObject* rec_apc_cargo =
+          find_record("apc", "OpenRA.Mods.Common.Traits.CargoInfo");
+      Check(rec_apc_cargo != nullptr, "p6b14: apc CargoInfo found");
+      if (rec_apc_cargo != nullptr) {
+        const mods::CargoInfoData apc_cargo =
+            mods::CargoInfoData::Parse(*rec_apc_cargo);
+        Check(apc_cargo.int4_max_weight == 5 &&
+                  apc_cargo.str_loading_condition == "notmobile",
+              "p6b14: apc Cargo MaxWeight 5 + LoadingCondition notmobile");
+        Check(apc_cargo.vec_types.size() == 1 &&
+                  apc_cargo.vec_types[0] == "Infantry",
+              "p6b14: apc Cargo Types Infantry");
+      }
+
+      const meta::RecordObject* rec_e1_passenger =
+          find_record("e1", "OpenRA.Mods.Common.Traits.PassengerInfo");
+      Check(rec_e1_passenger != nullptr, "p6b14: e1 PassengerInfo found");
+      if (rec_e1_passenger != nullptr) {
+        const mods::PassengerInfoData e1_passenger =
+            mods::PassengerInfoData::Parse(*rec_e1_passenger);
+        Check(e1_passenger.str_cargo_type == "Infantry" &&
+                  e1_passenger.int4_weight == 1,
+              "p6b14: e1 Passenger CargoType Infantry + Weight 1");
+      }
+
+      const meta::RecordObject* rec_e1_parachutable =
+          find_record("e1", "OpenRA.Mods.Common.Traits.ParachutableInfo");
+      Check(rec_e1_parachutable != nullptr,
+            "p6b14: e1 ParachutableInfo found");
+      if (rec_e1_parachutable != nullptr) {
+        const mods::ParachutableInfoData e1_parachutable =
+            mods::ParachutableInfoData::Parse(*rec_e1_parachutable);
+        Check(e1_parachutable.int4_fall_rate == 26 &&
+                  e1_parachutable.str_parachuting_condition == "parachute",
+              "p6b14: e1 Parachutable FallRate 26 + ParachutingCondition");
+      }
+
+      const meta::RecordObject* rec_e1_with_parachute = find_record(
+          "e1", "OpenRA.Mods.Common.Traits.Render.WithParachuteInfo");
+      Check(rec_e1_with_parachute != nullptr,
+            "p6b14: e1 WithParachuteInfo found");
+      if (rec_e1_with_parachute != nullptr) {
+        const mods::WithParachuteInfoData e1_with_parachute =
+            mods::WithParachuteInfoData::Parse(*rec_e1_with_parachute);
+        Check(e1_with_parachute.str_image == "parach" &&
+                  e1_with_parachute.str_opening_sequence == "open" &&
+                  e1_with_parachute.str_sequence == "idle",
+              "p6b14: e1 WithParachute parach/open/idle parse");
+        Check(e1_with_parachute.str_shadow_image == "parach-shadow" &&
+                  e1_with_parachute.wvec_offset == WVec{0, 0, 427},
+              "p6b14: e1 WithParachute shadow + offset 427");
+        Check(e1_with_parachute.conditional.expr_requires.has_value(),
+              "p6b14: e1 WithParachute RequiresCondition parachute");
+      }
+
+      const meta::RecordObject* rec_para_power = find_record(
+          "powerproxy.paratroopers",
+          "OpenRA.Mods.Common.Traits.ParatroopersPowerInfo");
+      Check(rec_para_power != nullptr,
+            "p6b14: powerproxy.paratroopers found");
+      if (rec_para_power != nullptr) {
+        const mods::ParatroopersPowerInfoData para_power =
+            mods::ParatroopersPowerInfoData::Parse(*rec_para_power);
+        Check(para_power.vec_drop_items.size() == 5 &&
+                  para_power.vec_drop_items[0] == "E1" &&
+                  para_power.vec_drop_items[4] == "E3",
+              "p6b14: paratroopers DropItems E1,E1,E1,E3,E3");
+        Check(para_power.int4_quantized_facings == 8 &&
+                  para_power.str_camera_actor == "camera.paradrop" &&
+                  para_power.int4_camera_remove_delay == 85,
+              "p6b14: paratroopers QuantizedFacings/Camera faces");
+        Check(para_power.str_unit_type == "badr" &&
+                  para_power.int4_squad_size == 1 &&
+                  !para_power.b_allow_impassable_cells,
+              "p6b14: paratroopers UnitType badr + SquadSize 1");
+      }
+
+      const auto spawn_offworld = [&](const std::string& str_type) {
+        sim::TypeDictionary dict;
+        sim::OwnerInit owner_init{player_a};
+        dict.Add(new sim::OwnerInit{player_a});
+        return world->CreateActor(false, str_type, dict);
+      };
+
+      sim::Actor* badr = spawn("badr", player_a, CPos{cx + 4, cy - 6});
+      Check(badr != nullptr, "p6b14: BADR spawns");
+      if (badr != nullptr) {
+        auto* badr_cargo = badr->Trait<mods::Cargo>();
+        sim::Actor* e1_off = spawn_offworld("e1");
+        badr_cargo->Load(*badr, *e1_off);
+        Check(badr_cargo->PassengerCount() == 1 &&
+                  badr_cargo->Peek() == e1_off,
+              "p6b14: Load carries the off-world e1");
+        Check(badr_cargo->HasSpace(9) && !badr_cargo->HasSpace(10),
+              "p6b14: MaxWeight 10 gates HasSpace(9)/HasSpace(10)");
+        Check(badr_cargo->Unload(*badr) == e1_off && badr_cargo->IsEmpty(),
+              "p6b14: Unload returns the passenger and empties");
+        e1_off->Dispose();
+
+        sim::Actor* e1_r = spawn_offworld("e1");
+        Check(badr_cargo->ReserveSpace(*e1_r),
+              "p6b14: ReserveSpace accepts weight 1");
+        Check(!badr_cargo->HasSpace(10) && badr_cargo->HasSpace(9),
+              "p6b14: reserved weight counts against HasSpace");
+        badr_cargo->UnreserveSpace(*e1_r);
+        Check(badr_cargo->HasSpace(10),
+              "p6b14: UnreserveSpace restores the space");
+        e1_r->Dispose();
+      }
+
+      sim::Actor* apc = spawn("apc", player_a, CPos{cx + 6, cy + 2});
+      sim::Actor* e1rider = spawn("e1", player_a, CPos{cx + 4, cy + 2});
+      Check(apc != nullptr && e1rider != nullptr,
+            "p6b14: apc + e1 spawn for the enter chain");
+      if (apc != nullptr && e1rider != nullptr) {
+        net::Order order_enter{
+            "EnterTransport", e1rider, sim::Target::FromActor(apc), false};
+        e1rider->ResolveOrder(order_enter);
+        Check(e1rider->CurrentActivity() != nullptr,
+              "p6b14: EnterTransport queues RideTransport");
+
+        for (int i = 0; i < 400; i++)
+          world->Tick();
+        auto* apc_cargo = apc->Trait<mods::Cargo>();
+        Check(apc_cargo->PassengerCount() == 1 && !e1rider->IsInWorld(),
+              "p6b14: the e1 rides into the apc and leaves the world");
+        Check(e1rider->Trait<mods::Passenger>()->Transport() == apc,
+              "p6b14: the passenger records its transport");
+
+        net::Order order_unload{"Unload", apc, false};
+        apc->ResolveOrder(order_unload);
+        for (int i = 0; i < 400; i++)
+          world->Tick();
+        Check(apc_cargo->IsEmpty() && e1rider->IsInWorld(),
+              "p6b14: the Unload order empties the apc");
+        const CPos e1_cell = e1rider->Location();
+        const CPos apc_cell = apc->Location();
+        const int dx = std::abs(e1_cell.X() - apc_cell.X());
+        const int dy = std::abs(e1_cell.Y() - apc_cell.Y());
+        Check(dx <= 1 && dy <= 1 && (dx + dy) > 0,
+              "p6b14: the unloaded e1 lands adjacent to the apc");
+      }
+
+      sim::Actor* badr2 = spawn("badr", player_a, CPos{cx + 4, cy + 8});
+      Check(badr2 != nullptr, "p6b14: the paradrop BADR spawns");
+      if (badr2 != nullptr) {
+        auto* badr2_cargo = badr2->Trait<mods::Cargo>();
+        std::vector<sim::Actor*> vec_paras;
+        for (int i = 0; i < 3; i++) {
+          sim::Actor* para = spawn_offworld("e1");
+          badr2_cargo->Load(*badr2, *para);
+          vec_paras.push_back(para);
+        }
+
+        const CPos lz{cx + 12, cy + 12};
+        auto* para_drop = badr2->Trait<mods::ParaDrop>();
+        para_drop->SetLZ(lz, true);
+        net::Order order_fly{
+            "Move", badr2, sim::Target::FromCell(*world, lz), false};
+        badr2->ResolveOrder(order_fly);
+
+        int int4_drop_z = -1;
+        bool b_was_in_air = false;
+        for (int i = 0; i < 800; i++) {
+          world->Tick();
+          if (int4_drop_z < 0 && vec_paras[0]->IsInWorld())
+            int4_drop_z = vec_paras[0]->CenterPosition().Z;
+          if (vec_paras[0]->IsInWorld() && !vec_paras[0]->IsDead() &&
+              vec_paras[0]->Trait<mods::Parachutable>()->IsInAir())
+            b_was_in_air = true;
+        }
+        Check(int4_drop_z > 2000,
+              "p6b14: the para starts high in the air");
+        Check(b_was_in_air, "p6b14: Parachutable reports in-air");
+
+        auto* badr2_aircraft = badr2->Trait<mods::Aircraft>();
+        Check(badr2_aircraft->CenterPosition().Z >= 2560,
+              "p6b14: the paradrop BADR cruises at 2560");
+
+        Check(!vec_paras[0]->IsInWorld() ||
+                  vec_paras[0]->CenterPosition().Z ==
+                      world->Map().CenterOfCell(vec_paras[0]->Location()).Z,
+              "p6b14: the para lands on the ground");
+        Check(!vec_paras[0]->Trait<mods::Parachutable>()->IsInAir(),
+              "p6b14: Parachutable reports landed");
       }
     }
 

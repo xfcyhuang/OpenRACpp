@@ -582,12 +582,9 @@ bool Enter::Tick(sim::Actor& self) {
         const WPos initial_target_position =
             (b_use_last_visible_target_ ? target_last_visible_ : target_)
                 .CenterPosition();
-        // MoveToTarget(上游 IMove 的 Mobile 实现;邻接停)
-        // MoveToTarget (upstream's IMove face via Mobile; stops when
-        // adjacent).
-        QueueChild(ptr_mobile_->MoveToTarget(&self, target_,
-                                             initial_target_position,
-                                             std::nullopt));
+        QueueChild(ptr_move_->MoveToTarget(&self, target_,
+                                           initial_target_position,
+                                           std::nullopt));
         return false;
       }
 

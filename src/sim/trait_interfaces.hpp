@@ -1812,13 +1812,53 @@ class INotifyUnloadCargo {
   virtual void Unloading(Actor& self) = 0;
 };
 
-/// Mods.Common/TraitsInterfaces.cs L296-299
 class INotifyDemolition {
  public:
   static constexpr gen::TypeId kTypeId =
       gen::TypeId::OpenRA_Mods_Common_Traits_INotifyDemolition;
   virtual ~INotifyDemolition() = default;
   virtual void Demolishing(Actor& self) = 0;
+};
+
+class INotifyPassengerEntered {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyPassengerEntered;
+  virtual ~INotifyPassengerEntered() = default;
+  virtual void OnPassengerEntered(Actor& self, Actor& passenger) = 0;
+};
+
+class INotifyPassengerExited {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyPassengerExited;
+  virtual ~INotifyPassengerExited() = default;
+  virtual void OnPassengerExited(Actor& self, Actor& passenger) = 0;
+};
+
+class INotifyEnteredCargo {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyEnteredCargo;
+  virtual ~INotifyEnteredCargo() = default;
+  virtual void OnEnteredCargo(Actor& self, Actor& cargo) = 0;
+};
+
+class INotifyExitedCargo {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyExitedCargo;
+  virtual ~INotifyExitedCargo() = default;
+  virtual void OnExitedCargo(Actor& self, Actor& cargo) = 0;
+};
+
+class INotifyParachute {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyParachute;
+  virtual ~INotifyParachute() = default;
+  virtual void OnParachute(Actor& self) = 0;
+  virtual void OnLanded(Actor& self) = 0;
 };
 
 /// Mods.Common/TraitsInterfaces.cs L302-305

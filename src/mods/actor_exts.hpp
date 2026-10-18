@@ -75,6 +75,16 @@ inline void NotifyBlocker(sim::Actor& self, CPos position) {
       move_blocked->OnNotifyBlockingMove(*blocker, self);
 }
 
+inline void NotifyBlocker(sim::Actor& self,
+                          std::span<const CPos> vec_positions) {
+  for (const CPos position : vec_positions)
+    for (sim::Actor* blocker :
+         self.world().ActorMapFace()->GetActorsAt(position))
+      for (auto* move_blocked :
+           blocker->TraitsImplementing<sim::INotifyBlockingMove>())
+        move_blocked->OnNotifyBlockingMove(*blocker, self);
+}
+
 /// WorldUtils.cs L35-45:ClosestToIgnoringPath(IEnumerable<WPos>, WPos)
 /// (MinBy 的水平距离平方;平局取首)
 /// WorldUtils.cs L35-45: ClosestToIgnoringPath(IEnumerable<WPos>, WPos)

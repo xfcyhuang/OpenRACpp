@@ -8,6 +8,7 @@ import std;
 #include "core/color.hpp"
 #include "core/wdist.hpp"
 #include "core/wpos.hpp"
+#include "mods/air_support.hpp"
 #include "mods/move_activities.hpp"
 #include "sim/activity.hpp"
 #include "sim/target.hpp"
@@ -223,7 +224,7 @@ class FallToEarth final : public sim::Activity {
 
  private:
   Aircraft* aircraft_ = nullptr;
-  const ora::mods::FallsToEarthInfoData& info_;
+  ora::mods::FallsToEarthInfoData info_;
   int int4_acceleration_ = 0;
   int int4_spin_ = 0;
 };

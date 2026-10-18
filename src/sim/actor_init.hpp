@@ -503,6 +503,32 @@ class SkipMakeAnimsInit : public ActorInit, public ISingleInstanceInit {
   }
 };
 
+class RuntimeCargoInit
+    : public ValueActorInit<std::vector<Actor*>>,
+      public ISuppressInitExport {
+ public:
+  ORA_INIT_TYPE(RuntimeCargoInit, OpenRA_Mods_Common_Traits_RuntimeCargoInit,
+                gen::TypeId::OpenRA_ISuppressInitExport)
+  explicit RuntimeCargoInit(std::vector<Actor*> value)
+      : ValueActorInit<std::vector<Actor*>>(std::move(value)) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
+class CargoInit : public ValueActorInit<std::vector<std::string>> {
+ public:
+  ORA_INIT_TYPE(CargoInit, OpenRA_Mods_Common_Traits_CargoInit,
+                gen::TypeId::OpenRA_ISingleInstanceInit)
+  explicit CargoInit(std::vector<std::string> value)
+      : ValueActorInit<std::vector<std::string>>(std::move(value)) {}
+
+  std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
+    return {};
+  }
+};
+
 /// ActorReference.LoadInit(ActorReference.cs L48-62)的 C++ 承载:init 短名
 /// ("Location"/"Owner"/…)→ 工厂(MiniYaml 节点值, instance_name) →
 /// ActorInit*(FrameArena 分配 —— 地图装载的整帧域);未知名 = 上游

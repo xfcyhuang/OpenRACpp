@@ -70,6 +70,20 @@ class Wait : public sim::Activity {
   int int4_remaining_ticks_;
 };
 
+class WaitFor final : public sim::Activity {
+ public:
+  explicit WaitFor(std::function<bool()> fn_predicate,
+                   bool interruptible = true)
+      : fn_{std::move(fn_predicate)} {
+    b_is_interruptible_ = interruptible;
+  }
+
+  bool Tick(sim::Actor& self) override;
+
+ private:
+  std::function<bool()> fn_;
+};
+
 /// Turn.cs L17-41
 class Turn : public sim::Activity {
  public:

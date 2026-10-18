@@ -919,6 +919,7 @@ void RegisterCommonTraits() {
     RegisterCommonTraitsBatch12Seeds();
     RegisterCommonTraitsBatch13();
     RegisterCommonTraitsBatch14();
+    RegisterCommonTraitsBatch15();
 
     return true;
   }();

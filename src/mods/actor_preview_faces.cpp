@@ -10,6 +10,7 @@ import std;
 #include "mods/turreted.hpp"
 #include "mods/with_infantry_body.hpp"
 #include "mods/with_sprite_body.hpp"
+#include "mods/with_parachute.hpp"
 #include "mods/with_sprite_turret.hpp"
 #include "meta/type_registry.hpp"
 #include "sim/actor_init.hpp"
@@ -215,6 +216,62 @@ void WithSpriteTurretPreviewFace(
       ptr_palette));
 }
 
+void WithParachutePreviewFace(
+    const meta::RecordObject& rec, gfx::ActorPreviewInitializer& init,
+    const std::string& str_image, int facings,
+    gfx::PaletteReference* ptr_palette,
+    std::vector<std::unique_ptr<gfx::IActorPreview>>& vec_out) {
+  const WithParachuteInfoData data = WithParachuteInfoData::Parse(rec);
+  if (!data.conditional.b_enabled_by_default)
+    return;
+
+  if (str_image.empty())
+    return;
+
+  if (!data.str_palette.empty())
+    ptr_palette = init.WR().Palette(data.str_palette);
+
+  const auto* dynamic_facing_init =
+      init.GetOrDefault<sim::DynamicFacingInit>({});
+  const std::function<WAngle()> fn_facing =
+      dynamic_facing_init != nullptr
+          ? dynamic_facing_init->Value()
+          : [f = init.GetValue<sim::FacingInit, WAngle>({}, WAngle{})]() {
+              return f;
+            };
+
+  gfx::Animation anim(RenderSprites::MakeAnimationDeps(init.World()),
+                      str_image, fn_facing);
+  const std::string str_sequence = data.str_sequence;
+  anim.PlayThen(data.str_opening_sequence, [&anim, str_sequence]() {
+    anim.PlayRepeating(str_sequence);
+  });
+
+  const meta::RecordObject* rec_body =
+      FindTraitInfoOfBase(init.Actor(), "BodyOrientationInfo");
+  if (rec_body == nullptr)
+    throw std::runtime_error("Sequence contains no elements");
+  const BodyOrientationInfoData body =
+      BodyOrientationInfoData::Parse(*rec_body);
+
+  const WVec offset_value = data.wvec_offset;
+  std::function<WRot()> fn_orientation =
+      [body, fn_facing, facings]() {
+        return body.QuantizeOrientation(WRot::FromYaw(fn_facing()), facings);
+      };
+  std::function<WVec()> fn_offset = [body, offset_value, fn_orientation]() {
+    return body.LocalToWorld(offset_value.Rotate(fn_orientation()));
+  };
+  std::function<int()> fn_z_offset = [fn_offset]() {
+    const WVec tmp_offset = fn_offset();
+    return tmp_offset.Y + tmp_offset.Z + 1;
+  };
+
+  vec_out.push_back(std::make_unique<gfx::SpriteActorPreview>(
+      std::move(anim), std::move(fn_offset), std::move(fn_z_offset),
+      ptr_palette));
+}
+
 }  // namespace
 
 void RegisterActorPreviewFaces() {
@@ -231,6 +288,8 @@ void RegisterActorPreviewFaces() {
                                      WithInfantryBodyPreviewFace);
     gfx::RegisterActorPreviewSprites("WithSpriteTurretInfo",
                                      WithSpriteTurretPreviewFace);
+    gfx::RegisterActorPreviewSprites("WithParachuteInfo",
+                                     WithParachutePreviewFace);
     return true;
   }();
   (void)b_registered;

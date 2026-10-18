@@ -23,6 +23,13 @@ bool Wait::Tick(sim::Actor& /*self*/) {
   return int4_remaining_ticks_-- == 0;
 }
 
+bool WaitFor::Tick(sim::Actor& /*self*/) {
+  if (IsCanceling())
+    return true;
+
+  return fn_ == nullptr || fn_();
+}
+
 // ———— Turn.cs L17-41 ————
 
 Turn::Turn(sim::Actor& self, WAngle desired_facing)

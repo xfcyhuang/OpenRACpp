@@ -3,6 +3,8 @@
 #include "mods/mobile.hpp"
 
 #include "mods/actor_exts.hpp"
+#include "mods/cargo_activities.hpp"
+#include "mods/parachutable.hpp"
 #include "mods/pathfinding/path_finder.hpp"
 #include "net/order.hpp"
 
@@ -1035,11 +1037,9 @@ Mobile::ReturnToCellActivity::ReturnToCellActivity(sim::Actor& self,
 void Mobile::ReturnToCellActivity::OnFirstRun(sim::Actor& self) {
   // L675-680
   pos_ = self.CenterPosition();
-  // Parachutable trait 面未移植:TraitOrDefault<Parachutable> 恒 null →
-  // 跳过 Parachute 子活动(空集等价;COVERAGE 登记)
-  // The Parachutable trait face is unported: TraitOrDefault<Parachutable>
-  // stays null → the Parachute child activity skips (the empty-set
-  // equivalent; registered in COVERAGE).
+  if (self.world().Map().DistanceAboveTerrain(pos_) > WDist{0} &&
+      self.TraitOrDefault<Parachutable>() != nullptr)
+    QueueChild(self.world().Arena().Create<activities::Parachute>(self));
 }
 
 bool Mobile::ReturnToCellActivity::Tick(sim::Actor& self) {

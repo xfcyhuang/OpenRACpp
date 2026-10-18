@@ -559,7 +559,14 @@ add_library(ora_mods STATIC
   src/mods/air_support.cpp
   src/mods/attack_aircraft.cpp
   src/mods/airstrike_power.cpp
-  src/mods/trait_registry_batch14.cpp)
+  src/mods/trait_registry_batch14.cpp
+  src/mods/cargo.cpp
+  src/mods/passenger.cpp
+  src/mods/cargo_activities.cpp
+  src/mods/parachutable.cpp
+  src/mods/with_parachute.cpp
+  src/mods/paratroopers_power.cpp
+  src/mods/trait_registry_batch15.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui)
 ora_link_std(ora_mods)
 
