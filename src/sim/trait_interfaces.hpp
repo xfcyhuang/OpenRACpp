@@ -2382,4 +2382,20 @@ class INotifyResupply {
   virtual void ResupplyTick(Actor& self, Actor& unit, ResupplyType types) = 0;
 };
 
+/// Mods.Common/TraitsInterfaces.cs L387-393:ICallForTransport
+/// (AutoCarryable 的求运面;CarryableHarvester 转发消费)
+/// Mods.Common/TraitsInterfaces.cs L387-393: ICallForTransport (the
+/// transport-request face of AutoCarryable; forwarded by
+/// CarryableHarvester).
+class ICallForTransport {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_ICallForTransport;
+  virtual ~ICallForTransport() = default;
+  virtual WDist MinimumDistance() const = 0;
+  virtual bool WantsTransport() const = 0;
+  virtual void MovementCancelled(Actor& self) = 0;
+  virtual void RequestTransport(Actor& self, CPos destination) = 0;
+};
+
 }  // namespace ora::sim

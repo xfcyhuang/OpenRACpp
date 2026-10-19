@@ -566,7 +566,10 @@ add_library(ora_mods STATIC
   src/mods/parachutable.cpp
   src/mods/with_parachute.cpp
   src/mods/paratroopers_power.cpp
-  src/mods/trait_registry_batch15.cpp)
+  src/mods/trait_registry_batch15.cpp
+  src/mods/carryall.cpp
+  src/mods/carryall_activities.cpp
+  src/mods/trait_registry_batch16.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui)
 ora_link_std(ora_mods)
 

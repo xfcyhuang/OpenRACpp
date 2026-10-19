@@ -64,6 +64,7 @@ import std;
 #include "mods/attack_aircraft.hpp"
 #include "mods/airstrike_power.hpp"
 #include "mods/cargo.hpp"
+#include "mods/carryall.hpp"
 #include "mods/cargo_activities.hpp"
 #include "mods/parachutable.hpp"
 #include "mods/passenger.hpp"
@@ -2545,6 +2546,243 @@ int main(int argc, char** argv) {
               "p6b14: the para lands on the ground");
         Check(!vec_paras[0]->Trait<mods::Parachutable>()->IsInAir(),
               "p6b14: Parachutable reports landed");
+      }
+    }
+
+    // ———— 第十五批:Carryall 运输扩展(Carryable/AutoCarryable/
+    // Carryall/AutoCarryall/CarryableHarvester + PickupUnit/DeliverUnit)————
+    {
+      const auto parse_record =
+          [](std::string_view str_type_name,
+             std::string_view str_yaml) {
+        auto rec = meta::TypeRegistry::CreateObject(str_type_name);
+        if (rec == nullptr)
+          return std::unique_ptr<meta::RecordObject>{};
+        yaml::MiniYaml my{};
+        my.Nodes = yaml::MiniYaml::FromStream(str_yaml, str_type_name);
+        meta::Load(rec.get(), my);
+        return rec;
+      };
+
+      auto rec_carryable_info =
+          parse_record("CarryableInfo",
+                       "ReservedCondition: reserved\n"
+                       "CarriedCondition: carried\n"
+                       "LockedCondition: locked\n"
+                       "LocalOffset: 0,0,-256\n");
+      Check(rec_carryable_info != nullptr,
+            "p6b15: CarryableInfo record loads");
+      if (rec_carryable_info != nullptr) {
+        const mods::CarryableInfoData carryable_info =
+            mods::CarryableInfoData::Parse(*rec_carryable_info);
+        Check(carryable_info.str_reserved_condition == "reserved" &&
+                  carryable_info.str_carried_condition == "carried" &&
+                  carryable_info.str_locked_condition == "locked",
+              "p6b15: Carryable three conditions parse");
+        Check(carryable_info.wvec_local_offset == WVec{0, 0, -256},
+              "p6b15: Carryable LocalOffset -256");
+      }
+
+      auto rec_carryall_info =
+          parse_record("CarryallInfo",
+                       "BeforeLoadDelay: 7\n"
+                       "BeforeUnloadDelay: 9\n"
+                       "DropRange: 3c0\n"
+                       "CarryCondition: carrying\n"
+                       "CarryableConditions:\n"
+                       "\tharv: hauling\n"
+                       "UnloadCursor: deploy2\n"
+                       "AllowDropOff: true\n"
+                       "Voice: Move\n");
+      Check(rec_carryall_info != nullptr, "p6b15: CarryallInfo record loads");
+      if (rec_carryall_info != nullptr) {
+        const mods::CarryallInfoData carryall_info =
+            mods::CarryallInfoData::Parse(*rec_carryall_info);
+        Check(carryall_info.int4_before_load_delay == 7 &&
+                  carryall_info.int4_before_unload_delay == 9,
+              "p6b15: Carryall load/unload delays parse");
+        Check(carryall_info.dist_drop_range == WDist::FromCells(3) &&
+                  carryall_info.str_carry_condition == "carrying",
+              "p6b15: Carryall DropRange 3c + CarryCondition");
+        Check(carryall_info.vec_carryable_conditions.size() == 1 &&
+                  carryall_info.vec_carryable_conditions[0].first == "harv" &&
+                  carryall_info.vec_carryable_conditions[0].second ==
+                      "hauling",
+              "p6b15: Carryall CarryableConditions dict");
+        Check(carryall_info.str_unload_cursor == "deploy2" &&
+                  carryall_info.b_allow_drop_off && carryall_info.str_voice == "Move",
+              "p6b15: Carryall UnloadCursor/AllowDropOff/Voice");
+        Check(carryall_info.color_target_line ==
+                  core::Color::FromArgbRaw(4294967040u),
+              "p6b15: Carryall TargetLineColor default yellow");
+      }
+
+      auto rec_auto_carryable_info =
+          parse_record("AutoCarryableInfo", "MinDistance: 8c0\n");
+      Check(rec_auto_carryable_info != nullptr,
+            "p6b15: AutoCarryableInfo record loads");
+      if (rec_auto_carryable_info != nullptr) {
+        const mods::AutoCarryableInfoData auto_carryable_info =
+            mods::AutoCarryableInfoData::Parse(*rec_auto_carryable_info);
+        Check(auto_carryable_info.dist_min_distance == WDist::FromCells(8),
+              "p6b15: AutoCarryable MinDistance 8c");
+      }
+
+      auto rec_auto_carryall_info = parse_record(
+          "AutoCarryallInfo", "AutoCarryCondition: autotraining\n");
+      Check(rec_auto_carryall_info != nullptr,
+            "p6b15: AutoCarryallInfo record loads");
+      if (rec_auto_carryall_info != nullptr) {
+        const mods::AutoCarryallInfoData auto_carryall_info =
+            mods::AutoCarryallInfoData::Parse(*rec_auto_carryall_info);
+        Check(auto_carryall_info.expr_auto_carry_condition.has_value() &&
+                  auto_carryall_info.carryall.dist_drop_range ==
+                      WDist::FromCells(5),
+              "p6b15: AutoCarryall condition + inherited DropRange 5c");
+      }
+
+      const auto mount_carryall =
+          [&world](sim::Actor* host, const mods::CarryallInfoData& info) {
+            sim::TypeDictionary dict_mount;
+            sim::ActorInitializer init_mount{*host, dict_mount};
+            auto* carryall =
+                world->Arena().Create<mods::Carryall>(init_mount, info);
+            host->AddTrait(carryall);
+            return carryall;
+          };
+      const auto mount_carryable =
+          [&world](sim::Actor* host, const mods::CarryableInfoData& info) {
+            auto* carryable = world->Arena().Create<mods::Carryable>(info);
+            host->AddTrait(carryable);
+            carryable->Created(*host);
+            return carryable;
+          };
+
+      mods::CarryallInfoData carryall_mount_info{};
+      carryall_mount_info.int4_before_load_delay = 0;
+      carryall_mount_info.int4_before_unload_delay = 0;
+      carryall_mount_info.str_carry_condition = "testcarry";
+
+      sim::Actor* heli = spawn("heli", player_a, CPos{cx + 8, cy - 8});
+      Check(heli != nullptr, "p6b15: heli spawns");
+      if (heli != nullptr) {
+        auto* carryall = mount_carryall(heli, carryall_mount_info);
+        Check(carryall->State() == mods::CarryallState::Idle,
+              "p6b15: Carryall starts Idle");
+
+        sim::Actor* harv = spawn("harv", player_a, CPos{cx + 8, cy - 4});
+        Check(harv != nullptr, "p6b15: harv spawns");
+        if (harv != nullptr) {
+          mods::CarryableInfoData carryable_mount_info{};
+          auto* carryable = mount_carryable(harv, carryable_mount_info);
+
+          Check(carryable->Reserve(*harv, heli) &&
+                    carryable->Reserved() &&
+                    carryable->Carrier() == heli,
+                "p6b15: Carryable Reserve marks Reserved + Carrier");
+          Check(carryable->LockForPickup(*harv, heli) ==
+                    mods::LockResponse::Success,
+                "p6b15: idle ground Carryable locks for pickup");
+          carryable->UnReserve(*harv);
+          Check(!carryable->Reserved() && carryable->Carrier() == nullptr,
+                "p6b15: UnReserve frees the carryable");
+
+          Check(carryall->ReserveCarryable(*heli, harv) &&
+                    carryall->State() == mods::CarryallState::Reserved &&
+                    carryall->CarryableActor() == harv,
+                "p6b15: ReserveCarryable flips Carryall to Reserved");
+          carryall->UnreserveCarryable(*heli);
+          Check(carryall->State() == mods::CarryallState::Idle &&
+                    carryall->CarryableActor() == nullptr,
+                "p6b15: UnreserveCarryable returns to Idle");
+
+          Check(carryall->CanUnload() == false,
+                "p6b15: CanUnload false without cargo");
+
+          carryable->Attached(*harv, heli);
+          Check(carryall->AttachCarryable(*heli, harv),
+                "p6b15: AttachCarryable attaches");
+          Check(carryall->State() == mods::CarryallState::Carrying &&
+                    carryall->CarryableActor() == harv,
+                "p6b15: AttachCarryable carries the harv");
+          Check(carryall->OffsetForCarryable(*heli, *harv) == WVec{0, 0, 0},
+                "p6b15: OffsetForCarryable zero with zero offsets");
+          Check(carryall->LandableTerrainTypes().size() > 0,
+                "p6b15: landable terrain types mirror the cargo locomotor");
+
+          carryall->DetachCarryable(*heli);
+          Check(carryall->State() == mods::CarryallState::Idle &&
+                    carryall->LandableTerrainTypes().size() > 0,
+                "p6b15: DetachCarryable resets state (aircraft default set)");
+          carryable->Detached(*harv);
+        }
+      }
+
+      const auto mount_auto =
+          [&world](sim::Actor* host, const mods::AutoCarryallInfoData& info) {
+            sim::TypeDictionary dict_mount;
+            sim::ActorInitializer init_mount{*host, dict_mount};
+            auto* auto_carryall =
+                world->Arena().Create<mods::AutoCarryall>(init_mount, info);
+            host->AddTrait(auto_carryall);
+            return auto_carryall;
+          };
+
+      mods::AutoCarryallInfoData auto_mount_info{};
+      mods::AutoCarryableInfoData auto_cargo_mount_info{};
+
+      sim::Actor* heli2 = spawn("heli", player_a, CPos{cx - 8, cy - 8});
+      sim::Actor* cargo2 = spawn("e1", player_a, CPos{cx - 8, cy - 2});
+      Check(heli2 != nullptr && cargo2 != nullptr,
+            "p6b15: auto chain heli + cargo spawn");
+      if (heli2 != nullptr && cargo2 != nullptr) {
+        auto* auto_carryall = mount_auto(heli2, auto_mount_info);
+        auto* auto_carryable = world->Arena().Create<mods::AutoCarryable>(
+            auto_cargo_mount_info);
+        cargo2->AddTrait(auto_carryable);
+        auto_carryable->Created(*cargo2);
+        auto* harvester_trait =
+            world->Arena().Create<mods::CarryableHarvester>(
+                mods::CarryableHarvesterInfoData{});
+        cargo2->AddTrait(harvester_trait);
+        harvester_trait->Created(*cargo2);
+
+        Check(auto_carryall->EnableAutoCarry() &&
+                  !auto_carryable->WantsTransport(),
+              "p6b15: AutoCarryall enabled + no transport wanted yet");
+
+        const CPos far_cell{cx + 14, cy + 14};
+        harvester_trait->MovingToResources(*cargo2, far_cell);
+        Check(auto_carryable->Destination() == far_cell &&
+                  auto_carryable->WantsTransport(),
+                "p6b15: MovingToResources sets the destination");
+        Check(heli2->CurrentActivity() != nullptr,
+              "p6b15: the carryall takes the ferry job");
+
+        bool b_in_cabin = false;
+        bool b_landed = false;
+        for (int i = 0; i < 1500; i++) {
+          world->Tick();
+          if (!b_in_cabin && !cargo2->IsInWorld() && !cargo2->IsDead())
+            b_in_cabin = true;
+          if (cargo2->IsInWorld() && !cargo2->IsDead() &&
+              !auto_carryable->Reserved())
+            b_landed = true;
+        }
+        Check(b_in_cabin, "p6b15: the cargo is picked up off the world");
+        Check(auto_carryall->State() == mods::CarryallState::Idle ||
+                  auto_carryall->CarryableActor() == nullptr,
+              "p6b15: the carryall releases the cargo");
+        Check(b_landed, "p6b15: the cargo is delivered back into the world");
+        if (b_landed) {
+          const CPos cargo_cell = cargo2->Location();
+          const int dx = std::abs(cargo_cell.X() - far_cell.X());
+          const int dy = std::abs(cargo_cell.Y() - far_cell.Y());
+          Check(dx <= 6 && dy <= 6,
+                "p6b15: the cargo lands within the drop range of the LZ");
+        }
+        Check(auto_carryable->Destination() == std::nullopt,
+              "p6b15: Detached clears the destination");
       }
     }
 

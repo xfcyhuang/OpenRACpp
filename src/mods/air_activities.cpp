@@ -375,7 +375,8 @@ Land::Land(sim::Actor& self, const sim::Target& target, WDist land_range,
                                                 : self.Trait<Aircraft>()
                                                       ->Info()
                                                       .dist_land_range},
-      opt_target_line_color_{target_line_color} {
+      opt_target_line_color_{target_line_color},
+      target_{target} {
   if (!facing.has_value() && aircraft_->Info().b_turn_to_land)
     opt_desired_facing_ = aircraft_->Info().angle_initial_facing;
   else
