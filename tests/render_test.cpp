@@ -73,6 +73,16 @@ import std;
 #include "mods/primary_building.hpp"
 #include "mods/player_resources.hpp"
 #include "mods/production_icon_overlay.hpp"
+#include "mods/ingame_hud_logics.hpp"
+#include "mods/power.hpp"
+#include "mods/production_support.hpp"
+#include "ui/widget_utils.hpp"
+#include "ui/widgets/color_block_widget.hpp"
+#include "ui/widgets/image_widget.hpp"
+#include "ui/widgets/label_widget.hpp"
+#include "ui/widgets/label_with_tooltip_widget.hpp"
+#include "ui/widgets/logic_ticker_widget.hpp"
+#include "ui/widgets/resource_bar_widget.hpp"
 #include "mods/production_palette_widget.hpp"
 #include "mods/production_tabs_widget.hpp"
 #include "mods/production_type_button_widget.hpp"
@@ -2785,6 +2795,407 @@ int main(int argc, char** argv) {
               "p6b15: Detached clears the destination");
       }
     }
+
+  // ———— Phase 6 第十六批:游戏内 HUD Logic 第一组 ————
+  // ———— Phase 6 batch 16: the HUD logic group one ————
+  {
+    std::println("-- batch 16: ingame HUD logics --");
+    world->SetLocalPlayerForTest(player_a);
+
+    int int4_local_tick = 0;
+    std::vector<std::string> vec_played;
+    static ui::ChromeMetrics metrics_hud;
+    {
+      const auto dir_metrics_hud = std::filesystem::temp_directory_path() /
+                                   "ora_render_test_metrics_hud";
+      std::filesystem::create_directories(dir_metrics_hud);
+      {
+        std::ofstream out_metrics(dir_metrics_hud / "metrics.yaml");
+        out_metrics << "Chrome:\n";
+        out_metrics << "\tTextFont: Regular\n";
+        out_metrics << "\tTextColor: FFFFFFFF\n";
+        out_metrics << "\tTextContrast: True\n";
+        out_metrics << "\tTextShadow: False\n";
+        out_metrics << "\tTextContrastColorDark: 000000FF\n";
+        out_metrics << "\tTextContrastColorLight: FFFFFFFF\n";
+        out_metrics << "\tTextContrastRadius: 1\n";
+        out_metrics << "\tButtonDepth: 1\n";
+        out_metrics << "\tButtonFont: Regular\n";
+        out_metrics << "\tButtonTextColor: FFFFFFFF\n";
+        out_metrics << "\tButtonTextColorDisabled: 808080FF\n";
+        out_metrics << "\tButtonTextContrast: True\n";
+        out_metrics << "\tButtonTextShadow: False\n";
+        out_metrics << "\tButtonTextContrastColorDark: 000000FF\n";
+        out_metrics << "\tButtonTextContrastColorLight: FFFFFFFF\n";
+        out_metrics << "\tButtonTextContrastRadius: 1\n";
+        out_metrics << "\tButtonCursor: default\n";
+        out_metrics << "\tClickSound: click_sound\n";
+        out_metrics << "\tClickDisabledSound: click_disabled_sound\n";
+        out_metrics << "\tWorldSelectCursor: select\n";
+        out_metrics << "\tWorldDefaultCursor: default\n";
+        out_metrics << "\tInfiniteOffset: 4, 2\n";
+      }
+      fs::FileSystem fs_metrics_hud;
+      fs_metrics_hud.Mount(dir_metrics_hud.generic_string());
+      const std::vector<std::string> vec_files_metrics_hud{"metrics.yaml"};
+      metrics_hud.Initialize({&fs_metrics_hud, &vec_files_metrics_hud});
+    }
+    ui::Ui::Deps deps_hud;
+    deps_hud.ptr_chrome_metrics = &metrics_hud;
+    deps_hud.fn_local_tick = [&int4_local_tick] {
+      return int4_local_tick;
+    };
+    deps_hud.fn_play_notification =
+        [&vec_played](const game::Ruleset*, std::string_view str_name) {
+          if (!str_name.empty())
+            vec_played.emplace_back(str_name);
+        };
+    deps_hud.fn_window_size = [] { return int2{1280, 720}; };
+    ui::Ui::Instance().Initialize(std::move(deps_hud));
+
+    ui::WidgetArgs args_widget;
+
+    // IngameRadarDisplayLogic:ticker 状态机 + 渐隐面
+    // IngameRadarDisplayLogic: the ticker state machine + the fade face.
+    {
+      auto up_root = std::make_unique<ui::ContainerWidget>();
+      auto up_radar = std::make_unique<mods::RadarWidget>(args_widget);
+      up_radar->str_id = "RADAR_MINIMAP";
+      up_radar->str_sound_up = "radar-on";
+      up_radar->str_sound_down = "radar-off";
+      mods::RadarWidget* ptr_radar = up_radar.get();
+      auto up_ticker = std::make_unique<ui::LogicTickerWidget>();
+      up_ticker->str_id = "RADAR_TICKER";
+      ui::LogicTickerWidget* ptr_ticker = up_ticker.get();
+      auto up_block = std::make_unique<ui::ColorBlockWidget>(args_widget);
+      up_block->str_id = "RADAR_FADETOBLACK";
+      ui::ColorBlockWidget* ptr_block = up_block.get();
+      up_root->AddChild(std::move(up_radar));
+      up_root->AddChild(std::move(up_ticker));
+      up_root->AddChild(std::move(up_block));
+
+      mods::IngameRadarDisplayLogic logic_radar(*up_root, *world);
+      Check(!ptr_radar->fn_is_enabled(),
+            "p6b16: radar starts disabled");
+      ptr_ticker->fn_on_tick();
+      Check(!ptr_radar->fn_is_enabled() && vec_played.empty(),
+            "p6b16: no ProvidesRadar keeps the minimap dark and silent");
+
+      auto* ptr_dev = world->LocalPlayer()->PlayerActor()
+                          ->Trait<mods::DeveloperMode>();
+      ptr_dev->DisableShroud = true;
+      ptr_ticker->fn_on_tick();
+      Check(ptr_radar->fn_is_enabled() && vec_played.size() == 1 &&
+                vec_played.back() == "radar-on",
+            "p6b16: DisableShroud lights the radar and plays SoundUp");
+      ptr_dev->DisableShroud = false;
+      ptr_ticker->fn_on_tick();
+      Check(!ptr_radar->fn_is_enabled() && vec_played.size() == 2 &&
+                vec_played.back() == "radar-off",
+            "p6b16: losing radar plays SoundDown");
+
+      ptr_radar->fn_animating(0.5f);
+      Check(ptr_block->fn_is_visible() &&
+                ptr_block->fn_get_color().A() == 127,
+            "p6b16: the fade-to-black alpha tracks the animation");
+      ptr_radar->fn_animating(0.0f);
+      Check(!ptr_block->fn_is_visible(),
+            "p6b16: a zero alpha hides the block");
+    }
+
+    // IngameCashCounterLogic:收敛步进 + silo tooltip
+    // IngameCashCounterLogic: the decay step + the silo tooltip.
+    {
+      auto up_root = std::make_unique<ui::ContainerWidget>();
+      auto up_cash =
+          std::make_unique<ui::LabelWithTooltipWidget>(args_widget);
+      up_cash->str_id = "CASH";
+      ui::LabelWithTooltipWidget* ptr_cash = up_cash.get();
+      up_root->AddChild(std::move(up_cash));
+
+      auto* ptr_res = world->LocalPlayer()->PlayerActor()
+                          ->Trait<mods::PlayerResources>();
+      const int int4_start_cash = ptr_res->GetCashAndResources();
+      mods::IngameCashCounterLogic logic_cash(*up_root, *world);
+      logic_cash.Tick();
+      Check(ptr_cash->fn_get_text() == std::to_string(int4_start_cash),
+            "p6b16: the cash label starts at the full amount");
+
+      ptr_res->Cash -= 463;
+      logic_cash.Tick();
+      const int int4_expect =
+          int4_start_cash -
+          std::min(
+              std::max(static_cast<int>(463 * 0.07f), 37), 463);
+      Check(ptr_cash->fn_get_text() == std::to_string(int4_expect),
+            "p6b16: the cash counter decays at DisplayFracPerFrame");
+      Check(!ptr_cash->fn_get_tooltip_text().empty(),
+            "p6b16: the silo-usage tooltip renders (the key fallback)");
+    }
+
+    // IngamePowerCounterLogic:三态文本/颜色/图标
+    // IngamePowerCounterLogic: the three-state text/color/icon.
+    {
+      auto up_root = std::make_unique<ui::ContainerWidget>();
+      auto up_power =
+          std::make_unique<ui::LabelWithTooltipWidget>(args_widget);
+      up_power->str_id = "POWER";
+      ui::LabelWithTooltipWidget* ptr_power = up_power.get();
+      auto up_icon = std::make_unique<ui::ImageWidget>();
+      up_icon->str_id = "POWER_ICON";
+      ui::ImageWidget* ptr_power_icon = up_icon.get();
+      up_root->AddChild(std::move(up_power));
+      up_root->AddChild(std::move(up_icon));
+
+      auto* ptr_pm = world->LocalPlayer()->PlayerActor()
+                         ->Trait<mods::PowerManager>();
+      auto* ptr_dev = world->LocalPlayer()->PlayerActor()
+                          ->Trait<mods::DeveloperMode>();
+      ptr_pm->PowerProvided = 100;
+      ptr_pm->PowerDrained = 50;
+      ptr_dev->UnlimitedPower = false;
+      mods::IngamePowerCounterLogic logic_power(*up_root, *world);
+      Check(ptr_power_icon->fn_get_image_name() == "power-normal" &&
+                ptr_power->fn_get_text() == "50" &&
+                ptr_power->fn_get_color() ==
+                    core::Color::FromArgb(255, 255, 255, 255),
+            "p6b16: the power counter shows a healthy surplus");
+      ptr_pm->PowerDrained = 150;
+      Check(ptr_power_icon->fn_get_image_name() == "power-critical" &&
+                ptr_power->fn_get_text() == "-50" &&
+                ptr_power->fn_get_color() ==
+                    core::Color::FromArgb(255, 255, 0, 0),
+            "p6b16: a drained grid turns the counter critical");
+      ptr_dev->UnlimitedPower = true;
+      Check(ptr_power->fn_get_text() == "label-infinite-power",
+            "p6b16: unlimited power renders the Fluent label (key fallback)");
+      ptr_dev->UnlimitedPower = false;
+    }
+
+    // IngameSiloBarLogic:三色门 + 双源
+    // IngameSiloBarLogic: the three-color gate + the two sources.
+    {
+      auto up_root = std::make_unique<ui::ContainerWidget>();
+      auto up_bar = std::make_unique<ui::ResourceBarWidget>(args_widget);
+      up_bar->str_id = "SILOBAR";
+      ui::ResourceBarWidget* ptr_bar = up_bar.get();
+      up_root->AddChild(std::move(up_bar));
+
+      auto* ptr_res = world->LocalPlayer()->PlayerActor()
+                          ->Trait<mods::PlayerResources>();
+      ptr_res->Resources = 70;
+      ptr_res->ResourceCapacity = 100;
+      mods::IngameSiloBarLogic logic_silo(*up_root, *world);
+      Check(ptr_bar->fn_get_provided() == 100.0f &&
+                ptr_bar->fn_get_used() == 70.0f &&
+                ptr_bar->fn_get_bar_color() ==
+                    core::Color::FromArgb(255, 50, 205, 50),
+            "p6b16: the silo bar starts lime-green");
+      ptr_res->Resources = 80;
+      Check(ptr_bar->fn_get_bar_color() ==
+                core::Color::FromArgb(255, 255, 165, 0),
+            "p6b16: 80% storage turns the silo bar orange");
+      ptr_res->Resources = 100;
+      Check(ptr_bar->fn_get_bar_color() ==
+                core::Color::FromArgb(255, 255, 0, 0),
+            "p6b16: a full silo turns the bar red");
+    }
+
+    // GameTimerLogic:暂停文本/状态闪烁/录像 tooltip 三态
+    // GameTimerLogic: the paused text/status blink/replay tooltip trio.
+    {
+      auto up_root = std::make_unique<ui::ContainerWidget>();
+      auto up_timer =
+          std::make_unique<ui::LabelWithTooltipWidget>(args_widget);
+      up_timer->str_id = "GAME_TIMER";
+      ui::LabelWithTooltipWidget* ptr_timer = up_timer.get();
+      auto up_status = std::make_unique<ui::LabelWidget>(args_widget);
+      up_status->str_id = "GAME_TIMER_STATUS";
+      ui::LabelWidget* ptr_status = up_status.get();
+      up_root->AddChild(std::move(up_timer));
+      up_root->AddChild(std::move(up_status));
+
+      world->SetReplayTimestep(0);
+      mods::GameTimerLogic logic_timer(
+          *up_root, *game_.OrderManagerFace(), *world);
+      Check(ptr_status->fn_get_text() == "label-paused" &&
+                ptr_status->fn_is_visible(),
+            "p6b16: a paused replay blinks the paused status");
+      int4_local_tick += 1000;
+      Check(!ptr_status->fn_is_visible(),
+            "p6b16: the status blinks off on the odd second");
+      int4_local_tick += 1000;
+      Check(ptr_status->fn_is_visible(),
+            "p6b16: the status blinks back on");
+      world->SetReplayTimestep(1);
+      Check(ptr_status->fn_get_text() == "label-max-speed",
+            "p6b16: replay speed 1 renders the max-speed label");
+      world->SetReplayTimestep(40);
+      Check(ptr_timer->fn_get_text() ==
+                ui::FormatTime(world->WorldTick(), world->Timestep()),
+            "p6b16: the timer renders FormatTime(WorldTick, Timestep)");
+      Check(ptr_timer->fn_get_tooltip_text == nullptr,
+            "p6b16: a non-replay connection leaves the tooltip unset");
+    }
+
+    // ClassicProductionLogic:背景行方程 + tab 装配 + ticker 选队
+    // ClassicProductionLogic: the background-row equation + the tab
+    // assembly + the ticker's queue pick.
+    {
+      auto up_root = std::make_unique<ui::ContainerWidget>();
+      auto up_palette =
+          std::make_unique<mods::ProductionPaletteWidget>(args_widget);
+      up_palette->str_id = "PRODUCTION_PALETTE";
+      up_palette->ptr_world = world.get();
+      up_palette->ptr_world_renderer = &wr;
+      mods::ProductionPaletteWidget* ptr_palette = up_palette.get();
+      auto up_background = std::make_unique<ui::ContainerWidget>();
+      up_background->str_id = "PALETTE_BACKGROUND";
+      ui::ContainerWidget* ptr_background = up_background.get();
+      auto up_row_template = std::make_unique<ui::ContainerWidget>();
+      up_row_template->str_id = "ROW_TEMPLATE";
+      up_row_template->bounds_widget.int4_height = 24;
+      auto up_bottom_cap = std::make_unique<ui::ContainerWidget>();
+      up_bottom_cap->str_id = "BOTTOM_CAP";
+      up_bottom_cap->bounds_widget.int4_height = 8;
+      auto up_foreground = std::make_unique<ui::ContainerWidget>();
+      up_foreground->str_id = "PALETTE_FOREGROUND";
+      ui::ContainerWidget* ptr_foreground = up_foreground.get();
+      auto up_fg_row = std::make_unique<ui::ContainerWidget>();
+      up_fg_row->str_id = "ROW_TEMPLATE";
+      up_fg_row->bounds_widget.int4_height = 20;
+      auto up_types = std::make_unique<ui::ContainerWidget>();
+      up_types->str_id = "PRODUCTION_TYPES";
+      auto up_button =
+          std::make_unique<mods::ProductionTypeButtonWidget>(args_widget);
+      up_button->LoadFieldOrProperty("ProductionGroup", "Building");
+      mods::ProductionTypeButtonWidget* ptr_button = up_button.get();
+      auto up_icon = std::make_unique<ui::ImageWidget>();
+      up_icon->str_id = "ICON";
+      ui::ImageWidget* ptr_tab_icon = up_icon.get();
+      auto up_ticker = std::make_unique<ui::LogicTickerWidget>();
+      up_ticker->str_id = "PRODUCTION_TICKER";
+      ui::LogicTickerWidget* ptr_prod_ticker = up_ticker.get();
+
+      up_button->AddChild(std::move(up_icon));
+      up_types->AddChild(std::move(up_button));
+      up_background->AddChild(std::move(up_row_template));
+      up_background->AddChild(std::move(up_bottom_cap));
+      up_foreground->AddChild(std::move(up_fg_row));
+      up_root->AddChild(std::move(up_palette));
+      up_root->AddChild(std::move(up_background));
+      up_root->AddChild(std::move(up_foreground));
+      up_root->AddChild(std::move(up_types));
+      up_root->AddChild(std::move(up_ticker));
+
+      mods::ClassicProductionLogic logic_production(*up_root, *world);
+
+      Check(ptr_background->Children().size() == 5 &&
+                ptr_background->Children()[3]->bounds_widget.int4_y ==
+                    3 * 24 &&
+                ptr_background->Children()[4]->str_id == "BOTTOM_CAP" &&
+                ptr_background->Children()[4]->bounds_widget.int4_y ==
+                    4 * 24,
+            "p6b16: the background starts at MinimumRows + the cap");
+      Check(ptr_foreground->Children().size() == 4 &&
+                ptr_foreground->Children()[3]->bounds_widget.int4_y ==
+                    3 * 20,
+            "p6b16: the foreground mirrors the row stack");
+
+      ptr_palette->fn_on_icon_count_changed(16, 16);
+      Check(ptr_background->Children().size() == 7 &&
+                ptr_background->Children()[5]->bounds_widget.int4_y ==
+                    5 * 24 &&
+                ptr_background->Children()[0]->bounds_widget.int4_y == 0,
+            "p6b16: sixteen icons re-row the background to six rows");
+      Check(ptr_background->Children().back()->str_id == "BOTTOM_CAP" &&
+                ptr_background->Children().back()->bounds_widget.int4_y ==
+                    6 * 24,
+            "p6b16: the cap follows the re-rowed stack");
+
+      ptr_prod_ticker->fn_on_tick();
+      Check(ptr_palette->ptr_current_queue != nullptr,
+            "p6b16: the ticker picks the first enabled queue");
+      if (ptr_palette->ptr_current_queue != nullptr) {
+        const mods::ProductionQueueInfoData& info_queue =
+            ptr_palette->ptr_current_queue->Info();
+        Check((info_queue.str_group.empty() ? info_queue.str_type
+                                            : info_queue.str_group) ==
+                  "Building",
+              "p6b16: the selected queue belongs to the Building tab");
+        Check(ptr_button->fn_is_highlighted(),
+              "p6b16: the Building tab highlights its queue");
+      }
+      Check(ptr_tab_icon->fn_get_image_name() == "building",
+            "p6b16: the tab icon resolves the bare chrome name");
+    }
+
+    // ProductionTabsLogic:组表装配 + 选组链
+    // ProductionTabsLogic: the group-table assembly + the pick chain.
+    {
+      auto up_palette =
+          std::make_unique<mods::ProductionPaletteWidget>(args_widget);
+      up_palette->str_id = "PRODUCTION_PALETTE";
+      up_palette->ptr_world = world.get();
+      up_palette->ptr_world_renderer = &wr;
+      ui::WidgetArgs args_tabs;
+      args_tabs.Add("world", world.get());
+      auto up_tabs =
+          std::make_unique<mods::ProductionTabsWidget>(args_tabs);
+      up_tabs->str_id = "PRODUCTION_TABS";
+      up_tabs->str_types_container = "PRODUCTION_TYPES";
+      up_tabs->str_background_container = "PRODUCTION_TABS_BACKGROUND";
+      up_tabs->str_palette_widget = "PRODUCTION_PALETTE";
+      mods::ProductionTabsWidget* ptr_tabs = up_tabs.get();
+      ui::Ui::Instance().Root()->AddChild(std::move(up_palette));
+      ui::Ui::Instance().Root()->AddChild(std::move(up_tabs));
+
+      auto up_types = std::make_unique<ui::ContainerWidget>();
+      up_types->str_id = "PRODUCTION_TYPES";
+      auto up_button =
+          std::make_unique<mods::ProductionTypeButtonWidget>(args_widget);
+      up_button->LoadFieldOrProperty("ProductionGroup", "");
+      mods::ProductionTypeButtonWidget* ptr_button = up_button.get();
+      auto up_icon = std::make_unique<ui::ImageWidget>();
+      up_icon->str_id = "ICON";
+      up_button->AddChild(std::move(up_icon));
+      up_types->AddChild(std::move(up_button));
+
+      auto up_bg_container = std::make_unique<ui::ContainerWidget>();
+      up_bg_container->str_id = "PRODUCTION_TABS_BACKGROUND";
+      auto up_icon_template = std::make_unique<ui::ContainerWidget>();
+      up_icon_template->str_id = "ICON_TEMPLATE";
+      up_bg_container->AddChild(std::move(up_icon_template));
+
+      ui::Ui::Instance().Root()->AddChild(std::move(up_types));
+      ui::Ui::Instance().Root()->AddChild(std::move(up_bg_container));
+
+      mods::ProductionTabsLogic logic_tabs(*ptr_tabs, *world);
+
+      Check(ptr_tabs->Groups().count("") == 1 &&
+                ptr_tabs->Groups().count("Building") == 0,
+            "p6b16: ra's groupless queues land under the empty group key");
+      Check(!ptr_button->fn_is_highlighted(),
+            "p6b16: nothing highlighted before the first pick");
+
+      sim::Actor* player_actor_a = world->LocalPlayer()->PlayerActor();
+      ptr_tabs->ActorChanged(*player_actor_a);
+      Check(!ptr_tabs->Groups().at("").vec_tabs.empty(),
+            "p6b16: ActorChanged fills the groupless tab list");
+      if (!ptr_tabs->Groups().at("").vec_tabs.empty()) {
+        ptr_button->fn_on_mouse_up(MouseInput{});
+        Check(ptr_tabs->QueueGroup() == "",
+              "p6b16: the tab pick sets QueueGroup");
+        Check(ptr_button->fn_is_highlighted(),
+              "p6b16: the picked tab highlights");
+        Check(ptr_button->Get<ui::ImageWidget>("ICON")
+                    ->fn_get_image_name() == "",
+              "p6b16: the tabs icon resolves the bare chrome name");
+      }
+
+      ui::Ui::Instance().Root()->RemoveChildren();
+    }
+  }
 
   std::println("render_test: {} failures", g_failures);
 

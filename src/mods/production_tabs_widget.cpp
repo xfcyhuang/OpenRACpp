@@ -109,7 +109,7 @@ ProductionTabsWidget::ProductionTabsWidget(ora::ui::WidgetArgs& args_args) {
   }
 
   fn_is_visible = [this] {
-    return !str_queue_group.empty() &&
+    return b_queue_group_set_ &&
            map_groups_.find(str_queue_group) != map_groups_.end() &&
            !map_groups_[str_queue_group].vec_tabs.empty();
   };
@@ -140,7 +140,7 @@ ProductionTabsWidget::ProductionTabsWidget(
   map_groups_ = widget_other.map_groups_;
 
   fn_is_visible = [this] {
-    return !str_queue_group.empty() &&
+    return b_queue_group_set_ &&
            map_groups_.find(str_queue_group) != map_groups_.end() &&
            !map_groups_[str_queue_group].vec_tabs.empty();
   };
@@ -231,7 +231,7 @@ void ProductionTabsWidget::Initialize(ora::ui::WidgetArgs& args_args) {
 }
 
 bool ProductionTabsWidget::SelectNextTab(bool reverse) {
-  if (str_queue_group.empty())
+  if (!b_queue_group_set_)
     return true;
 
   std::vector<std::pair<bool, ProductionQueue*>> vec_flagged;
@@ -283,6 +283,7 @@ void ProductionTabsWidget::PickUpCompletedBuilding() {
 void ProductionTabsWidget::SetQueueGroup(std::string str_group) {
   fp4_list_offset = 0.0f;
   str_queue_group = std::move(str_group);
+  b_queue_group_set_ = true;
   SelectNextTab(false);
 }
 
@@ -297,7 +298,6 @@ void ProductionTabsWidget::SetCurrentQueue(ProductionQueue* ptr_queue) {
   MaterializePaletteWidget();
   if (ptr_palette_widget_ != nullptr)
     ptr_palette_widget_->SetCurrentQueue(ptr_queue);
-  str_queue_group = ptr_queue != nullptr ? ptr_queue->Info().str_group : "";
 }
 
 void ProductionTabsWidget::MaterializePaletteWidget() const {
@@ -340,7 +340,7 @@ void ProductionTabsWidget::ActorChanged(sim::Actor& a) {
     g.Update(vec_update);
   }
 
-  if (str_queue_group.empty())
+  if (!b_queue_group_set_)
     return;
 
   if (map_groups_[str_queue_group].vec_tabs.empty()) {

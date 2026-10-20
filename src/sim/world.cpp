@@ -312,8 +312,9 @@ void World::Add(Actor* a) {
   a->SetIsInWorld(true);
   map_actors_.emplace(a->ActorID(), a);
   // ActorAdded 事件(L338)
-  for (auto& fn : vec_actor_added_handlers_)
-    fn(*a);
+  for (auto& [uint8_token, fn] : vec_actor_added_handlers_)
+    if (fn)
+      fn(*a);
 
   for (auto* t : a->TraitsImplementing<INotifyAddedToWorld>())
     t->AddedToWorld(*a);
@@ -324,8 +325,9 @@ void World::Remove(Actor* a) {
   a->SetIsInWorld(false);
   map_actors_.erase(a->ActorID());
   // ActorRemoved 事件(L348)
-  for (auto& fn : vec_actor_removed_handlers_)
-    fn(*a);
+  for (auto& [uint8_token, fn] : vec_actor_removed_handlers_)
+    if (fn)
+      fn(*a);
 
   for (auto* t : a->TraitsImplementing<INotifyRemovedFromWorld>())
     t->RemovedFromWorld(*a);

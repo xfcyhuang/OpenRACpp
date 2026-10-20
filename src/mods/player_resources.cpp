@@ -57,6 +57,21 @@ PlayerResourcesInfoData PlayerResourcesInfoData::Parse(
           RecInt(rec_info, "InsufficientFundsNotificationInterval"))
     data.int4_insufficient_funds_notification_interval =
         static_cast<int>(*v);
+  if (const auto* generated =
+          dynamic_cast<const meta::GeneratedRecord*>(&rec_info)) {
+    const std::vector<const meta::FieldDesc*> fields =
+        meta::CollectFields(generated->record_desc());
+    for (std::size_t i = 0; i < fields.size(); i++) {
+      const meta::GenericValue& v = generated->Slot(i);
+      if (fields[i]->str_name == "CashTickUpNotification") {
+        if (auto* s = std::get_if<std::string>(&v.val))
+          data.str_cash_tick_up_notification = *s;
+      } else if (fields[i]->str_name == "CashTickDownNotification") {
+        if (auto* s = std::get_if<std::string>(&v.val))
+          data.str_cash_tick_down_notification = *s;
+      }
+    }
+  }
 
   // ResourceValues 的 FrozenDictionary<string,int> → 插入序对
   // ResourceValues' FrozenDictionary<string,int> → the insertion-ordered

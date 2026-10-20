@@ -42,6 +42,8 @@ struct PlayerResourcesInfoData {
                                                 20000};  // L29
   int int4_default_cash = 5000;                           // L32
   int int4_insufficient_funds_notification_interval = 30000;  // L51
+  std::string str_cash_tick_up_notification;                  // L58
+  std::string str_cash_tick_down_notification;                // L61
   std::vector<std::pair<std::string, int>> vec_resource_values;  // L63
 
   static PlayerResourcesInfoData Parse(const meta::RecordObject& rec_info);

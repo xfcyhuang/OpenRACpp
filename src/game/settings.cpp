@@ -208,6 +208,21 @@ constexpr FieldDesc kDebugSettingsFields[] = {
      .b_required = false},
 };
 
+/// SoundSettings 字段表(Settings.cs L287-302;全字段)
+/// The SoundSettings field table (Settings.cs L287-302; every field).
+constexpr FieldDesc kSoundSettingsFields[] = {
+    {.str_name = "SoundVolume", .type = FieldType::Float, .b_required = false},
+    {.str_name = "MusicVolume", .type = FieldType::Float, .b_required = false},
+    {.str_name = "VideoVolume", .type = FieldType::Float, .b_required = false},
+    {.str_name = "Shuffle", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "Repeat", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "Device", .type = FieldType::String, .b_required = false},
+    {.str_name = "CashTicks", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "Mute", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "MuteBackgroundMusic", .type = FieldType::Bool,
+     .b_required = false},
+};
+
 constexpr meta::RecordDesc kGraphicSettingsDesc = {
     .str_name = "GraphicSettings",
     .str_full_name = "OpenRA.GraphicSettings",
@@ -263,6 +278,33 @@ const std::vector<GenericValue>& DebugSettingsDefaults() {
   };
   return vec_defaults;
 }
+
+/// SoundSettings 默认值(Settings.cs L287-300 字面量)
+/// The SoundSettings defaults (Settings.cs L287-300's literals).
+const std::vector<GenericValue>& SoundSettingsDefaults() {
+  static const std::vector<GenericValue> vec_defaults = {
+      GenericValue::Of(0.5f),
+      GenericValue::Of(0.5f),
+      GenericValue::Of(0.5f),
+      GenericValue::Of(false),
+      GenericValue::Of(false),
+      GenericValue::Of(std::string{}),
+      GenericValue::Of(true),
+      GenericValue::Of(false),
+      GenericValue::Of(false),
+  };
+  return vec_defaults;
+}
+
+constexpr meta::RecordDesc kSoundSettingsDesc = {
+    .str_name = "SoundSettings",
+    .str_full_name = "OpenRA.SoundSettings",
+    .str_base = "",
+    .fields = kSoundSettingsFields,
+    .requires_types = {},
+    .not_before_types = {},
+    .interfaces = {},
+};
 
 constexpr meta::RecordDesc kDebugSettingsDesc = {
     .str_name = "DebugSettings",
@@ -342,6 +384,8 @@ const meta::RecordDesc* SettingsDescOf(std::string_view str_section) {
     return &kGameSettingsDesc;
   if (str_section == "Graphics")
     return &kGraphicSettingsDesc;
+  if (str_section == "Sound")
+    return &kSoundSettingsDesc;
   if (str_section == "Debug")
     return &kDebugSettingsDesc;
   return nullptr;
@@ -361,7 +405,9 @@ SettingsModule::SettingsModule(const meta::RecordDesc& desc,
   } else if (&desc == &kGraphicSettingsDesc) {
     RegisterGraphicSettingsEnums();
     ptr_defaults = &GraphicSettingsDefaults();
-  } else if (&desc == &kDebugSettingsDesc)
+  } else if (&desc == &kSoundSettingsDesc)
+    ptr_defaults = &SoundSettingsDefaults();
+  else if (&desc == &kDebugSettingsDesc)
     ptr_defaults = &DebugSettingsDefaults();
   else {
     // 未知段:空字段承载(上游 Activator.CreateInstance 的缺省面)
@@ -423,6 +469,9 @@ Settings::Settings() {
   if (const meta::RecordDesc* ptr_desc = SettingsDescOf("Graphics"))
     vec_modules_.push_back(
         std::make_unique<SettingsModule>(*ptr_desc, "Graphics", true));
+  if (const meta::RecordDesc* ptr_desc = SettingsDescOf("Sound"))
+    vec_modules_.push_back(
+        std::make_unique<SettingsModule>(*ptr_desc, "Sound", true));
   if (const meta::RecordDesc* ptr_desc = SettingsDescOf("Debug"))
     vec_modules_.push_back(
         std::make_unique<SettingsModule>(*ptr_desc, "Debug", true));

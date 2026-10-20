@@ -3287,6 +3287,55 @@ int main(int argc, char** argv) {
   } else
     std::println("SKIP: mod 根未提供(HotkeyManager/Fonts/chrome 冒烟)| SKIP: no mod root (HotkeyManager/Fonts/chrome smoke)");
 
+  {
+    game::Settings settings_sound;
+    const game::SettingsModule* ptr_module =
+        settings_sound.Module("Sound");
+    Check(ptr_module != nullptr, "Settings Sound 段装配");
+    if (ptr_module != nullptr) {
+      const meta::GeneratedRecord& record_sound = ptr_module->Record();
+      const auto& vec_sound = record_sound.Values();
+      Check(vec_sound.size() == 9, "Sound 段九字段");
+      Check(std::get<float>(vec_sound[0].val) == 0.5f, "SoundVolume 默认 0.5");
+      Check(std::get<float>(vec_sound[1].val) == 0.5f, "MusicVolume 默认 0.5");
+      Check(std::get<float>(vec_sound[2].val) == 0.5f, "VideoVolume 默认 0.5");
+      Check(std::get<bool>(vec_sound[3].val) == false, "Shuffle 默认 false");
+      Check(std::get<bool>(vec_sound[4].val) == false, "Repeat 默认 false");
+      Check(std::get<std::string>(vec_sound[5].val).empty(), "Device 默认空");
+      Check(std::get<bool>(vec_sound[6].val) == true, "CashTicks 默认 true");
+      Check(std::get<bool>(vec_sound[7].val) == false, "Mute 默认 false");
+      Check(std::get<bool>(vec_sound[8].val) == false,
+            "MuteBackgroundMusic 默认 false");
+
+      yaml::StringPool pool_sound;
+      const std::vector<yaml::MiniYamlNode> vec_saved_default =
+          settings_sound.Save(pool_sound);
+      bool b_sound_section_present = false;
+      for (const auto& node : vec_saved_default)
+        if (node.Key != nullptr && *node.Key == "Sound") {
+          b_sound_section_present = true;
+          Check(node.Value.Nodes.empty(),
+                "Sound 段默认值全免存(Commit 差异协议)");
+        }
+      Check(b_sound_section_present, "Sound 段键出现在 Save");
+
+      std::vector<yaml::MiniYamlNode> vec_override;
+      vec_override.emplace_back(
+          pool_sound.Intern("Sound"),
+          yaml::MiniYaml{nullptr,
+                         std::vector<yaml::MiniYamlNode>{
+                             {pool_sound.Intern("CashTicks"), yaml::MiniYaml{pool_sound.Intern("False")}},
+                             {pool_sound.Intern("SoundVolume"), yaml::MiniYaml{pool_sound.Intern("0.25")}}}});
+      settings_sound.Load(vec_override, pool_sound);
+      Check(std::get<bool>(record_sound.Values()[6].val) == false,
+            "CashTicks 覆写为 false");
+      Check(std::get<float>(record_sound.Values()[0].val) == 0.25f,
+            "SoundVolume 覆写为 0.25");
+    }
+    ui::Ui::Deps deps_cash_ticks;
+    Check(deps_cash_ticks.fn_cash_ticks(), "fn_cash_ticks 缺省 = 上游默认 true");
+  }
+
   if (int4_failures == 0) {
     std::println("ui_test: all passed");
     return 0;

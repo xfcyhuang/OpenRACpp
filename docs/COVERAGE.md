@@ -1141,3 +1141,20 @@ constexpr 约束同),维持现状。
 | D342 | src/mods/ carryall | AutoCarryall::IsBestAutoCarryallForCargo 的 WithPathTo 省(候选恒 AircraftInfo 携带者 → 上游过滤器恒真;ClosestToIgnoringPath = 长度平方首最小);RequestTransportNotify 的 FerryUnit 队列经 world Arena;Busy 的 is not FlyIdle = dynamic_cast 判 | 等值简化;形态适配 |
 | D343 | src/mods/ carryall_activities | PickupUnit::Cancel 的 TakeOff child 判定经 dynamic_cast(上游 is 模式);AttachUnit/ReleaseUnit 的帧末闭包按值捕获 self/cargo/trait 指针(批 13 悬垂教训;帧末任务先于世界析构执行);DeliverUnit 的 Target 成员值承载;TargetLineNodes 全族未建(渲染域全域欠账同构,批 14 起累计) | 生命周期;渲染域欠账 |
 | D344 | src/mods/ air_activities | Land 完整构造器补 target_{target} 初始化(第十三批潜伏真问题;五 ctor 转发链的公共落点,batch13/14 未驱动 Land 本体故未暴露) | 真问题清偿 |
+
+## Phase 6 第十六批:游戏内 HUD Logic 第一组(2026-10-20)
+
+- **背景**:readme 下一步的 Logic 批次首组。IngameRadarDisplayLogic/ClassicProductionLogic/ProductionTabsLogic/IngameCashCounterLogic/IngamePowerCounterLogic/IngameSiloBarLogic/GameTimerLogic 七件全文(src/mods/ingame_hud_logics);基建:PlayerResourcesInfoData 补 CashTickUp/DownNotification、Settings "Sound" 段九字段、Ui::Deps 的 fn_cash_ticks、ProductionTabsWidget 的 Groups()/QueueGroupSet()、World 的 ActorAdded/Removed token 退订面与 SetLocalPlayerForTest、RegisterCommonTraits 内 RegisterIngameHudLogics。
+- **验收**:render_test 第十六批节(真 ra + 合成 ChromeMetrics 的 radar/cash/power/silo/timer/classic/tabs 全链)+ ui_test 第十六批节(Sound 段矩阵)。ctest 38/38 三构建全绿;std_import(746)/upstream_check(669+52 可选)PASS。
+- **修出一个真问题**:ProductionTabsWidget::SetCurrentQueue 多写 str_queue_group(第十批引入;上游 setter 仅转发 palette 的 CurrentQueue —— SelectNextTab 经其设队时组名被 Info().str_group 覆写,空 Group 域(ra 全部 ClassicProductionQueue)即选组状态错乱)→ 删直写清偿。
+
+### 已登记偏离(Phase 6 第十六批)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D345 | src/sim/ world + src/mods/ ingame_hud_logics | World 的 ActorAdded/Removed 事件 = pair<token,fn> 存储 + RemoveActorAdded/RemovedHandler 的置空退订(上游 C# event 的 +=/-=);ProductionTabsLogic 的退订时点 = 析构(上游 Game.BeforeGameStart;等价域:logic 与 chrome 树同生命周期,树毁先于世界的 ActorRemoved 尾流)—— ASan 实证:无退订则世界析构的 Actor Dispose 尾流读已死栈 logic | 生命周期;等价时点 |
+| D346 | src/mods/ ingame_hud_logics | GameTimerLogic 的 TimeLimitManager 未移植(TraitOrDefault → null):ra/cnc/d2k 均无挂载,timeLimit 恒 0 = WorldTick 直读(上游同域);Ui.LastTickTime → Ui::Deps fn_local_tick 承载;ReplayConnection 判定经 dynamic_cast(上游 as) | 域等价;注入面 |
+| D347 | src/mods/ production_tabs_widget | queueGroup 的 null → 空串 + QueueGroupSet() 双承载(fn_is_visible/SelectNextTab/Draw 的 null 判与 ProductionTabsLogic 的等值判);ra 的 ClassicProductionQueue 无 Group 字段 → 组键为空串(上游 null 键字典同构);Groups 增公开访问器 | null 承载;消费面 |
+| D348 | src/mods/ ingame_hud_logics | Game.Settings.Sound.CashTicks → Ui::Deps fn_cash_ticks(缺省 true);Game.Sound.PlayNotification 的 player/faction 参经 Ui::PlayNotification 注入面裁剪(D251 惯例);CultureInfo/NumberFormatInfo 的数字渲染 → std::to_string(en 无分组域等价) | 注入面;等值 |
+| D349 | src/mods/ ingame_hud_logics | ProductionPaletteWidget.OnIconCountChanged 的多播事件 → 单 std::function(域内每 palette 恰一订阅者:classic 树与 tabs 树不相交);ClassicProductionLogic 的模板行/底帽所有权 = RemoveChild 摘除保活(上游 RemoveChildren 后 GC 存活对象的复用);SelectTab 的 reverse 形参保留不用(上游同构) | 单订阅域;所有权等价 |
+| D350 | src/mods/ ingame_hud_logics | Fluent 数字参数:SiloBar 的 float 输入 → int64(资源计数值域恒整);power-usage 的双参经 FluentString(上游 ToString 后传串,en 域同值);IngameRadarDisplayLogic 的 PlayNotification 判 Ui::HasInstance(单例未装配的测试域静默) | 值域等价;防御 |

@@ -151,6 +151,11 @@ class Ui {
     /// unwired = no-op).
     std::function<void()> fn_cursor_lock = [] {};
     std::function<void()> fn_cursor_unlock = [] {};
+    /// Game.Settings.Sound.CashTicks(IngameCashCounterLogic;未接线 =
+    /// 上游默认 true)
+    /// Game.Settings.Sound.CashTicks (IngameCashCounterLogic; unwired =
+    /// upstream's default true).
+    std::function<bool()> fn_cash_ticks = [] { return true; };
   };
 
   void Initialize(Deps deps);
@@ -172,6 +177,7 @@ class Ui {
   sound::Sound* SoundDeps() const { return deps_.fn_sound(); }
   void LockCursor() const { deps_.fn_cursor_lock(); }
   void UnlockCursor() const { deps_.fn_cursor_unlock(); }
+  bool CashTicks() const { return deps_.fn_cash_ticks(); }
   std::function<std::unique_ptr<fmt::IVideo>(std::string_view, bool)>
   LoadVideoDeps() const {
     return deps_.fn_load_video;

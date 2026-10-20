@@ -112,6 +112,7 @@ class World final {
   Player* LocalPlayer() const { return p_local_player_; }
   Player* RenderPlayer() const { return p_render_player_; }
   void SetRenderPlayer(Player* p);  // L91-104
+  void SetLocalPlayerForTest(Player* p) { p_local_player_ = p; }
 
   // ———— 世界 actor(L137/202-206)————
   Actor* WorldActor() const { return p_world_actor_; }
@@ -233,11 +234,25 @@ class World final {
   // ———— The ActorAdded/ActorRemoved event faces (World.cs L338/L348; the
   //      subscribers: TechTree's prerequisite listening / the render and
   //      scripting batches' consumers). ————
-  void AddActorAddedHandler(std::function<void(Actor&)> fn) {
-    vec_actor_added_handlers_.push_back(std::move(fn));
+  std::uint64_t AddActorAddedHandler(std::function<void(Actor&)> fn) {
+    const std::uint64_t uint8_token = uint8_next_event_token_++;
+    vec_actor_added_handlers_.push_back({uint8_token, std::move(fn)});
+    return uint8_token;
   }
-  void AddActorRemovedHandler(std::function<void(Actor&)> fn) {
-    vec_actor_removed_handlers_.push_back(std::move(fn));
+  void RemoveActorAddedHandler(std::uint64_t uint8_token) {
+    for (auto& pair_handler : vec_actor_added_handlers_)
+      if (pair_handler.first == uint8_token)
+        pair_handler.second = nullptr;
+  }
+  std::uint64_t AddActorRemovedHandler(std::function<void(Actor&)> fn) {
+    const std::uint64_t uint8_token = uint8_next_event_token_++;
+    vec_actor_removed_handlers_.push_back({uint8_token, std::move(fn)});
+    return uint8_token;
+  }
+  void RemoveActorRemovedHandler(std::uint64_t uint8_token) {
+    for (auto& pair_handler : vec_actor_removed_handlers_)
+      if (pair_handler.first == uint8_token)
+        pair_handler.second = nullptr;
   }
 
   /// RenderPlayerChanged(World.cs L101;RadarWidget 的换观察者面)
@@ -477,8 +492,11 @@ class World final {
   // ActorAdded/ActorRemoved 的订阅表(上游 event 多播的回调承载)
   // The ActorAdded/ActorRemoved subscription tables (the callback carrier
   // of upstream's event multicast).
-  std::vector<std::function<void(Actor&)>> vec_actor_added_handlers_;
-  std::vector<std::function<void(Actor&)>> vec_actor_removed_handlers_;
+  std::vector<std::pair<std::uint64_t, std::function<void(Actor&)>>>
+      vec_actor_added_handlers_;
+  std::vector<std::pair<std::uint64_t, std::function<void(Actor&)>>>
+      vec_actor_removed_handlers_;
+  std::uint64_t uint8_next_event_token_ = 1;
 
   // RenderPlayerChanged 的订阅表(World.cs L101;RadarWidget 消费面)
   // The RenderPlayerChanged subscription table (World.cs L101; the

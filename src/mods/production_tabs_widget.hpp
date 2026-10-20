@@ -68,6 +68,7 @@ class ProductionTabsWidget final : public ora::ui::Widget {
   bool YieldMouseFocus(const ora::MouseInput& mi_input) override;
 
   std::string str_queue_group;
+  bool b_queue_group_set_ = false;
 
   std::string str_palette_widget;
   std::string str_types_container;
@@ -94,6 +95,7 @@ class ProductionTabsWidget final : public ora::ui::Widget {
   core::Color color_tab_done{core::Color::FromArgb(255, 255, 215, 0)};
 
   const std::string& QueueGroup() const { return str_queue_group; }
+  bool QueueGroupSet() const { return b_queue_group_set_; }
   void SetQueueGroup(std::string str_group);
 
   ProductionQueue* CurrentQueue() const;
@@ -102,6 +104,13 @@ class ProductionTabsWidget final : public ora::ui::Widget {
   /// L245-273(ActorChanged;world.ActorAdded 订阅侧)
   /// L245-273 (ActorChanged; the world.ActorAdded subscription side).
   void ActorChanged(sim::Actor& a);
+
+  const std::map<std::string, ProductionTabGroup>& Groups() const {
+    return map_groups_;
+  }
+  std::map<std::string, ProductionTabGroup>& GroupsMutable() {
+    return map_groups_;
+  }
 
   const std::map<std::string, ProductionTabGroup>& GroupsForTest() const {
     return map_groups_;

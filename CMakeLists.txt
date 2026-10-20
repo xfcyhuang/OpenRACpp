@@ -569,7 +569,8 @@ add_library(ora_mods STATIC
   src/mods/trait_registry_batch15.cpp
   src/mods/carryall.cpp
   src/mods/carryall_activities.cpp
-  src/mods/trait_registry_batch16.cpp)
+  src/mods/trait_registry_batch16.cpp
+  src/mods/ingame_hud_logics.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui)
 ora_link_std(ora_mods)
 
