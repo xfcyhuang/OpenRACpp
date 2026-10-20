@@ -17,6 +17,10 @@ import std;
 #include "mods/production_tabs_widget.hpp"
 #include "mods/production_type_button_widget.hpp"
 #include "mods/world_interaction_controller.hpp"
+#include "mods/trait_registry_batch17.cpp"
+#include "mods/ingame_menu_logic.hpp"
+#include "mods/main_menu_logic.hpp"
+#include "mods/menu_logics.hpp"
 
 #include "meta/field_loader.hpp"
 
@@ -923,6 +927,10 @@ void RegisterCommonTraits() {
     RegisterCommonTraitsBatch14();
     RegisterCommonTraitsBatch15();
     RegisterCommonTraitsBatch16();
+    RegisterCommonTraitsBatch17();
+    RegisterMenuLogics();
+    RegisterIngameMenuLogic();
+    RegisterMainMenuLogic();
 
     return true;
   }();

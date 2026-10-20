@@ -11,7 +11,9 @@
 
 #include "meta/field_loader.hpp"
 #include "meta/generic_record.hpp"
+#include "sim/player.hpp"
 #include "sim/sync_hash.hpp"
+#include "sim/world.hpp"
 #include "sim/trait_registry.hpp"
 
 namespace ora::mods {
@@ -31,8 +33,16 @@ MissionObjectivesInfoData MissionObjectivesInfoData::Parse(
     data.int4_game_over_delay = static_cast<int>(*v);
   if (const auto v = sim::RecordFieldString(rec_info, "WinNotification"))
     data.str_win_notification = std::string{*v};
-  if (const auto v = sim::RecordFieldString(rec_info, "LossNotification"))
+  if (const auto v = sim::RecordFieldString(rec_info, "WinTextNotification"))
+    data.str_win_text_notification = std::string{*v};
+  if (const auto v = sim::RecordFieldString(rec_info, "LoseNotification"))
     data.str_loss_notification = std::string{*v};
+  if (const auto v = sim::RecordFieldString(rec_info, "LoseTextNotification"))
+    data.str_loss_text_notification = std::string{*v};
+  if (const auto v = sim::RecordFieldString(rec_info, "LeaveNotification"))
+    data.str_leave_notification = std::string{*v};
+  if (const auto v = sim::RecordFieldString(rec_info, "LeaveTextNotification"))
+    data.str_leave_text_notification = std::string{*v};
   if (const auto v = sim::RecordFieldString(rec_info, "MissionType"))
     data.str_mission_type = std::string{*v};
 
@@ -42,6 +52,41 @@ MissionObjectivesInfoData MissionObjectivesInfoData::Parse(
 MissionObjectives::MissionObjectives(sim::Player& player,
                                      MissionObjectivesInfoData&& info)
     : p_player_{&player}, info_{std::move(info)} {}
+
+int MissionObjectives::Add(sim::Player& player,
+                           std::string str_description,
+                           std::string str_type, bool b_required,
+                           bool b_inhibit_announcement) {
+  const int int4_new_id = static_cast<int>(vec_objectives_.size());
+  vec_objectives_.emplace_back(std::move(str_description),
+                               std::move(str_type), b_required);
+
+  player.SetHasObjectives(true);
+  for (auto& [token, fn_handler] : vec_objective_added_)
+    if (fn_handler)
+      fn_handler(player, b_inhibit_announcement);
+
+  for (auto* inou :
+       player.PlayerActor()->TraitsImplementing<sim::INotifyObjectivesUpdated>())
+    inou->OnObjectiveAdded(player, int4_new_id);
+
+  return int4_new_id;
+}
+
+std::size_t MissionObjectives::AddObjectiveAddedHandler(
+    ObjectiveAddedFn fn_handler) {
+  const std::size_t n_token = n_next_token_++;
+  vec_objective_added_.emplace_back(n_token, std::move(fn_handler));
+  return n_token;
+}
+
+void MissionObjectives::RemoveObjectiveAddedHandler(std::size_t n_token) {
+  for (auto& [token, fn_handler] : vec_objective_added_)
+    if (token == n_token) {
+      fn_handler = nullptr;
+      return;
+    }
+}
 
 // ———— [VerifySync] 哈希注册({ObjectivesHash};第十二批 G2 补面)————
 // ———— The [VerifySync] hash registration ({ObjectivesHash}; the

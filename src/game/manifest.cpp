@@ -242,6 +242,7 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
   vec_chromeMetrics_ = YamlListOf(vec_yaml, "ChromeMetrics");
   vec_serverTraits_ = YamlListOf(vec_yaml, "ServerTraits");
   vec_hotkeys_ = YamlListOf(vec_yaml, "Hotkeys");
+  vec_missions_ = YamlListOf(vec_yaml, "Missions");
 }
 
 }  // namespace ora::game

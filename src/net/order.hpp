@@ -113,6 +113,8 @@ struct Order {
         bool queued,
         std::optional<std::vector<sim::Actor*>> vec_extra_actors =
             std::nullopt);
+  Order(std::string str_order, sim::Actor* subject, const sim::Target& target,
+        const sim::Target& target_visual_feedback, bool queued);
 
   // ———— 反序列化(Order.cs L95-246;world 可为 null —— 服务器/replay 过滤路径)————
   static std::unique_ptr<Order> Deserialize(sim::World* world, ByteReader& r);

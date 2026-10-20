@@ -570,7 +570,16 @@ add_library(ora_mods STATIC
   src/mods/carryall.cpp
   src/mods/carryall_activities.cpp
   src/mods/trait_registry_batch16.cpp
-  src/mods/ingame_hud_logics.cpp)
+  src/mods/ingame_hud_logics.cpp
+  src/mods/sellable.cpp
+  src/mods/repairable_near.cpp
+  src/mods/repairable_building.cpp
+  src/mods/order_generators.cpp
+  src/mods/menu_logics.cpp
+  src/mods/confirmation_dialogs.cpp
+  src/mods/ingame_menu_logic.cpp
+  src/mods/main_menu_logic.cpp
+  src/mods/trait_registry_batch17.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui)
 ora_link_std(ora_mods)
 

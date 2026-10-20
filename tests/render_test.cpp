@@ -57,6 +57,10 @@ import std;
 #include "mods/building.hpp"
 #include "mods/building_utils.hpp"
 #include "mods/line_build.hpp"
+#include "mods/mission_objectives.hpp"
+#include "mods/order_generators.hpp"
+#include "mods/repairable_building.hpp"
+#include "mods/sellable.hpp"
 #include "mods/place_building.hpp"
 #include "mods/aircraft.hpp"
 #include "mods/air_activities.hpp"
@@ -92,7 +96,10 @@ import std;
 #include "mods/support_powers.hpp"
 #include "mods/support_power_effects.hpp"
 #include "mods/concrete_support_powers.hpp"
+#include "mods/ingame_menu_logic.hpp"
+#include "mods/menu_logics.hpp"
 #include "mods/support_powers_widget.hpp"
+#include "ui/widgets/menu_button_widget.hpp"
 #include "mods/player_statistics.hpp"
 #include "mods/tooltip.hpp"
 #include "net/order.hpp"
@@ -3194,6 +3201,420 @@ int main(int argc, char** argv) {
       }
 
       ui::Ui::Instance().Root()->RemoveChildren();
+    }
+  }
+
+  // ———— Phase 6 第十七批:菜单 Logic 组 + sell/repair 链 ————
+  // ———— Phase 6 batch 17: the menu-logic group + the sell/repair
+  //      chains ————
+  {
+    std::println("-- batch 17: menu logics + sell/repair chains --");
+    world->SetLocalPlayerForTest(player_a);
+
+    {
+      auto* mo =
+          player_a->PlayerActor()->Trait<mods::MissionObjectives>();
+      Check(mo != nullptr,
+            "p6b17: MissionObjectives mounted on the player actor");
+      if (mo != nullptr) {
+        int int4_events = 0;
+        const std::size_t n_token = mo->AddObjectiveAddedHandler(
+            [&int4_events](sim::Player&, bool b_inhibit) {
+              if (!b_inhibit)
+                int4_events++;
+            });
+        Check(!player_a->HasObjectives(),
+              "p6b17: no objectives before Add");
+        const int int4_first_id = mo->Add(*player_a, "obj1", "primary");
+        CheckEq(int4_first_id, 0, "p6b17: the first objective id is 0");
+        Check(player_a->HasObjectives() && int4_events == 1,
+              "p6b17: Add fires ObjectiveAdded and flags HasObjectives");
+        mo->Add(*player_a, "obj2", "secondary", true, true);
+        Check(int4_events == 1,
+              "p6b17: inhibit suppresses the announcement");
+        mo->RemoveObjectiveAddedHandler(n_token);
+        mo->Add(*player_a, "obj3", "primary");
+        Check(int4_events == 1,
+              "p6b17: the unsubscribed handler stays silent");
+        CheckEq(mo->Objectives().size(), std::size_t{3},
+                "p6b17: three objectives registered");
+      }
+    }
+
+    {
+      mods::SellOrderGenerator sell_gen(*world);
+      Check(sell_gen.GetCursor(*world, CPos{cx, cy},
+                               int2{cx * 1024, cy * 1024},
+                               MouseInput{}) == "sell-blocked",
+            "p6b17: the sell cursor stays blocked without a hover hit");
+      mods::RepairOrderGenerator repair_gen(*world);
+      Check(repair_gen.GetCursor(*world, CPos{cx, cy},
+                                 int2{cx * 1024, cy * 1024},
+                                 MouseInput{}) == "repair-blocked",
+            "p6b17: the repair cursor stays blocked without a hover hit");
+      mods::PowerDownOrderGenerator powerdown_gen(*world);
+      Check(powerdown_gen.GetCursor(*world, CPos{cx, cy},
+                                    int2{cx * 1024, cy * 1024},
+                                    MouseInput{}) == "powerdown-blocked",
+            "p6b17: the powerdown cursor stays blocked without a hover hit");
+      mods::BeaconOrderGenerator beacon_gen(*world);
+      Check(beacon_gen.GetCursor(*world, CPos{cx, cy},
+                                 int2{cx * 1024, cy * 1024},
+                                 MouseInput{}) == "ability",
+            "p6b17: the beacon cursor is the ability cursor");
+
+      world->AdoptOrderGenerator(
+          std::make_unique<mods::BeaconOrderGenerator>(*world));
+      Check(dynamic_cast<mods::BeaconOrderGenerator*>(
+                world->OrderGenerator()) != nullptr,
+            "p6b17: the beacon generator takes the input mode");
+
+      ora::MouseInput mi_beacon{};
+      mi_beacon.Event = ora::MouseInputEvent::Down;
+      mi_beacon.Button = ora::MouseButton::Left;
+      std::vector<net::Order*> vec_beacon_orders =
+          world->OrderGenerator()->Order(*world, CPos{cx, cy},
+                                         int2{cx * 1024, cy * 1024},
+                                         mi_beacon);
+      Check(vec_beacon_orders.size() == 1 &&
+                vec_beacon_orders.front()->str_order_string ==
+                    "PlaceBeacon" &&
+                vec_beacon_orders.front()->b_suppress_visual_feedback,
+            "p6b17: the beacon action orders PlaceBeacon with the "
+            "visual-feedback suppression");
+      for (net::Order* order_beacon : vec_beacon_orders)
+        delete order_beacon;
+      Check(dynamic_cast<mods::BeaconOrderGenerator*>(
+                world->OrderGenerator()) == nullptr,
+            "p6b17: ordering the beacon cancels the input mode");
+
+      world->AdoptOrderGenerator(
+          std::make_unique<mods::SellOrderGenerator>(*world));
+      ora::MouseInput mi_cancel{};
+      mi_cancel.Event = ora::MouseInputEvent::Up;
+      mi_cancel.Button = ora::MouseButton::Right;
+      const std::vector<net::Order*> vec_cancel_orders =
+          world->OrderGenerator()->Order(*world, CPos{cx, cy},
+                                         int2{cx * 1024, cy * 1024},
+                                         mi_cancel);
+      Check(vec_cancel_orders.empty() &&
+                dynamic_cast<mods::SellOrderGenerator*>(
+                    world->OrderGenerator()) == nullptr,
+            "p6b17: the cancel button releases the input mode");
+    }
+
+    auto spawn_built = [&](const std::string& str_type, sim::Player* owner,
+                           CPos cell) {
+      sim::TypeDictionary dict;
+      sim::LocationInit location{cell};
+      sim::OwnerInit owner_init{owner};
+      sim::SkipMakeAnimsInit skip_make_anims;
+      dict.Add(&location);
+      dict.Add(&owner_init);
+      dict.Add(&skip_make_anims);
+      return world->CreateActor(true, str_type, dict);
+    };
+
+    {
+      sim::Actor* tent_sell =
+          spawn_built("tent", player_a, CPos{cx - 14, cy - 14});
+      Check(tent_sell != nullptr, "p6b17: the sell tent constructed");
+      if (tent_sell != nullptr) {
+        auto* sellable = tent_sell->Trait<mods::Sellable>();
+        auto* resources =
+            player_a->PlayerActor()->Trait<mods::PlayerResources>();
+        Check(sellable != nullptr && resources != nullptr,
+              "p6b17: Sellable + PlayerResources mounted");
+        if (sellable != nullptr && resources != nullptr) {
+          for (int i = 0; i < 8 && sellable->IsTraitDisabled(); i++)
+            world->Tick();
+          const int int4_sell_value = mods::GetSellValue(*tent_sell);
+          const int int4_cash_before = resources->Cash;
+          net::Order order_sell{"Sell", tent_sell, false};
+          sellable->ResolveOrder(*tent_sell, order_sell);
+
+          const bool b_sold = [&] {
+            for (int i = 0; i < 1400; i++) {
+              world->Tick();
+              if (tent_sell->IsDead())
+                return true;
+            }
+            return tent_sell->IsDead();
+          }();
+          Check(b_sold, "p6b17: the sell activity disposes the tent");
+          const int int4_refund =
+              int4_sell_value * sellable->Info().int4_refund_percent / 100;
+          Check(resources->Cash == int4_cash_before + int4_refund,
+                "p6b17: the refund credits the half value at full health");
+        }
+      }
+    }
+
+    {
+      sim::Actor* tent_repair =
+          spawn_built("tent", player_a, CPos{cx + 14, cy + 14});
+      Check(tent_repair != nullptr, "p6b17: the repair tent constructed");
+      if (tent_repair != nullptr) {
+        auto* health = tent_repair->Trait<sim::IHealth>();
+        auto* repairable_building =
+            tent_repair->Trait<mods::RepairableBuilding>();
+        auto* resources =
+            player_a->PlayerActor()->Trait<mods::PlayerResources>();
+        Check(health != nullptr && repairable_building != nullptr,
+              "p6b17: RepairableBuilding + IHealth mounted");
+        if (health != nullptr && repairable_building != nullptr &&
+            resources != nullptr) {
+          resources->GiveCash(100000);
+          const int int4_max_hp = health->MaxHP();
+          health->InflictDamage(*tent_repair, nullptr,
+                                sim::Damage{int4_max_hp / 2}, false);
+          Check(health->HP() < int4_max_hp,
+                "p6b17: the repair tent starts damaged");
+
+          repairable_building->RepairBuilding(*tent_repair, player_a);
+          CheckEq(repairable_building->Repairers().size(), std::size_t{1},
+                  "p6b17: RepairBuilding registers the repairer");
+          repairable_building->RepairBuilding(*tent_repair, player_a);
+          Check(repairable_building->Repairers().empty(),
+                "p6b17: a second toggle unregisters the repairer");
+
+          repairable_building->RepairBuilding(*tent_repair, player_a);
+          const int int4_cash_before =
+              resources->Cash + resources->Resources;
+          int int4_ticks = 0;
+          while (health->HP() < int4_max_hp && int4_ticks < 4000) {
+            world->Tick();
+            int4_ticks++;
+          }
+          Check(health->HP() == int4_max_hp,
+                "p6b17: the repair chain restores the full health");
+          Check(resources->Cash + resources->Resources < int4_cash_before &&
+                    resources->Spent > 0,
+                "p6b17: the repair steps charge the treasury");
+          Check(!repairable_building->RepairActive() &&
+                    repairable_building->Repairers().empty(),
+                "p6b17: the repair deactivates at full health");
+          Check(mods::GetSellValue(*tent_repair) > 0,
+                "p6b17: GetSellValue reads the Valued cost");
+        }
+      }
+    }
+  }
+
+  {
+    static ui::ChromeMetrics metrics_menu17;
+    {
+      const auto dir_metrics_menu =
+          std::filesystem::temp_directory_path() /
+          "ora_render_test_metrics_menu17";
+      std::filesystem::create_directories(dir_metrics_menu);
+      {
+        std::ofstream out_metrics(dir_metrics_menu / "metrics.yaml");
+        out_metrics << "Chrome:" << '\n';
+        out_metrics << "\tTextFont: Regular" << '\n';
+        out_metrics << "\tTextColor: FFFFFFFF" << '\n';
+        out_metrics << "\tTextContrast: True" << '\n';
+        out_metrics << "\tTextShadow: False" << '\n';
+        out_metrics << "\tTextContrastColorDark: 000000FF" << '\n';
+        out_metrics << "\tTextContrastColorLight: FFFFFFFF" << '\n';
+        out_metrics << "\tTextContrastRadius: 1" << '\n';
+        out_metrics << "\tButtonDepth: 1" << '\n';
+        out_metrics << "\tButtonFont: Regular" << '\n';
+        out_metrics << "\tButtonTextColor: FFFFFFFF" << '\n';
+        out_metrics << "\tButtonTextColorDisabled: 808080FF" << '\n';
+        out_metrics << "\tButtonTextContrast: True" << '\n';
+        out_metrics << "\tButtonTextShadow: False" << '\n';
+        out_metrics << "\tButtonTextContrastColorDark: 000000FF" << '\n';
+        out_metrics << "\tButtonTextContrastColorLight: FFFFFFFF" << '\n';
+        out_metrics << "\tButtonTextContrastRadius: 1" << '\n';
+        out_metrics << "\tButtonCursor: default" << '\n';
+        out_metrics << "\tClickSound: click_sound" << '\n';
+        out_metrics << "\tClickDisabledSound: click_disabled_sound" << '\n';
+      }
+      fs::FileSystem fs_metrics_menu;
+      fs_metrics_menu.Mount(dir_metrics_menu.generic_string());
+      const std::vector<std::string> vec_files_metrics_menu{"metrics.yaml"};
+      metrics_menu17.Initialize({&fs_metrics_menu, &vec_files_metrics_menu});
+    }
+
+    int int4_tick17 = 0;
+    ui::WidgetArgs args_local;
+    ui::Ui::Deps deps_menu17;
+    deps_menu17.ptr_chrome_metrics = &metrics_menu17;
+    deps_menu17.fn_local_tick = [&int4_tick17] { return int4_tick17; };
+    deps_menu17.fn_window_size = [] { return int2{1280, 720}; };
+    ui::Ui::Instance().Initialize(std::move(deps_menu17));
+
+    {
+      auto up_bin = std::make_unique<ui::ContainerWidget>();
+      auto up_palette =
+          std::make_unique<mods::SupportPowersWidget>(args_local);
+      up_palette->str_id = "SUPPORT_PALETTE";
+      mods::SupportPowersWidget* ptr_palette_bin = up_palette.get();
+      ptr_palette_bin->int2_icon_size = int2{62, 46};
+      ptr_palette_bin->int4_icon_margin = 4;
+      auto up_bg = std::make_unique<ui::ContainerWidget>();
+      up_bg->str_id = "PALETTE_BACKGROUND";
+      auto up_bg_template = std::make_unique<ui::ContainerWidget>();
+      up_bg_template->str_id = "ICON_TEMPLATE";
+      up_bg->AddChild(std::move(up_bg_template));
+      auto up_fg = std::make_unique<ui::ContainerWidget>();
+      up_fg->str_id = "PALETTE_FOREGROUND";
+      auto up_fg_template = std::make_unique<ui::ContainerWidget>();
+      up_fg_template->str_id = "ICON_TEMPLATE";
+      up_fg->AddChild(std::move(up_fg_template));
+      up_bin->AddChild(std::move(up_palette));
+      up_bin->AddChild(std::move(up_bg));
+      up_bin->AddChild(std::move(up_fg));
+      ui::ContainerWidget* ptr_bg = dynamic_cast<ui::ContainerWidget*>(
+          up_bin->Get("PALETTE_BACKGROUND"));
+      ui::ContainerWidget* ptr_fg = dynamic_cast<ui::ContainerWidget*>(
+          up_bin->Get("PALETTE_FOREGROUND"));
+
+      mods::SupportPowerBinLogic logic_bin(*up_bin);
+      Check(ptr_bg != nullptr && ptr_fg != nullptr &&
+                ptr_bg->Children().empty() && ptr_fg->Children().empty(),
+            "p6b17: the bin starts with zero rows");
+      ptr_palette_bin->fn_on_icon_count_changed(0, 3);
+      Check(ptr_bg != nullptr && ptr_bg->Children().size() == 3 &&
+                ptr_fg != nullptr && ptr_fg->Children().size() == 3,
+            "p6b17: three icons clone three rows");
+      if (ptr_bg != nullptr && ptr_bg->Children().size() == 3) {
+        Check(ptr_bg->Children()[1]->bounds_widget.int4_y ==
+                  ptr_bg->Children()[0]->bounds_widget.int4_y + 50,
+              "p6b17: the vertical stride is icon height + margin");
+        ptr_palette_bin->fn_on_icon_count_changed(0, 1);
+        Check(ptr_bg->Children().size() == 1,
+              "p6b17: a recount rebuilds the row stack");
+      }
+    }
+
+    {
+      auto up_button_suffix = std::make_unique<ui::ButtonWidget>(args_local);
+      up_button_suffix->str_background = "button";
+      auto up_image_suffix = std::make_unique<ui::ImageWidget>();
+      up_image_suffix->str_image_collection = "logos";
+      auto up_plain_suffix = std::make_unique<ui::ContainerWidget>();
+      const std::string str_faction =
+          world->LocalPlayer()->Faction().InternalName;
+
+      mods::AddFactionSuffixLogic logic_suffix_a(*up_button_suffix, *world);
+      Check(up_button_suffix->str_background == "button-" + str_faction,
+            "p6b17: the button background takes the faction suffix");
+      mods::AddFactionSuffixLogic logic_suffix_b(*up_image_suffix, *world);
+      Check(up_image_suffix->str_image_collection == "logos-" + str_faction,
+            "p6b17: the image collection takes the faction suffix");
+      bool b_threw_suffix = false;
+      try {
+        mods::AddFactionSuffixLogic logic_suffix_c(*up_plain_suffix, *world);
+      } catch (const std::runtime_error&) {
+        b_threw_suffix = true;
+      }
+      Check(b_threw_suffix,
+            "p6b17: an unsupported widget type throws the upstream message");
+    }
+
+    {
+      auto up_world_root = std::make_unique<ui::ContainerWidget>();
+      up_world_root->str_id = "WORLD_ROOT";
+      auto up_menu_root = std::make_unique<ui::ContainerWidget>();
+      up_menu_root->str_id = "MENU_ROOT";
+      ui::Ui::Instance().Root()->AddChild(std::move(up_world_root));
+      ui::Ui::Instance().Root()->AddChild(std::move(up_menu_root));
+
+      auto up_top_buttons = std::make_unique<ui::ContainerWidget>();
+      auto up_options = std::make_unique<ui::MenuButtonWidget>(args_local);
+      up_options->str_id = "OPTIONS_BUTTON";
+      ui::MenuButtonWidget* ptr_options = up_options.get();
+      up_top_buttons->AddChild(std::move(up_options));
+
+      {
+        mods::MenuButtonsChromeLogic logic_menu_buttons(*up_top_buttons,
+                                                         *world);
+        Check(ptr_options->fn_is_disabled() == false,
+              "p6b17: the options button starts enabled");
+        auto* mo_menu =
+            world->LocalPlayer()->PlayerActor()
+                ->Trait<mods::MissionObjectives>();
+        if (mo_menu != nullptr)
+          mo_menu->Add(*world->LocalPlayer(), "menu obj", "primary");
+        Check(ptr_options->fn_is_highlighted(),
+              "p6b17: an added objective starts the blink");
+        int4_tick17 = 26;
+        Check(!ptr_options->fn_is_highlighted(),
+              "p6b17: the blink rests past half the beat");
+        int4_tick17 = 3;
+        Check(ptr_options->fn_is_highlighted(),
+              "p6b17: the blink returns within the beat");
+      }
+      ui::Ui::Instance().Root()->RemoveChildren();
+    }
+
+    {
+      yaml::StringPool pool_menu;
+      const std::string* ptr_stride_value = pool_menu.Intern("0, 40");
+      const std::string* ptr_buttons_value =
+          pool_menu.Intern("RESUME, SETTINGS, MUSIC");
+      yaml::MiniYaml yaml_stride{ptr_stride_value};
+      yaml::MiniYaml yaml_buttons{ptr_buttons_value};
+      const ui::YamlDictionary dict_logic_args{
+          {std::string_view{"ButtonStride"}, &yaml_stride},
+          {std::string_view{"Buttons"}, &yaml_buttons}};
+
+      auto up_menu_root = std::make_unique<ui::ContainerWidget>();
+      auto up_ingame_menu = std::make_unique<ui::ContainerWidget>();
+      up_ingame_menu->str_id = "INGAME_MENU";
+      auto up_menu_buttons = std::make_unique<ui::ContainerWidget>();
+      up_menu_buttons->str_id = "MENU_BUTTONS";
+      up_menu_buttons->bounds_widget = ui::WidgetBounds{100, 60, 200, 120};
+      auto up_button_template =
+          std::make_unique<ui::ButtonWidget>(args_local);
+      up_button_template->str_id = "BUTTON_TEMPLATE";
+      up_button_template->bounds_widget = ui::WidgetBounds{30, 60, 140, 30};
+      up_menu_buttons->AddChild(std::move(up_button_template));
+      up_ingame_menu->AddChild(std::move(up_menu_buttons));
+      up_menu_root->AddChild(std::move(up_ingame_menu));
+
+      bool b_exited_menu = false;
+      auto logic_ingame_menu = std::make_unique<mods::IngameMenuLogic>(
+          *up_menu_root, mod_data, *world,
+          [&b_exited_menu] { b_exited_menu = true; }, nullptr,
+          mods::IngameInfoPanel::AutoSelect, &dict_logic_args);
+
+      ui::ContainerWidget* ptr_menu_buttons_out =
+          dynamic_cast<ui::ContainerWidget*>(
+              up_menu_root->Get("INGAME_MENU")->Get("MENU_BUTTONS"));
+      Check(ptr_menu_buttons_out != nullptr &&
+                ptr_menu_buttons_out->Children().size() == 3,
+            "p6b17: the Buttons list builds three menu buttons");
+      Check(ptr_menu_buttons_out != nullptr &&
+                ptr_menu_buttons_out->bounds_widget.int4_width == 200 &&
+                ptr_menu_buttons_out->bounds_widget.int4_height == 120 + 80,
+            "p6b17: the stride expands the button container");
+      if (ptr_menu_buttons_out != nullptr &&
+          ptr_menu_buttons_out->Children().size() == 3) {
+        Check(ptr_menu_buttons_out->Children()[1]->bounds_widget.int4_y ==
+                  ptr_menu_buttons_out->Children()[0]->bounds_widget.int4_y +
+                      40,
+              "p6b17: the buttons stack at the ButtonStride pitch");
+        Check(ptr_menu_buttons_out->Children()[0]->str_id == "RESUME" &&
+                  ptr_menu_buttons_out->Children()[2]->str_id == "MUSIC",
+              "p6b17: the buttons keep their ids");
+        auto* ptr_resume = dynamic_cast<ui::ButtonWidget*>(
+            ptr_menu_buttons_out->Children()[0]);
+        if (ptr_resume != nullptr) {
+          Check(ptr_resume->fn_get_text() == "menu-ingame.resume",
+                "p6b17: the resume label falls back to the fluent key");
+          Check(!ptr_resume->fn_is_disabled(),
+                "p6b17: the resume button starts enabled");
+          ptr_resume->fn_on_click();
+          Check(b_exited_menu,
+                "p6b17: the resume click runs the onExit callback");
+        }
+        Check(ptr_menu_buttons_out->fn_is_visible(),
+              "p6b17: the menu is visible before hiding");
+      }
+      logic_ingame_menu.reset();
     }
   }
 

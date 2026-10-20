@@ -39,6 +39,14 @@ namespace ora::game {
 class Ruleset;
 }
 
+namespace ora::net {
+class ConnectionTarget;
+}
+
+namespace ora::map {
+class MapCache;
+}
+
 namespace ora::ui {
 
 class Ui {
@@ -156,6 +164,84 @@ class Ui {
     /// Game.Settings.Sound.CashTicks (IngameCashCounterLogic; unwired =
     /// upstream's default true).
     std::function<bool()> fn_cash_ticks = [] { return true; };
+    std::function<void(std::int32_t, std::function<void()>)>
+        fn_run_after_delay = [](std::int32_t, std::function<void()> fn_a) {
+          fn_a();
+        };
+    /// Game.HideCursor 的读写面(未接线 = no-op 读 false)
+    /// Game.HideCursor's read/write face (unwired = no-op reading false).
+    std::function<bool()> fn_hide_cursor = [] { return false; };
+    std::function<void(bool)> fn_set_hide_cursor = [](bool) {};
+    /// Game.Disconnect/LoadShellMap/RestartGame/LoadEditor/IsCurrentWorld
+    /// (IngameMenuLogic·MainMenuLogic 的游戏域链;未接线 = no-op/false)
+    /// Game.Disconnect/LoadShellMap/RestartGame/LoadEditor/
+    /// IsCurrentWorld (the game-domain chains of IngameMenuLogic and
+    /// MainMenuLogic; unwired = no-op/false).
+    std::function<void()> fn_disconnect = [] {};
+    std::function<void()> fn_load_shell_map = [] {};
+    std::function<void()> fn_restart_game = [] {};
+    std::function<void(const std::string&)> fn_load_editor =
+        [](const std::string&) {};
+    std::function<bool(const sim::World*)> fn_is_current_world =
+        [](const sim::World*) { return true; };
+    /// Game.Exit(MainMenuLogic 的退出按钮;未接线 = no-op)
+    /// Game.Exit (MainMenuLogic's quit button; unwired = no-op).
+    std::function<void()> fn_exit = [] {};
+    /// Game.OnRemoteDirectConnect/BeforeGameStart/OnShellmapLoaded 的事件
+    /// 面(MainMenuLogic;未接线 = 无订阅)
+    /// The event faces of Game.OnRemoteDirectConnect/BeforeGameStart/
+    /// OnShellmapLoaded (MainMenuLogic; unwired = no subscription).
+    std::function<std::function<void()>(
+        std::function<void(const net::ConnectionTarget&)>)>
+        fn_subscribe_on_remote_direct_connect =
+            [](std::function<void(const net::ConnectionTarget&)>) {
+              return std::function<void()>{};
+            };
+    std::function<std::function<void()>(std::function<void()>)>
+        fn_subscribe_before_game_start =
+            [](std::function<void()>) { return std::function<void()>{}; };
+    std::function<std::function<void()>(std::function<void()>)>
+        fn_subscribe_on_shellmap_loaded =
+            [](std::function<void()>) { return std::function<void()>{}; };
+    std::function<bool()> fn_check_version = [] { return false; };
+    std::function<void(const std::string&, const std::string&,
+                       std::function<void()>)>
+        fn_fetch_news = [](const std::string&, const std::string&,
+                           std::function<void()> fn_on_fetched) {
+          fn_on_fetched();
+        };
+    /// Game.CreateLocalServer/CloseServer(MainMenuLogic 的 skirmish 链;
+    /// 未接线 = no-op)
+    /// Game.CreateLocalServer/CloseServer (MainMenuLogic's skirmish chain;
+    /// unwired = no-op).
+    std::function<std::string(const std::string&, bool)> fn_create_local_server =
+        [](const std::string& str_uid, bool) { return str_uid; };
+    std::function<void()> fn_close_server = [] {};
+    /// ConnectionLogic.Connect(MainMenuLogic/IngameMenuLogic 的连接链;未
+    /// 接线 = 直接开面板)
+    /// ConnectionLogic.Connect (the connect chains; unwired = the panel
+    /// opens directly).
+    std::function<void(const std::string&, const std::string&,
+                       std::function<void()>, std::function<void()>)>
+        fn_connection_connect =
+            [](const std::string&, const std::string&,
+               std::function<void()> fn_on_connected,
+               std::function<void()>) { fn_on_connected(); };
+    std::function<bool()> fn_should_show_introduction_prompt =
+        [] { return false; };
+    std::function<bool()> fn_should_show_system_info_prompt =
+        [] { return false; };
+    std::function<bool()> fn_settings_fetch_news = [] { return true; };
+    std::function<std::string()> fn_server_map_get =
+        [] { return std::string{}; };
+    std::function<void(const std::string&)> fn_server_map_set =
+        [](const std::string&) {};
+    std::function<void()> fn_settings_save = [] {};
+    std::function<std::string()> fn_create_parameter_string =
+        [] { return std::string{}; };
+    std::function<void(const std::string&)> fn_write_news_cache =
+        [](const std::string&) {};
+    map::MapCache* ptr_map_cache = nullptr;
   };
 
   void Initialize(Deps deps);
@@ -194,6 +280,71 @@ class Ui {
   void RunAfterTickDefer(std::function<void()> fn_action) const {
     deps_.fn_run_after_tick(std::move(fn_action));
   }
+  void RunAfterDelayDefer(std::int32_t int4_delay_ms,
+                          std::function<void()> fn_action) const {
+    deps_.fn_run_after_delay(int4_delay_ms, std::move(fn_action));
+  }
+  bool HideCursor() const { return deps_.fn_hide_cursor(); }
+  void SetHideCursor(bool b_value) const { deps_.fn_set_hide_cursor(b_value); }
+  bool IsCurrentWorldDeps(const sim::World* ptr_world) const {
+    return deps_.fn_is_current_world(ptr_world);
+  }
+  void DisconnectDeps() const { deps_.fn_disconnect(); }
+  void LoadShellMapDeps() const { deps_.fn_load_shell_map(); }
+  void RestartGameDeps() const { deps_.fn_restart_game(); }
+  void LoadEditorDeps(const std::string& str_uid) const {
+    deps_.fn_load_editor(str_uid);
+  }
+  void ExitDeps() const { deps_.fn_exit(); }
+  bool SettingsFetchNewsDeps() const {
+    return deps_.fn_settings_fetch_news();
+  }
+  bool CheckVersionDeps() const { return deps_.fn_check_version(); }
+  bool ShouldShowIntroductionPromptDeps() const {
+    return deps_.fn_should_show_introduction_prompt();
+  }
+  bool ShouldShowSystemInfoPromptDeps() const {
+    return deps_.fn_should_show_system_info_prompt();
+  }
+  std::string CreateParameterStringDeps() const {
+    return deps_.fn_create_parameter_string();
+  }
+  void FetchNewsDeps(const std::string& str_url,
+                     const std::string& str_cache_file,
+                     std::function<void()> fn_on_fetched) const {
+    deps_.fn_fetch_news(str_url, str_cache_file, std::move(fn_on_fetched));
+  }
+  std::string ServerMapGetDeps() const { return deps_.fn_server_map_get(); }
+  void ServerMapSetDeps(const std::string& str_uid) const {
+    deps_.fn_server_map_set(str_uid);
+  }
+  void SettingsSaveDeps() const { deps_.fn_settings_save(); }
+  std::string CreateLocalServerDeps(const std::string& str_uid,
+                                    bool b_skirmish) const {
+    return deps_.fn_create_local_server(str_uid, b_skirmish);
+  }
+  void CloseServerDeps() const { deps_.fn_close_server(); }
+  void ConnectionConnectDeps(const std::string& str_endpoint,
+                             const std::string& str_password,
+                             std::function<void()> fn_on_connected,
+                             std::function<void()> fn_on_abort) const {
+    deps_.fn_connection_connect(str_endpoint, str_password,
+                                std::move(fn_on_connected),
+                                std::move(fn_on_abort));
+  }
+  std::function<void()> SubscribeOnRemoteDirectConnect(
+      std::function<void(const net::ConnectionTarget&)> fn_handler) const {
+    return deps_.fn_subscribe_on_remote_direct_connect(std::move(fn_handler));
+  }
+  std::function<void()> SubscribeBeforeGameStart(
+      std::function<void()> fn_handler) const {
+    return deps_.fn_subscribe_before_game_start(std::move(fn_handler));
+  }
+  std::function<void()> SubscribeOnShellmapLoaded(
+      std::function<void()> fn_handler) const {
+    return deps_.fn_subscribe_on_shellmap_loaded(std::move(fn_handler));
+  }
+  map::MapCache* MapCacheDeps() const { return deps_.ptr_map_cache; }
   HotkeyReference Hotkey(std::string_view str_name) const {
     return deps_.fn_hotkey_lookup(str_name);
   }

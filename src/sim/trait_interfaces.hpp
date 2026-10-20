@@ -2287,6 +2287,16 @@ class INotifyWinStateChanged {
   virtual void OnPlayerWon(Player& player) = 0;
 };
 
+class INotifyObjectivesUpdated {
+ public:
+  static constexpr gen::TypeId kTypeId =
+      gen::TypeId::OpenRA_Mods_Common_Traits_INotifyObjectivesUpdated;
+  virtual ~INotifyObjectivesUpdated() = default;
+  virtual void OnObjectiveAdded(Player& player, int objective_id) = 0;
+  virtual void OnObjectiveCompleted(Player& player, int objective_id) = 0;
+  virtual void OnObjectiveFailed(Player& player, int objective_id) = 0;
+};
+
 /// Game/Traits/TraitsInterfaces.cs L210-214:ITooltip
 class ITooltip {
  public:

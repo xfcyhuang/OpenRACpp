@@ -78,6 +78,13 @@ Order::Order(std::string str_order, sim::Actor* subject,
       target(target),
       vec_extra_actors(std::move(vec_extra_actors)) {}
 
+Order::Order(std::string str_order, sim::Actor* subject,
+             const sim::Target& target,
+             const sim::Target& target_visual_feedback, bool queued)
+    : Order(std::move(str_order), subject, target, queued) {
+  visual_feedback_target = target_visual_feedback;
+}
+
 // ———— 命名构造(Order.cs L281-327)————
 // ———— The named constructors (Order.cs L281-327) ————
 

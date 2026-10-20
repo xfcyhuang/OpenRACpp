@@ -92,6 +92,7 @@ class Manifest final {
   const std::vector<std::string>& ChromeMetrics() const { return vec_chromeMetrics_; }
   const std::vector<std::string>& ServerTraits() const { return vec_serverTraits_; }
   const std::vector<std::string>& Hotkeys() const { return vec_hotkeys_; }
+  const std::vector<std::string>& Missions() const { return vec_missions_; }
 
   /// FileSystem 节点(必需;缺省抛 invalid-data 语义异常)
   /// The FileSystem node (required; a missing one raises the
@@ -172,7 +173,7 @@ class Manifest final {
   std::vector<std::string> vec_rules_, vec_sequences_, vec_modelSequences_,
       vec_cursors_, vec_chrome_, vec_chromeLayout_, vec_weapons_, vec_voices_,
       vec_notifications_, vec_music_, vec_tileSets_, vec_chromeMetrics_,
-      vec_serverTraits_, vec_hotkeys_;
+      vec_serverTraits_, vec_hotkeys_, vec_missions_;
   std::vector<std::pair<std::string, std::string>> vec_mapFolders_;
   std::string str_defaultOrderGenerator_;
   const yaml::MiniYaml* yaml_fileSystem_{nullptr};

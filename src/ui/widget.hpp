@@ -70,6 +70,8 @@ using WidgetArgValue =
                  std::function<std::string()>,         // getText/getDesc 委托 | the getText/getDesc delegates
                  std::function<void(core::Color)>,     // onChange(Color) 委托 | the onChange(Color) delegate
                  std::function<void(Widget*)>,         // extraLogic 委托 | the extraLogic delegate
+                 std::function<void()>,
+                 std::function<void(bool)>,
                  const std::map<std::string, std::int32_t>*,  // substitutions
                  const YamlDictionary*>;                      // logicArgs
 
