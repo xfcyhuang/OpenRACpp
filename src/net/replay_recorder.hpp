@@ -48,6 +48,19 @@ class ReplayMetadata {
 
   const std::string& GameInfoData() const { return str_game_info_data_; }
 
+  /// FilePath 属性(浏览器域的文件路径承载)
+  /// The FilePath property (the browser domain's file-path carrier).
+  const std::string& FilePath() const { return str_file_path_; }
+  void SetFilePath(std::string str_path) {
+    str_file_path_ = std::move(str_path);
+  }
+
+  /// RenameFile(ReplayMetadata.cs L72-77):同目录改名 + .orarep 后缀;
+  /// 失败 = false
+  /// RenameFile (ReplayMetadata.cs L72-77): the same-directory rename with
+  /// the .orarep suffix; false on failure.
+  bool RenameFile(const std::string& str_new_filename_without_extension);
+
   /// Write(L51-67):start 标记 + 版本 + 长度前缀载荷 + 总长 + end 标记
   /// Write (L51-67): the start marker + version + the length-prefixed
   /// payload + the total length + the end marker.
@@ -59,8 +72,15 @@ class ReplayMetadata {
   static std::unique_ptr<ReplayMetadata> Read(
       const std::vector<std::uint8_t>& vec_bytes);
 
+  /// Read(path)(ReplayMetadata.cs L79-106 的文件面):整读 + Read +
+  /// FilePath 记账;失败 = nullptr
+  /// Read(path) (the file face of ReplayMetadata.cs L79-106): the whole
+  /// read + Read + the FilePath bookkeeping; nullptr on failure.
+  static std::unique_ptr<ReplayMetadata> ReadFile(const std::string& str_path);
+
  private:
   std::string str_game_info_data_;
+  std::string str_file_path_;
 };
 
 /// ReplayRecorder(ReplayRecorder.cs L22-117)

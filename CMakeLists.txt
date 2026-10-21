@@ -275,7 +275,8 @@ add_library(ora_net STATIC
   src/net/sanitize.cpp
   src/net/replay_recorder.cpp
   src/net/sync_report.cpp
-  src/net/replay_diff.cpp)
+  src/net/replay_diff.cpp
+  src/net/game_save.cpp)
 target_link_libraries(ora_net PUBLIC ora_sim ora_yaml PRIVATE ora_fluent)
 ora_link_std(ora_net)
 
@@ -576,6 +577,7 @@ add_library(ora_mods STATIC
   src/mods/repairable_building.cpp
   src/mods/order_generators.cpp
   src/mods/menu_logics.cpp
+  src/mods/browser_logics.cpp
   src/mods/confirmation_dialogs.cpp
   src/mods/ingame_menu_logic.cpp
   src/mods/main_menu_logic.cpp

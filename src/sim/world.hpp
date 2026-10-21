@@ -385,6 +385,26 @@ class World final {
   }
   void IssueOrder(net::Order* o);  // L151
 
+  /// RequestGameSave(World.cs L565-584):IGameSaveTraitData 的逐 trait
+  /// 序列化面 = 空集(宿主 trait 随其批;COVERAGE 登记)+ CreateGameSave
+  /// order(isAutosave → extraData)。ora_sim 不链 ora_net —— order 构造由
+  /// 嵌入侧注入(缺省 no-op;Game 装配面接 CreateGameSave order)
+  /// RequestGameSave (World.cs L565-584): the per-trait IGameSaveTraitData
+  /// serialization face = the empty set (the host traits ride their own
+  /// batches; in COVERAGE) + the CreateGameSave order (isAutosave →
+  /// extraData). ora_sim stays off ora_net — the order construction is
+  /// injected by the embedder (no-op by default; the Game assembly issues
+  /// the CreateGameSave order).
+  void SetRequestGameSaveSink(
+      std::function<void(const std::string&, bool)> fn) {
+    fn_request_game_save_ = std::move(fn);
+  }
+  void RequestGameSave(const std::string& str_filename,
+                       bool b_is_autosave) {
+    if (fn_request_game_save_)
+      fn_request_game_save_(str_filename, b_is_autosave);
+  }
+
   // ———— 战局/存档面(L74-88/114-118/201-207/260-310/393-397/539-563)————
   bool IsGameOver() const { return b_is_game_over_; }
   void EndGame();  // L75-88
@@ -536,6 +556,7 @@ class World final {
   Actor* p_world_actor_ = nullptr;
   net::OrderManager* p_order_manager_ = nullptr;
   std::function<void(net::Order*)> fn_issue_order_;
+  std::function<void(const std::string&, bool)> fn_request_game_save_;
   TraitFactory fn_trait_factory_;
   CPosToWPos fn_subcell_center_;
   std::function<int(const ISync*)> fn_sync_effect_hash_;

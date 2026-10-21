@@ -114,6 +114,9 @@ import std;
 #include "sim/world.hpp"
 #include "ui/selection_utils.hpp"
 #include "ui/ui.hpp"
+#include "mods/browser_logics.hpp"
+#include "net/game_save.hpp"
+#include "server/game_information.hpp"
 
 namespace {
 std::string_view TestMapFilter() {
@@ -3616,6 +3619,403 @@ int main(int argc, char** argv) {
       }
       logic_ingame_menu.reset();
     }
+  }
+
+  // ———— Phase 6 第十八批:浏览器面板第一组(Replay 链 + GameSave 格式)————
+  // ———— Phase 6 batch 18: the first browser-panel group (the replay
+  //      chain + the GameSave format) ————
+  {
+    std::println("-- batch 18: replay browser + game save format --");
+
+    {
+      server::GameDateTime dt{};
+      dt.str_text = "1970-01-02 00-00-00";
+      CheckEq(dt.ToUnixSeconds(), std::int64_t{86400},
+              "p6b18: GameDateTime decomposes to unix seconds");
+      server::GameInformation info_duration{};
+      info_duration.StartTimeUtc.str_text = "2026-01-01 00-00-00";
+      info_duration.EndTimeUtc.str_text = "2026-01-01 01-00-00";
+      CheckEq(info_duration.DurationSeconds(), 3600.0,
+              "p6b18: the duration spans start to end");
+      info_duration.EndTimeUtc.str_text = "2025-12-31 00-00-00";
+      CheckEq(info_duration.DurationSeconds(), 0.0,
+              "p6b18: the inverted range clamps to zero");
+      info_duration.vec_players.push_back(server::GameInformationPlayer{});
+      info_duration.vec_players.back().IsHuman = true;
+      Check(info_duration.IsSinglePlayer(),
+            "p6b18: one human is singleplayer");
+      info_duration.vec_players.push_back(server::GameInformationPlayer{});
+      info_duration.vec_players.back().IsHuman = false;
+      info_duration.vec_players.back().IsBot = true;
+      Check(info_duration.IsSinglePlayer(),
+            "p6b18: a bot alongside does not break singleplayer");
+      info_duration.vec_players.push_back(server::GameInformationPlayer{});
+      info_duration.vec_players.back().IsHuman = true;
+      Check(!info_duration.IsSinglePlayer(),
+            "p6b18: two humans are multiplayer");
+    }
+
+    {
+      net::Session lobby{};
+      lobby.global_settings.GameTimestep = 40;
+      lobby.vec_slots.emplace_back("Multi0", net::SessionSlot{});
+      lobby.vec_slots.back().second.PlayerReference = "Multi0";
+      net::SessionClient client_host{};
+      client_host.Index = 0;
+      client_host.Slot = "Multi0";
+      client_host.Name = "Host";
+      net::SessionClient client_bot{};
+      client_bot.Index = 1;
+      client_bot.Slot = "Multi1";
+      client_bot.Bot = "bot1";
+      client_bot.Name = "Easy AI";
+      client_bot.BotControllerClientIndex = 0;
+      lobby.vec_clients = {client_host, client_bot};
+
+      net::GameSave save{};
+      save.opt_global_settings = lobby.global_settings;
+      save.vec_slots = lobby.vec_slots;
+      save.vec_slot_clients.emplace_back(
+          "Multi0", net::GameSaveSlotClient{client_host});
+      save.vec_slot_clients.emplace_back(
+          "Multi1", net::GameSaveSlotClient{client_bot});
+      save.vec_clients_by_slot_index = {0, 1};
+      save.int4_first_bot_slot_index = 1;
+      map::MapGenerationArgs gen_args{};
+      gen_args.str_uid = "gen-uid";
+      gen_args.str_generator = "GeneratorA";
+      gen_args.str_tileset = "DESERT";
+      gen_args.size_ = Size{128, 128};
+      gen_args.str_title = "T";
+      gen_args.str_author = "A";
+      gen_args.kind_preview_visibility =
+          map::MapGenerationArgs::PreviewVisibilityFlags::MapChooser;
+      gen_args.vec_options = {{"k", "v"}};
+      save.opt_map_generation_args = gen_args;
+      save.vec_trait_data.emplace_back(
+          0, yaml::MiniYaml{new std::string{"trait0"}});
+
+      std::vector<std::uint8_t> vec_sync(13, 0);
+      vec_sync[0] = 0x65;
+      save.DispatchOrders(0, 5, vec_sync);
+      save.DispatchOrders(0, 10, {0x01, 0x02});
+      save.DispatchOrders(99, 11, {0x03});
+      save.DispatchOrders(0, 9, {0x04});
+      CheckEq(save.LastOrdersFrame, 11,
+              "p6b18: stale frames do not advance LastOrdersFrame");
+
+      std::error_code ec{};
+      std::filesystem::create_directories("Saves-test", ec);
+      const std::string str_save_path =
+          (std::filesystem::path{"Saves-test"} / "t.orasav").generic_string();
+      Check(save.Save(str_save_path), "p6b18: the save writes to disk");
+
+      auto up_loaded = net::GameSave::Load(str_save_path);
+      Check(up_loaded.has_value(),
+            "p6b18: the save reloads from disk");
+      if (up_loaded.has_value()) {
+        CheckEq(up_loaded->LastOrdersFrame, 11,
+                "p6b18: LastOrdersFrame survives the roundtrip");
+        CheckEq(up_loaded->LastSyncFrame, 5,
+                "p6b18: LastSyncFrame survives the roundtrip");
+        Check(up_loaded->opt_global_settings.has_value() &&
+                  up_loaded->opt_global_settings->GameTimestep == 40,
+              "p6b18: the global settings roundtrip");
+        CheckEq(up_loaded->vec_slots.size(), std::size_t{1},
+                "p6b18: the slots roundtrip");
+        CheckEq(up_loaded->vec_slot_clients.size(), std::size_t{2},
+                "p6b18: the slot clients roundtrip");
+        Check(up_loaded->vec_slot_clients.size() == 2 &&
+                  up_loaded->vec_slot_clients[1].second.str_bot == "bot1" &&
+                  up_loaded->vec_slot_clients[1].second.str_bot_name ==
+                      "Easy AI",
+              "p6b18: the bot slot client keeps its name");
+        Check(up_loaded->opt_map_generation_args.has_value() &&
+                  up_loaded->opt_map_generation_args->str_generator ==
+                      "GeneratorA" &&
+                  up_loaded->opt_map_generation_args->size_.Width == 128,
+              "p6b18: the map generation args roundtrip");
+        Check(up_loaded->vec_trait_data.size() == 1 &&
+                  up_loaded->vec_trait_data[0].first == 0,
+              "p6b18: the trait data roundtrip");
+
+        up_loaded->vec_clients_by_slot_index = {0, 1};
+        up_loaded->int4_first_bot_slot_index = 1;
+        std::vector<std::tuple<int, int, std::vector<std::uint8_t>>>
+            vec_packets;
+        up_loaded->ParseOrders(lobby,
+                               [&](int frame, int client,
+                                   const std::vector<std::uint8_t>& data) {
+                                 vec_packets.emplace_back(frame, client, data);
+                               });
+        CheckEq(vec_packets.size(), std::size_t{5},
+                "p6b18: trait data + three orders + the sync tail");
+        if (vec_packets.size() == 5) {
+          Check(std::get<0>(vec_packets[0]) == 0 &&
+                    !std::get<2>(vec_packets[0]).empty(),
+                "p6b18: the SaveTraitData packet leads");
+          Check(std::get<0>(vec_packets[1]) == 5 &&
+                    std::get<2>(vec_packets[1])[0] == 0x65,
+                "p6b18: the in-stream sync order replays in order");
+          Check(std::get<0>(vec_packets[2]) == 10 &&
+                    std::get<1>(vec_packets[2]) == 0 &&
+                    std::get<2>(vec_packets[2]) ==
+                        std::vector<std::uint8_t>{0x01, 0x02},
+                "p6b18: the host order replays at its frame");
+          Check(std::get<0>(vec_packets[3]) == 11 &&
+                    std::get<1>(vec_packets[3]) == 0,
+                "p6b18: the spectator bot order remaps to the controller");
+          Check(std::get<0>(vec_packets[4]) == 5 &&
+                    std::get<2>(vec_packets[4])[0] == 0x65,
+                "p6b18: the sync packet closes the stream");
+        }
+      }
+      std::filesystem::remove_all("Saves-test", ec);
+    }
+
+    {
+      server::GameInformation info{};
+      info.Mod = mod_data.ManifestRef().Id();
+      info.Version = mod_data.ManifestRef().Metadata().str_version;
+      info.MapUid = "xxxxxxxx";
+      info.MapTitle = "Map A";
+      info.StartTimeUtc = server::GameDateTime::UtcNow();
+      info.EndTimeUtc = server::GameDateTime::UtcNow();
+      server::GameInformationPlayer player_a{};
+      player_a.IsHuman = true;
+      player_a.Name = "Alice";
+      player_a.Team = 0;
+      player_a.Outcome = server::WinState::Won;
+      player_a.FactionName = "Allies";
+      info.vec_players.push_back(player_a);
+
+      const std::string str_payload = info.Serialize();
+      std::vector<std::uint8_t> vec_bytes{0x01, 0x02, 0x03, 0x04};
+      net::ReplayMetadata meta{str_payload};
+      meta.Write(vec_bytes);
+
+      std::error_code ec{};
+      std::filesystem::remove_all("Replays", ec);
+      const std::string str_replays_dir =
+          std::string{"Replays/"} + mod_data.ManifestRef().Id() + "/" +
+          mod_data.ManifestRef().Metadata().str_version;
+      std::filesystem::create_directories(str_replays_dir, ec);
+      const std::string str_replay_a =
+          (std::filesystem::path{str_replays_dir} / "game-a.orarep")
+              .generic_string();
+      {
+        std::FILE* file = std::fopen(str_replay_a.c_str(), "wb");
+        std::fwrite(vec_bytes.data(), 1, vec_bytes.size(), file);
+        std::fclose(file);
+      }
+
+      auto up_meta = net::ReplayMetadata::ReadFile(str_replay_a);
+      Check(up_meta != nullptr, "p6b18: the replay metadata file reads");
+      if (up_meta != nullptr) {
+        const auto info_parsed = server::GameInformation::Deserialize(
+            up_meta->GameInfoData(), up_meta->FilePath());
+        Check(info_parsed.has_value(),
+              "p6b18: the game info parses from the replay metadata");
+        if (info_parsed.has_value()) {
+          Check(info_parsed->IsSinglePlayer(),
+                "p6b18: the replay is singleplayer");
+          CheckEq(
+              mods::GameInfoResolvedPlayerName(*info_parsed,
+                                               info_parsed->vec_players[0]),
+              std::string{"Alice"},
+              "p6b18: the human resolves to the plain name");
+          Check(info_parsed->vec_players[0].Outcome ==
+                    server::WinState::Won,
+                "p6b18: the outcome survives the roundtrip");
+        }
+        Check(up_meta->RenameFile("game-a-renamed"),
+              "p6b18: the replay renames on disk");
+        Check(std::filesystem::exists(
+                  std::filesystem::path{str_replays_dir} /
+                      "game-a-renamed.orarep",
+                  ec),
+              "p6b18: the renamed file exists");
+      }
+
+      server::GameInformation info_b{};
+      info_b.Mod = info.Mod;
+      info_b.Version = info.Version;
+      info_b.MapUid = info.MapUid;
+      info_b.MapTitle = "Map B";
+      info_b.StartTimeUtc = info.StartTimeUtc;
+      info_b.EndTimeUtc = info.EndTimeUtc;
+      server::GameInformationPlayer player_b1{};
+      player_b1.IsHuman = true;
+      player_b1.Name = "Bob";
+      player_b1.Team = 1;
+      info_b.vec_players.push_back(player_b1);
+      server::GameInformationPlayer player_b2{};
+      player_b2.IsBot = true;
+      player_b2.Name = "Easy AI";
+      player_b2.BotType = "bot1";
+      player_b2.Team = 1;
+      info_b.vec_players.push_back(player_b2);
+      server::GameInformationPlayer player_b3{};
+      player_b3.IsHuman = true;
+      player_b3.Name = "Carol";
+      player_b3.Team = 1;
+      info_b.vec_players.push_back(player_b3);
+      {
+        std::vector<std::uint8_t> vec_b{0x05, 0x06};
+        net::ReplayMetadata meta_b{info_b.Serialize()};
+        meta_b.Write(vec_b);
+        const std::string str_replay_b =
+            (std::filesystem::path{str_replays_dir} / "game-b.orarep")
+                .generic_string();
+        std::FILE* file = std::fopen(str_replay_b.c_str(), "wb");
+        std::fwrite(vec_b.data(), 1, vec_b.size(), file);
+        std::fclose(file);
+      }
+      CheckEq(mods::GameInfoResolvedPlayerName(info_b,
+                                               info_b.vec_players[1]),
+              std::string{"enumerated-bot-name"},
+              "p6b18: the bot name falls back to the fluent key");
+
+      {
+        struct PromptStub {
+          std::vector<std::unique_ptr<ui::Widget>> vec_owned;
+          ui::Widget* MakeTree(const std::string& str_id) {
+            ui::WidgetArgs args_stub;
+            auto up_root = std::make_unique<ui::ContainerWidget>();
+            up_root->str_id = str_id;
+            auto attach = [&](const char* str_child, bool b_button) {
+              std::unique_ptr<ui::Widget> up_child;
+              if (b_button)
+                up_child = std::make_unique<ui::ButtonWidget>(args_stub);
+              else
+                up_child = std::make_unique<ui::LabelWidget>(args_stub);
+              up_child->str_id = str_child;
+              up_root->AddChild(std::move(up_child));
+            };
+            attach("PROMPT_TITLE", false);
+            attach("PROMPT_TEXT", false);
+            attach("CONFIRM_BUTTON", true);
+            attach("CANCEL_BUTTON", true);
+            attach("OTHER_BUTTON", true);
+            ui::Widget* ptr_root = up_root.get();
+            vec_owned.push_back(std::move(up_root));
+            return ptr_root;
+          }
+        };
+        auto up_stub = std::make_unique<PromptStub>();
+        PromptStub* ptr_stub = up_stub.get();
+        static std::unique_ptr<PromptStub> up_stub_holder;
+        up_stub_holder = std::move(up_stub);
+        static ui::ChromeMetrics metrics_browser18;
+        {
+          const auto dir_metrics_browser =
+              std::filesystem::temp_directory_path() /
+              "ora_render_test_metrics_browser18";
+          std::filesystem::create_directories(dir_metrics_browser);
+          {
+            std::ofstream out_metrics(dir_metrics_browser / "metrics.yaml");
+            out_metrics << "Chrome:" << '\n';
+            out_metrics << "\tTextFont: Regular" << '\n';
+            out_metrics << "\tTextColor: FFFFFFFF" << '\n';
+            out_metrics << "\tTextContrast: True" << '\n';
+            out_metrics << "\tTextShadow: False" << '\n';
+            out_metrics << "\tTextContrastColorDark: 000000FF" << '\n';
+            out_metrics << "\tTextContrastColorLight: FFFFFFFF" << '\n';
+            out_metrics << "\tTextContrastRadius: 1" << '\n';
+            out_metrics << "\tButtonDepth: 1" << '\n';
+            out_metrics << "\tButtonFont: Regular" << '\n';
+            out_metrics << "\tButtonTextColor: FFFFFFFF" << '\n';
+            out_metrics << "\tButtonTextColorDisabled: 808080FF" << '\n';
+            out_metrics << "\tButtonTextContrast: True" << '\n';
+            out_metrics << "\tButtonTextShadow: False" << '\n';
+            out_metrics << "\tButtonTextContrastColorDark: 000000FF" << '\n';
+            out_metrics << "\tButtonTextContrastColorLight: FFFFFFFF" << '\n';
+            out_metrics << "\tButtonTextContrastRadius: 1" << '\n';
+            out_metrics << "\tButtonCursor: default" << '\n';
+            out_metrics << "\tClickSound: click_sound" << '\n';
+            out_metrics << "\tClickDisabledSound: click_disabled_sound" << '\n';
+          }
+          fs::FileSystem fs_metrics_browser;
+          fs_metrics_browser.Mount(dir_metrics_browser.generic_string());
+          const std::vector<std::string> vec_files_metrics_browser{
+              "metrics.yaml"};
+          metrics_browser18.Initialize(
+              {&fs_metrics_browser, &vec_files_metrics_browser});
+        }
+        ui::Ui::Deps deps_browser;
+        deps_browser.ptr_chrome_metrics = &metrics_browser18;
+        deps_browser.ptr_map_cache = &cache;
+        deps_browser.fn_window_size = [] { return int2{1280, 720}; };
+        deps_browser.fn_load_widget =
+            [ptr_stub](ui::WidgetArgs&, ui::Widget*, const std::string& str_id)
+            -> ui::Widget* { return ptr_stub->MakeTree(str_id); };
+        ui::Ui::Instance().Initialize(std::move(deps_browser));
+      }
+
+      const std::string str_uid_available = [&] {
+        for (map::MapPreview* ptr_preview : cache.Previews())
+          if (ptr_preview->Status() == map::MapStatus::Available)
+            return ptr_preview->Uid();
+        return std::string{"none"};
+      }();
+      server::GameInformation info_ok = info;
+      info_ok.MapUid = str_uid_available;
+      net::ReplayMetadata meta_ok{info_ok.Serialize()};
+      Check(mods::PromptConfirmReplayCompatibility(meta_ok, mod_data),
+            "p6b18: a matching replay passes the compatibility gate");
+      server::GameInformation info_bad_version = info_ok;
+      info_bad_version.Version = "not-the-version";
+      net::ReplayMetadata meta_bad{info_bad_version.Serialize()};
+      Check(!mods::PromptConfirmReplayCompatibility(meta_bad, mod_data,
+                                                    nullptr),
+            "p6b18: the mismatched version fails the gate");
+
+      mods::ReplayBrowserLogic::Filter filter_test{};
+      const auto apply_filter = [&filter_test] {
+        mods::ReplayBrowserLogic::SetStaticFilterForTest(filter_test);
+        return mods::ReplayBrowserLogic::EvaluateReplayVisibility;
+      };
+      (void)apply_filter;
+      const auto eval_with =
+          [&filter_test](
+              const server::GameInformation& info_eval) -> bool {
+        mods::ReplayBrowserLogic::SetStaticFilterForTest(filter_test);
+        return mods::ReplayBrowserLogic::EvaluateReplayVisibility(info_eval);
+      };
+      filter_test.kind_type =
+          mods::ReplayBrowserLogic::GameType::Singleplayer;
+      Check(!eval_with(info_b),
+            "p6b18: a multiplayer replay hides under the singleplayer "
+            "filter");
+      Check(eval_with(info),
+            "p6b18: a singleplayer replay stays visible");
+      filter_test.kind_type = mods::ReplayBrowserLogic::GameType::Any;
+      filter_test.str_player_name = "Bob";
+      Check(eval_with(info_b),
+            "p6b18: the player filter matches by name");
+      filter_test.str_player_name = "Alice";
+      Check(!eval_with(info_b),
+            "p6b18: the player filter rejects a missing player");
+      filter_test.str_player_name.clear();
+      filter_test.kind_duration =
+          mods::ReplayBrowserLogic::DurationType::VeryShort;
+      server::GameInformation info_long = info;
+      info_long.StartTimeUtc.str_text = "2026-01-01 00-00-00";
+      info_long.EndTimeUtc.str_text = "2026-01-01 01-00-00";
+      Check(!eval_with(info_long),
+            "p6b18: an hour-long replay hides under the very-short filter");
+      filter_test.kind_duration = mods::ReplayBrowserLogic::DurationType::Any;
+      filter_test.kind_date =
+          mods::ReplayBrowserLogic::DateType::LastMonth;
+      server::GameInformation info_old = info;
+      info_old.StartTimeUtc.str_text = "2020-01-01 00-00-00";
+      info_old.EndTimeUtc.str_text = "2020-01-01 01-00-00";
+      Check(!eval_with(info_old),
+            "p6b18: an old replay hides under the date filter");
+      mods::ReplayBrowserLogic::SetStaticFilterForTest({});
+    }
+    std::error_code ec_cleanup{};
+    std::filesystem::remove_all("Replays", ec_cleanup);
   }
 
   std::println("render_test: {} failures", g_failures);

@@ -547,6 +547,7 @@ void World::IssueOrder(net::Order* o) {
   fn_issue_order_(o);
 }
 
+
 bool World::IsLoadingGameSave() const {
   // L116
   const net::OrderManager* om = p_order_manager_;

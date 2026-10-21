@@ -1177,3 +1177,18 @@ constexpr 约束同),维持现状。
 | D356 | src/mods/ menu_logics | MenuButtonsChromeLogic 的 Game.LocalTick % 50 < 25 → Ui fn_local_tick;Game.LoadWidget → Ui::LoadWidget(补 world 键);Game.Sound.DisableWorldSounds → Ui fn_sound(null = 静默);MissionObjectives.ObjectiveAdded 的 C# event += → token 订阅(logic 析构退订;D345 惯例);SupportPowerBin 的 OnIconCountChanged 多播 → 单 function(D349);ICON_TEMPLATE 的 RemoveChild 摘除保活 | 注入面;单订阅域 |
 | D357 | src/mods/ confirmation_dialogs | 上游 object[] titleArguments 省略(ButtonPrompt 消费面仅 ErrorMaxPlayer 的 textArguments,以 FluentArgs 承载);TextInputPrompt 的 doValidate 闭包链 → shared_ptr<std::function>(GC 域等价);headerTemplate.Clone 的行 GetText 捕获逐行 string 拷贝 | 值承载;生命周期 |
 | D358 | src/sim/ mission_objectives + trait_interfaces | MissionObjectives 补 Add()/Objectives/MissionObjective(ObjectiveState 枚举承载;MarkCompleted/MarkFailed/胜负分发/CheckIfGameIsOver 仍随战役批);ObjectiveAdded 事件缺省 handler(player.HasObjectives = true)→ Add 内直置后逐 token handler(订阅集空时等值);INotifyObjectivesUpdated 接口真形化(gen 表既有 ID);InfoData 补 Win/Lose/Leave×2 通知字段 | 事件承载;战役批欠账 |
+
+## Phase 6 第十八批:浏览器面板第一组 —— Replay 链 + GameSave 格式(2026-10-21)
+
+- **背景**:readme 下一步的浏览器面板 Logic 批次第一组。src/net/game_save 新件(SlotClient/GameSave.cs L21-333 全文:orasav 四段读/写 + DispatchOrders/ParseOrders 的 bot 重映射 + MapGenerationArgs 双向);ReplayMetadata 补面(FilePath/RenameFile/ReadFile);GameInformation 补面(DurationSeconds/IsSinglePlayer/GameDateTime.ToUnixSeconds);src/mods/browser_logics 新件(ReplayBrowserLogic.cs L29-883 全文:后台装载/五过滤器下拉/管理三按钮/ApplyFilter/SelectReplay 的队伍分组玩家列表/WatchReplay 的兼容门 + JoinReplay;ReplayUtils.cs 全文;GameSaveUtils.cs 值面);World 补 RequestGameSave(sink 注入);Ui::Deps 增 fn_subscribe_connection_state_changed/fn_join_replay。
+- **验收**:render_test 第十八批节(真 ra):GameDateTime/Duration/IsSinglePlayer 矩阵;GameSave 全链(DispatchOrders 的 sync 账本 + 帧序 + bot 观战者重映射 → Save → Load 往返 → ParseOrders 的 trait 首包/三单/sync 尾包);ReplayMetadata 文件往返 + GameInformation 载荷解析 + RenameFile 落盘;ReplayUtils 兼容门(真 MapCache 的 Available uid 过门/版本失配开门);EvaluateReplayVisibility 过滤矩阵(类型/玩家/时长/日期)。ctest 38/38 三构建全绿;std_import(767)/upstream_check(690+52 可选)PASS。
+- **修出一个真问题**:GameSave::Load 的 ByteReader 相对位与文件绝对位混用(trait 段定位恒错 → 一切合法 orasav 判废)→ 构造起点记账清偿。
+
+### 已登记偏离(Phase 6 第十八批)
+
+| # | 位置 | 偏离内容 | 理由 |
+|---|---|---|---|
+| D359 | src/net/ game_save | ctor(path) 的 InvalidDataException → std::optional(严禁异常协议;上游调用方 try/catch 吞 = nullopt 等值);DispatchOrders 的 Connection → int player_index 形参(ora_net 不依赖 server 连接类);Dictionary<int,MiniYaml> TraitData → 插入序 vector(上游字典迭代 = 插入序);IGameSaveTraitData 序列化宿主空集(随其宿主 trait 批);SlotClient 的 FieldLoader/FieldSaver → 按名字段手写表(色 = Session 同一 hex 域) | 分层;协议;等值 |
+| D360 | src/sim/ world + src/ui/ ui.hpp | RequestGameSave 的 CreateGameSave order 构造 → SetRequestGameSaveSink 注入(缺省 no-op;ora_sim 不链 ora_net —— D 同 IssueOrder sink 惯例);Ui::Deps 增 fn_subscribe_connection_state_changed(Game.ConnectionStateChanged 订阅面)与 fn_join_replay(路径面) | 分层;注入面 |
+| D361 | src/net/ replay_recorder + src/server/ game_information | ReplayMetadata 补 FilePath/RenameFile/ReadFile(上游 GameInformation 属性消费面);GameInformation 的 GetMapPreview/ResolvedPlayerName 落 mods/browser_logics(GameInfoMapPreview/GameInfoResolvedPlayerName;Fluent + MapCache 注入依赖);Game.Mods 已安装表 = 当前模子(ExternalMods 随其批);GetMapPreview 的 MapGenerationArgs 分支随地图生成批 | 分层;未移植面 |
+| D362 | src/mods/ browser_logics | Parallel.ForEach/ThreadPool → 单 std::thread + RunAfterTickDefer(shared_ptr 载荷 + weak_ptr 存活门);ReplayState Dictionary → vector(引用身份 = 下标);MAP_PREVIEW 子树装载随 MapPreviewLogic(大厅批);FLAG 的 Random 回落缺(FactionInfo 查询随大厅批);玩家名字体截断缺(截断需 Renderer.Fonts);DiscordService no-op;删除/改名失败路径的 TextNotificationsManager.Debug + Log.Write 省略(纯副作用);fluent 门 key 的 CurrentCultureIgnoreCase → ASCII 折叠(en 域等值) | 线程域;未移植面;等值 |

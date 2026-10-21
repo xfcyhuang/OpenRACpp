@@ -41,6 +41,8 @@ class Ruleset;
 
 namespace ora::net {
 class ConnectionTarget;
+class NetworkConnection;
+class OrderManager;
 }
 
 namespace ora::map {
@@ -203,6 +205,22 @@ class Ui {
     std::function<std::function<void()>(std::function<void()>)>
         fn_subscribe_on_shellmap_loaded =
             [](std::function<void()>) { return std::function<void()>{}; };
+    /// Game.ConnectionStateChanged 订阅面(浏览器/连接 Logic 消费;返回
+    /// 退订器)
+    /// The Game.ConnectionStateChanged subscription face (consumed by the
+    /// browser/connection logics; returns the unsubscriber).
+    std::function<std::function<void()>(
+        std::function<void(net::OrderManager*, const std::string&,
+                           net::NetworkConnection*)>)>
+        fn_subscribe_connection_state_changed =
+            [](std::function<void(net::OrderManager*, const std::string&,
+                                  net::NetworkConnection*)>) {
+              return std::function<void()>{};
+            };
+    /// Game.JoinReplay(路径面;Game 侧读盘装载)
+    /// Game.JoinReplay (the path face; the Game side reads and loads).
+    std::function<void(const std::string&)> fn_join_replay =
+        [](const std::string&) {};
     std::function<bool()> fn_check_version = [] { return false; };
     std::function<void(const std::string&, const std::string&,
                        std::function<void()>)>
@@ -343,6 +361,14 @@ class Ui {
   std::function<void()> SubscribeOnShellmapLoaded(
       std::function<void()> fn_handler) const {
     return deps_.fn_subscribe_on_shellmap_loaded(std::move(fn_handler));
+  }
+  std::function<void()> SubscribeConnectionStateChanged(
+      std::function<void(net::OrderManager*, const std::string&,
+                         net::NetworkConnection*)> fn_handler) const {
+    return deps_.fn_subscribe_connection_state_changed(std::move(fn_handler));
+  }
+  void JoinReplayDeps(const std::string& str_path) const {
+    deps_.fn_join_replay(str_path);
   }
   map::MapCache* MapCacheDeps() const { return deps_.ptr_map_cache; }
   HotkeyReference Hotkey(std::string_view str_name) const {

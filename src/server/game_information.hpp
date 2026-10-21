@@ -29,6 +29,11 @@ struct GameDateTime {
 
   /// DateTime.UtcNow | DateTime.UtcNow.
   static GameDateTime UtcNow();
+
+  /// "yyyy-MM-dd HH-mm-ss" 的分解秒(自纪元;解析失败 = 0)
+  /// The "yyyy-MM-dd HH-mm-ss" decomposed seconds (since the epoch; a parse
+  /// failure yields 0).
+  std::int64_t ToUnixSeconds() const;
 };
 
 /// GameInformation.Player(GameInformation.cs L184-235)
@@ -81,6 +86,25 @@ struct GameInformation {
   /// Serialize (L107-121): the Root node + Player@i nodes (empty slots
   /// skipped).
   std::string Serialize() const;
+
+  /// Duration(L40):EndTimeUtc - StartTimeUtc(倒序 = 0);秒域承载
+  /// Duration (L40): EndTimeUtc - StartTimeUtc (inverted order = 0);
+  /// carried in seconds.
+  double DurationSeconds() const {
+    const std::int64_t t_start = StartTimeUtc.ToUnixSeconds();
+    const std::int64_t t_end = EndTimeUtc.ToUnixSeconds();
+    return t_end > t_start ? static_cast<double>(t_end - t_start) : 0.0;
+  }
+
+  /// IsSinglePlayer(L46):HumanPlayers.Count() == 1
+  /// IsSinglePlayer (L46): HumanPlayers.Count() == 1.
+  bool IsSinglePlayer() const {
+    std::size_t n_humans = 0;
+    for (const auto& player : vec_players)
+      if (player.IsHuman && ++n_humans > 1)
+        return false;
+    return n_humans == 1;
+  }
 
   /// Deserialize(L71-105);失败 = nullopt
   /// Deserialize (L71-105); a parse failure yields nullopt.

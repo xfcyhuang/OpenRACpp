@@ -20,6 +20,7 @@ import std;
 #include "mods/trait_registry_batch17.cpp"
 #include "mods/ingame_menu_logic.hpp"
 #include "mods/main_menu_logic.hpp"
+#include "mods/browser_logics.hpp"
 #include "mods/menu_logics.hpp"
 
 #include "meta/field_loader.hpp"
@@ -931,6 +932,7 @@ void RegisterCommonTraits() {
     RegisterMenuLogics();
     RegisterIngameMenuLogic();
     RegisterMainMenuLogic();
+    RegisterBrowserLogics();
 
     return true;
   }();

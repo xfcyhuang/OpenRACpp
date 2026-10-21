@@ -160,6 +160,42 @@ GameDateTime GameDateTime::UtcNow() {
   return dt;
 }
 
+std::int64_t GameDateTime::ToUnixSeconds() const {
+  const auto parse = [](std::string_view sv) -> std::optional<std::int32_t> {
+    std::int32_t v{};
+    const auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), v);
+    if (ec != std::errc{} || ptr != sv.data() + sv.size())
+      return std::nullopt;
+    return v;
+  };
+  if (str_text.size() != 19 || str_text[4] != '-' || str_text[7] != '-' ||
+      str_text[10] != ' ' || str_text[13] != '-' || str_text[16] != '-')
+    return 0;
+
+  const auto y = parse(str_text.substr(0, 4));
+  const auto mo = parse(str_text.substr(5, 2));
+  const auto d = parse(str_text.substr(8, 2));
+  const auto h = parse(str_text.substr(11, 2));
+  const auto mi = parse(str_text.substr(14, 2));
+  const auto s = parse(str_text.substr(17, 2));
+  if (!y.has_value() || !mo.has_value() || !d.has_value() || !h.has_value() ||
+      !mi.has_value() || !s.has_value())
+    return 0;
+
+  const auto ymd = std::chrono::year_month_day{
+      std::chrono::year{*y},
+      std::chrono::month{static_cast<unsigned>(*mo)},
+      std::chrono::day{static_cast<unsigned>(*d)}};
+  if (!ymd.ok())
+    return 0;
+
+  const auto days = std::chrono::sys_days{ymd};
+  const auto secs = std::chrono::duration_cast<std::chrono::seconds>(
+      std::chrono::hours{*h} + std::chrono::minutes{*mi} +
+      std::chrono::seconds{*s});
+  return (days.time_since_epoch() + secs).count();
+}
+
 std::string GameInformation::Serialize() const {
   auto pool = yaml::StringPool{};
 

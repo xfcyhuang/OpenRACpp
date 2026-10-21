@@ -5,6 +5,8 @@
 //           replay_recorder.hpp).
 #include "net/replay_recorder.hpp"
 
+#include <cstdio>
+
 #include "net/order.hpp"
 #include "net/order_io.hpp"
 #include "net/order_manager.hpp"
@@ -106,6 +108,44 @@ std::unique_ptr<ReplayMetadata> ReplayMetadata::Read(
   } catch (const std::exception&) {
     return nullptr;
   }
+}
+
+bool ReplayMetadata::RenameFile(
+    const std::string& str_new_filename_without_extension) {
+  std::error_code ec{};
+  const std::filesystem::path path_old{str_file_path_};
+  const std::filesystem::path path_new =
+      path_old.parent_path() /
+      (str_new_filename_without_extension + ".orarep");
+  std::filesystem::rename(path_old, path_new, ec);
+  if (ec)
+    return false;
+
+  str_file_path_ = path_new.generic_string();
+  return true;
+}
+
+std::unique_ptr<ReplayMetadata> ReplayMetadata::ReadFile(
+    const std::string& str_path) {
+  std::FILE* file = std::fopen(str_path.c_str(), "rb");
+  if (file == nullptr)
+    return nullptr;
+  std::fseek(file, 0, SEEK_END);
+  const long size = std::ftell(file);
+  std::fseek(file, 0, SEEK_SET);
+  std::vector<std::uint8_t> vec_bytes;
+  if (size > 0) {
+    vec_bytes.resize(static_cast<std::size_t>(size));
+    const std::size_t sz_read =
+        std::fread(vec_bytes.data(), 1, vec_bytes.size(), file);
+    vec_bytes.resize(sz_read);
+  }
+  std::fclose(file);
+
+  auto up_metadata = Read(vec_bytes);
+  if (up_metadata != nullptr)
+    up_metadata->str_file_path_ = str_path;
+  return up_metadata;
 }
 
 // ———— ReplayRecorder ————
