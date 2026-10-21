@@ -49,6 +49,10 @@ namespace ora::map {
 class MapCache;
 }
 
+namespace ora {
+class MersenneTwister;
+}
+
 namespace ora::ui {
 
 class Ui {
@@ -235,6 +239,19 @@ class Ui {
     std::function<std::string(const std::string&, bool)> fn_create_local_server =
         [](const std::string& str_uid, bool) { return str_uid; };
     std::function<void()> fn_close_server = [] {};
+    /// Game.CreateAndStartLocalServer(uid, setupOrders)(MissionBrowser;
+    /// orders = Order.Command 文本序列,未接线 = no-op)
+    /// Game.CreateAndStartLocalServer(uid, setupOrders) (MissionBrowser;
+    /// orders = the Order.Command text sequence; unwired = no-op).
+    std::function<void(const std::string&, const std::vector<std::string>&)>
+        fn_start_mission_server =
+            [](const std::string&, const std::vector<std::string>&) {};
+    /// Game.CosmeticRandom(MapChooserLogic 等 UI 侧的随机面;空 = 调用方
+    /// 自行回落)
+    /// Game.CosmeticRandom (the UI-side random face of MapChooserLogic and
+    /// friends; null = the caller falls back on its own).
+    std::function<MersenneTwister*()> fn_cosmetic_random =
+        [] { return static_cast<MersenneTwister*>(nullptr); };
     /// ConnectionLogic.Connect(MainMenuLogic/IngameMenuLogic 的连接链;未
     /// 接线 = 直接开面板)
     /// ConnectionLogic.Connect (the connect chains; unwired = the panel
@@ -342,6 +359,14 @@ class Ui {
     return deps_.fn_create_local_server(str_uid, b_skirmish);
   }
   void CloseServerDeps() const { deps_.fn_close_server(); }
+  void StartMissionServerDeps(
+      const std::string& str_uid,
+      const std::vector<std::string>& vec_orders) const {
+    deps_.fn_start_mission_server(str_uid, vec_orders);
+  }
+  MersenneTwister* CosmeticRandomDeps() const {
+    return deps_.fn_cosmetic_random();
+  }
   void ConnectionConnectDeps(const std::string& str_endpoint,
                              const std::string& str_password,
                              std::function<void()> fn_on_connected,

@@ -35,6 +35,7 @@ struct SoundSettingsFace {
   bool b_shuffle = false;
   bool b_repeat = false;
   bool b_mute = false;
+  bool b_mute_background_music = false;
 };
 
 /// Sound(Sound.cs L38-481)。
@@ -144,6 +145,8 @@ class Sound final {
   void SetMusicVolume(float fp4_value);
   float VideoVolume() const { return settings_.fp4_video_volume; }
   void SetVideoVolume(float fp4_value);
+  const SoundSettingsFace& SettingsSound() const { return settings_; }
+  SoundSettingsFace& MutableSettingsSound() { return settings_; }
 
   float MusicSeekPosition() const;
   float VideoSeekPosition() const;

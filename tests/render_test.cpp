@@ -15,6 +15,22 @@ import std;
 #include <cstdio>
 
 #include "game/game.hpp"
+#include "gfx/sprite_font.hpp"
+#include "gfx/chrome_provider.hpp"
+#include "gfx/sheet.hpp"
+#include "mods/music_playlist.hpp"
+#include "mods/video_player_widget.hpp"
+#include "platform/ifont.hpp"
+#include "ui/ui.hpp"
+#include "ui/widgets/checkbox_widget.hpp"
+#include "ui/widgets/drop_down_button_widget.hpp"
+#include "ui/widgets/label_widget.hpp"
+#include "ui/widgets/logic_ticker_widget.hpp"
+#include "ui/widgets/map_preview_widget.hpp"
+#include "ui/widgets/scroll_item_widget.hpp"
+#include "ui/widgets/scroll_panel_widget.hpp"
+#include "ui/widgets/slider_widget.hpp"
+#include "ui/widgets/text_field_widget.hpp"
 #include "gfx/actor_preview.hpp"
 #include "ui/widget.hpp"
 #include "ui/widgets/actor_preview_widget.hpp"
@@ -4016,6 +4032,676 @@ int main(int argc, char** argv) {
     }
     std::error_code ec_cleanup{};
     std::filesystem::remove_all("Replays", ec_cleanup);
+  }
+
+
+  // ———— Phase 6 第十九批:浏览器面板第二组(GameSave 浏览器 + 任务浏览器 +
+  //      地图选择器 + MusicPlaylist/MusicPlayer)————
+  // ———— Phase 6 batch 19: the second browser-panel group (the game-save
+  //      browser + mission browser + map chooser + MusicPlaylist/
+  // ———— Phase 6 第十九批:浏览器面板第二组(GameSave 浏览器 + 任务浏览器 +
+  //      地图选择器 + MusicPlaylist/MusicPlayer)————
+  // ———— Phase 6 batch 19: the second browser-panel group (the game-save
+  //      browser + mission browser + map chooser + MusicPlaylist/
+  //      MusicPlayer) ————
+  {
+    std::println("-- batch 19: browser panels ii + music playlist --");
+
+    {
+      CheckEq(mods::MapChooserMapSizeLabel(Size{128, 128}),
+              std::string{"128x128 (label-map-size-huge)"},
+              "p6b19: a 128x128 map labels huge");
+      CheckEq(mods::MapChooserMapSizeLabel(Size{90, 90}),
+              std::string{"90x90 (label-map-size-large)"},
+              "p6b19: a 90x90 map labels large");
+      CheckEq(mods::MapChooserMapSizeLabel(Size{60, 60}),
+              std::string{"60x60 (label-map-size-medium)"},
+              "p6b19: a 60x60 map labels medium");
+      CheckEq(mods::MapChooserMapSizeLabel(Size{59, 59}),
+              std::string{"59x59 (label-map-size-small)"},
+              "p6b19: a 59x59 map labels small");
+
+      const auto pair_split = mods::SplitOnFirstToken("first\nsecond");
+      Check(pair_split.first.has_value() && *pair_split.first == "first" &&
+                pair_split.second.has_value() &&
+                *pair_split.second == "second",
+            "p6b19: SplitOnFirstToken splits on the first newline");
+      const auto pair_nosplit = mods::SplitOnFirstToken("only");
+      Check(pair_nosplit.first.has_value() &&
+                *pair_nosplit.first == "only" &&
+                !pair_nosplit.second.has_value(),
+            "p6b19: SplitOnFirstToken passes a token-free line through");
+      const auto pair_empty = mods::SplitOnFirstToken("");
+      Check(!pair_empty.first.has_value() && !pair_empty.second.has_value(),
+            "p6b19: SplitOnFirstToken empties out on empty input");
+      const auto pair_leading = mods::SplitOnFirstToken("\nsecond");
+      Check(pair_leading.first.has_value() &&
+            !pair_leading.second.has_value(),
+            "p6b19: SplitOnFirstToken keeps a zeroth-token line whole");
+    }
+
+    {
+      auto& ruleset_music = const_cast<game::Ruleset&>(world->Map().Rules());
+      for (auto& [str_key, up_music] : ruleset_music.Music())
+        up_music->Load([](const std::string&) { return true; },
+                       [](game::MusicInfo& info_song) {
+                         info_song.SetLength(120);
+                       });
+      bool b_installed = false;
+      for (const auto& [str_key, up_music] : ruleset_music.Music())
+        if (up_music->Exists()) {
+          b_installed = true;
+          break;
+        }
+      Check(b_installed, "p6b19: the ra music table loads with Exists set");
+
+      mods::MusicPlaylistInfoData data_playlist{};
+      data_playlist.str_background_music = "map";
+      data_playlist.str_starting_music = "await_r";
+      data_playlist.str_victory_music = "map";
+      data_playlist.str_defeat_music = "await_r";
+
+      mods::MusicPlaylistInfoData data_bg = data_playlist;
+      mods::MusicPlaylist playlist_bg{*world, std::move(data_bg), nullptr};
+      Check(playlist_bg.IsMusicInstalled(),
+            "p6b19: the playlist sees installed music");
+      Check(playlist_bg.IsMusicAvailable(),
+            "p6b19: the playlist sees available music");
+      Check(!playlist_bg.CurrentSongIsBackground(),
+            "p6b19: StartingMusic overrides the background song");
+      Check(playlist_bg.CurrentSong() != nullptr &&
+                playlist_bg.CurrentSong()->Title() == "Afterlife (Await)",
+            "p6b19: the starting song resolves by key");
+
+      const game::MusicInfo* ptr_next = playlist_bg.GetNextSong();
+      Check(ptr_next != nullptr && ptr_next != playlist_bg.CurrentSong(),
+            "p6b19: GetNextSong advances the playlist");
+      Check(playlist_bg.GetPrevSong() != nullptr,
+            "p6b19: GetPrevSong walks back");
+
+      mods::MusicPlaylistInfoData data_bgonly = data_playlist;
+      mods::MusicPlaylist playlist_bgonly{*world, std::move(data_bgonly),
+                                          nullptr};
+      playlist_bgonly.Play(playlist_bgonly.CurrentSong());
+      playlist_bgonly.Stop();
+      Check(playlist_bgonly.CurrentSongIsBackground(),
+            "p6b19: Stop falls back to the background song");
+
+      world->SetLocalPlayerForTest(nullptr);
+      mods::MusicPlaylistInfoData data_gameover = data_playlist;
+      mods::MusicPlaylist playlist_gameover{*world,
+                                            std::move(data_gameover),
+                                            nullptr};
+      playlist_gameover.GameOver(*world);
+      Check(playlist_gameover.CurrentSongIsBackground(),
+            "p6b19: GameOver of a playerless world falls to defeat music");
+
+      std::size_t sz_playlist = 0;
+      for (const auto& [str_key, up_music] : ruleset_music.Music())
+        if (up_music->Exists() && !up_music->Hidden())
+          sz_playlist++;
+      CheckEq(playlist_gameover.AvailablePlaylist().size(), sz_playlist,
+              "p6b19: the playlist hides hidden tracks");
+    }
+
+    {
+      struct FakeFont19 final : platform::IFont {
+        platform::FontGlyph CreateGlyph(std::uint32_t, int, float) override {
+          platform::FontGlyph glyph_ret;
+          glyph_ret.offset = int2{1, 2};
+          glyph_ret.int4_width = 2;
+          glyph_ret.int4_height = 3;
+          glyph_ret.fp4_advance = 4.0f;
+          glyph_ret.vec_data.assign(2 * 3, 0);
+          return glyph_ret;
+        }
+      };
+
+      struct PanelStub19 {
+        std::vector<std::unique_ptr<ui::Widget>> vec_owned;
+        gfx::SheetBuilder builder_sheets{gfx::SheetType::BGRA, 128};
+        std::unique_ptr<gfx::SpriteFont> up_font;
+
+        enum Kind {
+          kContainer,
+          kLabel,
+          kButton,
+          kScrollPanel,
+          kScrollItem,
+          kTextField,
+          kCheckbox,
+          kSlider,
+          kDropDown,
+          kMapPreview,
+          kVideoPlayer,
+          kLogicTicker,
+          kLabelTooltip,
+          kImage
+        };
+
+        void MakeFont() {
+          up_font = std::make_unique<gfx::SpriteFont>(
+              "Regular", std::span<const std::uint8_t>{},
+              std::make_unique<FakeFont19>(), 10, 8, 1.0f, builder_sheets,
+              [](const gfx::Sprite&, core::Vector3, float, core::Vector3,
+                 float) {},
+              [](const gfx::Sprite&, core::Vector3, core::Vector3,
+                 core::Vector3, core::Vector3, core::Vector3,
+                 float) {});
+        }
+
+        std::unique_ptr<ui::Widget> MakeNode(std::string_view str_id,
+                                             Kind kind_node) {
+          ui::WidgetArgs args_stub;
+          std::unique_ptr<ui::Widget> up_node;
+          switch (kind_node) {
+            case kLabel:
+              up_node = std::make_unique<ui::LabelWidget>(args_stub);
+              break;
+            case kButton:
+              up_node = std::make_unique<ui::ButtonWidget>(args_stub);
+              break;
+            case kScrollPanel:
+              up_node = std::make_unique<ui::ScrollPanelWidget>(args_stub);
+              break;
+            case kScrollItem:
+              up_node = std::make_unique<ui::ScrollItemWidget>(args_stub);
+              break;
+            case kTextField:
+              up_node = std::make_unique<ui::TextFieldWidget>(args_stub);
+              break;
+            case kCheckbox:
+              up_node = std::make_unique<ui::CheckboxWidget>(args_stub);
+              break;
+            case kSlider:
+              up_node = std::make_unique<ui::SliderWidget>(args_stub);
+              break;
+            case kDropDown:
+              up_node =
+                  std::make_unique<ui::DropDownButtonWidget>(args_stub);
+              break;
+            case kMapPreview:
+              up_node = std::make_unique<ui::MapPreviewWidget>();
+              break;
+            case kVideoPlayer:
+              up_node =
+                  std::make_unique<mods::VideoPlayerWidget>(args_stub);
+              break;
+            case kLogicTicker:
+              up_node = std::make_unique<ui::LogicTickerWidget>();
+              break;
+            case kLabelTooltip:
+              up_node =
+                  std::make_unique<ui::LabelWithTooltipWidget>(args_stub);
+              break;
+            case kImage:
+              up_node = std::make_unique<ui::ImageWidget>();
+              break;
+            default:
+              up_node = std::make_unique<ui::ContainerWidget>();
+              break;
+          }
+          up_node->str_id = std::string{str_id};
+          up_node->bounds_widget.int4_width = 200;
+          up_node->bounds_widget.int4_height = 20;
+          return up_node;
+        }
+
+        ui::Widget* MakeRoot() {
+          auto up_root = std::make_unique<ui::ContainerWidget>();
+          up_root->str_id = "ROOT19";
+          ui::Widget* ptr_root = up_root.get();
+          vec_owned.push_back(std::move(up_root));
+          return ptr_root;
+        }
+
+        ui::Widget* Attach(ui::Widget& ref_parent, std::string_view str_id,
+                           Kind kind_node) {
+          std::unique_ptr<ui::Widget> up_node = MakeNode(str_id, kind_node);
+          ui::Widget* ptr_node = up_node.get();
+          ref_parent.AddChild(std::move(up_node));
+          return ptr_node;
+        }
+
+        ui::Widget* MakeTree(
+            std::initializer_list<std::pair<std::string_view, int>>
+                vec_layout) {
+          ui::Widget* ptr_root = MakeRoot();
+          for (const auto& [str_id, kind_node] : vec_layout)
+            Attach(*ptr_root, str_id, static_cast<Kind>(kind_node));
+          return ptr_root;
+        }
+      };
+
+      auto up_stub = std::make_unique<PanelStub19>();
+      up_stub->MakeFont();
+      PanelStub19* ptr_stub = up_stub.get();
+      static std::unique_ptr<PanelStub19> up_stub_holder19;
+      up_stub_holder19 = std::move(up_stub);
+
+      static ui::ChromeMetrics metrics_browser19;
+      {
+        const auto dir_metrics_browser19 =
+            std::filesystem::temp_directory_path() /
+            "ora_render_test_metrics_browser19";
+        std::filesystem::create_directories(dir_metrics_browser19);
+        {
+          std::ofstream out_metrics(dir_metrics_browser19 / "metrics.yaml");
+          out_metrics << "Chrome:" << '\n';
+          out_metrics << "	TextFont: Regular" << '\n';
+          out_metrics << "	TextColor: FFFFFFFF" << '\n';
+          out_metrics << "	TextContrast: True" << '\n';
+          out_metrics << "	TextShadow: False" << '\n';
+          out_metrics << "	TextContrastColorDark: 000000FF" << '\n';
+          out_metrics << "	TextContrastColorLight: FFFFFFFF" << '\n';
+          out_metrics << "	TextContrastRadius: 1" << '\n';
+          out_metrics << "	ButtonDepth: 1" << '\n';
+          out_metrics << "	ButtonFont: Regular" << '\n';
+          out_metrics << "	ButtonTextColor: FFFFFFFF" << '\n';
+          out_metrics << "	ButtonTextColorDisabled: 808080FF" << '\n';
+          out_metrics << "	ButtonTextContrast: True" << '\n';
+          out_metrics << "	ButtonTextShadow: False" << '\n';
+          out_metrics << "	ButtonTextContrastColorDark: 000000FF" << '\n';
+          out_metrics << "	ButtonTextContrastColorLight: FFFFFFFF" << '\n';
+          out_metrics << "	ButtonTextContrastRadius: 1" << '\n';
+          out_metrics << "	ButtonCursor: default" << '\n';
+          out_metrics << "	ClickSound: click_sound" << '\n';
+          out_metrics << "	ClickDisabledSound: click_disabled_sound" << '\n';
+          out_metrics << "\tTextDisabledColor: 808080FF" << '\n';
+          out_metrics << "\tTextfieldFont: Regular" << '\n';
+          out_metrics << "\tTextfieldColor: FFFFFFFF" << '\n';
+          out_metrics << "\tTextfieldColorDisabled: 808080FF" << '\n';
+          out_metrics << "\tTextfieldColorInvalid: FFFF00FF" << '\n';
+          out_metrics << "\tTextfieldColorHighlight: 808080FF" << '\n';
+          out_metrics << "\tSpawnFont: Regular" << '\n';
+          out_metrics << "\tSpawnColor: FFFFFFFF" << '\n';
+          out_metrics << "\tSpawnContrastColor: 000000FF" << '\n';
+          out_metrics << "\tSpawnLabelOffset: 0,0" << '\n';
+        }
+        static fs::FileSystem fs_metrics_browser19;
+        fs_metrics_browser19.Mount(
+            dir_metrics_browser19.generic_string());
+        static const std::vector<std::string>
+            vec_files_metrics_browser19{"metrics.yaml"};
+        metrics_browser19.Initialize(
+            {&fs_metrics_browser19, &vec_files_metrics_browser19});
+      }
+
+      static gfx::ChromeProvider chrome_provider19;
+      chrome_provider19.Initialize(
+          {.ptr_file_system = &mod_data.ModFiles(),
+           .vec_chrome_files = &mod_data.ManifestRef().Chrome(),
+           .fp4_dpi_scale = 1.0f});
+
+      ui::Ui::Deps deps_browser19;
+      deps_browser19.ptr_chrome_provider = &chrome_provider19;
+      deps_browser19.ptr_chrome_metrics = &metrics_browser19;
+      deps_browser19.ptr_map_cache = &cache;
+      deps_browser19.fn_window_size = [] { return int2{1280, 720}; };
+      deps_browser19.fn_try_get_font =
+          [ptr_font = ptr_stub->up_font.get()](const std::string&) {
+            return ptr_font;
+          };
+      deps_browser19.fn_load_widget =
+          [ptr_stub](ui::WidgetArgs&, ui::Widget* ptr_parent,
+                     const std::string&) -> ui::Widget* {
+        ui::WidgetArgs args_stub;
+        auto up_root = std::make_unique<ui::ContainerWidget>();
+        up_root->str_id = "LOADED19";
+        auto up_player =
+            ptr_stub->MakeNode("PLAYER", PanelStub19::kVideoPlayer);
+        ui::Widget* ptr_root = up_root.get();
+        up_root->AddChild(std::move(up_player));
+        ptr_parent->AddChild(std::move(up_root));
+        return ptr_root;
+      };
+      ui::Ui::Instance().Initialize(std::move(deps_browser19));
+
+      const std::string str_saves_dir =
+          std::string{"Saves"} + "/" + manifest->Id() + "/" +
+          manifest->Metadata().str_version;
+      std::error_code ec_saves{};
+      std::filesystem::remove_all("Saves", ec_saves);
+      std::filesystem::create_directories(str_saves_dir, ec_saves);
+
+      for (const std::string& str_name : {"alpha", "beta"}) {
+        net::Session lobby_save{};
+        lobby_save.global_settings.GameTimestep = 40;
+        lobby_save.vec_slots.emplace_back("Multi0", net::SessionSlot{});
+        lobby_save.vec_slots.back().second.PlayerReference = "Multi0";
+        net::SessionClient client_host{};
+        client_host.Index = 0;
+        client_host.Slot = "Multi0";
+        client_host.Name = "Alice";
+        client_host.SpawnPoint = 1;
+        net::SessionClient client_bot{};
+        client_bot.Index = 1;
+        client_bot.Slot = "Multi1";
+        client_bot.Bot = "bot1";
+        client_bot.BotControllerClientIndex = 0;
+        client_bot.SpawnPoint = 2;
+        lobby_save.vec_clients = {client_host, client_bot};
+
+        net::GameSave save_disk{};
+        save_disk.opt_global_settings = lobby_save.global_settings;
+        save_disk.vec_slots = lobby_save.vec_slots;
+        net::GameSaveSlotClient slot_host{client_host};
+        slot_host.str_bot_name = "bots.easy";
+        net::GameSaveSlotClient slot_bot{client_bot};
+        slot_bot.str_bot_name = "bots.easy";
+        save_disk.vec_slot_clients.emplace_back("Multi0", slot_host);
+        save_disk.vec_slot_clients.emplace_back("Multi1", slot_bot);
+        save_disk.DispatchOrders(0, 7, {0x65, 0x00});
+        save_disk.DispatchOrders(0, 9, {0x01});
+        save_disk.vec_trait_data.emplace_back(
+            0, yaml::MiniYaml{new std::string{"trait0"}});
+        Check(save_disk.Save((std::filesystem::path{str_saves_dir} /
+                              (str_name + ".orasav"))
+                                 .generic_string()),
+              "p6b19: the save writes for the browser");
+      }
+
+      ui::Widget* ptr_panel_save = ptr_stub->MakeTree(
+          {{"CANCEL_BUTTON", PanelStub19::kButton},
+           {"GAME_LIST", PanelStub19::kScrollPanel},
+           {"SAVE_TITLE", PanelStub19::kLabel},
+           {"SAVE_BUTTON", PanelStub19::kButton},
+           {"SAVE_WIDGETS", PanelStub19::kContainer},
+           {"SAVE_INFO", PanelStub19::kContainer},
+           {"RENAME_BUTTON", PanelStub19::kButton},
+           {"DELETE_BUTTON", PanelStub19::kButton},
+           {"DELETE_ALL_BUTTON", PanelStub19::kButton},
+           {"MAP_PREVIEW_ROOT", PanelStub19::kContainer}});
+      std::println("-- t4a attach --");
+      {
+        ui::Widget* ptr_tpl_game = ptr_stub->Attach(
+            *ptr_panel_save->Get("GAME_LIST"), "GAME_TEMPLATE",
+            PanelStub19::kScrollItem);
+        ptr_stub->Attach(*ptr_tpl_game, "LABEL", PanelStub19::kLabel);
+        ptr_stub->Attach(*ptr_tpl_game, "TITLE",
+                         PanelStub19::kLabelTooltip);
+        ptr_stub->Attach(*ptr_tpl_game, "CREATION_TIME",
+                         PanelStub19::kLabel);
+      }
+      {
+        ui::Widget* ptr_tpl_date = ptr_stub->Attach(
+            *ptr_panel_save->Get("GAME_LIST"), "DATE_HEADER",
+            PanelStub19::kScrollItem);
+        ptr_stub->Attach(*ptr_tpl_date, "LABEL", PanelStub19::kLabel);
+      }
+      std::println("-- t4b textfield --");
+      ptr_stub->Attach(*ptr_panel_save->Get("SAVE_WIDGETS"),
+                       "SAVE_TEXTFIELD", PanelStub19::kTextField);
+      ptr_stub->Attach(*ptr_panel_save->Get("SAVE_INFO"),
+                       "NO_SAVE_SELECTED_LABEL", PanelStub19::kLabel);
+      for (const std::string_view str_id :
+           {"INCOMPATIBLE_TITLE_LABEL", "INCOMPATIBLE_LABEL_A",
+            "INCOMPATIBLE_LABEL_B", "SAVEGAME_INFO_DATE",
+            "SAVEGAME_INFO_DURATION"})
+        ptr_stub->Attach(*ptr_panel_save->Get("SAVE_INFO"), str_id,
+                         PanelStub19::kLabel);
+      std::println("-- t4c playerlist --");
+      ptr_stub->Attach(*ptr_panel_save->Get("SAVE_INFO"), "PLAYER_LIST",
+                       PanelStub19::kScrollPanel);
+      {
+        ui::Widget* ptr_list_players =
+            ptr_panel_save->Get("SAVE_INFO")->Get("PLAYER_LIST");
+        ui::Widget* ptr_tpl_header =
+            ptr_stub->Attach(*ptr_list_players, "HEADER",
+                             PanelStub19::kScrollItem);
+        ptr_stub->Attach(*ptr_tpl_header, "LABEL", PanelStub19::kLabel);
+        ui::Widget* ptr_tpl_player =
+            ptr_stub->Attach(*ptr_list_players, "TEMPLATE",
+                             PanelStub19::kScrollItem);
+        ptr_stub->Attach(*ptr_tpl_player, "LABEL", PanelStub19::kLabel);
+        ptr_stub->Attach(*ptr_tpl_player, "FLAG", PanelStub19::kImage);
+      }
+
+      mods::GameSaveBrowserLogic logic_save{*ptr_panel_save, mod_data,
+                                            *world, [] {}, [] {}};
+      CheckEq(logic_save.GamesForTest().size(), std::size_t{2},
+              "p6b19: the save browser lists both saves");
+      Check(logic_save.DefaultSaveFilenameForTest() == world->Map().Title(),
+            "p6b19: the default save filename comes from the map title");
+      Check(logic_save.SelectedPathForTest().empty(),
+            "p6b19: no save is selected on entry");
+      Check(logic_save.PlayerListLabelsForTest().empty(),
+            "p6b19: the world slot clients start empty");
+
+      const std::string str_alpha =
+          (std::filesystem::path{str_saves_dir} / "alpha.orasav")
+              .generic_string();
+      logic_save.SelectForTest(&str_alpha);
+      Check(logic_save.SelectedPathForTest() == str_alpha,
+            "p6b19: selecting a save records the path");
+      CheckEq(logic_save.PlayerListLabelsForTest().size(), std::size_t{3},
+              "p6b19: the player list renders header + human + bot");
+      Check(logic_save.PlayerListLabelsForTest()[0] == "label-players",
+            "p6b19: a one-team save collapses to the players header");
+      Check(logic_save.PlayerListLabelsForTest()[1] ==
+                    "label-load-game-browser-panel-human-player",
+            "p6b19: the human player labels by key fallback");
+      Check(logic_save.PlayerListLabelsForTest()[2] ==
+                    "enumerated-bot-name",
+            "p6b19: the bot player labels enumerated by key fallback");
+      CheckEq(logic_save.GetSpawnOccupantsForTest().size(), std::size_t{2},
+              "p6b19: spawn occupants cover both slot clients");
+
+      const std::string str_tooltip =
+          mods::BuildSaveTooltipText(str_alpha, nullptr, mod_data);
+      Check(str_tooltip.find("tooltip-savegame-map") != std::string::npos,
+            "p6b19: the save tooltip names the map line");
+      Check(str_tooltip.find("tooltip-savegame-players: 0") !=
+                std::string::npos,
+            "p6b19: a null save tooltip counts zero players");
+
+      logic_save.DeleteForTest(str_alpha);
+      CheckEq(logic_save.GamesForTest().size(), std::size_t{1},
+              "p6b19: deleting a save drops it from the list");
+
+      {
+        ui::Widget* ptr_panel_music = ptr_stub->MakeTree(
+            {{"MUSIC_LIST", PanelStub19::kScrollPanel},
+             {"NO_MUSIC_LABEL", PanelStub19::kLabel},
+             {"MUTE_LABEL", PanelStub19::kLabel},
+             {"BUTTON_PLAY", PanelStub19::kButton},
+             {"BUTTON_PAUSE", PanelStub19::kButton},
+             {"BUTTON_STOP", PanelStub19::kButton},
+             {"BUTTON_NEXT", PanelStub19::kButton},
+             {"BUTTON_PREV", PanelStub19::kButton},
+             {"SHUFFLE", PanelStub19::kCheckbox},
+             {"REPEAT", PanelStub19::kCheckbox},
+             {"TIME_LABEL", PanelStub19::kLabel},
+             {"TITLE_LABEL", PanelStub19::kLabel},
+             {"MUSIC_SLIDER", PanelStub19::kSlider},
+             {"SONG_WATCHER", PanelStub19::kLogicTicker},
+             {"BACK_BUTTON", PanelStub19::kButton}});
+        {
+          ui::Widget* ptr_tpl_music = ptr_stub->Attach(
+              *ptr_panel_music->Get("MUSIC_LIST"), "MUSIC_TEMPLATE",
+              PanelStub19::kScrollItem);
+          ptr_stub->Attach(*ptr_tpl_music, "TITLE",
+                           PanelStub19::kLabelTooltip);
+          ptr_stub->Attach(*ptr_tpl_music, "LENGTH", PanelStub19::kLabel);
+        }
+
+        mods::MusicPlayerLogic logic_music{*ptr_panel_music, *world,
+                                           mod_data, [] {}};
+        Check(logic_music.SongTitlesForTest().empty(),
+              "p6b19: the world playlist stays empty until PrepareMap "
+              "loads music");
+        Check(ptr_panel_music->Get<ui::ButtonWidget>("BUTTON_PLAY")
+                      ->fn_is_disabled(),
+              "p6b19: the play button disables without a current song");
+        CheckEq(ptr_panel_music->Get<ui::SliderWidget>("MUSIC_SLIDER")
+                    ->fp4_value,
+                0.5f,
+                "p6b19: the music slider seeds at the default volume");
+      }
+
+      {
+        ui::Widget* ptr_panel_chooser = ptr_stub->MakeTree(
+            {{"BUTTON_OK", PanelStub19::kButton},
+             {"BUTTON_CANCEL", PanelStub19::kButton},
+             {"GAMEMODE_FILTER", PanelStub19::kDropDown},
+             {"MAP_TEMPLATE", PanelStub19::kScrollItem},
+             {"FILTER_ORDER_CONTROLS", PanelStub19::kContainer},
+             {"MAPFILTER_INPUT", PanelStub19::kTextField},
+             {"RANDOMMAP_BUTTON", PanelStub19::kButton},
+             {"DELETE_MAP_BUTTON", PanelStub19::kButton},
+             {"DELETE_ALL_MAPS_BUTTON", PanelStub19::kButton},
+             {"REMOTE_MAP_LABEL", PanelStub19::kLabel},
+             {"ORDERBY", PanelStub19::kDropDown},
+             {"BUTTON1", PanelStub19::kButton},
+             {"BUTTON2", PanelStub19::kButton},
+             {"BUTTON3", PanelStub19::kButton},
+             {"USER_MAPS_TAB", PanelStub19::kContainer},
+             {"SYSTEM_MAPS_TAB", PanelStub19::kContainer},
+             {"REMOTE_MAPS_TAB", PanelStub19::kContainer}});
+        for (const std::string_view str_tab :
+             {"USER_MAPS_TAB", "SYSTEM_MAPS_TAB", "REMOTE_MAPS_TAB"})
+          ptr_stub->Attach(*ptr_panel_chooser->Get(str_tab), "MAP_LIST",
+                           PanelStub19::kScrollPanel);
+
+        ui::Ui::Instance().OpenWindow("MAPCHOOSER_PANEL", ui::WidgetArgs{});
+
+        std::string str_picked;
+        mods::MapChooserLogic logic_chooser{
+            *ptr_panel_chooser,
+            mod_data,
+            nullptr,
+            nullptr,
+            nullptr,
+            map::MapClassification::System,
+            [] {},
+            [&](const std::string& str_uid) { str_picked = str_uid; },
+            nullptr,
+            map::MapVisibility::Lobby};
+        Check(!logic_chooser.VisibleMapsForTest().empty(),
+              "p6b19: the chooser enumerates available maps");
+        Check(!logic_chooser.SelectedUidForTest().empty(),
+              "p6b19: the chooser pre-selects a map");
+        Check(logic_chooser.CurrentTabForTest() !=
+                  map::MapClassification::Unknown,
+              "p6b19: the chooser lands on a known tab");
+
+        ptr_panel_chooser->Get<ui::ButtonWidget>("BUTTON_OK")->fn_on_click();
+        Check(str_picked == logic_chooser.SelectedUidForTest(),
+              "p6b19: OK hands the selected uid to onSelect");
+      }
+
+      {
+        struct MissionRun19 {
+          bool b_minified = false;
+          bool b_difficulty_disabled = false;
+          bool b_start_disabled = false;
+        };
+
+        const auto run_mission_logic =
+            [ptr_stub, &mod_data, &world](bool b_select_first_map) {
+          ui::Widget* ptr_panel_mission = ptr_stub->MakeTree(
+              {{"MISSION_LIST", PanelStub19::kScrollPanel},
+               {"MISSIONBROWSER_TITLE", PanelStub19::kLabel},
+               {"MISSION_INFO", PanelStub19::kContainer},
+               {"MISSION_PREVIEW", PanelStub19::kMapPreview},
+               {"MISSION_VIDEO", PanelStub19::kVideoPlayer},
+               {"MISSION_BIN", PanelStub19::kContainer},
+               {"MISSION_DETAIL", PanelStub19::kContainer},
+               {"START_BRIEFING_VIDEO_BUTTON", PanelStub19::kButton},
+               {"STOP_BRIEFING_VIDEO_BUTTON", PanelStub19::kButton},
+               {"START_INFO_VIDEO_BUTTON", PanelStub19::kButton},
+               {"STOP_INFO_VIDEO_BUTTON", PanelStub19::kButton},
+               {"MISSION_MINIFIED_OPTIONS", PanelStub19::kContainer},
+               {"STARTGAME_BUTTON", PanelStub19::kButton},
+               {"BACK_BUTTON", PanelStub19::kButton},
+               {"MISSION_TABS", PanelStub19::kContainer}});
+          ptr_stub->Attach(*ptr_panel_mission->Get("MISSION_LIST"), "HEADER",
+                           PanelStub19::kScrollItem);
+          ptr_stub->Attach(*ptr_panel_mission->Get("MISSION_LIST"),
+                           "TEMPLATE", PanelStub19::kScrollItem);
+          ptr_stub->Attach(*ptr_panel_mission->Get("MISSION_DETAIL"),
+                           "MISSION_DESCRIPTION_PANEL",
+                           PanelStub19::kScrollPanel);
+          ptr_stub->Attach(
+              *ptr_panel_mission->Get("MISSION_DETAIL")
+                   ->Get("MISSION_DESCRIPTION_PANEL"),
+              "MISSION_DESCRIPTION", PanelStub19::kLabel);
+          ptr_stub->Attach(*ptr_panel_mission->Get("MISSION_DETAIL"),
+                           "MISSION_OPTIONS", PanelStub19::kContainer);
+          ptr_stub->Attach(
+              *ptr_panel_mission->Get("MISSION_DETAIL")
+                   ->Get("MISSION_OPTIONS"),
+              "CHECKBOX_ROW_TEMPLATE", PanelStub19::kContainer);
+          ptr_stub->Attach(
+              *ptr_panel_mission->Get("MISSION_DETAIL")
+                   ->Get("MISSION_OPTIONS"),
+              "DROPDOWN_ROW_TEMPLATE", PanelStub19::kContainer);
+          ptr_stub->Attach(
+              *ptr_panel_mission->Get("MISSION_MINIFIED_OPTIONS"),
+              "DIFFICULTY", PanelStub19::kDropDown);
+          ptr_stub->Attach(
+              *ptr_panel_mission->Get("MISSION_MINIFIED_OPTIONS"),
+              "GAMESPEED", PanelStub19::kDropDown);
+          ptr_stub->Attach(*ptr_panel_mission->Get("MISSION_TABS"),
+                           "OPTIONS_TAB", PanelStub19::kButton);
+          ptr_stub->Attach(*ptr_panel_mission->Get("MISSION_TABS"),
+                           "MISSIONINFO_TAB", PanelStub19::kButton);
+
+          mods::MissionBrowserLogic logic_mission{
+              *ptr_panel_mission, mod_data, *world, [] {}, [] {},
+              std::string{}};
+          if (b_select_first_map) {
+            map::MapCache* ptr_cache_run =
+                ora::ui::Ui::Instance().MapCacheDeps();
+            if (ptr_cache_run != nullptr)
+              for (map::MapPreview* ptr_preview : ptr_cache_run->Previews())
+                if (ptr_preview->Status() == map::MapStatus::Available) {
+                  logic_mission.SelectMapForTest(*ptr_preview);
+                  break;
+                }
+          }
+          MissionRun19 run{};
+          run.b_minified = logic_mission.MinifiedOptionsForTest();
+          run.b_difficulty_disabled = logic_mission.DifficultyDisabledForTest();
+          run.b_start_disabled =
+              ptr_panel_mission->Get<ui::ButtonWidget>("STARTGAME_BUTTON")
+                  ->fn_is_disabled();
+          return run;
+        };
+
+        static std::vector<server::LobbyOptionData> vec_options_injected;
+        vec_options_injected.clear();
+        server::LobbyOptionData option_difficulty{};
+        option_difficulty.Id = "difficulty";
+        option_difficulty.Name = "Difficulty";
+        option_difficulty.DefaultValue = "easy";
+        option_difficulty.vec_values = {{"easy", "Easy"}, {"hard", "Hard"}};
+        vec_options_injected.push_back(option_difficulty);
+        static std::function<std::vector<server::LobbyOptionData>(
+            const map::MapPreview&)>
+            fn_collector = [](const map::MapPreview&) {
+              return vec_options_injected;
+            };
+        mods::SetMapLobbyOptionsCollectorForTest(&fn_collector);
+
+        const MissionRun19 run_full = run_mission_logic(true);
+        Check(run_full.b_minified,
+              "p6b19: difficulty-only options keep the minified panel");
+        Check(!run_full.b_difficulty_disabled,
+              "p6b19: a difficulty option enables the dropdown");
+        Check(!run_full.b_start_disabled,
+              "p6b19: the start button enables once a map is selected");
+
+        vec_options_injected.clear();
+        const MissionRun19 run_empty = run_mission_logic(true);
+        Check(run_empty.b_difficulty_disabled,
+              "p6b19: no difficulty option disables the dropdown");
+        mods::SetMapLobbyOptionsCollectorForTest(nullptr);
+      }
+
+      std::error_code ec_cleanup19{};
+      std::filesystem::remove_all("Saves", ec_cleanup19);
+    }
   }
 
   std::println("render_test: {} failures", g_failures);

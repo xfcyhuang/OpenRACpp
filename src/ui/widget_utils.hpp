@@ -36,6 +36,8 @@ class TextNotification;
 
 namespace ora::ui {
 
+class LabelWithTooltipWidget;
+
 class ButtonWidget;
 class ImageWidget;
 class Widget;
@@ -132,6 +134,11 @@ std::string WrapText(const std::string& str_text, int int4_width, gfx::SpriteFon
 /// TruncateText(L308-322)。
 /// TruncateText (L308-322).
 std::string TruncateText(const std::string& str_text, int int4_width, gfx::SpriteFont& font_text);
+
+/// TruncateLabelToTooltip(L301-311)。
+/// TruncateLabelToTooltip (L301-311).
+void TruncateLabelToTooltip(LabelWithTooltipWidget& label_target,
+                            const std::string& str_text);
 
 /// TruncateButtonToTooltip(L330-339)。
 /// TruncateButtonToTooltip (L330-339).

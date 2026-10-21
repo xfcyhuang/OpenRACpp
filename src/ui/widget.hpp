@@ -73,7 +73,9 @@ using WidgetArgValue =
                  std::function<void()>,
                  std::function<void(bool)>,
                  const std::map<std::string, std::int32_t>*,  // substitutions
-                 const YamlDictionary*>;                      // logicArgs
+                 const YamlDictionary*,                       // logicArgs
+                 const std::vector<std::string>*,             // remoteMapPool
+                 std::function<void(const std::string&)>>;    // onSelect(uid)
 
 /// WidgetArgs(L673-679;插入序条目表)
 /// WidgetArgs (L673-679; an insertion-ordered entry list).

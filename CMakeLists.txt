@@ -581,8 +581,10 @@ add_library(ora_mods STATIC
   src/mods/confirmation_dialogs.cpp
   src/mods/ingame_menu_logic.cpp
   src/mods/main_menu_logic.cpp
-  src/mods/trait_registry_batch17.cpp)
-target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui)
+  src/mods/music_playlist.cpp
+  src/mods/trait_registry_batch17.cpp
+  src/mods/trait_registry_batch18.cpp)
+target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui ora_sound)
 ora_link_std(ora_mods)
 
 # 声音门面(第十四批):格式链分派 + Sound 调度/音乐/视频 + MusicInfo.Load

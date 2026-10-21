@@ -517,7 +517,9 @@ bool GameSave::Save(const std::string& str_path) const {
   writer.Write(static_cast<std::int32_t>(kMetadataMarker));
   writer.Write(static_cast<std::int32_t>(LastOrdersFrame));
   writer.Write(static_cast<std::int32_t>(LastSyncFrame));
-  writer.WriteBytes(vec_last_sync_packet);
+  std::vector<std::uint8_t> vec_sync_packet = vec_last_sync_packet;
+  vec_sync_packet.resize(Order::SyncHashOrderLength, 0);
+  writer.WriteBytes(vec_sync_packet);
 
   {
     std::vector<yaml::MiniYamlNode> nodes_global;

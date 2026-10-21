@@ -929,6 +929,7 @@ void RegisterCommonTraits() {
     RegisterCommonTraitsBatch15();
     RegisterCommonTraitsBatch16();
     RegisterCommonTraitsBatch17();
+    RegisterCommonTraitsBatch18();
     RegisterMenuLogics();
     RegisterIngameMenuLogic();
     RegisterMainMenuLogic();

@@ -14,6 +14,7 @@ import std;
 #include "ui/widgets/button_widget.hpp"
 #include "ui/widgets/image_widget.hpp"
 #include "ui/widgets/label_widget.hpp"
+#include "ui/widgets/label_with_tooltip_widget.hpp"
 
 namespace ora::ui {
 
@@ -365,6 +366,20 @@ std::string TruncateText(const std::string& str_text, int int4_width, gfx::Sprit
   }
 
   return str_trimmed;
+}
+
+
+void TruncateLabelToTooltip(LabelWithTooltipWidget& label_target, const std::string& str_text) {
+  const std::string str_truncated_text =
+      TruncateText(str_text, label_target.bounds_widget.int4_width,
+                   RequireWidgetFont(label_target.str_font));
+
+  label_target.fn_get_text = [str_truncated_text] { return str_truncated_text; };
+
+  if (str_text != str_truncated_text)
+    label_target.fn_get_tooltip_text = [str_text] { return str_text; };
+  else
+    label_target.fn_get_tooltip_text = nullptr;
 }
 
 
