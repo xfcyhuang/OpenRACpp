@@ -10,7 +10,11 @@ import std;
 #include "gfx/sprite_font.hpp"
 #include "gfx/sprite_renderer.hpp"
 #include "ui/ui.hpp"
+#include "fluent/fluent_provider.hpp"
+#include "net/session.hpp"
 #include "net/text_notifications.hpp"
+#include "sim/player.hpp"
+#include "sim/world.hpp"
 #include "ui/widgets/button_widget.hpp"
 #include "ui/widgets/image_widget.hpp"
 #include "ui/widgets/label_widget.hpp"
@@ -490,6 +494,65 @@ void SetupTextNotification(Widget& widget_notification,
 
   widget_notification.bounds_widget.int4_width =
       int4_box_width - widget_notification.bounds_widget.int4_x;
+}
+
+std::string WithSuffix(const std::string& str_name, sim::WinState win_state,
+                       net::ClientState client_state) {
+  if (client_state == net::ClientState::Disconnected)
+    return str_name + " (" +
+           fluent::FluentProvider::Instance().GetMessage(
+               "label-client-state-disconnected") +
+           ")";
+
+  if (win_state == sim::WinState::Won)
+    return str_name + " (" +
+           fluent::FluentProvider::Instance().GetMessage("label-win-state-won") +
+           ")";
+
+  if (win_state == sim::WinState::Lost)
+    return str_name + " (" +
+           fluent::FluentProvider::Instance().GetMessage("label-win-state-lost") +
+           ")";
+
+  return str_name;
+}
+
+void BindPlayerNameAndStatus(LabelWithTooltipWidget& label_target,
+                             sim::Player& player) {
+  auto up_name = std::make_unique<core::CachedTransform<
+      std::pair<sim::WinState, net::ClientState>, std::string>>(
+      [&label_target, &player](
+          const std::pair<sim::WinState, net::ClientState>& pair_state) {
+        const std::string str_text =
+            WithSuffix(player.ResolvedPlayerName(), pair_state.first,
+                       pair_state.second);
+        const std::string str_truncated =
+            TruncateText(str_text, label_target.bounds_widget.int4_width,
+                         RequireWidgetFont(label_target.str_font));
+
+        if (str_text != str_truncated)
+          label_target.fn_get_tooltip_text = [str_text] { return str_text; };
+        else
+          label_target.fn_get_tooltip_text = nullptr;
+
+        return str_truncated;
+      });
+  net::SessionClient* ptr_client =
+      player.world_ptr() != nullptr
+          ? player.world_ptr()->LobbyInfo().ClientWithIndex(
+                player.ClientIndex())
+          : nullptr;
+  auto sp_cache_name = std::make_shared<core::CachedTransform<
+      std::pair<sim::WinState, net::ClientState>, std::string>>(
+      std::move(*up_name));
+  label_target.fn_get_text = [&player, ptr_client,
+                              cache_name = std::move(sp_cache_name)] {
+    const net::ClientState state_client =
+        ptr_client != nullptr ? ptr_client->State : net::ClientState::Ready;
+    return cache_name->Update({player.PlayerWinState(), state_client});
+  };
+
+  label_target.fn_get_text();
 }
 
 }  // namespace ora::ui

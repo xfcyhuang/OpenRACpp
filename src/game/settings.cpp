@@ -322,6 +322,112 @@ constexpr meta::RecordDesc kDebugSettingsDesc = {
     .interfaces = {},
 };
 
+/// ServerSettings 字段表(Settings.cs L92-179;全字段手写 —— 同 Player/
+/// Game/Graphics/Debug/Sound 段先例;Ban/ProfileID*/MapPool 的 FrozenSet →
+/// ImmutableArray 承载)
+/// The ServerSettings field table (Settings.cs L92-179; every field
+/// hand-written — the Player/Game/Graphics/Debug/Sound precedent; Ban's/
+/// ProfileID*/MapPool's FrozenSet → the ImmutableArray carrier).
+constexpr FieldDesc kServerSettingsFields[] = {
+    {.str_name = "Name", .type = FieldType::String, .b_required = false},
+    {.str_name = "ListenPort", .type = FieldType::Int32, .b_required = false},
+    {.str_name = "AdvertiseOnline", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "AdvertiseOnLocalNetwork", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "Password", .type = FieldType::String, .b_required = false},
+    {.str_name = "DiscoverNatDevices", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "NatPortMappingLifetime", .type = FieldType::Int32,
+     .b_required = false},
+    {.str_name = "Map", .type = FieldType::String, .b_required = false},
+    {.str_name = "Ban", .type = FieldType::ImmutableArray, .b_required = false},
+    {.str_name = "RequireAuthentication", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "ProfileIDWhitelist", .type = FieldType::ImmutableArray,
+     .b_required = false},
+    {.str_name = "ProfileIDBlacklist", .type = FieldType::ImmutableArray,
+     .b_required = false},
+    {.str_name = "EnableSingleplayer", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "EnableMapGeneration", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "QueryMapRepository", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "EnableSyncReports", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "TimestampFormat", .type = FieldType::String,
+     .b_required = false},
+    {.str_name = "ShareAnonymizedIPs", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "EnableGeoIP", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "RecordReplays", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "EnableLintChecks", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "MapPool", .type = FieldType::ImmutableArray,
+     .b_required = false},
+    {.str_name = "FloodLimitJoinCooldown", .type = FieldType::Int32,
+     .b_required = false},
+    {.str_name = "FloodLimitInterval", .type = FieldType::Int32,
+     .b_required = false},
+    {.str_name = "FloodLimitMessageCount", .type = FieldType::Int32,
+     .b_required = false},
+    {.str_name = "FloodLimitCooldown", .type = FieldType::Int32,
+     .b_required = false},
+    {.str_name = "EnableVoteKick", .type = FieldType::Bool, .b_required = false},
+    {.str_name = "VoteKickTimer", .type = FieldType::Int32, .b_required = false},
+    {.str_name = "VoteKickerCooldown", .type = FieldType::Int32,
+     .b_required = false},
+};
+
+/// ServerSettings 默认值(Settings.cs L92-179 字面量;Ban/ProfileID*/
+/// MapPool 空表)
+/// The ServerSettings defaults (Settings.cs L92-179's literals; Ban's/
+/// ProfileID*/MapPool's empty lists).
+const std::vector<GenericValue>& ServerSettingsDefaults() {
+  static const std::vector<GenericValue> vec_defaults = {
+      GenericValue::Of(std::string{}),
+      GenericValue::Of(static_cast<std::int64_t>(1234)),
+      GenericValue::Of(true),
+      GenericValue::Of(true),
+      GenericValue::Of(std::string{}),
+      GenericValue::Of(false),
+      GenericValue::Of(static_cast<std::int64_t>(36000)),
+      GenericValue::Of(std::string{}),
+      GenericValue::Of(std::vector<GenericValue>{}),
+      GenericValue::Of(false),
+      GenericValue::Of(std::vector<GenericValue>{}),
+      GenericValue::Of(std::vector<GenericValue>{}),
+      GenericValue::Of(false),
+      GenericValue::Of(true),
+      GenericValue::Of(true),
+      GenericValue::Of(false),
+      GenericValue::Of(std::string{"yyyy-MM-ddTHH:mm:ss"}),
+      GenericValue::Of(true),
+      GenericValue::Of(true),
+      GenericValue::Of(false),
+      GenericValue::Of(true),
+      GenericValue::Of(std::vector<GenericValue>{}),
+      GenericValue::Of(static_cast<std::int64_t>(5000)),
+      GenericValue::Of(static_cast<std::int64_t>(5000)),
+      GenericValue::Of(static_cast<std::int64_t>(5)),
+      GenericValue::Of(static_cast<std::int64_t>(15000)),
+      GenericValue::Of(true),
+      GenericValue::Of(static_cast<std::int64_t>(30000)),
+      GenericValue::Of(static_cast<std::int64_t>(120000)),
+  };
+  return vec_defaults;
+}
+
+constexpr meta::RecordDesc kServerSettingsDesc = {
+    .str_name = "ServerSettings",
+    .str_full_name = "OpenRA.ServerSettings",
+    .str_base = "",
+    .fields = kServerSettingsFields,
+    .requires_types = {},
+    .not_before_types = {},
+    .interfaces = {},
+};
+
 /// Settings 段的三枚举(PlatformInterfaces.cs L18-24 的 GLProfile/WindowMode
 /// 与 Settings.cs L50 的 WorldViewport;schema_dumper 未导出 —— 引擎核心
 /// 消费域手写注册)
@@ -403,6 +509,8 @@ const meta::RecordDesc* SettingsDescOf(std::string_view str_section) {
     return &kSoundSettingsDesc;
   if (str_section == "Debug")
     return &kDebugSettingsDesc;
+  if (str_section == "Server")
+    return &kServerSettingsDesc;
   return nullptr;
 }
 
@@ -424,6 +532,8 @@ SettingsModule::SettingsModule(const meta::RecordDesc& desc,
     ptr_defaults = &SoundSettingsDefaults();
   else if (&desc == &kDebugSettingsDesc)
     ptr_defaults = &DebugSettingsDefaults();
+  else if (&desc == &kServerSettingsDesc)
+    ptr_defaults = &ServerSettingsDefaults();
   else {
     // 未知段:空字段承载(上游 Activator.CreateInstance 的缺省面)
     // An unknown section: the empty carrier (upstream's
@@ -490,6 +600,9 @@ Settings::Settings() {
   if (const meta::RecordDesc* ptr_desc = SettingsDescOf("Debug"))
     vec_modules_.push_back(
         std::make_unique<SettingsModule>(*ptr_desc, "Debug", true));
+  if (const meta::RecordDesc* ptr_desc = SettingsDescOf("Server"))
+    vec_modules_.push_back(
+        std::make_unique<SettingsModule>(*ptr_desc, "Server", true));
 }
 
 void Settings::Load(const std::vector<yaml::MiniYamlNode>& vec_nodes,

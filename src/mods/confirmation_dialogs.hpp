@@ -17,7 +17,8 @@ void ButtonPrompt(const std::string& str_title, const std::string& str_text,
                   const std::string& str_cancel_text = {},
                   std::function<void()> fn_on_other = nullptr,
                   const std::string& str_other_text = {},
-                  const FluentArgs& vec_text_arguments = {});
+                  const FluentArgs& vec_text_arguments = {},
+                  const FluentArgs& vec_title_arguments = {});
 
 void TextInputPrompt(const std::string& str_title,
                      const std::string& str_prompt,

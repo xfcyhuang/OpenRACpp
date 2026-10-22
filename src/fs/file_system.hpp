@@ -70,6 +70,16 @@ class FileSystem final {
 
   std::vector<std::string> MountedPackageNames() const;
 
+  /// MountedPackages(L31):挂载序去重的包表(重挂计数不重复出现)
+  /// MountedPackages (L31): the deduped package list in mount order (a
+  /// remount's count does not reappear).
+  std::vector<IReadOnlyPackage*> MountedPackages() const;
+
+  /// GetPrefix(L299-302):显式挂载名反查;非显式挂载 = nullopt
+  /// GetPrefix (L299-302): the reverse lookup of the explicit mount name;
+  /// not explicitly mounted = nullopt.
+  std::optional<std::string> GetPrefix(const IReadOnlyPackage* package) const;
+
   /// 找不到抛异常 / throws when not found.
   std::vector<char> Open(const std::string& filename) const;
   bool TryGetPackageContaining(const std::string& path, IReadOnlyPackage*& package,

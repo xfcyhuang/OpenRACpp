@@ -20,8 +20,12 @@ import std;
 #include "mods/trait_registry_batch17.cpp"
 #include "mods/ingame_menu_logic.hpp"
 #include "mods/main_menu_logic.hpp"
+#include "mods/asset_browser_logic.hpp"
 #include "mods/browser_logics.hpp"
 #include "mods/connection_logics.hpp"
+#include "mods/game_info_logics.hpp"
+#include "mods/lobby_utils.hpp"
+#include "mods/server_creation_logic.hpp"
 #include "mods/server_list_logic.hpp"
 #include "mods/menu_logics.hpp"
 
@@ -938,6 +942,9 @@ void RegisterCommonTraits() {
     RegisterBrowserLogics();
     RegisterConnectionLogics();
     RegisterServerListLogics();
+    RegisterGameInfoLogics();
+    RegisterServerCreationLogic();
+    RegisterAssetBrowserLogic();
 
     return true;
   }();

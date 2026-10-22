@@ -42,21 +42,24 @@ void Ui::CloseWindow() {
   if (!vec_windows_.empty()) {
     WindowEntry entry_hidden = std::move(vec_windows_.back());
     vec_windows_.pop_back();
-
     std::unique_ptr<Widget> up_detached = ptr_root_->RemoveChild(*entry_hidden.ptr_widget);
+    if (up_detached == nullptr)
+      up_detached = std::move(entry_hidden.up_owned);
 
     // 上游怪癖:RemoveChild 已 Dispose Logic,仍对快照逐个 BecameHidden
     // the upstream quirk: RemoveChild has already disposed the Logic, yet
     // BecameHidden is still called on the snapshot
-    std::vector<ChromeLogic*> vec_logic_ptrs;
-    vec_logic_ptrs.reserve(up_detached->LogicObjects().size());
-    for (const auto& ptr_logic : up_detached->LogicObjects())
-      vec_logic_ptrs.push_back(ptr_logic.get());
-    for (ChromeLogic* ptr_logic : vec_logic_ptrs)
-      ptr_logic->BecameHidden();
+    if (up_detached != nullptr) {
+      std::vector<ChromeLogic*> vec_logic_ptrs;
+      vec_logic_ptrs.reserve(up_detached->LogicObjects().size());
+      for (const auto& ptr_logic : up_detached->LogicObjects())
+        vec_logic_ptrs.push_back(ptr_logic.get());
+      for (ChromeLogic* ptr_logic : vec_logic_ptrs)
+        ptr_logic->BecameHidden();
 
-    // up_detached 于作用域末析构(widget 连同 Logic 对象)
-    // up_detached dies at scope end (the widget with its Logic objects).
+      // up_detached 于作用域末析构(widget 连同 Logic 对象)
+      // up_detached dies at scope end (the widget with its Logic objects).
+    }
   }
 
   if (!vec_windows_.empty()) {

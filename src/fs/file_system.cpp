@@ -226,6 +226,23 @@ std::vector<std::string> FileSystem::MountedPackageNames() const {
   return names;
 }
 
+std::vector<IReadOnlyPackage*> FileSystem::MountedPackages() const {
+  std::vector<IReadOnlyPackage*> vec_packages;
+  std::set<const IReadOnlyPackage*> set_seen;
+  for (IReadOnlyPackage* p : vec_mounted_)
+    if (set_seen.insert(p).second)
+      vec_packages.push_back(p);
+  return vec_packages;
+}
+
+std::optional<std::string> FileSystem::GetPrefix(
+    const IReadOnlyPackage* package) const {
+  for (const auto& [str_name, ptr_package] : map_explicitMounts_)
+    if (ptr_package == package)
+      return str_name;
+  return std::nullopt;
+}
+
 std::vector<char> FileSystem::Open(const std::string& filename) const {
   std::vector<char> bytes;
   if (!TryOpen(filename, bytes))

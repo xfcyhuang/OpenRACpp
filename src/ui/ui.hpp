@@ -25,6 +25,7 @@ class Viewport;
 class Renderer;
 class ChromeProvider;
 class SpriteFont;
+class WorldRenderer;
 }
 
 namespace ora::sound {
@@ -54,6 +55,20 @@ class MersenneTwister;
 }
 
 namespace ora::ui {
+
+/// Settings.Server 的 UI 消费子面(ServerCreationLogic/Nat;Settings.cs
+/// L92-154 的同名字面默认)
+/// The UI-consumed sub-face of Settings.Server (ServerCreationLogic/Nat;
+/// Settings.cs L92-154's same-named literal defaults).
+struct ServerSettingsFace {
+  std::string Name;
+  int ListenPort = 1234;
+  bool AdvertiseOnline = true;
+  bool AdvertiseOnLocalNetwork = true;
+  std::string Password;
+  bool DiscoverNatDevices = false;
+  std::string Map;
+};
 
 class Ui {
  public:
@@ -300,6 +315,65 @@ class Ui {
                std::function<void(bool, std::string)> fn_done) {
               fn_done(false, std::string{});
             };
+    /// Game.Settings.Server 的读写面(ServerCreationLogic)
+    /// Game.Settings.Server's read/write face (ServerCreationLogic).
+    std::function<ServerSettingsFace()> fn_server_settings_get = [] {
+      return ServerSettingsFace{};
+    };
+    std::function<void(const ServerSettingsFace&)> fn_server_settings_set =
+        [](const ServerSettingsFace&) {};
+    /// Game.Settings.Player.Name(ServerSettings.SanitizedServerName 的
+    /// "{player}'s Game" 回落面)
+    /// Game.Settings.Player.Name (ServerSettings.SanitizedServerName's
+    /// "{player}'s Game" fallback face).
+    std::function<std::string()> fn_player_name = [] {
+      return std::string{"Commander"};
+    };
+    /// Game.CreateServer(ServerSettings)(ServerCreationLogic;出参 = 端点/
+    /// SocketException.ErrorCode/Message;false = 创建失败)
+    /// Game.CreateServer (ServerSettings) (ServerCreationLogic; the out
+    /// params = the endpoint / SocketException.ErrorCode / Message; false =
+    /// the creation failed).
+    std::function<bool(const ServerSettingsFace&, int&, std::string&,
+                       net::ConnectionTarget&)>
+        fn_create_server = [](const ServerSettingsFace&, int& int4_code,
+                              std::string& str_message,
+                              net::ConnectionTarget&) {
+          int4_code = 0;
+          str_message = "CreateServer is not wired.";
+          return false;
+        };
+    /// Game.IsHost(GameInfoStatsLogic 的踢人门)
+    /// Game.IsHost (GameInfoStatsLogic's kick gates).
+    std::function<bool()> fn_is_host = [] { return false; };
+    /// Game.Settings.Player.Color 的读写面(AssetBrowser 的色选)
+    /// Game.Settings.Player.Color's read/write face (AssetBrowser's color
+    /// pick).
+    std::function<core::Color()> fn_player_color_get = [] {
+      return core::Color{};
+    };
+    std::function<void(core::Color)> fn_player_color_set = [](core::Color) {};
+    /// IColorPickerManagerInfo.ShowColorDropDown(AssetBrowser 的色选下拉;
+    /// COLOR_CHOOSER 链随 Lobby 批,缺省 no-op)
+    /// IColorPickerManagerInfo.ShowColorDropDown (AssetBrowser's color
+    /// dropdown; the COLOR_CHOOSER chain rides the Lobby batch, unwired =
+    /// no-op).
+    std::function<void(Widget&, core::Color, const std::string*,
+                       gfx::WorldRenderer*, std::function<void(core::Color)>)>
+        fn_show_color_dropdown =
+            [](Widget&, core::Color, const std::string*,
+               gfx::WorldRenderer*, std::function<void(core::Color)>) {};
+    /// IProvidesAssetBrowserPalettes/IProvidesAssetBrowserColorPickerPalettes
+    /// 的调色板名表(world actor 的 palette trait 族;缺省 = 空表)
+    /// The palette-name lists of
+    /// IProvidesAssetBrowserPalettes/IProvidesAssetBrowserColorPickerPalettes
+    /// (the world actor's palette trait family; unwired = empty).
+    std::function<std::vector<std::string>()> fn_asset_browser_palettes =
+        [] { return std::vector<std::string>{}; };
+    std::function<std::vector<std::string>()>
+        fn_asset_browser_color_picker_palettes = [] {
+          return std::vector<std::string>{};
+        };
     map::MapCache* ptr_map_cache = nullptr;
   };
 
@@ -457,6 +531,39 @@ class Ui {
       const std::string& str_url,
       std::function<void(bool, std::string)> fn_done) const {
     deps_.fn_fetch_server_list(str_url, std::move(fn_done));
+  }
+  ServerSettingsFace ServerSettingsGetDeps() const {
+    return deps_.fn_server_settings_get();
+  }
+  void ServerSettingsSetDeps(const ServerSettingsFace& face_server) const {
+    deps_.fn_server_settings_set(face_server);
+  }
+  std::string PlayerNameDeps() const { return deps_.fn_player_name(); }
+  bool CreateServerDeps(const ServerSettingsFace& face_server,
+                        int& int4_error_code, std::string& str_error_message,
+                        net::ConnectionTarget& target_endpoint) const {
+    return deps_.fn_create_server(face_server, int4_error_code,
+                                  str_error_message, target_endpoint);
+  }
+  bool IsHostDeps() const { return deps_.fn_is_host(); }
+  core::Color PlayerColorGetDeps() const {
+    return deps_.fn_player_color_get();
+  }
+  void PlayerColorSetDeps(core::Color color_value) const {
+    deps_.fn_player_color_set(color_value);
+  }
+  void ShowColorDropDownDeps(
+      Widget& widget_dropdown, core::Color color_initial,
+      const std::string* str_faction, gfx::WorldRenderer* ptr_world_renderer,
+      std::function<void(core::Color)> fn_on_exit) const {
+    deps_.fn_show_color_dropdown(widget_dropdown, color_initial, str_faction,
+                                 ptr_world_renderer, std::move(fn_on_exit));
+  }
+  std::vector<std::string> AssetBrowserPalettesDeps() const {
+    return deps_.fn_asset_browser_palettes();
+  }
+  std::vector<std::string> AssetBrowserColorPickerPalettesDeps() const {
+    return deps_.fn_asset_browser_color_picker_palettes();
   }
 
   Widget* MouseFocusWidget() const { return ptr_mouse_focus_; }

@@ -3376,6 +3376,114 @@ int main(int argc, char** argv) {
     }
   }
 
+  {
+    game::Settings settings_server21;
+    const game::SettingsModule* ptr_module =
+        settings_server21.Module("Server");
+    Check(ptr_module != nullptr, "Settings Server 段装配");
+    if (ptr_module != nullptr) {
+      const meta::GeneratedRecord& record_server = ptr_module->Record();
+      const auto& vec_server = record_server.Values();
+      Check(vec_server.size() == 29, "Server 段 29 字段");
+      Check(std::get<std::string>(vec_server[0].val).empty(),
+            "Name 默认空");
+      Check(std::get<std::int64_t>(vec_server[1].val) == 1234,
+            "ListenPort 默认 1234");
+      Check(std::get<bool>(vec_server[2].val) == true,
+            "AdvertiseOnline 默认 true");
+      Check(std::get<bool>(vec_server[3].val) == true,
+            "AdvertiseOnLocalNetwork 默认 true");
+      Check(std::get<std::string>(vec_server[4].val).empty(),
+            "Password 默认空");
+      Check(std::get<bool>(vec_server[5].val) == false,
+            "DiscoverNatDevices 默认 false");
+      Check(std::get<std::int64_t>(vec_server[6].val) == 36000,
+            "NatPortMappingLifetime 默认 36000");
+      Check(std::get<std::string>(vec_server[7].val).empty(),
+            "Map 默认空");
+      Check(std::get<bool>(vec_server[12].val) == false,
+            "EnableSingleplayer 默认 false");
+      Check(std::get<std::string>(vec_server[16].val) ==
+                "yyyy-MM-ddTHH:mm:ss",
+            "TimestampFormat 默认 ISO 8601");
+      Check(std::get<bool>(vec_server[26].val) == true,
+            "EnableVoteKick 默认 true");
+      Check(std::get<std::int64_t>(vec_server[28].val) == 120000,
+            "VoteKickerCooldown 默认 120000");
+
+      yaml::StringPool pool_server21;
+      const std::vector<yaml::MiniYamlNode> vec_saved_default =
+          settings_server21.Save(pool_server21);
+      bool b_server_section_present = false;
+      for (const auto& node : vec_saved_default)
+        if (node.Key != nullptr && *node.Key == "Server") {
+          b_server_section_present = true;
+          Check(node.Value.Nodes.empty(),
+                "Server 段默认值全免存(Commit 差异协议)");
+        }
+      Check(b_server_section_present, "Server 段键出现在 Save");
+
+      std::vector<yaml::MiniYamlNode> vec_override21;
+      vec_override21.emplace_back(
+          pool_server21.Intern("Server"),
+          yaml::MiniYaml{nullptr,
+                         std::vector<yaml::MiniYamlNode>{
+                             {pool_server21.Intern("ListenPort"),
+                              yaml::MiniYaml{pool_server21.Intern("4321")}},
+                             {pool_server21.Intern("Name"),
+                              yaml::MiniYaml{pool_server21.Intern(
+                                  "My Server")}}}});
+      settings_server21.Load(vec_override21, pool_server21);
+      Check(std::get<std::int64_t>(vec_server[1].val) == 4321,
+            "ListenPort 覆写 4321");
+      Check(std::get<std::string>(vec_server[0].val) == "My Server",
+            "Name 覆写");
+
+      yaml::StringPool pool_server_save21;
+      const std::vector<yaml::MiniYamlNode> vec_saved_override =
+          settings_server21.Save(pool_server_save21);
+      for (const auto& node : vec_saved_override)
+        if (node.Key != nullptr && *node.Key == "Server") {
+          Check(node.Value.Nodes.size() == 2,
+                "Server 段仅差异字段入存");
+          bool b_name_saved = false;
+          bool b_port_saved = false;
+          for (const auto& node_field : node.Value.Nodes)
+            if (node_field.Key != nullptr) {
+              if (*node_field.Key == "Name")
+                b_name_saved = true;
+              if (*node_field.Key == "ListenPort")
+                b_port_saved = true;
+            }
+          Check(b_name_saved && b_port_saved,
+                "Server 段差异集 = Name + ListenPort");
+        }
+    }
+
+    {
+      const auto dir_fs21 = std::filesystem::temp_directory_path() /
+                            "ora_ui_test_fs21";
+      std::filesystem::create_directories(dir_fs21 / "pkg-a");
+      std::filesystem::create_directories(dir_fs21 / "pkg-b");
+      {
+        std::ofstream out_a(dir_fs21 / "pkg-a" / "one.txt");
+        std::ofstream out_b(dir_fs21 / "pkg-b" / "two.txt");
+      }
+      fs::FileSystem file_system21;
+      file_system21.Mount((dir_fs21 / "pkg-a").generic_string(), "alpha");
+      file_system21.Mount((dir_fs21 / "pkg-b").generic_string());
+
+      const std::vector<fs::IReadOnlyPackage*> vec_mounted =
+          file_system21.MountedPackages();
+      Check(vec_mounted.size() == 2, "MountedPackages 两包");
+      Check(file_system21.GetPrefix(vec_mounted[0]).has_value() &&
+                *file_system21.GetPrefix(vec_mounted[0]) == "alpha",
+            "GetPrefix 反查显式挂载名");
+      Check(!file_system21.GetPrefix(vec_mounted[1]).has_value(),
+            "GetPrefix 非显式挂载 = nullopt");
+    }
+  }
+
   if (int4_failures == 0) {
     std::println("ui_test: all passed");
     return 0;

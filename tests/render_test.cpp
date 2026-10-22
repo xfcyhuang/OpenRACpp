@@ -20,14 +20,21 @@ import std;
 #include "gfx/sheet.hpp"
 #include "mods/music_playlist.hpp"
 #include "mods/server_list_logic.hpp"
+#include "mods/asset_browser_logic.hpp"
+#include "mods/game_info_logics.hpp"
+#include "mods/server_creation_logic.hpp"
+#include "net/nat.hpp"
 #include "mods/video_player_widget.hpp"
 #include "platform/ifont.hpp"
 #include "ui/ui.hpp"
 #include "ui/widgets/checkbox_widget.hpp"
+#include "ui/widgets/color_block_widget.hpp"
 #include "ui/widgets/drop_down_button_widget.hpp"
+#include "ui/widgets/image_widget.hpp"
 #include "ui/widgets/label_widget.hpp"
 #include "ui/widgets/logic_ticker_widget.hpp"
 #include "ui/widgets/map_preview_widget.hpp"
+#include "ui/widgets/password_field_widget.hpp"
 #include "ui/widgets/scroll_item_widget.hpp"
 #include "ui/widgets/scroll_panel_widget.hpp"
 #include "ui/widgets/slider_widget.hpp"
@@ -5339,7 +5346,840 @@ int main(int argc, char** argv) {
     }
   }
 
-  std::println("render_test: {} failures", g_failures);
+  // ———— Phase 6 第二十一批:ServerCreation + GameInfo 面板族 + AssetBrowser ————
+  // ———— Phase 6 batch 21: server creation + the game-info panels + the
+  // asset browser ————
+  {
+    std::println("-- batch 21: server creation + game-info + asset browser --");
+
+    {
+      net::Nat::Instance().ResetForTest();
+      Check(net::Nat::Instance().Status() == net::NatStatus::Disabled,
+            "p6b21: an uninitialized nat reads disabled");
+      net::Nat::Instance().Initialize(false);
+      Check(net::Nat::Instance().Status() == net::NatStatus::Disabled,
+            "p6b21: discovery stays off without the setting");
+      net::Nat::Instance().ResetForTest();
+      net::Nat::Instance().Initialize(true);
+      Check(net::Nat::Instance().Status() == net::NatStatus::NotSupported,
+            "p6b21: searching without a device reads not-supported");
+      net::Nat::Instance().SetDeviceFoundForTest(true);
+      Check(net::Nat::Instance().Status() == net::NatStatus::Enabled,
+            "p6b21: a found device reads enabled");
+      Check(!net::Nat::Instance().TryForwardPort(1234, 1234) &&
+                !net::Nat::Instance().TryRemovePortForward(),
+            "p6b21: the port-map pair fails without Mono.Nat");
+      net::Nat::Instance().ResetForTest();
+    }
+
+    struct PanelStub21 {
+      std::vector<std::unique_ptr<ui::Widget>> vec_owned;
+      std::vector<std::string> vec_loaded_ids;
+      gfx::SheetBuilder builder_sheets{gfx::SheetType::BGRA, 128};
+      std::unique_ptr<gfx::SpriteFont> up_font;
+
+      void MakeFont() {
+        struct FakeFont21 final : platform::IFont {
+          platform::FontGlyph CreateGlyph(std::uint32_t, int,
+                                          float) override {
+            platform::FontGlyph glyph_ret;
+            glyph_ret.offset = int2{1, 2};
+            glyph_ret.int4_width = 2;
+            glyph_ret.int4_height = 3;
+            glyph_ret.fp4_advance = 4.0f;
+            glyph_ret.vec_data.assign(2 * 3, 0);
+            return glyph_ret;
+          }
+        };
+        up_font = std::make_unique<gfx::SpriteFont>(
+            "Regular", std::span<const std::uint8_t>{},
+            std::make_unique<FakeFont21>(), 10, 8, 1.0f, builder_sheets,
+            [](const gfx::Sprite&, core::Vector3, float, core::Vector3,
+               float) {},
+            [](const gfx::Sprite&, core::Vector3, core::Vector3,
+               core::Vector3, core::Vector3, core::Vector3, float) {});
+      }
+
+      enum Kind {
+        kContainer,
+        kLabel,
+        kLabelTooltip,
+        kButton,
+        kImage,
+        kCheckbox,
+        kSlider,
+        kDropDown,
+        kMapPreview,
+        kScrollPanel,
+        kScrollItem,
+        kTextField,
+        kPasswordField,
+        kSprite,
+        kColorBlock,
+        kVideoPlayer,
+        kLogicTicker
+      };
+
+      std::unique_ptr<ui::Widget> MakeNode(std::string_view str_id,
+                                           Kind kind_node) {
+        ui::WidgetArgs args_stub;
+        std::unique_ptr<ui::Widget> up_node;
+        switch (kind_node) {
+          case kLabel:
+            up_node = std::make_unique<ui::LabelWidget>(args_stub);
+            break;
+          case kLabelTooltip:
+            up_node =
+                std::make_unique<ui::LabelWithTooltipWidget>(args_stub);
+            break;
+          case kButton:
+            up_node = std::make_unique<ui::ButtonWidget>(args_stub);
+            break;
+          case kImage:
+            up_node = std::make_unique<ui::ImageWidget>();
+            break;
+          case kCheckbox:
+            up_node = std::make_unique<ui::CheckboxWidget>(args_stub);
+            break;
+          case kSlider:
+            up_node = std::make_unique<ui::SliderWidget>();
+            break;
+          case kDropDown:
+            up_node =
+                std::make_unique<ui::DropDownButtonWidget>(args_stub);
+            break;
+          case kMapPreview:
+            up_node = std::make_unique<ui::MapPreviewWidget>();
+            break;
+          case kScrollPanel:
+            up_node = std::make_unique<ui::ScrollPanelWidget>(args_stub);
+            break;
+          case kScrollItem:
+            up_node = std::make_unique<ui::ScrollItemWidget>(args_stub);
+            break;
+          case kTextField:
+            up_node = std::make_unique<ui::TextFieldWidget>(args_stub);
+            break;
+          case kPasswordField:
+            up_node = std::make_unique<ui::PasswordFieldWidget>(args_stub);
+            break;
+          case kSprite:
+            up_node = std::make_unique<ui::SpriteWidget>(args_stub);
+            break;
+          case kColorBlock:
+            up_node = std::make_unique<ui::ColorBlockWidget>(args_stub);
+            break;
+          case kVideoPlayer:
+            up_node =
+                std::make_unique<mods::VideoPlayerWidget>(args_stub);
+            break;
+          case kLogicTicker:
+            up_node = std::make_unique<ui::LogicTickerWidget>();
+            break;
+          default:
+            up_node = std::make_unique<ui::ContainerWidget>();
+            break;
+        }
+        up_node->str_id = std::string{str_id};
+        up_node->bounds_widget.int4_width = 200;
+        up_node->bounds_widget.int4_height = 20;
+        return up_node;
+      }
+
+      ui::Widget* Attach(ui::Widget& ref_parent, std::string_view str_id,
+                         Kind kind_node) {
+        std::unique_ptr<ui::Widget> up_node = MakeNode(str_id, kind_node);
+        ui::Widget* ptr_node = up_node.get();
+        ref_parent.AddChild(std::move(up_node));
+        return ptr_node;
+      }
+
+      ui::Widget* MakeRoot() {
+        auto up_root = std::make_unique<ui::ContainerWidget>();
+        up_root->str_id = "ROOT21";
+        ui::Widget* ptr_root = up_root.get();
+        vec_owned.push_back(std::move(up_root));
+        return ptr_root;
+      }
+
+      ui::Widget* AttachNew(ui::Widget& ref_parent, std::string_view str_id,
+                            Kind kind_node) {
+        std::unique_ptr<ui::Widget> up_node = MakeNode(str_id, kind_node);
+        ui::Widget* ptr_node = up_node.get();
+        ref_parent.AddChild(std::move(up_node));
+        return ptr_node;
+      }
+
+      ui::Widget* MakePromptTree(const std::string& str_id) {
+        auto up_root = std::make_unique<ui::ContainerWidget>();
+        up_root->str_id = str_id;
+        ui::Widget* ptr_root = up_root.get();
+        AttachNew(*ptr_root, "PROMPT_TITLE", kLabel);
+        AttachNew(*ptr_root, "PROMPT_TEXT", kLabel);
+        AttachNew(*ptr_root, "CONFIRM_BUTTON", kButton);
+        AttachNew(*ptr_root, "CANCEL_BUTTON", kButton);
+        AttachNew(*ptr_root, "OTHER_BUTTON", kButton);
+        ui::Widget* ptr_released = up_root.release();
+        return ptr_released;
+      }
+
+      ui::Widget* MakeLoadedTree(const std::string& str_id) {
+        if (str_id == "TWOBUTTON_PROMPT" || str_id == "THREEBUTTON_PROMPT")
+          return MakePromptTree(str_id);
+        auto up_root = std::make_unique<ui::ContainerWidget>();
+        up_root->str_id = str_id;
+        ui::Widget* ptr_root = up_root.get();
+        if (str_id == "LABEL_DROPDOWN_TEMPLATE") {
+          ui::Widget* ptr_panel =
+              AttachNew(*ptr_root, "PANEL21", kScrollPanel);
+          ui::Widget* ptr_item =
+              AttachNew(*ptr_panel, "TEMPLATE", kScrollItem);
+          AttachNew(*ptr_item, "LABEL", kLabel);
+        } else if (str_id == "ASSET_TYPES_PANEL") {
+          AttachNew(*ptr_root, "ASSET_TYPE_TEMPLATE", kCheckbox);
+        }
+        return up_root.release();
+      }
+    };
+
+    auto up_stub = std::make_unique<PanelStub21>();
+    up_stub->MakeFont();
+    PanelStub21* ptr_stub = up_stub.get();
+    static std::unique_ptr<PanelStub21> up_stub_holder21;
+    up_stub_holder21 = std::move(up_stub);
+
+    static const auto ptr_random_21 =
+        std::make_shared<MersenneTwister>(20261022);
+
+    static ui::ChromeMetrics metrics_panel21;
+    {
+      const auto dir_metrics21 =
+          std::filesystem::temp_directory_path() /
+          "ora_render_test_metrics_panel21";
+      std::filesystem::create_directories(dir_metrics21);
+      {
+        std::ofstream out_metrics(dir_metrics21 / "metrics.yaml");
+        out_metrics << "Chrome:" << '\n';
+        out_metrics << "	TextFont: Regular" << '\n';
+        out_metrics << "	TextColor: FFFFFFFF" << '\n';
+        out_metrics << "	TextContrast: True" << '\n';
+        out_metrics << "	TextShadow: False" << '\n';
+        out_metrics << "	TextContrastColorDark: 000000FF" << '\n';
+        out_metrics << "	TextContrastColorLight: FFFFFFFF" << '\n';
+        out_metrics << "	TextContrastRadius: 1" << '\n';
+        out_metrics << "	ButtonDepth: 1" << '\n';
+        out_metrics << "	ButtonFont: Regular" << '\n';
+        out_metrics << "	ButtonTextColor: FFFFFFFF" << '\n';
+        out_metrics << "	ButtonTextColorDisabled: 808080FF" << '\n';
+        out_metrics << "	ButtonTextContrast: True" << '\n';
+        out_metrics << "	ButtonTextShadow: False" << '\n';
+        out_metrics << "	ButtonTextContrastColorDark: 000000FF" << '\n';
+        out_metrics << "	ButtonTextContrastColorLight: FFFFFFFF" << '\n';
+        out_metrics << "	ButtonTextContrastRadius: 1" << '\n';
+        out_metrics << "	ButtonCursor: default" << '\n';
+        out_metrics << "	ClickSound: click_sound" << '\n';
+        out_metrics << "	ClickDisabledSound: click_disabled_sound" << '\n';
+        out_metrics << "	TextDisabledColor: 808080FF" << '\n';
+        out_metrics << "\tTextfieldFont: Regular" << '\n';
+        out_metrics << "\tTextfieldColor: FFFFFFFF" << '\n';
+        out_metrics << "\tTextfieldColorDisabled: 808080FF" << '\n';
+        out_metrics << "\tTextfieldColorInvalid: FFFF00FF" << '\n';
+        out_metrics << "\tTextfieldColorHighlight: 808080FF" << '\n';
+        out_metrics << "\tNoticeSuccessColor: 00FF00FF" << '\n';
+        out_metrics << "\tNoticeErrorColor: FF0000FF" << '\n';
+        out_metrics << "\tNoticeInfoColor: FFFFFFFF" << '\n';
+      }
+      static fs::FileSystem fs_metrics21;
+      fs_metrics21.Mount(dir_metrics21.generic_string());
+      static const std::vector<std::string> vec_files_metrics21{
+          "metrics.yaml"};
+      metrics_panel21.Initialize({&fs_metrics21, &vec_files_metrics21});
+    }
+
+    ui::Ui::Deps deps_ui_21;
+    deps_ui_21.ptr_chrome_metrics = &metrics_panel21;
+    deps_ui_21.fn_window_size = [] { return int2{1280, 720}; };
+    deps_ui_21.fn_try_get_font =
+        [ptr_font = up_stub_holder21->up_font.get()](const std::string&) {
+          return ptr_font;
+        };
+    deps_ui_21.fn_load_widget =
+        [ptr_stub](ui::WidgetArgs&, ui::Widget* ptr_parent,
+                   const std::string& str_id) -> ui::Widget* {
+      ptr_stub->vec_loaded_ids.push_back(str_id);
+      ui::Widget* ptr_panel = ptr_stub->MakeLoadedTree(str_id);
+      if (ptr_parent != nullptr)
+        ptr_parent->AddChild(std::unique_ptr<ui::Widget>(ptr_panel));
+      return ptr_panel;
+    };
+    deps_ui_21.ptr_map_cache = &cache;
+    deps_ui_21.fn_cosmetic_random = [] {
+      return ptr_random_21.get();
+    };
+    deps_ui_21.fn_player_name = [] { return std::string{"Commander"}; };
+    static ui::ServerSettingsFace face_server_state21;
+    deps_ui_21.fn_server_settings_get = [] {
+      return face_server_state21;
+    };
+    deps_ui_21.fn_server_settings_set = [](
+        const ui::ServerSettingsFace& face_next) {
+      face_server_state21 = face_next;
+    };
+    static int int4_create_result21 = 1;  // 1 = 成功 | success
+    static int int4_create_error_code21 = 0;
+    static std::string str_create_error_message21;
+    static net::ConnectionTarget target_created21{"127.0.0.1", 4242};
+    deps_ui_21.fn_create_server =
+        [](const ui::ServerSettingsFace&, int& int4_code,
+           std::string& str_message, net::ConnectionTarget& target_out) {
+          int4_code = int4_create_error_code21;
+          str_message = str_create_error_message21;
+          if (int4_create_result21 == 1) {
+            target_out = target_created21;
+            return true;
+          }
+          return false;
+        };
+    static int int4_settings_save_count21 = 0;
+    deps_ui_21.fn_settings_save = [] { ++int4_settings_save_count21; };
+    static net::ConnectionTarget target_connected21{};
+    static bool b_connect_called21 = false;
+    deps_ui_21.fn_join_server =
+        [](const net::ConnectionTarget& target_next, const std::string&) {
+          target_connected21 = target_next;
+          b_connect_called21 = true;
+        };
+    static bool b_is_host21 = false;
+    deps_ui_21.fn_is_host = [] { return b_is_host21; };
+    ui::Ui::Instance().Initialize(std::move(deps_ui_21));
+
+    // ———— AssetBrowserData:ra mod.yaml 的 "AssetBrowser" 节点 ————
+    // ———— AssetBrowserData: ra mod.yaml's "AssetBrowser" node ————
+    {
+      const mods::AssetBrowserData data_browser =
+          mods::AssetBrowserData::FromManifest(mod_data);
+      CheckEq(data_browser.vec_sprite_extensions.size(), std::size_t{6},
+              "p6b21: ra lists six sprite extensions");
+      CheckEq(data_browser.vec_audio_extensions.size(), std::size_t{10},
+              "p6b21: ra lists eight audio extensions");
+      CheckEq(data_browser.vec_video_extensions.size(), std::size_t{2},
+              "p6b21: ra lists two video extensions");
+      Check(data_browser.vec_model_extensions.empty(),
+            "p6b21: ra declares no model extensions");
+      Check(std::find(data_browser.vec_sprite_extensions.begin(),
+                      data_browser.vec_sprite_extensions.end(),
+                      ".shp") !=
+                data_browser.vec_sprite_extensions.end() &&
+                std::find(data_browser.vec_audio_extensions.begin(),
+                          data_browser.vec_audio_extensions.end(),
+                          ".aud") !=
+                    data_browser.vec_audio_extensions.end(),
+            "p6b21: the extension tables lowercase and parse");
+    }
+
+    // ———— AssetBrowserLogic:真 ra 资产装载 ————
+    // ———— AssetBrowserLogic: loading real ra assets ————
+    {
+      ui::Widget* ptr_root_browser = ptr_stub->MakeRoot();
+      ui::Widget* ptr_list =
+          ptr_stub->AttachNew(*ptr_root_browser, "ASSET_LIST",
+                              PanelStub21::kScrollPanel);
+      for (const char* str_key :
+           {"ButtonDepth", "ButtonFont", "ButtonTextColor",
+            "ButtonTextColorDisabled", "ButtonTextContrast",
+            "ButtonTextShadow", "ButtonTextContrastColorDark",
+            "ButtonTextContrastColorLight", "ButtonTextContrastRadius",
+            "ClickSound", "ClickDisabledSound", "ButtonCursor"}) {
+        try {
+          metrics_panel21.Get(str_key);
+        } catch (const std::exception&) {
+        }
+      }
+      ui::Widget* ptr_item_tpl =
+          ptr_stub->AttachNew(*ptr_list, "ASSET_TEMPLATE",
+                              PanelStub21::kScrollItem);
+      ptr_stub->AttachNew(*ptr_item_tpl, "TITLE",
+                          PanelStub21::kLabelTooltip);
+      ptr_stub->AttachNew(*ptr_root_browser, "FILENAME_INPUT",
+                          PanelStub21::kTextField);
+      ptr_stub->AttachNew(*ptr_root_browser, "ANIMATION_TICKER",
+                          PanelStub21::kLogicTicker);
+      ptr_stub->AttachNew(*ptr_root_browser, "SOURCE_SELECTOR",
+                          PanelStub21::kDropDown);
+      ptr_stub->AttachNew(*ptr_root_browser, "ASSET_TYPES_DROPDOWN",
+                          PanelStub21::kDropDown);
+      ptr_stub->AttachNew(*ptr_root_browser, "SPRITE", PanelStub21::kSprite);
+      ptr_stub->AttachNew(*ptr_root_browser, "PLAYER",
+                          PanelStub21::kVideoPlayer);
+      ptr_stub->AttachNew(*ptr_root_browser, "ERROR", PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_root_browser, "PALETTE_SELECTOR",
+                          PanelStub21::kDropDown);
+      ptr_stub->AttachNew(*ptr_root_browser, "PALETTE_DESC",
+                          PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_root_browser, "COLOR",
+                          PanelStub21::kDropDown);
+      ptr_stub->AttachNew(*ptr_root_browser, "COLORBLOCK",
+                          PanelStub21::kColorBlock);
+      ptr_stub->AttachNew(*ptr_root_browser, "FRAME_SELECTOR",
+                          PanelStub21::kContainer);
+      ptr_stub->AttachNew(*ptr_root_browser, "FRAME_SLIDER",
+                          PanelStub21::kSlider);
+      ptr_stub->AttachNew(*ptr_root_browser, "FRAME_COUNT",
+                          PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_root_browser, "BUTTON_PLAY",
+                          PanelStub21::kButton);
+      ptr_stub->AttachNew(*ptr_root_browser, "BUTTON_PAUSE",
+                          PanelStub21::kButton);
+      ptr_stub->AttachNew(*ptr_root_browser, "BUTTON_STOP",
+                          PanelStub21::kButton);
+      ptr_stub->AttachNew(*ptr_root_browser, "BUTTON_NEXT",
+                          PanelStub21::kButton);
+      ptr_stub->AttachNew(*ptr_root_browser, "BUTTON_PREV",
+                          PanelStub21::kButton);
+      ptr_stub->AttachNew(*ptr_root_browser, "SPRITE_SCALE_SLIDER",
+                          PanelStub21::kSlider);
+      ptr_stub->AttachNew(*ptr_root_browser, "SPRITE_SCALE",
+                          PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_root_browser, "VOXEL_SELECTOR",
+                          PanelStub21::kContainer);
+      ptr_stub->AttachNew(*ptr_root_browser, "ROLL_SLIDER",
+                          PanelStub21::kSlider);
+      ptr_stub->AttachNew(*ptr_root_browser, "PITCH_SLIDER",
+                          PanelStub21::kSlider);
+      ptr_stub->AttachNew(*ptr_root_browser, "YAW_SLIDER",
+                          PanelStub21::kSlider);
+      ptr_stub->AttachNew(*ptr_root_browser, "MODEL_SCALE_SLIDER",
+                          PanelStub21::kSlider);
+      ptr_stub->AttachNew(*ptr_root_browser, "MODEL_SCALE",
+                          PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_root_browser, "CLOSE_BUTTON",
+                          PanelStub21::kButton);
+
+      auto logic_browser = std::make_unique<mods::AssetBrowserLogic>(
+          *ptr_root_browser, [] {}, mod_data, nullptr);
+
+      Check(!logic_browser->AssetFilePathsForTest().empty(),
+            "p6b21: the asset list enumerates mounted ra packages");
+
+      const std::string str_first_path =
+          logic_browser->AssetFilePathsForTest().empty()
+              ? std::string{}
+              : logic_browser->AssetFilePathsForTest().front();
+      Check(logic_browser->FilterAssetForTest(str_first_path),
+            "p6b21: the empty filter accepts every asset");
+      ptr_root_browser->Get<ui::TextFieldWidget>("FILENAME_INPUT")
+          ->SetText("zz-no-such-name");
+      Check(!logic_browser->FilterAssetForTest(str_first_path),
+            "p6b21: a miss filter rejects");
+      if (!str_first_path.empty()) {
+        const std::string str_token = str_first_path.substr(0, 1);
+        ptr_root_browser->Get<ui::TextFieldWidget>("FILENAME_INPUT")
+            ->SetText(str_token);
+        Check(logic_browser->FilterAssetForTest(str_first_path),
+              "p6b21: a substring filter accepts");
+      }
+      ptr_root_browser->Get<ui::TextFieldWidget>("FILENAME_INPUT")
+          ->SetText("");
+
+      const std::string* ptr_shp_path = nullptr;
+      const std::string* ptr_aud_path = nullptr;
+      for (const std::string& str_path :
+           logic_browser->AssetFilePathsForTest()) {
+        const std::size_t sz_dot = str_path.rfind('.');
+        if (sz_dot == std::string::npos)
+          continue;
+        const std::string str_ext = str_path.substr(sz_dot);
+        if (ptr_shp_path == nullptr && str_ext == ".shp")
+          ptr_shp_path = &str_path;
+        if (ptr_aud_path == nullptr && str_ext == ".aud")
+          ptr_aud_path = &str_path;
+      }
+      Check(ptr_shp_path != nullptr,
+            "p6b21: the ra packages expose a shp asset");
+
+      if (ptr_shp_path != nullptr) {
+        fs::IReadOnlyPackage* ptr_package = nullptr;
+        std::string str_actual;
+        Check(mod_data.ModFiles().TryGetPackageContaining(
+                  *ptr_shp_path, ptr_package, str_actual),
+              "p6b21: the shp resolves to its package");
+        if (ptr_package != nullptr) {
+          Check(logic_browser->LoadAssetForTest(ptr_package, str_actual),
+                "p6b21: the shp loads");
+          Check(logic_browser->CurrentSpriteCountForTest() > 0 &&
+                    !logic_browser->IsLoadErrorForTest(),
+                "p6b21: the shp decodes into sheet sprites");
+          CheckEq(logic_browser->CurrentFilenameForTest(), str_actual,
+                  "p6b21: the current filename tracks the load");
+          logic_browser->NextFrameForTest();
+          CheckEq(logic_browser->CurrentFrameForTest(), 1,
+                  "p6b21: the frame stepper advances");
+          ptr_root_browser->Get<ui::LabelWidget>("FRAME_COUNT")
+              ->fn_get_text();
+        }
+      }
+
+      if (ptr_aud_path != nullptr) {
+        fs::IReadOnlyPackage* ptr_package = nullptr;
+        std::string str_actual;
+        if (mod_data.ModFiles().TryGetPackageContaining(*ptr_aud_path,
+                                                       ptr_package,
+                                                       str_actual) &&
+            ptr_package != nullptr) {
+          const bool b_loaded =
+              logic_browser->LoadAssetForTest(ptr_package, str_actual);
+          Check(b_loaded && !logic_browser->IsLoadErrorForTest(),
+                "p6b21: the aud parses without an engine");
+          ptr_root_browser->Get<ui::Widget>("FRAME_SELECTOR")
+              ->fn_is_visible();
+          ptr_root_browser->Get<ui::ButtonWidget>("BUTTON_PLAY")
+              ->fn_on_click();
+        }
+      }
+
+      logic_browser->SetAnimateFramesForTest(true);
+      Check(ptr_root_browser->Get<ui::LogicTickerWidget>("ANIMATION_TICKER")
+                    ->fn_on_tick != nullptr,
+            "p6b21: the animation ticker wires the tick");
+      logic_browser.reset();
+    }
+
+    // ———— ServerCreationLogic:公告三标签 + CreateAndJoin 双路 ————
+    // ———— ServerCreationLogic: the notice trio + CreateAndJoin's two
+    // paths ————
+    {
+      for (const char* str_key :
+           {"TextfieldFont", "TextfieldColor", "TextfieldColorDisabled",
+            "TextfieldColorInvalid", "TextfieldColorHighlight",
+            "TextFont", "TextContrast", "TextShadow",
+            "TextContrastColorDark", "TextContrastColorLight",
+            "TextContrastRadius"}) {
+        try {
+          metrics_panel21.Get(str_key);
+        } catch (const std::exception&) {
+        }
+      }
+      ui::Widget* ptr_root_server = ptr_stub->MakeRoot();
+      ptr_stub->AttachNew(*ptr_root_server, "MAP_PREVIEW_ROOT",
+                          PanelStub21::kContainer);
+      ptr_stub->AttachNew(*ptr_root_server, "BACK_BUTTON",
+                          PanelStub21::kButton);
+      ptr_stub->AttachNew(*ptr_root_server, "CREATE_BUTTON",
+                          PanelStub21::kButton);
+      ptr_stub->AttachNew(*ptr_root_server, "MAP_BUTTON",
+                          PanelStub21::kButton);
+      ptr_stub->AttachNew(*ptr_root_server, "SERVER_NAME",
+                          PanelStub21::kTextField);
+      ptr_stub->AttachNew(*ptr_root_server, "LISTEN_PORT",
+                          PanelStub21::kTextField);
+      ptr_stub->AttachNew(*ptr_root_server, "ADVERTISE_CHECKBOX",
+                          PanelStub21::kCheckbox);
+      ptr_stub->AttachNew(*ptr_root_server, "PASSWORD",
+                          PanelStub21::kPasswordField);
+      ptr_stub->AttachNew(*ptr_root_server, "NOTICES_HEADER_A",
+                          PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_root_server, "NOTICES_HEADER_B",
+                          PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_root_server, "NOTICES_HEADER_C",
+                          PanelStub21::kLabel);
+      ui::Widget* ptr_no_upnp =
+          ptr_stub->AttachNew(*ptr_root_server, "NOTICES_NO_UPNP",
+                              PanelStub21::kContainer);
+      ptr_stub->AttachNew(*ptr_no_upnp, "SETTINGS_A",
+                          PanelStub21::kContainer);
+      ptr_stub->AttachNew(*ptr_no_upnp, "SETTINGS_B",
+                          PanelStub21::kContainer);
+      ptr_stub->AttachNew(*ptr_root_server, "NOTICES_UPNP",
+                          PanelStub21::kContainer);
+      ptr_stub->AttachNew(*ptr_root_server, "NOTICES_LAN",
+                          PanelStub21::kContainer);
+
+      face_server_state21 = ui::ServerSettingsFace{};
+      int4_create_result21 = 1;
+      int4_create_error_code21 = 0;
+      str_create_error_message21.clear();
+      int4_settings_save_count21 = 0;
+      b_connect_called21 = false;
+
+      bool b_opened_lobby21 = false;
+      auto logic_server = std::make_unique<mods::ServerCreationLogic>(
+          *ptr_root_server, mod_data, [] {},
+          [&b_opened_lobby21] { b_opened_lobby21 = true; });
+
+      CheckEq(logic_server->ServerNameForTest(),
+              std::string{"Commander's Game"},
+              "p6b21: an empty server name sanitizes to the player "
+              "fallback");
+      Check(logic_server->SelectedMapForTest() != nullptr,
+            "p6b21: an initial lobby map is chosen");
+      Check(logic_server->AdvertiseOnlineForTest(),
+            "p6b21: advertise defaults on");
+      CheckEq(logic_server->NoticesLabelBForTest(),
+              std::string{"label-internet-server-nat-B-disabled"},
+              "p6b21: the disabled nat labels notice B");
+      Check(logic_server->NoticesLabelBVisibleForTest(),
+            "p6b21: notice B shows while advertising");
+
+      logic_server->AdvertiseClickedForTest();
+      CheckEq(logic_server->NoticesLabelAForTest(),
+              std::string{"label-local-server"},
+              "p6b21: toggling off advertises the local notice");
+      Check(!logic_server->NoticesLabelBVisibleForTest(),
+            "p6b21: the lan mode hides notices B and C");
+      logic_server->AdvertiseClickedForTest();
+
+      ptr_root_server->Get<ui::PasswordFieldWidget>("PASSWORD")
+          ->SetText("pw");
+      ptr_root_server->Get<ui::TextFieldWidget>("LISTEN_PORT")
+          ->SetText("not-a-port");
+      logic_server->CreateClickedForTest();
+      Check(b_connect_called21 &&
+                target_connected21.ToString() == "127.0.0.1:4242",
+            "p6b21: a successful create connects to the local endpoint");
+      CheckEq(face_server_state21.ListenPort, 1234,
+              "p6b21: a bad port text falls back to 1234");
+      CheckEq(face_server_state21.Name, std::string{"Commander's Game"},
+              "p6b21: the sanitized name persists");
+      CheckEq(face_server_state21.Password, std::string{"pw"},
+              "p6b21: the password persists");
+      Check(!face_server_state21.Map.empty(),
+            "p6b21: the chosen map uid persists");
+      CheckEq(int4_settings_save_count21, 1,
+              "p6b21: the creation path saves settings once");
+      logic_server.reset();
+
+      int4_create_result21 = 0;
+      int4_create_error_code21 = 10048;
+      str_create_error_message21 = "address in use";
+      auto logic_server_fail = std::make_unique<mods::ServerCreationLogic>(
+          *ptr_root_server, mod_data, [] {}, [] {});
+      ptr_root_server->Get<ui::TextFieldWidget>("LISTEN_PORT")
+          ->SetText("1234");
+      logic_server_fail->CreateClickedForTest();
+      Check(ptr_stub->vec_loaded_ids.back() == "TWOBUTTON_PROMPT",
+            "p6b21: a port-used failure opens the two-button prompt");
+      logic_server_fail.reset();
+      int4_create_result21 = 1;
+    }
+
+    // ———— GameInfoLogic:ra 世界的可见 tab 装配 + AutoSelect ————
+    // ———— GameInfoLogic: the visible-tab assembly over the ra world +
+    // AutoSelect ————
+    {
+      ui::Widget* ptr_root_info = ptr_stub->MakeRoot();
+      ui::Widget* ptr_tabs_2 = ptr_stub->AttachNew(
+          *ptr_root_info, "TAB_CONTAINER_2", PanelStub21::kContainer);
+      ui::Widget* ptr_tab_button_1 =
+          ptr_stub->AttachNew(*ptr_tabs_2, "BUTTON1", PanelStub21::kButton);
+      ptr_stub->AttachNew(*ptr_tabs_2, "BUTTON2", PanelStub21::kButton);
+      for (const char* str_panel :
+           {"OBJECTIVES_PANEL", "MAP_PANEL", "LOBBY_OPTIONS_PANEL",
+            "DEBUG_PANEL", "CHAT_PANEL"})
+        ptr_stub->AttachNew(*ptr_root_info, str_panel,
+                            PanelStub21::kContainer);
+      ui::Widget* ptr_chat_panel =
+          ptr_root_info->Get("CHAT_PANEL");
+      ptr_stub->AttachNew(*ptr_chat_panel, "CHAT_TEXTFIELD",
+                          PanelStub21::kTextField);
+      ptr_stub->AttachNew(*ptr_root_info, "TITLE", PanelStub21::kLabel);
+
+      ptr_stub->vec_loaded_ids.clear();
+      auto logic_info = std::make_unique<mods::GameInfoLogic>(
+          *ptr_root_info, mod_data, *world,
+          mods::IngameInfoPanel::AutoSelect,
+          [](bool) {}, [] {});
+
+      CheckEq(logic_info->VisiblePanelsForTest().size(), std::size_t{2},
+              "p6b21: the skirmish world shows two info tabs");
+      if (logic_info->VisiblePanelsForTest().size() == 2) {
+        Check(logic_info->VisiblePanelsForTest()[0] ==
+                      mods::IngameInfoPanel::Objectives &&
+                  logic_info->VisiblePanelsForTest()[1] ==
+                      mods::IngameInfoPanel::LobbyOptions,
+              "p6b21: objectives + lobby options order");
+      }
+      Check(logic_info->ActivePanelForTest() ==
+                mods::IngameInfoPanel::Objectives,
+            "p6b21: AutoSelect lands on the first tab");
+      Check(std::find(ptr_stub->vec_loaded_ids.begin(),
+                      ptr_stub->vec_loaded_ids.end(),
+                      "SKIRMISH_STATS") != ptr_stub->vec_loaded_ids.end(),
+            "p6b21: the objectives panel loads the ra PanelName");
+      Check(std::find(ptr_stub->vec_loaded_ids.begin(),
+                      ptr_stub->vec_loaded_ids.end(),
+                      "LOBBY_OPTIONS_PANEL") != ptr_stub->vec_loaded_ids.end(),
+            "p6b21: the lobby options panel loads");
+
+      ptr_tab_button_1->Get<ui::ButtonWidget>("BUTTON1")->fn_on_click();
+      ptr_tab_button_1 = ptr_root_info->Get("TAB_CONTAINER_2")->Get(
+          "BUTTON1");
+      Check(logic_info->ActivePanelForTest() ==
+                mods::IngameInfoPanel::Objectives,
+            "p6b21: the first tab activates objectives");
+      const std::string str_title_expected =
+          world->MapPtr()->Categories().empty()
+              ? world->MapPtr()->Title()
+              : world->MapPtr()->Categories().front() + ": " +
+                    world->MapPtr()->Title();
+      CheckEq(logic_info->MapTitleForTest(), str_title_expected,
+              "p6b21: the title takes the category prefix");
+      logic_info.reset();
+    }
+
+    // ———— GameInfoObjectivesLogic:模板行重建 + 状态色 ————
+    // ———— GameInfoObjectivesLogic: the template-row rebuild + the
+    // status color ————
+    {
+      ui::Widget* ptr_root_obj = ptr_stub->MakeRoot();
+      ui::Widget* ptr_panel_obj =
+          ptr_stub->AttachNew(*ptr_root_obj, "OBJECTIVES_PANEL",
+                              PanelStub21::kScrollPanel);
+      ui::Widget* ptr_template_obj =
+          ptr_stub->AttachNew(*ptr_panel_obj, "OBJECTIVE_TEMPLATE",
+                              PanelStub21::kContainer);
+      ptr_stub->AttachNew(*ptr_template_obj, "OBJECTIVE_TYPE",
+                          PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_template_obj, "OBJECTIVE_STATUS",
+                          PanelStub21::kCheckbox);
+      ptr_stub->AttachNew(*ptr_root_obj, "MISSION_STATUS",
+                          PanelStub21::kLabel);
+
+      auto logic_objectives = std::make_unique<mods::GameInfoObjectivesLogic>(
+          *ptr_root_obj, *world);
+      Check(logic_objectives->ObjectivesTraitForTest() != nullptr,
+            "p6b21: the local player carries MissionObjectives");
+      CheckEq(logic_objectives->MissionStatusTextForTest(),
+              std::string{"label-mission-in-progress"},
+              "p6b21: an undecided player reads in-progress");
+
+      if (mods::MissionObjectives* ptr_mo =
+              logic_objectives->ObjectivesTraitForTest()) {
+        sim::Player* ptr_player_obj = world->LocalPlayer();
+        if (ptr_player_obj != nullptr) {
+          const std::size_t sz_before = ptr_mo->Objectives().size();
+          ptr_mo->Add(*ptr_player_obj, "find the docs", "secondary");
+          CheckEq(ptr_mo->Objectives().size(), sz_before + 1,
+                  "p6b21: an added objective lands");
+          CheckEq(ptr_panel_obj->Children().size(),
+                  ptr_mo->Objectives().size(),
+                  "p6b21: the redraw rebuilds one row per objective");
+
+          ptr_player_obj->SetWinState(sim::WinState::Won);
+          Check(ptr_root_obj->Get<ui::LabelWidget>("MISSION_STATUS")
+                        ->fn_get_text() ==
+                    "label-mission-accomplished",
+                "p6b21: a won player reads accomplished");
+          ptr_player_obj->SetWinState(sim::WinState::Undefined);
+        }
+      }
+      logic_objectives.reset();
+    }
+
+    // ———— GameInfoStatsLogic:计分板装配 ————
+    // ———— GameInfoStatsLogic: the score board assembly ————
+    {
+      ui::Widget* ptr_root_stats = ptr_stub->MakeRoot();
+      ui::Widget* ptr_player_list =
+          ptr_stub->AttachNew(*ptr_root_stats, "PLAYER_LIST",
+                              PanelStub21::kScrollPanel);
+      ui::Widget* ptr_team_tpl =
+          ptr_stub->AttachNew(*ptr_player_list, "TEAM_TEMPLATE",
+                              PanelStub21::kScrollItem);
+      ptr_stub->AttachNew(*ptr_team_tpl, "TEAM", PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_team_tpl, "TEAM_SCORE",
+                          PanelStub21::kLabel);
+      ui::Widget* ptr_player_tpl =
+          ptr_stub->AttachNew(*ptr_player_list, "PLAYER_TEMPLATE",
+                              PanelStub21::kContainer);
+      ptr_stub->AttachNew(*ptr_player_tpl, "NAME",
+                          PanelStub21::kLabelTooltip);
+      ptr_stub->AttachNew(*ptr_player_tpl, "FACTIONFLAG",
+                          PanelStub21::kImage);
+      ptr_stub->AttachNew(*ptr_player_tpl, "FACTION",
+                          PanelStub21::kLabelTooltip);
+      ptr_stub->AttachNew(*ptr_player_tpl, "SCORE", PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_player_tpl, "MUTE", PanelStub21::kCheckbox);
+      ptr_stub->AttachNew(*ptr_player_tpl, "KICK", PanelStub21::kButton);
+      ui::Widget* ptr_spectator_tpl =
+          ptr_stub->AttachNew(*ptr_player_list, "SPECTATOR_TEMPLATE",
+                              PanelStub21::kContainer);
+      ptr_stub->AttachNew(*ptr_spectator_tpl, "NAME",
+                          PanelStub21::kLabelTooltip);
+      ptr_stub->AttachNew(*ptr_spectator_tpl, "KICK",
+                          PanelStub21::kButton);
+      ptr_stub->AttachNew(*ptr_spectator_tpl, "MUTE",
+                          PanelStub21::kCheckbox);
+      ui::Widget* ptr_headers =
+          ptr_stub->AttachNew(*ptr_root_stats, "STATS_HEADERS",
+                              PanelStub21::kContainer);
+      ptr_stub->AttachNew(*ptr_headers, "ACTIONS", PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_root_stats, "STATS_CHECKBOX",
+                          PanelStub21::kCheckbox);
+      ptr_stub->AttachNew(*ptr_root_stats, "STATS_STATUS",
+                          PanelStub21::kLabel);
+      ptr_stub->AttachNew(*ptr_root_stats, "OBJECTIVE",
+                          PanelStub21::kContainer);
+
+      std::size_t sz_playable21 = 0;
+      std::set<int> set_teams21;
+      std::size_t sz_spectators21 = 0;
+      for (const sim::Player* p : world->Players()) {
+        if (!p->NonCombatant() && p->Playable()) {
+          ++sz_playable21;
+          const net::SessionClient* ptr_client_21 =
+              world->LobbyInfo().ClientWithIndex(p->ClientIndex());
+          set_teams21.insert(ptr_client_21 != nullptr ? ptr_client_21->Team
+                                                       : 0);
+        }
+      }
+      for (const net::SessionClient& client_21 :
+           game_.OrderManagerFace()->LobbyInfo().vec_clients)
+        if (client_21.IsObserver())
+          ++sz_spectators21;
+
+      world->SetLocalPlayerForTest(player_a);
+      if (net::SessionClient* ptr_local_client_21 =
+              game_.OrderManagerFace()->LocalClient())
+        ptr_local_client_21->Slot = "slot0";
+      sz_spectators21 = 0;
+      for (const net::SessionClient& client_21 :
+           game_.OrderManagerFace()->LobbyInfo().vec_clients)
+        if (client_21.IsObserver())
+          ++sz_spectators21;
+
+      auto logic_stats = std::make_unique<mods::GameInfoStatsLogic>(
+          *ptr_root_stats, mod_data, *world, *game_.OrderManagerFace(),
+          nullptr, [](bool) {}, [] {});
+
+      CheckEq(logic_stats->PlayerRowsForTest().size(), sz_playable21,
+              "p6b21: every playable combatant renders a row");
+      Check(logic_stats->TeamHeadersForTest().empty() ==
+                (set_teams21.size() <= 1),
+            "p6b21: headers appear iff more than one team");
+      CheckEq(logic_stats->SpectatorRowsForTest().size(), sz_spectators21,
+              "p6b21: spectator rows match the observer clients");
+      const bool b_local_combatant21 = world->LocalPlayer() != nullptr &&
+                                       !world->LocalPlayer()->NonCombatant();
+      CheckEq(logic_stats->StatusTextForTest(),
+              b_local_combatant21
+                  ? std::string{"label-mission-in-progress"}
+                  : std::string{},
+              "p6b21: the status line mirrors the local player");
+
+      if (b_local_combatant21) {
+        ui::Widget* ptr_stats_status = ptr_root_stats->Get("STATS_STATUS");
+        world->LocalPlayer()->SetWinState(sim::WinState::Lost);
+        Check(ptr_stats_status->Get<ui::LabelWidget>("STATS_STATUS")
+                      ->fn_get_text() == "label-mission-failed",
+              "p6b21: a lost local player flips the status line");
+        world->LocalPlayer()->SetWinState(sim::WinState::Undefined);
+      }
+      logic_stats.reset();
+    }
+  }
+
+
+    std::println("render_test: {} failures", g_failures);
 
 
   return g_failures != 0;

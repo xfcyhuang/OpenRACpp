@@ -47,6 +47,9 @@ struct GameServerData;
 namespace ora::gfx {
 class WorldRenderer;
 }
+namespace ora::map {
+class MapPreview;
+}
 namespace ora::game {
 class ModData;
 }
@@ -68,6 +71,7 @@ using YamlDictionary = std::vector<std::pair<std::string_view, const yaml::MiniY
 /// WidgetArgs 载荷(引擎与 Phase 6 逻辑实际穿越的类型闭包)
 /// The WidgetArgs payload (the closure of types actually threaded by the
 /// engine and Phase 6 logic).
+using GetMapFn = std::function<map::MapPreview*()>;
 using WidgetArgValue =
     std::variant<std::monostate, int2, std::int32_t, bool, std::string, Widget*, sim::World*,
                  net::OrderManager*, gfx::WorldRenderer*, game::ModData*, ChromeMetrics*,
@@ -84,7 +88,10 @@ using WidgetArgValue =
                  const std::string*,                          // password
                  net::ConnectionTarget*,                      // endpoint/directConnectEndPoint
                  net::NetworkConnection*,                     // connection
-                 std::function<void(server::GameServerData&)>>;  // onJoin
+                 std::function<void(server::GameServerData&)>,  // onJoin
+                 std::function<bool()>,                       // configurationDisabled
+                 map::MapPreview*,                            // getMap 的空槽形态 | getMap's null-slot shape
+                 GetMapFn>;                                   // getMap
 
 /// WidgetArgs(L673-679;插入序条目表)
 /// WidgetArgs (L673-679; an insertion-ordered entry list).

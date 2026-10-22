@@ -111,6 +111,13 @@ class Manifest final {
     return nullptr;
   }
 
+  /// GlobalModData(L80-89+L186):保留名之外的合并树节点(AssetBrowser 等
+  /// IGlobalModData 装载面;缺/保留名 = null)
+  /// GlobalModData (L80-89 + L186): the merged-tree node outside the
+  /// reserved module names (the IGlobalModData loading face of AssetBrowser
+  /// etc.; a missing/reserved key = null).
+  const yaml::MiniYaml* GlobalModDataNode(std::string_view key) const;
+
   /// PackageFormats(L159-161):包格式加载器名列表(标量 = 单元素;
   /// mod.yaml 事实形态)。消费方:ModData → IPackageLoader 集(Mix 等)。
   /// PackageFormats (L159-161): the package-format loader names (a scalar

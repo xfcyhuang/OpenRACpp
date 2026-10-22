@@ -32,7 +32,13 @@ class ModData;
 
 namespace ora::net {
 class TextNotification;
+enum class ClientState : int;
 }  // namespace ora::net
+
+namespace ora::sim {
+class Player;
+enum class WinState : std::int32_t;
+}  // namespace ora::sim
 
 namespace ora::ui {
 
@@ -159,5 +165,16 @@ std::string FormatCurrent(std::string_view str_format, double fp8_value);
 void SetupTextNotification(Widget& widget_notification,
                            const net::TextNotification& notification,
                            int int4_box_width, bool b_with_timestamp);
+
+/// WithSuffix(L333-345):断线/胜负名后缀
+/// WithSuffix (L333-345): the disconnected/won/lost name suffixes.
+std::string WithSuffix(const std::string& str_name, sim::WinState win_state,
+                       net::ClientState client_state);
+
+/// BindPlayerNameAndStatus(L347-361):截断 + tooltip 双态绑定
+/// BindPlayerNameAndStatus (L347-361): the truncation + tooltip dual-state
+/// bind.
+void BindPlayerNameAndStatus(LabelWithTooltipWidget& label_target,
+                             sim::Player& player);
 
 }  // namespace ora::ui

@@ -276,7 +276,8 @@ add_library(ora_net STATIC
   src/net/replay_recorder.cpp
   src/net/sync_report.cpp
   src/net/replay_diff.cpp
-  src/net/game_save.cpp)
+  src/net/game_save.cpp
+  src/net/nat.cpp)
 target_link_libraries(ora_net PUBLIC ora_sim ora_yaml PRIVATE ora_fluent)
 ora_link_std(ora_net)
 
@@ -585,6 +586,10 @@ add_library(ora_mods STATIC
   src/mods/music_playlist.cpp
   src/mods/connection_logics.cpp
   src/mods/server_list_logic.cpp
+  src/mods/lobby_utils.cpp
+  src/mods/game_info_logics.cpp
+  src/mods/server_creation_logic.cpp
+  src/mods/asset_browser_logic.cpp
   src/mods/trait_registry_batch17.cpp
   src/mods/trait_registry_batch18.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui ora_sound)

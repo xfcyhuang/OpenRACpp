@@ -17,7 +17,8 @@ void ButtonPrompt(const std::string& str_title, const std::string& str_text,
                   const std::string& str_cancel_text,
                   std::function<void()> fn_on_other,
                   const std::string& str_other_text,
-                  const FluentArgs& vec_text_arguments) {
+                  const FluentArgs& vec_text_arguments,
+                  const FluentArgs& vec_title_arguments) {
   const std::string str_prompt_name =
       fn_on_other != nullptr ? "THREEBUTTON_PROMPT" : "TWOBUTTON_PROMPT";
   ora::ui::Widget* ptr_prompt =
@@ -30,7 +31,8 @@ void ButtonPrompt(const std::string& str_title, const std::string& str_text,
       ptr_prompt->GetOrNull<ora::ui::ButtonWidget>("OTHER_BUTTON");
 
   const std::string str_title_message =
-      fluent::FluentProvider::Instance().GetMessage(str_title);
+      fluent::FluentProvider::Instance().GetMessage(str_title,
+                                                    vec_title_arguments);
   ptr_prompt->Get<ora::ui::LabelWidget>("PROMPT_TITLE")->fn_get_text =
       [str_title_message] { return str_title_message; };
 

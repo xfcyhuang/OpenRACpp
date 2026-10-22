@@ -245,4 +245,22 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
   vec_missions_ = YamlListOf(vec_yaml, "Missions");
 }
 
+const yaml::MiniYaml* Manifest::GlobalModDataNode(
+    std::string_view str_key) const {
+  static constexpr std::array<std::string_view, 33> kReservedModuleNames{
+      "Include", "Metadata", "FileSystem", "MapFolders", "Rules",
+      "Sequences", "ModelSequences", "Cursors", "Chrome", "Assemblies",
+      "ChromeLayout", "Weapons", "Voices", "Notifications", "Music",
+      "FluentMessages", "TileSets", "ChromeMetrics", "Missions", "Hotkeys",
+      "ServerTraits", "LoadScreen", "DefaultOrderGenerator",
+      "SupportsMapsFrom", "SoundFormats", "SpriteFormats", "VideoFormats",
+      "SpriteSequenceFormat", "TerrainFormat", "RequiresMods",
+      "PackageFormats", "AllowUnusedFluentMessagesInExternalPackages",
+      "RendererConstants"};
+  for (std::string_view str_reserved : kReservedModuleNames)
+    if (str_reserved == str_key)
+      return nullptr;
+  return MergedNode(str_key);
+}
+
 }  // namespace ora::game
