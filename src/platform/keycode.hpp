@@ -12,6 +12,13 @@
 #pragma once
 import std;
 
+#ifdef DELETE
+#undef DELETE
+#endif
+#ifdef OUT
+#undef OUT
+#endif
+
 namespace ora {
 
 /// SDL 2.0.1 键码克隆 + MOUSE4/MOUSE5 扩展(值 = SDL_Keycode | 1<<30 段)。

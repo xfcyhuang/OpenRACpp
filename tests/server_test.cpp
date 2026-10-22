@@ -24,6 +24,7 @@ import std;
 #include "net/unit_orders.hpp"
 #include "server/game_information.hpp"
 #include "server/game_server.hpp"
+#include "server/lan_probe.hpp"
 #include "net/handshake.hpp"
 #include "server/lobby_commands.hpp"
 #include "server/master_server_pinger.hpp"
@@ -1654,6 +1655,53 @@ void TestLanBeacon() {
   }
 }
 
+void TestLanProbe() {
+  std::println("[server] lan probe");
+  auto beacon = srv::LanBeacon{"OpenRALANGame", 43210, nullptr};
+  Check(beacon.IsValid(), "probe test: beacon binds discovery port");
+  if (!beacon.IsValid())
+    return;
+  beacon.SetBeaconData(
+      "Game:\n"
+      "\tName: ProbeTest\n"
+      "\tAddress: 0.0.0.0:43210\n"
+      "\tState: 1\n"
+      "\tMod: ra\n"
+      "\tVersion: 1.0\n"
+      "\tModTitle: Red Alert\n"
+      "\tMap: map-uid-x\n"
+      "\tId: guid-other\n"
+      "\tPlayers: 1\n"
+      "\tSpectators: 0\n"
+      "\tBots: 0\n"
+      "\tMods: ra@1.0\n");
+  beacon.Start();
+
+  auto probe = srv::LanProbe{"OpenRALANGame"};
+  Check(probe.IsValid(), "probe binds discovery port");
+  if (!probe.IsValid())
+    return;
+  probe.Start();
+
+  auto vec_locations = std::vector<srv::LanProbe::Location>{};
+  for (int int4_attempt = 0; int4_attempt < 40; ++int4_attempt) {
+    std::this_thread::sleep_for(std::chrono::milliseconds{100});
+    vec_locations = probe.Locations();
+    if (!vec_locations.empty())
+      break;
+  }
+  Check(!vec_locations.empty(),
+        "probe discovers the advertised beacon");
+  if (!vec_locations.empty()) {
+    Check(vec_locations.front().str_address.find("43210") !=
+              std::string::npos,
+          "probe records the advertised port");
+    Check(vec_locations.front().str_data.find("Name: ProbeTest") !=
+              std::string::npos,
+          "probe carries the beacon data");
+  }
+}
+
 }  // namespace
 
 // ———— 9. 客户端接线(NetworkConnection + OrderManager + ProcessOrder 的
@@ -2073,6 +2121,7 @@ int main() {
   TestMasterServerPingerAndGameServer();
   TestMasterServerPingerDefaultBeastPost();
   TestLanBeacon();
+  TestLanProbe();
   TestClientWiring();
   TestClientPureBranches();
 

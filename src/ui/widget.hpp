@@ -37,7 +37,12 @@ class Player;
 }
 namespace ora::net {
 class OrderManager;
+class ConnectionTarget;
+class NetworkConnection;
 struct SessionClient;
+}
+namespace ora::server {
+struct GameServerData;
 }
 namespace ora::gfx {
 class WorldRenderer;
@@ -75,7 +80,11 @@ using WidgetArgValue =
                  const std::map<std::string, std::int32_t>*,  // substitutions
                  const YamlDictionary*,                       // logicArgs
                  const std::vector<std::string>*,             // remoteMapPool
-                 std::function<void(const std::string&)>>;    // onSelect(uid)
+                 std::function<void(const std::string&)>,     // onSelect(uid)/onRetry
+                 const std::string*,                          // password
+                 net::ConnectionTarget*,                      // endpoint/directConnectEndPoint
+                 net::NetworkConnection*,                     // connection
+                 std::function<void(server::GameServerData&)>>;  // onJoin
 
 /// WidgetArgs(L673-679;插入序条目表)
 /// WidgetArgs (L673-679; an insertion-ordered entry list).

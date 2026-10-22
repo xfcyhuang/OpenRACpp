@@ -59,6 +59,10 @@ constexpr FieldDesc kGameSettingsFields[] = {
     {.str_name = "StatusBars", .type = FieldType::Enum},
     {.str_name = "TargetLines", .type = FieldType::Enum},
     {.str_name = "UsePlayerStanceColors", .type = FieldType::Bool},
+    {.str_name = "AllowDownloading", .type = FieldType::Bool,
+     .b_required = false},
+    {.str_name = "MPGameFilters", .type = FieldType::Enum, .b_required = false,
+     .str_loader = {}, .str_type_name = "OpenRA.MPGameFilters"},
 };
 
 /// GraphicSettings 字段表(Settings.cs L237-280;全字段;枚举经本文件的
@@ -120,6 +124,8 @@ const std::vector<GenericValue>& GameSettingsDefaults() {
       GenericValue::Of(static_cast<std::int64_t>(0)),
       GenericValue::Of(static_cast<std::int64_t>(1)),
       GenericValue::Of(false),
+      GenericValue::Of(true),
+      GenericValue::Of(static_cast<std::int64_t>(15)),
   };
   return vec_defaults;
 }
@@ -367,12 +373,21 @@ constexpr meta::EnumMemberDesc kEnumTargetLinesType[] = {
     {.str_name = "Manual", .int4_value = 1},
     {.str_name = "Automatic", .int4_value = 2},
 };
+constexpr meta::EnumMemberDesc kEnumMPGameFilters[] = {
+    {.str_name = "None", .int4_value = 0},
+    {.str_name = "Waiting", .int4_value = 1},
+    {.str_name = "Empty", .int4_value = 2},
+    {.str_name = "Protected", .int4_value = 4},
+    {.str_name = "Started", .int4_value = 8},
+    {.str_name = "Incompatible", .int4_value = 16},
+};
 
 void RegisterGameSettingsEnums() {
   meta::RegisterEnum("OpenRA.MouseControlStyle", kEnumMouseControlStyle);
   meta::RegisterEnum("OpenRA.MouseScrollType", kEnumMouseScrollType);
   meta::RegisterEnum("OpenRA.StatusBarsType", kEnumStatusBarsType);
   meta::RegisterEnum("OpenRA.TargetLinesType", kEnumTargetLinesType);
+  meta::RegisterEnum("OpenRA.MPGameFilters", kEnumMPGameFilters);
 }
 
 }  // namespace

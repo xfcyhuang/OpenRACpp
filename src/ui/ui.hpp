@@ -276,10 +276,35 @@ class Ui {
         [] { return std::string{}; };
     std::function<void(const std::string&)> fn_write_news_cache =
         [](const std::string&) {};
+    std::function<int()> fn_mp_game_filters_get = [] { return 15; };
+    std::function<void(int)> fn_mp_game_filters_set = [](int) {};
+    std::function<bool()> fn_allow_downloading = [] { return true; };
+    std::function<std::string()> fn_player_last_server_get = [] {
+      return std::string{"localhost:1234"};
+    };
+    std::function<void(const std::string&)> fn_player_last_server_set =
+        [](const std::string&) {};
+    std::function<void(const net::ConnectionTarget&, const std::string&)>
+        fn_join_server = [](const net::ConnectionTarget&, const std::string&) {
+        };
+    std::function<std::string()> fn_engine_version = [] {
+      return std::string{"dev"};
+    };
+    std::function<std::string()> fn_session_guid = [] {
+      return std::string{};
+    };
+    std::function<void(const std::string&,
+                       std::function<void(bool, std::string)>)>
+        fn_fetch_server_list =
+            [](const std::string&,
+               std::function<void(bool, std::string)> fn_done) {
+              fn_done(false, std::string{});
+            };
     map::MapCache* ptr_map_cache = nullptr;
   };
 
   void Initialize(Deps deps);
+  const Deps& DepsForTest() const { return deps_; }
 
   gfx::Renderer* RendererDeps() const { return deps_.ptr_renderer; }
   gfx::ChromeProvider* ChromeProviderDeps() const { return deps_.ptr_chrome_provider; }
@@ -410,6 +435,28 @@ class Ui {
   std::vector<core::Color> CustomColorsDeps() const { return deps_.fn_get_custom_colors(); }
   void StoreCustomColorsDeps(const std::vector<core::Color>& vec_colors) const {
     deps_.fn_store_custom_colors(vec_colors);
+  }
+  int MPGameFiltersGetDeps() const { return deps_.fn_mp_game_filters_get(); }
+  void MPGameFiltersSetDeps(int int4_filters) const {
+    deps_.fn_mp_game_filters_set(int4_filters);
+  }
+  bool AllowDownloadingDeps() const { return deps_.fn_allow_downloading(); }
+  std::string PlayerLastServerGetDeps() const {
+    return deps_.fn_player_last_server_get();
+  }
+  void PlayerLastServerSetDeps(const std::string& str_server) const {
+    deps_.fn_player_last_server_set(str_server);
+  }
+  void JoinServerDeps(const net::ConnectionTarget& target_endpoint,
+                      const std::string& str_password) const {
+    deps_.fn_join_server(target_endpoint, str_password);
+  }
+  std::string EngineVersionDeps() const { return deps_.fn_engine_version(); }
+  std::string SessionGuidDeps() const { return deps_.fn_session_guid(); }
+  void FetchServerListDeps(
+      const std::string& str_url,
+      std::function<void(bool, std::string)> fn_done) const {
+    deps_.fn_fetch_server_list(str_url, std::move(fn_done));
   }
 
   Widget* MouseFocusWidget() const { return ptr_mouse_focus_; }

@@ -3336,6 +3336,46 @@ int main(int argc, char** argv) {
     Check(deps_cash_ticks.fn_cash_ticks(), "fn_cash_ticks 缺省 = 上游默认 true");
   }
 
+  {
+    game::Settings settings_game20;
+    const game::SettingsModule* ptr_module_game =
+        settings_game20.Module("Game");
+    Check(ptr_module_game != nullptr, "Settings Game 段装配");
+    if (ptr_module_game != nullptr) {
+      const meta::GeneratedRecord& record_game = ptr_module_game->Record();
+      const auto& vec_game = record_game.Values();
+      std::size_t sz_index_allow = vec_game.size();
+      std::size_t sz_index_filters = vec_game.size();
+      const auto span_fields_game = record_game.record_desc().fields;
+      for (std::size_t sz_i = 0; sz_i < span_fields_game.size(); ++sz_i) {
+        const std::string_view sv_name = span_fields_game[sz_i].str_name;
+        if (sv_name == "AllowDownloading")
+          sz_index_allow = sz_i;
+        else if (sv_name == "MPGameFilters")
+          sz_index_filters = sz_i;
+      }
+      Check(sz_index_allow < vec_game.size() &&
+                std::get<bool>(vec_game[sz_index_allow].val),
+            "AllowDownloading 默认 true");
+      Check(sz_index_filters < vec_game.size() &&
+                std::get<std::int64_t>(vec_game[sz_index_filters].val) == 15,
+            "MPGameFilters 默认 Waiting|Empty|Protected|Started");
+
+      yaml::StringPool pool_game20;
+      std::vector<yaml::MiniYamlNode> vec_override20;
+      vec_override20.emplace_back(
+          pool_game20.Intern("Game"),
+          yaml::MiniYaml{nullptr,
+                         std::vector<yaml::MiniYamlNode>{
+                             {pool_game20.Intern("MPGameFilters"),
+                              yaml::MiniYaml{pool_game20.Intern(
+                                  "Waiting, Protected")}}}});
+      settings_game20.Load(vec_override20, pool_game20);
+      Check(std::get<std::int64_t>(vec_game[sz_index_filters].val) == 5,
+            "MPGameFilters 覆写为 Waiting|Protected");
+    }
+  }
+
   if (int4_failures == 0) {
     std::println("ui_test: all passed");
     return 0;

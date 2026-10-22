@@ -304,6 +304,7 @@ add_library(ora_server STATIC
   src/server/player_pinger.cpp
   src/server/game_server.cpp
   src/server/master_server_pinger.cpp
+  src/server/lan_probe.cpp
   src/server/lobby_commands.cpp)
 target_link_libraries(ora_server PUBLIC ora_net ora_game PRIVATE ora_map ora_platform ora_sim ora_boost_url ora_http)
 ora_link_std(ora_server)
@@ -582,6 +583,8 @@ add_library(ora_mods STATIC
   src/mods/ingame_menu_logic.cpp
   src/mods/main_menu_logic.cpp
   src/mods/music_playlist.cpp
+  src/mods/connection_logics.cpp
+  src/mods/server_list_logic.cpp
   src/mods/trait_registry_batch17.cpp
   src/mods/trait_registry_batch18.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui ora_sound)

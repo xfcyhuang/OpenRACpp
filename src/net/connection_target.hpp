@@ -47,6 +47,11 @@ class ConnectionTarget {
   /// ToString (L56-61): "host:port" joined with "/".
   std::string ToString() const;
 
+  /// 逻辑首端点视图(connection.EndPoint 的 IpEndPoint 面承载)
+  const DnsEndpoint* FirstEndpoint() const {
+    return vec_endpoints_.empty() ? nullptr : &vec_endpoints_.front();
+  }
+
  private:
   std::vector<DnsEndpoint> vec_endpoints_;
 };

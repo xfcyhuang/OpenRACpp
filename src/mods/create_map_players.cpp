@@ -21,6 +21,8 @@ import std;
 #include "mods/ingame_menu_logic.hpp"
 #include "mods/main_menu_logic.hpp"
 #include "mods/browser_logics.hpp"
+#include "mods/connection_logics.hpp"
+#include "mods/server_list_logic.hpp"
 #include "mods/menu_logics.hpp"
 
 #include "meta/field_loader.hpp"
@@ -934,6 +936,8 @@ void RegisterCommonTraits() {
     RegisterIngameMenuLogic();
     RegisterMainMenuLogic();
     RegisterBrowserLogics();
+    RegisterConnectionLogics();
+    RegisterServerListLogics();
 
     return true;
   }();

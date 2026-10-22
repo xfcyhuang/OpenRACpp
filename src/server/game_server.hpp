@@ -1,26 +1,34 @@
-// UPSTREAM: OpenRA.Game/Network/GameServer.cs @e180e3225 L19-166,196-265
-//          (服务器侧面全文:GameClient 的 Session.Client 投影 + GameServer
-//          (Server) ctor 的 13 字段装配 + ToPOSTData 的 SerializeFields
-//          序列化 + LAN 附加四字段与 Clients 节;MiniYaml(yaml) 的解析
-//          ctor 属主服务器浏览器客户端面,随 Phase 6/7 客户端批落地;
-//          WebServices/GeoIP 的 Location 字段为空承载)
-//          The whole of the server-side face of GameServer.cs (GameClient's
-//          Session.Client projection + the GameServer(Server) ctor's
-//          13-field assembly + ToPOSTData's SerializeFields serialization +
-//          the LAN's four extra fields and the Clients node; the MiniYaml
-//          parse ctor belongs to the master-server browser's client face and
-//          rides the Phase 6/7 client batch; the WebServices/GeoIP Location
-//          field stays empty).
 #pragma once
 import std;
 
 #include "core/color.hpp"
 #include "net/session.hpp"
 
+namespace ora::yaml {
+class MiniYaml;
+}
 
 namespace ora::server {
 
 class Server;
+
+struct GameServerClientDeps {
+  std::function<bool(const std::string&, const std::string&)>
+      fn_external_mod_compatible =
+          [](const std::string&, const std::string&) { return false; };
+  std::function<std::optional<std::string>(const std::string&, const std::string&)>
+      fn_external_mod_id =
+          [](const std::string&, const std::string&) {
+            return std::optional<std::string>{};
+          };
+  std::function<std::optional<std::string>(const std::string&)> fn_mod_title =
+      [](const std::string&) { return std::optional<std::string>{}; };
+  std::function<bool()> fn_allow_downloading = [] { return true; };
+  std::function<bool(const std::string&)> fn_map_available =
+      [](const std::string&) { return false; };
+};
+
+GameServerClientDeps& GameServerClientDepsRef();
 
 /// GameClient(GameServer.cs L21-37)
 /// GameClient (GameServer.cs L21-37).
@@ -37,6 +45,7 @@ struct GameClientData {
 
   GameClientData() = default;
   explicit GameClientData(const net::SessionClient& c);
+  static std::optional<GameClientData> TryFromYaml(const yaml::MiniYaml& yaml);
 };
 
 /// GameServer 的服务器侧装配面(GameServer.cs L75-166 的子集;解析 ctor
@@ -66,6 +75,25 @@ struct GameServerData {
   /// Platform.SessionGUID.ToString()(LAN ToPOSTData 的 Id 字段)
   /// Platform.SessionGUID.ToString() (LAN ToPOSTData's Id field).
   std::string SessionGuid;
+
+  std::string Started;                // L123(仅 yaml 解析域)
+  int Players = 0;                    // L126
+  int Bots = 0;                       // L129
+  int Spectators = 0;                 // L132
+  int PlayTime = -1;                  // L135
+  bool IsCompatible = false;          // L139
+  bool IsJoinable = false;            // L141
+  bool b_address_null = false;
+
+  static std::optional<GameServerData> TryFromYaml(const yaml::MiniYaml& yaml);
+
+  GameServerData() = default;
+
+  /// ModLabel => $"{ModTitle} ({Version})"(L167)
+  /// ModLabel (L167).
+  std::string ModLabel() const {
+    return ModTitle + " (" + Version + ")";
+  }
 
   /// GameServer(Server)(L196-219)
   GameServerData(const Server& server);

@@ -15,6 +15,10 @@
 #pragma once
 import std;
 
+#ifdef GetMessage
+#undef GetMessage
+#endif
+
 #include "fluent/fluent_bundle.hpp"
 
 namespace ora::yaml {

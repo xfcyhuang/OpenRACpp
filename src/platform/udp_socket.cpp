@@ -33,6 +33,11 @@ UdpSocket UdpSocket::BindAny(int int4_port) {
   setsockopt(h_socket, SOL_SOCKET, SO_REUSEADDR,
              reinterpret_cast<const char*>(&b_reuse), sizeof(b_reuse));
 
+  BOOL b_broadcast = TRUE;
+  setsockopt(h_socket, SOL_SOCKET, SO_BROADCAST,
+             reinterpret_cast<const char*>(&b_broadcast),
+             sizeof(b_broadcast));
+
   sockaddr_in addr_bind{};
   addr_bind.sin_family = AF_INET;
   addr_bind.sin_addr.s_addr = htonl(INADDR_ANY);

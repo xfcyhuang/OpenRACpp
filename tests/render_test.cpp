@@ -19,6 +19,7 @@ import std;
 #include "gfx/chrome_provider.hpp"
 #include "gfx/sheet.hpp"
 #include "mods/music_playlist.hpp"
+#include "mods/server_list_logic.hpp"
 #include "mods/video_player_widget.hpp"
 #include "platform/ifont.hpp"
 #include "ui/ui.hpp"
@@ -120,6 +121,7 @@ import std;
 #include "mods/tooltip.hpp"
 #include "net/order.hpp"
 #include "net/order_io.hpp"
+#include "net/connection_target.hpp"
 #include "net/replay_recorder.hpp"
 #include "net/sync_report.hpp"
 #include "sim/actor.hpp"
@@ -4701,6 +4703,639 @@ int main(int argc, char** argv) {
 
       std::error_code ec_cleanup19{};
       std::filesystem::remove_all("Saves", ec_cleanup19);
+    }
+  }
+
+  // ———— Phase 6 第二十批:连接链 + 服务器列表 ————
+  // ———— Phase 6 batch 20: the connection chain + the server list ————
+  {
+    std::println("-- batch 20: connection chain + server list --");
+
+    auto& deps_server_game = server::GameServerClientDepsRef();
+    const server::GameServerClientDeps deps_server_game_saved = [&] {
+      server::GameServerClientDeps deps_copy{};
+      deps_copy.fn_external_mod_compatible =
+          deps_server_game.fn_external_mod_compatible;
+      deps_copy.fn_external_mod_id = deps_server_game.fn_external_mod_id;
+      deps_copy.fn_mod_title = deps_server_game.fn_mod_title;
+      deps_copy.fn_allow_downloading =
+          deps_server_game.fn_allow_downloading;
+      deps_copy.fn_map_available = deps_server_game.fn_map_available;
+      return deps_copy;
+    }();
+    deps_server_game.fn_external_mod_compatible =
+        [](const std::string& str_mod, const std::string& str_version) {
+          return str_mod == "ra" && str_version == "1.0-test";
+        };
+    deps_server_game.fn_external_mod_id =
+        [](const std::string& str_mod, const std::string&) {
+          return str_mod == "ra" ? std::optional<std::string>{"Red Alert"}
+                                 : std::nullopt;
+        };
+    deps_server_game.fn_mod_title = [](const std::string& str_mod) {
+      return str_mod == "ra" ? std::optional<std::string>{"Installed Mod"}
+                             : std::nullopt;
+    };
+    deps_server_game.fn_allow_downloading = [] { return true; };
+    deps_server_game.fn_map_available = [](const std::string& str_map) {
+      return str_map == "map-uid-b";
+    };
+
+    {
+      const auto make_yaml = [](std::string_view sv_body) {
+        return yaml::MiniYaml::FromString(
+            std::string{sv_body}, "test20",
+            true, yaml::MiniYaml::GlobalPool());
+      };
+
+      const auto opt_alpha = server::GameServerData::TryFromYaml(
+          make_yaml(
+              "Game:\n"
+              "\tProtocol: 2\n"
+              "\tName: Alpha Server\n"
+              "\tAddress: 10.0.0.1:1234\n"
+              "\tPort: 1234\n"
+              "\tState: 1\n"
+              "\tMaxPlayers: 4\n"
+              "\tMap: map-uid-a\n"
+              "\tMod: ra\n"
+              "\tVersion: 1.0-test\n"
+              "\tProtected: True\n"
+              "\tAuthentication: False\n"
+              "\tPlayers: 2\n"
+              "\tBots: 1\n"
+              "\tSpectators: 1\n"
+              "\tLocation: Testland\n"
+              "\tDisabledSpawnPoints: 1, 3\n"
+              "\tClients:\n"
+              "\t\tClient@0:\n"
+              "\t\t\tName: Alice\n"
+              "\t\t\tColor: FFFF0000\n"
+              "\t\t\tFaction: soviet\n"
+              "\t\t\tTeam: 1\n"
+              "\t\t\tSpawnPoint: 2\n"
+              "\t\t\tIsAdmin: True\n"
+              "\t\t\tIsSpectator: False\n"
+              "\t\t\tIsBot: False\n"
+              "\t\tClient@1:\n"
+              "\t\t\tName: bots.easy\n"
+              "\t\t\tTeam: 0\n"
+              "\t\t\tSpawnPoint: 3\n"
+              "\t\t\tIsBot: True\n"
+              "\t\t\tPlayer: 0\n")
+              .front()
+              .Value);
+      Check(opt_alpha.has_value(),
+            "p6b20: a full server yaml parses");
+      if (opt_alpha.has_value()) {
+        CheckEq(opt_alpha->Name, std::string{"Alpha Server"},
+                "p6b20: the name field loads");
+        CheckEq(opt_alpha->Address, std::string{"10.0.0.1:1234"},
+                "p6b20: the address field loads");
+        CheckEq(opt_alpha->State, 1, "p6b20: the state field loads");
+        CheckEq(opt_alpha->Players, 2, "p6b20: the players field loads");
+        Check(opt_alpha->Protected && !opt_alpha->Authentication,
+              "p6b20: the bool pair loads");
+        CheckEq(opt_alpha->vec_disabled_spawn_points.size(),
+                std::size_t{2},
+                "p6b20: the disabled spawn points split");
+        CheckEq(opt_alpha->vec_disabled_spawn_points[1], 3,
+                "p6b20: the second disabled spawn point parses");
+        CheckEq(opt_alpha->vec_clients.size(), std::size_t{2},
+                "p6b20: the client nodes load");
+        CheckEq(opt_alpha->vec_clients[0].Faction, std::string{"soviet"},
+                "p6b20: the client faction loads");
+        Check(opt_alpha->vec_clients[0].IsAdmin &&
+                  !opt_alpha->vec_clients[0].IsSpectator,
+              "p6b20: the client bools load");
+        Check(opt_alpha->vec_clients[1].IsBot,
+              "p6b20: the bot flag loads");
+        Check(opt_alpha->IsCompatible,
+              "p6b20: the external-mod dep marks compatible");
+        Check(opt_alpha->IsJoinable,
+              "p6b20: waiting + compatible + allow-downloading joins");
+        CheckEq(opt_alpha->ModLabel(), std::string{"Red Alert (1.0-test)"},
+                "p6b20: the mod label joins title and version");
+      }
+
+      const auto opt_playing = server::GameServerData::TryFromYaml(
+          make_yaml(
+              "Game:\n"
+              "\tAddress: 10.0.0.2:1235\n"
+              "\tState: 2\n"
+              "\tMap: map-uid-b\n"
+              "\tMod: ra\n"
+              "\tVersion: 1.0-test\n"
+              "\tModTitle: Red Alert\n"
+              "\tStarted: 2000-01-01T00:00:00\n"
+              "\tPlayTime: 600\n")
+              .front()
+              .Value);
+      Check(opt_playing.has_value() && opt_playing->PlayTime == 600 &&
+                opt_playing->IsCompatible && !opt_playing->IsJoinable,
+            "p6b20: an explicit play time survives and a started game "
+            "stays unjoinable");
+
+      const auto opt_backcalc = server::GameServerData::TryFromYaml(
+          make_yaml(
+              "Game:\n"
+              "\tAddress: 10.0.0.2:1235\n"
+              "\tState: 2\n"
+              "\tMap: map-uid-b\n"
+              "\tMod: ra\n"
+              "\tVersion: 1.0-test\n"
+              "\tModTitle: Red Alert\n"
+              "\tStarted: 2000-01-01T00:00:00\n")
+              .front()
+              .Value);
+      Check(opt_backcalc.has_value() && opt_backcalc->PlayTime > 1000,
+            "p6b20: a missing play time back-calculates from Started");
+
+      const auto opt_legacy = server::GameServerData::TryFromYaml(
+          make_yaml(
+              "Game:\n"
+              "\tAddress: 10.0.0.3:1236\n"
+              "\tState: 1\n"
+              "\tMap: map-uid-b\n"
+              "\tMod:\n"
+              "\tVersion:\n"
+              "\tMods: ra@1.0-test\n")
+              .front()
+              .Value);
+      Check(opt_legacy.has_value() &&
+                opt_legacy->Mod == "ra" &&
+                opt_legacy->Version == "1.0-test" &&
+                opt_legacy->ModTitle == "Red Alert",
+            "p6b20: the legacy Mods@ field falls back");
+
+      const auto opt_unknown_mod = server::GameServerData::TryFromYaml(
+          make_yaml(
+              "Game:\n"
+              "\tAddress: 10.0.0.4:1237\n"
+              "\tState: 1\n"
+              "\tMap: map-uid-b\n"
+              "\tMod: cnc\n"
+              "\tVersion: 9.9\n")
+              .front()
+              .Value);
+      Check(opt_unknown_mod.has_value() &&
+                opt_unknown_mod->ModTitle == "Unknown mod: cnc" &&
+                !opt_unknown_mod->IsCompatible,
+            "p6b20: an unknown mod titles with the formatted fallback");
+
+      const auto opt_bad_int = server::GameServerData::TryFromYaml(
+          make_yaml(
+              "Game:\n"
+              "\tAddress: 10.0.0.5:1238\n"
+              "\tState: abc\n"
+              "\tMap: map-uid-b\n"
+              "\tMod: ra\n"
+              "\tVersion: 1.0-test\n")
+              .front()
+              .Value);
+      Check(!opt_bad_int.has_value(),
+            "p6b20: a bad int value drops the entry");
+
+      const auto opt_bad_client = server::GameServerData::TryFromYaml(
+          make_yaml(
+              "Game:\n"
+              "\tAddress: 10.0.0.6:1239\n"
+              "\tState: 1\n"
+              "\tMap: map-uid-b\n"
+              "\tMod: ra\n"
+              "\tVersion: 1.0-test\n"
+              "\tClients:\n"
+              "\t\tClient@0:\n"
+              "\t\t\tName: Alice\n"
+              "\t\t\tTeam: oops\n")
+              .front()
+              .Value);
+      Check(!opt_bad_client.has_value(),
+            "p6b20: a bad client value drops the whole entry");
+
+      const auto vec_null_address = yaml::MiniYaml::FromString(
+          "Game:\n\tAddress:\n\tState: 1\n\tMap: map-uid-b\n\tMod: ra\n"
+          "\tVersion: 1.0-test\n",
+          "test20", true, yaml::MiniYaml::GlobalPool());
+      const auto opt_null_address = server::GameServerData::TryFromYaml(
+          vec_null_address.front().Value);
+      Check(opt_null_address.has_value() &&
+                opt_null_address->b_address_null,
+            "p6b20: a null address node flags the drop gate");
+    }
+
+    deps_server_game.fn_map_available = [](const std::string&) {
+      return false;
+    };
+
+    {
+      static ui::ChromeMetrics metrics_server_list20;
+      {
+        const auto dir_metrics20 = std::filesystem::temp_directory_path() /
+                                   "ora_render_test_metrics_server20";
+        std::filesystem::create_directories(dir_metrics20);
+        {
+          std::ofstream out_metrics(dir_metrics20 / "metrics.yaml");
+          out_metrics << "Chrome:" << '\n';
+          out_metrics << "	TextFont: Regular" << '\n';
+          out_metrics << "	TextColor: FFFFFFFF" << '\n';
+          out_metrics << "	TextContrast: True" << '\n';
+          out_metrics << "	TextShadow: False" << '\n';
+          out_metrics << "	TextContrastColorDark: 000000FF" << '\n';
+          out_metrics << "	TextContrastColorLight: FFFFFFFF" << '\n';
+          out_metrics << "	TextContrastRadius: 1" << '\n';
+          out_metrics << "	ButtonDepth: 1" << '\n';
+          out_metrics << "	ButtonFont: Regular" << '\n';
+          out_metrics << "	ButtonTextColor: FFFFFFFF" << '\n';
+          out_metrics << "	ButtonTextColorDisabled: 808080FF" << '\n';
+          out_metrics << "	ButtonTextContrast: True" << '\n';
+          out_metrics << "	ButtonTextShadow: False" << '\n';
+          out_metrics << "	ButtonTextContrastColorDark: 000000FF" << '\n';
+          out_metrics << "	ButtonTextContrastColorLight: FFFFFFFF" << '\n';
+          out_metrics << "	ButtonTextContrastRadius: 1" << '\n';
+          out_metrics << "	ButtonCursor: default" << '\n';
+          out_metrics << "	ClickSound: click_sound" << '\n';
+          out_metrics << "	ClickDisabledSound: click_disabled_sound" << '\n';
+          out_metrics << "\tTextDisabledColor: 808080FF" << '\n';
+          out_metrics << "\tTextfieldFont: Regular" << '\n';
+          out_metrics << "\tTextfieldColor: FFFFFFFF" << '\n';
+          out_metrics << "\tTextfieldColorDisabled: 808080FF" << '\n';
+          out_metrics << "\tTextfieldColorInvalid: FFFF00FF" << '\n';
+          out_metrics << "\tTextfieldColorHighlight: 808080FF" << '\n';
+          out_metrics << "\tIncompatibleVersionColor: 808080FF" << '\n';
+          out_metrics << "\tIncompatibleGameColor: 606060FF" << '\n';
+          out_metrics << "\tIncompatibleProtectedGameColor: 505050FF"
+                      << '\n';
+          out_metrics << "\tProtectedGameColor: FFFF00FF" << '\n';
+          out_metrics << "\tWaitingGameColor: 00FF00FF" << '\n';
+          out_metrics << "\tIncompatibleWaitingGameColor: 404040FF" << '\n';
+          out_metrics << "\tGameStartedColor: FF0000FF" << '\n';
+          out_metrics << "\tIncompatibleGameStartedColor: 303030FF"
+                      << '\n';
+        }
+        static fs::FileSystem fs_metrics20;
+        fs_metrics20.Mount(dir_metrics20.generic_string());
+        static const std::vector<std::string> vec_files_metrics20{
+            "metrics.yaml"};
+        metrics_server_list20.Initialize(
+            {&fs_metrics20, &vec_files_metrics20});
+      }
+
+      const auto find_row = [](mods::ServerListLogic& ref_logic,
+                               std::string_view sv_address) {
+        const auto& vec_rows = ref_logic.RowGamesForTest();
+        for (std::size_t sz_i = 0; sz_i < vec_rows.size(); ++sz_i)
+          if (vec_rows[sz_i]->Address == sv_address)
+            return static_cast<int>(sz_i);
+        return -1;
+      };
+
+      struct Stub20 {
+        enum Kind {
+          kContainer,
+          kLabel,
+          kLabelTooltip,
+          kButton,
+          kImage,
+          kCheckbox,
+          kDropDown,
+          kMapPreview,
+          kScrollPanel,
+          kScrollItem,
+          kLogicTicker
+        };
+
+        std::unique_ptr<ui::Widget> MakeNode(std::string_view str_id,
+                                             Kind kind_node) {
+          ui::WidgetArgs args_stub;
+          std::unique_ptr<ui::Widget> up_node;
+          switch (kind_node) {
+            case kLabel:
+              up_node = std::make_unique<ui::LabelWidget>(args_stub);
+              break;
+            case kLabelTooltip:
+              up_node =
+                  std::make_unique<ui::LabelWithTooltipWidget>(args_stub);
+              break;
+            case kButton:
+              up_node = std::make_unique<ui::ButtonWidget>(args_stub);
+              break;
+            case kImage:
+              up_node = std::make_unique<ui::ImageWidget>();
+              break;
+            case kCheckbox:
+              up_node = std::make_unique<ui::CheckboxWidget>(args_stub);
+              break;
+            case kDropDown:
+              up_node =
+                  std::make_unique<ui::DropDownButtonWidget>(args_stub);
+              break;
+            case kMapPreview:
+              up_node = std::make_unique<ui::MapPreviewWidget>();
+              break;
+            case kScrollPanel:
+              up_node =
+                  std::make_unique<ui::ScrollPanelWidget>(args_stub);
+              break;
+            case kScrollItem:
+              up_node =
+                  std::make_unique<ui::ScrollItemWidget>(args_stub);
+              break;
+            case kLogicTicker:
+              up_node = std::make_unique<ui::LogicTickerWidget>();
+              break;
+            default:
+              up_node = std::make_unique<ui::ContainerWidget>();
+              break;
+          }
+          up_node->str_id = std::string{str_id};
+          up_node->bounds_widget.int4_width = 200;
+          up_node->bounds_widget.int4_height = 20;
+          return up_node;
+        }
+
+        ui::Widget* Attach(ui::Widget& ref_parent, std::string_view str_id,
+                           Kind kind_node) {
+          std::unique_ptr<ui::Widget> up_node = MakeNode(str_id, kind_node);
+          ui::Widget* ptr_node = up_node.get();
+          ref_parent.AddChild(std::move(up_node));
+          return ptr_node;
+        }
+      };
+
+      auto up_stub = std::make_unique<Stub20>();
+      Stub20* ptr_stub = up_stub.get();
+
+      auto up_root = ptr_stub->MakeNode("ROOT20", Stub20::kContainer);
+      ui::Widget* ptr_root = up_root.get();
+
+      std::unique_ptr<ui::Widget> up_list = ptr_stub->MakeNode(
+          "SERVER_LIST", Stub20::kScrollPanel);
+      ui::Widget* ptr_list = up_list.get();
+      ptr_root->AddChild(std::move(up_list));
+      ui::Widget* ptr_header_tpl =
+          ptr_stub->Attach(*ptr_list, "HEADER_TEMPLATE", Stub20::kScrollItem);
+      ptr_stub->Attach(*ptr_header_tpl, "LABEL", Stub20::kLabel);
+      ui::Widget* ptr_server_tpl =
+          ptr_stub->Attach(*ptr_list, "SERVER_TEMPLATE", Stub20::kScrollItem);
+      ptr_stub->Attach(*ptr_server_tpl, "TITLE", Stub20::kLabelTooltip);
+      ptr_stub->Attach(*ptr_server_tpl, "PASSWORD_PROTECTED", Stub20::kImage);
+      ptr_stub->Attach(*ptr_server_tpl, "REQUIRES_AUTHENTICATION",
+                       Stub20::kImage);
+      ptr_stub->Attach(*ptr_server_tpl, "PLAYERS", Stub20::kLabelTooltip);
+      ptr_stub->Attach(*ptr_server_tpl, "LOCATION", Stub20::kLabel);
+      ptr_stub->Attach(*ptr_server_tpl, "STATUS", Stub20::kLabel);
+
+      ui::Widget* ptr_notice =
+          ptr_stub->Attach(*ptr_root, "NOTICE_CONTAINER", Stub20::kContainer);
+      ptr_stub->Attach(*ptr_notice, "OUTDATED_VERSION_LABEL", Stub20::kLabel);
+      ptr_stub->Attach(*ptr_notice, "UNKNOWN_VERSION_LABEL", Stub20::kLabel);
+      ptr_stub->Attach(*ptr_notice, "PLAYTEST_AVAILABLE_LABEL",
+                       Stub20::kLabel);
+      ptr_stub->Attach(*ptr_root, "NOTICE_WATCHER", Stub20::kLogicTicker);
+      ptr_stub->Attach(*ptr_root, "JOIN_BUTTON", Stub20::kButton);
+      ptr_stub->Attach(*ptr_root, "PROGRESS_LABEL", Stub20::kLabel);
+      ptr_stub->Attach(*ptr_root, "FILTERS_DROPDOWNBUTTON", Stub20::kDropDown);
+      ui::Widget* ptr_reload =
+          ptr_stub->Attach(*ptr_root, "RELOAD_BUTTON", Stub20::kButton);
+      ui::Widget* ptr_reload_icon =
+          ptr_stub->Attach(*ptr_reload, "IMAGE_RELOAD", Stub20::kImage);
+      ptr_stub->Attach(*ptr_reload_icon, "ANIMATION", Stub20::kLogicTicker);
+      ptr_stub->Attach(*ptr_root, "PLAYER_COUNT", Stub20::kLabel);
+      ptr_stub->Attach(*ptr_root, "SELECTED_MAP_PREVIEW",
+                       Stub20::kMapPreview);
+      ptr_stub->Attach(*ptr_root, "SELECTED_MAP", Stub20::kLabelTooltip);
+      ptr_stub->Attach(*ptr_root, "SELECTED_IP", Stub20::kLabel);
+      ptr_stub->Attach(*ptr_root, "SELECTED_STATUS", Stub20::kLabel);
+      ptr_stub->Attach(*ptr_root, "SELECTED_MOD_VERSION", Stub20::kLabel);
+      ptr_stub->Attach(*ptr_root, "SELECTED_PLAYERS", Stub20::kLabel);
+      ptr_stub->Attach(*ptr_root, "CLIENT_LIST_CONTAINER", Stub20::kContainer);
+      ptr_stub->Attach(*ptr_root, "DIRECTCONNECT_BUTTON", Stub20::kButton);
+      ptr_stub->Attach(*ptr_root, "CREATE_BUTTON", Stub20::kButton);
+      ptr_stub->Attach(*ptr_root, "BACK_BUTTON", Stub20::kButton);
+
+      static const std::string str_master_yaml =
+          "GameServer@0:\n"
+          "\tProtocol: 2\n"
+          "\tName: Waiting Game\n"
+          "\tAddress: 10.0.0.1:1234\n"
+          "\tPort: 1234\n"
+          "\tState: 1\n"
+          "\tMaxPlayers: 4\n"
+          "\tMap: map-uid-a\n"
+          "\tMod: ra\n"
+          "\tVersion: 1.0-test\n"
+          "\tModTitle: Red Alert\n"
+          "\tProtected: True\n"
+          "\tPlayers: 2\n"
+          "\tBots: 1\n"
+          "\tSpectators: 1\n"
+          "\tLocation: Testland\n"
+          "\tClients:\n"
+          "\t\tClient@0:\n"
+          "\t\t\tName: Alice\n"
+          "\t\t\tColor: FFFF0000\n"
+          "\t\t\tFaction: soviet\n"
+          "\t\t\tTeam: 1\n"
+          "\t\t\tSpawnPoint: 2\n"
+          "\t\t\tIsSpectator: False\n"
+          "\t\tClient@1:\n"
+          "\t\t\tName: Bob\n"
+          "\t\t\tColor: FF00FF00\n"
+          "\t\t\tFaction: allied\n"
+          "\t\t\tTeam: 2\n"
+          "\t\t\tSpawnPoint: 3\n"
+          "\t\tClient@2:\n"
+          "\t\t\tName: Spectator Sam\n"
+          "\t\t\tIsSpectator: True\n"
+          "GameServer@1:\n"
+          "\tAddress: 10.0.0.2:1235\n"
+          "\tState: 2\n"
+          "\tMap: map-uid-b\n"
+          "\tMod: ra\n"
+          "\tVersion: 1.0-test\n"
+          "\tModTitle: Red Alert\n"
+          "\tStarted: 2000-01-01T00:00:00\n"
+          "\tPlayTime: 600\n"
+          "\tLocation: Testland\n"
+          "GameServer@2:\n"
+          "\tAddress: 10.0.0.3:1236\n"
+          "\tState: 1\n"
+          "\tPlayers: 0\n"
+          "\tMap: map-uid-b\n"
+          "\tMod: ra\n"
+          "\tVersion: 1.0-test\n"
+          "\tModTitle: Red Alert\n"
+          "GameServer@3:\n"
+          "\tState: 1\n"
+          "\tMap: map-uid-b\n"
+          "\tMod: ra\n"
+          "\tVersion: 1.0-test\n"
+          "\tModTitle: Red Alert\n";
+
+      auto deps_ui_20 = ui::Ui::Instance().DepsForTest();
+      deps_ui_20.ptr_chrome_metrics = &metrics_server_list20;
+      deps_ui_20.fn_run_after_tick =
+          [](std::function<void()> fn_action) { fn_action(); };
+      deps_ui_20.fn_allow_downloading = [] { return false; };
+      deps_ui_20.fn_engine_version = [] { return std::string{"dev"}; };
+      deps_ui_20.fn_session_guid = [] { return std::string{"guid-self"}; };
+      int int4_filters_state = 15;
+      deps_ui_20.fn_mp_game_filters_get =
+          [&int4_filters_state] { return int4_filters_state; };
+      deps_ui_20.fn_mp_game_filters_set = [&int4_filters_state](
+                                              int int4_value) {
+        int4_filters_state = int4_value;
+      };
+      net::ConnectionTarget target_join_record{"", 0};
+      deps_ui_20.fn_join_server =
+          [&target_join_record](const net::ConnectionTarget& target_endpoint,
+                                const std::string&) {
+        target_join_record = target_endpoint;
+      };
+      std::vector<std::string> vec_fetch_urls;
+      deps_ui_20.fn_fetch_server_list =
+          [&vec_fetch_urls](
+              const std::string& str_url,
+              std::function<void(bool, std::string)> fn_done) {
+            vec_fetch_urls.push_back(str_url);
+            fn_done(true, str_master_yaml);
+          };
+      deps_ui_20.fn_load_widget =
+          [ptr_stub](ui::WidgetArgs&, ui::Widget* ptr_parent,
+                     const std::string& str_id) -> ui::Widget* {
+        if (str_id == "MULTIPLAYER_CLIENT_LIST") {
+          std::unique_ptr<ui::Widget> up_panel = ptr_stub->MakeNode(
+              "MULTIPLAYER_CLIENT_LIST", Stub20::kScrollPanel);
+          ui::Widget* ptr_header =
+              ptr_stub->Attach(*up_panel, "HEADER", Stub20::kScrollItem);
+          ptr_stub->Attach(*ptr_header, "LABEL", Stub20::kLabel);
+          ui::Widget* ptr_item =
+              ptr_stub->Attach(*up_panel, "TEMPLATE", Stub20::kScrollItem);
+          ptr_stub->Attach(*ptr_item, "LABEL", Stub20::kLabel);
+          ptr_stub->Attach(*ptr_item, "NOFLAG_LABEL", Stub20::kLabel);
+          ptr_stub->Attach(*ptr_item, "FLAG", Stub20::kImage);
+          ui::Widget* ptr_panel = up_panel.get();
+          ptr_parent->AddChild(std::move(up_panel));
+          return ptr_panel;
+        }
+        std::unique_ptr<ui::Widget> up_panel =
+            ptr_stub->MakeNode("LOADED20", Stub20::kContainer);
+        if (str_id == "MULTIPLAYER_FILTER_PANEL") {
+          ptr_stub->Attach(*up_panel, "WAITING_FOR_PLAYERS",
+                           Stub20::kCheckbox);
+          ptr_stub->Attach(*up_panel, "EMPTY", Stub20::kCheckbox);
+          ptr_stub->Attach(*up_panel, "ALREADY_STARTED", Stub20::kCheckbox);
+          ptr_stub->Attach(*up_panel, "PASSWORD_PROTECTED",
+                           Stub20::kCheckbox);
+          ptr_stub->Attach(*up_panel, "INCOMPATIBLE_VERSION",
+                           Stub20::kCheckbox);
+        }
+        ui::Widget* ptr_panel = up_panel.get();
+        ptr_parent->AddChild(std::move(up_panel));
+        return ptr_panel;
+      };
+      ui::Ui::Instance().Initialize(std::move(deps_ui_20));
+
+      ui::Widget* ptr_panel = ptr_root;
+
+      bool b_on_start = false;
+      bool b_on_exit = false;
+      std::string str_joined_address;
+      auto up_multiplayer = std::make_unique<mods::MultiplayerLogic>(
+          *ptr_root, mod_data, [&] { b_on_start = true; },
+          [&] { b_on_exit = true; }, nullptr);
+
+      mods::ServerListLogic& ref_list = up_multiplayer->ServerListForTest();
+      Check(ref_list.SearchStatusForTest() ==
+                    mods::ServerListLogic::SearchStatus::Hidden,
+            "p6b20: a successful fetch hides the progress label");
+      CheckEq(ref_list.ProgressLabelText(), std::string{},
+              "p6b20: the hidden status renders empty progress text");
+      Check(!vec_fetch_urls.empty() &&
+                vec_fetch_urls.front().find("games?protocol=2&engine=dev&") !=
+                    std::string::npos,
+            "p6b20: the query url carries protocol and engine");
+      CheckEq(ref_list.PlayerCountForTest(), 2,
+              "p6b20: the player count sums the listed games");
+
+      const int int4_row_waiting =
+          find_row(ref_list, "10.0.0.1:1234");
+      const int int4_row_playing =
+          find_row(ref_list, "10.0.0.2:1235");
+      const int int4_row_empty =
+          find_row(ref_list, "10.0.0.3:1236");
+      Check(int4_row_waiting >= 0 && int4_row_playing >= 0 &&
+                int4_row_empty >= 0,
+            "p6b20: the waiting/playing/empty games all render rows");
+      Check(find_row(ref_list, "10.0.0.4") == -1,
+            "p6b20: no address surfaces for the null-address entry");
+      Check(int4_row_empty > int4_row_waiting,
+            "p6b20: an empty server sorts below a waiting one");
+      Check(int4_row_playing > int4_row_waiting,
+            "p6b20: a waiting game sorts above an active one");
+
+      ref_list.SelectServerForTest(static_cast<std::size_t>(
+          int4_row_waiting < 0 ? 0 : int4_row_waiting));
+      Check(ptr_panel->Get<ui::LabelWidget>("SELECTED_IP")->fn_get_text() ==
+                "10.0.0.1:1234",
+            "p6b20: the selection panel shows the address");
+      Check(ptr_panel->Get<ui::LabelWidget>("SELECTED_STATUS")
+                    ->fn_get_text() == "label-password-protected",
+            "p6b20: a protected waiting game labels its state");
+      Check(ptr_panel->Get<ui::LabelWidget>("SELECTED_PLAYERS")
+                    ->fn_get_text()
+                    .find("label-players-count") != std::string::npos,
+            "p6b20: the selected-players line counts players");
+
+      ref_list.SelectServerForTest(static_cast<std::size_t>(
+          int4_row_playing < 0 ? 0 : int4_row_playing));
+      Check(ptr_panel->Get<ui::LabelWidget>("SELECTED_STATUS")
+                    ->fn_get_text()
+                    .find("label-in-progress-for") != std::string::npos,
+            "p6b20: a playing game labels the in-progress minutes");
+      Check(ptr_panel->Get<ui::ButtonWidget>("JOIN_BUTTON")
+                    ->fn_is_disabled(),
+            "p6b20: an incompatible-map game disables joining");
+
+      ref_list.SelectServerForTest(static_cast<std::size_t>(
+          int4_row_waiting < 0 ? 0 : int4_row_waiting));
+      Check(!ptr_panel->Get<ui::ButtonWidget>("JOIN_BUTTON")
+                   ->fn_is_disabled(),
+            "p6b20: a joinable waiting game enables joining");
+      ref_list.JoinClickedForTest();
+      CheckEq(target_join_record.ToString(), std::string{"10.0.0.1:1234"},
+              "p6b20: the join click connects to the selected address");
+
+      int4_filters_state = 15 & ~8;
+      ref_list.RefreshServerList();
+      Check(find_row(ref_list, "10.0.0.2:1235") == -1,
+            "p6b20: clearing the started filter hides the active game");
+      int4_filters_state = 15;
+      ref_list.ToggleFilterFlagForTest(2);
+      Check((int4_filters_state & 2) == 0,
+            "p6b20: the toggle flips the filter bit");
+      ref_list.RefreshServerList();
+      Check(find_row(ref_list, "10.0.0.3:1236") == -1,
+            "p6b20: clearing the empty filter hides the empty game");
+      int4_filters_state = 15;
+
+      Check(!up_multiplayer->CreateServerDisabledForTest(),
+            "p6b20: lobby maps keep the create-server button enabled");
+      up_multiplayer->BackClickedForTest();
+      Check(b_on_exit, "p6b20: the back button propagates onExit");
+
+      up_multiplayer.reset();
+
+      deps_server_game.fn_external_mod_compatible =
+          deps_server_game_saved.fn_external_mod_compatible;
+      deps_server_game.fn_external_mod_id =
+          deps_server_game_saved.fn_external_mod_id;
+      deps_server_game.fn_mod_title = deps_server_game_saved.fn_mod_title;
+      deps_server_game.fn_allow_downloading =
+          deps_server_game_saved.fn_allow_downloading;
+      deps_server_game.fn_map_available =
+          deps_server_game_saved.fn_map_available;
     }
   }
 
