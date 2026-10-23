@@ -213,32 +213,29 @@ void WorldInteractionControllerWidget::ApplyOrders(sim::World& world,
   const CPos cell = ptr_world_renderer->Viewport()->ViewToWorld(mi_input.Location);
   const int2 world_pixel =
       ptr_world_renderer->Viewport()->ViewToWorldPx(mi_input.Location);
-  std::vector<net::Order*> orders =
+  std::vector<std::unique_ptr<net::Order>> orders =
       generator->Order(world, cell, world_pixel, mi_input);
   PlayVoiceForOrders(orders);
 
   bool flashed = false;
-  for (net::Order* o : orders) {
-    if (o == nullptr)
+  for (const auto& up_o : orders) {
+    if (up_o == nullptr)
       continue;
 
-    if (!flashed && !o->b_suppress_visual_feedback) {
+    if (!flashed && !up_o->b_suppress_visual_feedback) {
       const sim::Target visual_target =
-          o->visual_feedback_target.Type() != sim::TargetType::Invalid
-              ? o->visual_feedback_target
-              : o->target;
+          up_o->visual_feedback_target.Type() != sim::TargetType::Invalid
+              ? up_o->visual_feedback_target
+              : up_o->target;
 
       for (auto* notify_order_issued :
            world.WorldActor()->TraitsImplementing<sim::INotifyOrderIssued>())
-        flashed = notify_order_issued->OrderIssued(world, o->str_order_string,
-                                                   visual_target);
+        flashed = notify_order_issued->OrderIssued(
+            world, up_o->str_order_string, visual_target);
     }
 
-    world.IssueOrder(o);
+    world.IssueOrder(up_o.get());
   }
-
-  for (net::Order* o : orders)
-    delete o;
 }
 
 const std::string* WorldInteractionControllerWidget::GetCursor(

@@ -30,10 +30,9 @@ MouseButton ModsOrderGeneratorBase::CancelButton() const {
   return game_settings_.ResolveCancelButton(ActionType());
 }
 
-std::vector<net::Order*> ModsOrderGeneratorBase::Order(sim::World& world,
-                                                       CPos cell,
-                                                       int2 world_pixel,
-                                                       const MouseInput& mi) {
+std::vector<std::unique_ptr<net::Order>> ModsOrderGeneratorBase::Order(
+    sim::World& world, CPos cell, int2 world_pixel,
+    const MouseInput& mi) {
   if (mi.Button == ActionButton() && mi.Event == MouseInputEvent::Down)
     return OrderInner(world, cell, world_pixel, mi);
 
@@ -50,7 +49,8 @@ bool GlobalButtonOrderGenerator<TraitT>::IsValidTrait(
 }
 
 template <class TraitT>
-std::vector<net::Order*> GlobalButtonOrderGenerator<TraitT>::OrderInner(
+std::vector<std::unique_ptr<net::Order>>
+GlobalButtonOrderGenerator<TraitT>::OrderInner(
     sim::World& world, CPos, int2, const MouseInput& mi) {
   for (const sim::ActorBoundsPair& pair :
        world.ScreenMapFace()->ActorsAtMouse(int2{mi.Location.X, mi.Location.Y})) {
@@ -67,7 +67,9 @@ std::vector<net::Order*> GlobalButtonOrderGenerator<TraitT>::OrderInner(
     if (!b_valid)
       continue;
 
-    return {new net::Order{str_order_, actor, false}};
+    std::vector<std::unique_ptr<net::Order>> vec_out;
+    vec_out.push_back(std::make_unique<net::Order>(str_order_, actor, false));
+    return vec_out;
   }
 
   return {};
@@ -86,15 +88,14 @@ SellOrderGenerator::SellOrderGenerator(sim::World& world)
 std::string SellOrderGenerator::GetCursor(sim::World& world, CPos cell,
                                           int2 world_pixel,
                                           const MouseInput& mi) {
-  for (net::Order* order : OrderInner(world, cell, world_pixel, mi)) {
-    for (Sellable* sellable : order->p_subject->TraitsImplementing<Sellable>()) {
+  for (const auto& up_order :
+       OrderInner(world, cell, world_pixel, mi)) {
+    for (Sellable* sellable :
+         up_order->p_subject->TraitsImplementing<Sellable>()) {
       if (sellable->IsTraitDisabled())
         continue;
-      const std::string str_cursor = sellable->Info().str_cursor;
-      delete order;
-      return str_cursor;
+      return sellable->Info().str_cursor;
     }
-    delete order;
   }
 
   return "sell-blocked";
@@ -111,12 +112,9 @@ bool PowerDownOrderGenerator::IsValidTrait(
 std::string PowerDownOrderGenerator::GetCursor(sim::World& world, CPos cell,
                                                int2 world_pixel,
                                                const MouseInput& mi) {
-  std::vector<net::Order*> vec_orders =
-      OrderInner(world, cell, world_pixel, mi);
-  const bool b_any = !vec_orders.empty();
-  for (net::Order* order : vec_orders)
-    delete order;
-  return b_any ? "powerdown" : "powerdown-blocked";
+  return !OrderInner(world, cell, world_pixel, mi).empty()
+             ? "powerdown"
+             : "powerdown-blocked";
 }
 
 RepairOrderGenerator::RepairOrderGenerator(sim::World& world)
@@ -128,10 +126,11 @@ void RepairOrderGenerator::Tick(sim::World& world) {
     world.CancelInputMode();
 }
 
-std::vector<net::Order*> RepairOrderGenerator::OrderInner(sim::World& world,
-                                                          CPos, int2,
-                                                          const MouseInput& mi) {
-  std::vector<net::Order*> vec_orders;
+std::vector<std::unique_ptr<net::Order>>
+RepairOrderGenerator::OrderInner(sim::World& world,
+                                 CPos, int2,
+                                 const MouseInput& mi) {
+  std::vector<std::unique_ptr<net::Order>> vec_orders;
 
   sim::Actor* under_cursor = nullptr;
   for (const sim::ActorBoundsPair& pair :
@@ -152,9 +151,9 @@ std::vector<net::Order*> RepairOrderGenerator::OrderInner(sim::World& world,
 
   if (under_cursor->Info()->HasTraitInfoOfInterface(
           "OpenRA.Mods.Common.Traits.RepairableBuildingInfo"))
-    vec_orders.push_back(new net::Order{
+    vec_orders.push_back(std::make_unique<net::Order>(
         "RepairBuilding", world.LocalPlayer()->PlayerActor(),
-        sim::Target::FromActor(under_cursor), false});
+        sim::Target::FromActor(under_cursor), false));
 
   if (under_cursor->Owner() != world.LocalPlayer())
     return vec_orders;
@@ -173,22 +172,19 @@ std::vector<net::Order*> RepairOrderGenerator::OrderInner(sim::World& world,
   if (repair_building == nullptr)
     return vec_orders;
 
-  vec_orders.push_back(new net::Order{
+  vec_orders.push_back(std::make_unique<net::Order>(
       str_order_id, under_cursor, sim::Target::FromActor(repair_building),
       sim::Target::FromActor(under_cursor),
-      HasModifier(mi.ModifierFlags, Modifiers::Shift)});
+      HasModifier(mi.ModifierFlags, Modifiers::Shift)));
   return vec_orders;
 }
 
 std::string RepairOrderGenerator::GetCursor(sim::World& world, CPos cell,
                                             int2 world_pixel,
                                             const MouseInput& mi) {
-  std::vector<net::Order*> vec_orders =
-      OrderInner(world, cell, world_pixel, mi);
-  const bool b_any = !vec_orders.empty();
-  for (net::Order* order : vec_orders)
-    delete order;
-  return b_any ? "repair" : "repair-blocked";
+  return !OrderInner(world, cell, world_pixel, mi).empty()
+             ? "repair"
+             : "repair-blocked";
 }
 
 BeaconOrderGenerator::BeaconOrderGenerator(sim::World& world)
@@ -199,16 +195,19 @@ std::string BeaconOrderGenerator::GetCursor(sim::World&, CPos, int2,
   return "ability";
 }
 
-std::vector<net::Order*> BeaconOrderGenerator::OrderInner(sim::World& world,
-                                                          CPos cell, int2,
-                                                          const MouseInput&) {
+std::vector<std::unique_ptr<net::Order>>
+BeaconOrderGenerator::OrderInner(sim::World& world,
+                                 CPos cell, int2,
+                                 const MouseInput&) {
   world.CancelInputMode();
 
-  net::Order* order = new net::Order{
+  auto up_order = std::make_unique<net::Order>(
       "PlaceBeacon", world.LocalPlayer()->PlayerActor(),
-      sim::Target::FromCell(world, cell), false};
-  order->b_suppress_visual_feedback = true;
-  return {order};
+      sim::Target::FromCell(world, cell), false);
+  up_order->b_suppress_visual_feedback = true;
+  std::vector<std::unique_ptr<net::Order>> vec_out;
+  vec_out.push_back(std::move(up_order));
+  return vec_out;
 }
 
 }  // namespace ora::mods

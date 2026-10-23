@@ -207,12 +207,13 @@ std::vector<sim::IOrderTargeter*> AttackBaseCore<Derived>::Orders() {
 }
 
 template <class Derived>
-net::Order* AttackBaseCore<Derived>::IssueOrder(
+std::unique_ptr<net::Order> AttackBaseCore<Derived>::IssueOrder(
     Actor& self, sim::IOrderTargeter* order, const sim::Target& target,
     bool queued) {
   // L190-196
   if (dynamic_cast<AttackOrderTargeter*>(order) != nullptr)
-    return new net::Order(order->OrderID(), &self, target, queued);
+    return std::make_unique<net::Order>(order->OrderID(), &self, target,
+                                        queued);
 
   return nullptr;
 }

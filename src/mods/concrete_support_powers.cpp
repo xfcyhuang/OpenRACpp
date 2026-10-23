@@ -531,7 +531,7 @@ MouseButton SelectSpawnActorPowerTarget::ActionButton() const {
   return game_settings_.ResolveActionButton(MouseActionType::SupportPower);
 }
 
-std::vector<net::Order*> SelectSpawnActorPowerTarget::Order(
+std::vector<std::unique_ptr<net::Order>> SelectSpawnActorPowerTarget::Order(
     sim::World& world, CPos cell, int2 world_pixel, const MouseInput& mi) {
   if (mi.Button != ActionButton() || mi.Event != MouseInputEvent::Down)
     return {};
@@ -543,10 +543,12 @@ std::vector<net::Order*> SelectSpawnActorPowerTarget::Order(
   if (!b_valid)
     return {};
 
-  auto* o = new net::Order(str_key, ptr_subject,
-                           sim::Target::FromCell(world, cell), false);
-  o->b_suppress_visual_feedback = true;
-  return {o};
+  auto up_order = std::make_unique<net::Order>(
+      str_key, ptr_subject, sim::Target::FromCell(world, cell), false);
+  up_order->b_suppress_visual_feedback = true;
+  std::vector<std::unique_ptr<net::Order>> vec_out;
+  vec_out.push_back(std::move(up_order));
+  return vec_out;
 }
 
 void SelectSpawnActorPowerTarget::Tick(sim::World& world) {
@@ -589,8 +591,9 @@ ProduceActorPower::ProduceActorPower(const ActorInitializer& init,
 
 void ProduceActorPower::SelectTarget(Actor& self, const std::string& str_order,
                                      SupportPowerManager& manager) {
-  self.world().IssueOrder(
-      new net::Order(str_order, manager.Self(), false));
+  auto up_order = std::make_unique<net::Order>(str_order, manager.Self(),
+                                               false);
+  self.world().IssueOrder(up_order.get());
 }
 
 void ProduceActorPower::Activate(Actor& self, const net::Order& order,
@@ -780,7 +783,7 @@ MouseButton SelectConditionTarget::ActionButton() const {
   return game_settings_.ResolveActionButton(MouseActionType::SupportPower);
 }
 
-std::vector<net::Order*> SelectConditionTarget::Order(
+std::vector<std::unique_ptr<net::Order>> SelectConditionTarget::Order(
     sim::World& world, CPos cell, int2 world_pixel, const MouseInput& mi) {
   if (mi.Button != ActionButton() || mi.Event != MouseInputEvent::Down)
     return {};
@@ -792,10 +795,12 @@ std::vector<net::Order*> SelectConditionTarget::Order(
   if (!b_valid)
     return {};
 
-  auto* o = new net::Order(str_key, ptr_subject,
-                           sim::Target::FromCell(world, cell), false);
-  o->b_suppress_visual_feedback = true;
-  return {o};
+  auto up_order = std::make_unique<net::Order>(
+      str_key, ptr_subject, sim::Target::FromCell(world, cell), false);
+  up_order->b_suppress_visual_feedback = true;
+  std::vector<std::unique_ptr<net::Order>> vec_out;
+  vec_out.push_back(std::move(up_order));
+  return vec_out;
 }
 
 void SelectConditionTarget::Tick(sim::World& world) {

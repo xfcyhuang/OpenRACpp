@@ -135,8 +135,9 @@ class Harvester final : public DockClientBaseCore<Harvester>,
   // ———— order 面(L231-257)————
   // ———— The order faces (L231-257) ————
   std::vector<sim::IOrderTargeter*> Orders() override;
-  net::Order* IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                         const sim::Target& target, bool queued) override;
+  std::unique_ptr<net::Order> IssueOrder(
+      Actor& self, sim::IOrderTargeter* order,
+      const sim::Target& target, bool queued) override;
   std::string VoicePhraseForOrder(Actor& self,
                                   const net::Order& order) override;
   void ResolveOrder(Actor& self, const net::Order& order) override;

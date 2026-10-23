@@ -30,8 +30,9 @@ std::vector<CPos> ExpandFootprintCells(std::span<const CPos> vec_cells,
 /// 持有)
 /// AIUtils.cs L63-95: ClearBlockersOrders (returns newly allocated
 /// Orders; caller owns).
-std::vector<net::Order*> ClearBlockersOrders(std::span<const CPos> vec_tiles,
-                                             sim::Player& owner,
-                                             sim::Actor* ignore_actor = nullptr);
+std::vector<std::unique_ptr<net::Order>> ClearBlockersOrders(
+    std::span<const CPos> vec_tiles,
+    sim::Player& owner,
+    sim::Actor* ignore_actor = nullptr);
 
 }  // namespace ora::mods

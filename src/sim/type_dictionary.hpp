@@ -104,6 +104,15 @@ class ActorInit : public TraitBase {
 /// TypeDictionary.cs L19-183
 class TypeDictionary {
  public:
+  TypeDictionary() = default;
+
+  /// 上游 MemberwiseClone 等价:共享查询面,拷贝不持有(原字典保活期
+  /// 内有效)
+  /// The upstream MemberwiseClone equivalent: shares the lookup face; the
+  /// copy owns nothing (valid within the original's lifetime).
+  TypeDictionary(const TypeDictionary& dict_other)
+      : data_(dict_other.data_) {}
+  TypeDictionary& operator=(const TypeDictionary&) = delete;
   /// 查询键解析:Add 注册 {接口集}∪{self 具体键}(上游 GetInterfaces() +
   /// BaseTypes() 含 self;基类链键无查询点);具体 init 类查询按
   /// kInitTypeId(ORA_INIT_TYPE),接口查询按 kTypeId
@@ -121,6 +130,12 @@ class TypeDictionary {
 
   /// Add(L41-53):按注册面全量登记
   void Add(ActorInit* val);
+
+  void Add(std::unique_ptr<ActorInit> val) {
+    ActorInit* ptr_val = val.get();
+    map_owned_[ptr_val] = std::move(val);
+    Add(ptr_val);
+  }
 
   /// Contains<T>(L56)/Contains(Type)(L60)
   template <class T>
@@ -194,6 +209,7 @@ class TypeDictionary {
   }
 
   std::map<gen::TypeId, std::vector<void*>> data_;
+  std::map<ActorInit*, std::unique_ptr<ActorInit>> map_owned_;
 };
 
 }  // namespace ora::sim

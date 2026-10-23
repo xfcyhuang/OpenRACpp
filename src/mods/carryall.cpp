@@ -364,7 +364,7 @@ Carryall::Carryall(sim::ActorInitializer& init, const CarryallInfoData& info)
 
   if (!info_.str_initial_actor.empty()) {
     sim::TypeDictionary dict;
-    dict.Add(new sim::OwnerInit{self_.Owner()});
+    dict.Add(std::make_unique<sim::OwnerInit>(self_.Owner()));
     auto* cargo = self_.world().CreateActor(
         false, ToLowerInvariant(info_.str_initial_actor), dict);
 
@@ -504,9 +504,9 @@ void Carryall::Render(Actor& self, gfx::WorldRenderer& wr,
       !p_carryable_->IsDead()) {
     if (vec_carryable_preview_.empty()) {
       sim::TypeDictionary carryable_inits;
-      carryable_inits.Add(new sim::OwnerInit{p_carryable_->Owner()});
-      carryable_inits.Add(new sim::DynamicFacingInit{
-          [this]() { return facing_->Facing(); }});
+      carryable_inits.Add(std::make_unique<sim::OwnerInit>(p_carryable_->Owner()));
+      carryable_inits.Add(std::make_unique<sim::DynamicFacingInit>(
+          [this]() { return facing_->Facing(); }));
 
       for (auto* api :
            p_carryable_->TraitsImplementing<sim::IActorPreviewInitModifier>())
@@ -569,11 +569,13 @@ std::vector<sim::IOrderTargeter*> Carryall::Orders() {
   return vec_orders;
 }
 
-net::Order* Carryall::IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                                 const sim::Target& target, bool queued) {
+std::unique_ptr<net::Order> Carryall::IssueOrder(
+    Actor& self, sim::IOrderTargeter* order,
+    const sim::Target& target, bool queued) {
   if (order->OrderID() == "PickupUnit" ||
       order->OrderID() == "DeliverUnit" || order->OrderID() == "Unload")
-    return new net::Order(order->OrderID(), &self, target, queued);
+    return std::make_unique<net::Order>(order->OrderID(), &self, target,
+                                        queued);
 
   return nullptr;
 }

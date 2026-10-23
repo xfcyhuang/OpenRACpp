@@ -235,12 +235,13 @@ std::vector<sim::IOrderTargeter*> DockClientManager::Orders() {
   return vec_out;
 }
 
-net::Order* DockClientManager::IssueOrder(
+std::unique_ptr<net::Order> DockClientManager::IssueOrder(
     Actor& self, sim::IOrderTargeter* order, const sim::Target& target,
     bool queued) {
   // L238-244
   if (dynamic_cast<DockActorTargeter*>(order) != nullptr)
-    return new net::Order(order->OrderID(), &self, target, queued);
+    return std::make_unique<net::Order>(order->OrderID(), &self, target,
+                                        queued);
 
   return nullptr;
 }

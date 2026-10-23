@@ -884,8 +884,9 @@ class IIssueOrder {
   static constexpr gen::TypeId kTypeId = gen::TypeId::OpenRA_Traits_IIssueOrder;
   virtual ~IIssueOrder() = default;
   virtual std::vector<IOrderTargeter*> Orders() = 0;
-  virtual net::Order* IssueOrder(Actor& self, IOrderTargeter* order,
-                                 const Target& target, bool queued) = 0;
+  virtual std::unique_ptr<net::Order> IssueOrder(
+      Actor& self, IOrderTargeter* order,
+      const Target& target, bool queued) = 0;
 };
 
 // ———— 第三批接口增量(TraitsInterfaces.cs 引擎侧 + Mods.Common;

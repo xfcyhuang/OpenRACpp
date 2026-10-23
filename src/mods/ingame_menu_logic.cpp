@@ -331,9 +331,9 @@ void IngameMenuLogic::CreateSurrenderButton() {
 
   auto fn_on_surrender = std::make_shared<std::function<void()>>();
   *fn_on_surrender = [this] {
-    ptr_world_->IssueOrder(
-        new net::Order{"Surrender",
-                       ptr_world_->LocalPlayer()->PlayerActor(), false});
+    auto up_order = std::make_unique<net::Order>(
+        "Surrender", ptr_world_->LocalPlayer()->PlayerActor(), false);
+    ptr_world_->IssueOrder(up_order.get());
     CloseMenu();
   };
 

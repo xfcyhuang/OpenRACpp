@@ -130,6 +130,8 @@ std::unique_ptr<ReplayMetadata> ReplayMetadata::ReadFile(
   std::FILE* file = std::fopen(str_path.c_str(), "rb");
   if (file == nullptr)
     return nullptr;
+  auto up_file = std::unique_ptr<std::FILE, int (*)(std::FILE*)>(file,
+                                                                std::fclose);
   std::fseek(file, 0, SEEK_END);
   const long size = std::ftell(file);
   std::fseek(file, 0, SEEK_SET);
@@ -140,7 +142,6 @@ std::unique_ptr<ReplayMetadata> ReplayMetadata::ReadFile(
         std::fread(vec_bytes.data(), 1, vec_bytes.size(), file);
     vec_bytes.resize(sz_read);
   }
-  std::fclose(file);
 
   auto up_metadata = Read(vec_bytes);
   if (up_metadata != nullptr)

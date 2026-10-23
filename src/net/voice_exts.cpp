@@ -30,16 +30,17 @@ bool PlayVoiceForOrder(const net::Order& o) {
 
 }  // namespace
 
-void PlayVoiceForOrders(std::span<net::Order* const> vec_orders) {
-  for (net::Order* o : vec_orders) {
-    if (o == nullptr)
+void PlayVoiceForOrders(
+    std::span<const std::unique_ptr<net::Order>> vec_orders) {
+  for (const auto& up_o : vec_orders) {
+    if (up_o == nullptr)
       continue;
 
-    if (o->vec_grouped_actors.has_value()) {
-      for (sim::Actor* subject : *o->vec_grouped_actors)
-        if (PlayVoiceForOrder(net::Order::FromGroupedOrder(*o, subject)))
+    if (up_o->vec_grouped_actors.has_value()) {
+      for (sim::Actor* subject : *up_o->vec_grouped_actors)
+        if (PlayVoiceForOrder(net::Order::FromGroupedOrder(*up_o, subject)))
           return;
-    } else if (PlayVoiceForOrder(*o)) {
+    } else if (PlayVoiceForOrder(*up_o)) {
       return;
     }
   }

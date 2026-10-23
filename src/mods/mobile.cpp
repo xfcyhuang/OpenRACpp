@@ -956,13 +956,13 @@ std::vector<sim::IOrderTargeter*> Mobile::Orders() {
   return orders;
 }
 
-net::Order* Mobile::IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                               const sim::Target& target, bool queued) {
+std::unique_ptr<net::Order> Mobile::IssueOrder(
+    Actor& self, sim::IOrderTargeter* order,
+    const sim::Target& target, bool queued) {
   // L929-935
   (void)self;
   if (dynamic_cast<MoveOrderTargeter*>(order) != nullptr)
-    return p_self_->world().Arena().Create<net::Order>("Move", p_self_,
-                                                       target, queued);
+    return std::make_unique<net::Order>("Move", p_self_, target, queued);
 
   return nullptr;
 }

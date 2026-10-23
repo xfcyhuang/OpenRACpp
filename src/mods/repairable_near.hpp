@@ -43,8 +43,9 @@ class RepairableNear final : public TraitBase,
   const RepairableNearInfoData& Info() const { return info_; }
 
   std::vector<sim::IOrderTargeter*> Orders() override;
-  net::Order* IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                         const sim::Target& target, bool queued) override;
+  std::unique_ptr<net::Order> IssueOrder(
+      Actor& self, sim::IOrderTargeter* order,
+      const sim::Target& target, bool queued) override;
   std::string VoicePhraseForOrder(Actor& self,
                                   const net::Order& order) override;
   void ResolveOrder(Actor& self, const net::Order& order) override;

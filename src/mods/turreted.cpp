@@ -284,8 +284,8 @@ WVec Turreted::Position(Actor& self) const {
 void Turreted::ModifyDeathActorInit(Actor& /*self*/,
                                     sim::TypeDictionary& init) {
   // L299-302
-  init.Add(new sim::TurretFacingInit(LocalOrientation().Yaw,
-                                str_info_instance_name_));
+  init.Add(std::make_unique<sim::TurretFacingInit>(LocalOrientation().Yaw,
+                                              str_info_instance_name_));
 }
 
 void Turreted::ModifyActorPreviewInit(Actor& /*self*/,
@@ -294,7 +294,7 @@ void Turreted::ModifyActorPreviewInit(Actor& /*self*/,
   // L304-307 (the closure captures this — evaluated within the actor's
   // lifetime, the same as upstream's delegate target).
   Turreted* turreted = this;
-  inits.Add(new sim::DynamicTurretFacingInit(
+  inits.Add(std::make_unique<sim::DynamicTurretFacingInit>(
       [turreted]() { return turreted->LocalOrientation().Yaw; },
       str_info_instance_name_));
 }

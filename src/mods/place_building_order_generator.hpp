@@ -53,9 +53,10 @@ class PlaceBuildingOrderGenerator final : public sim::IOrderGenerator {
     return game_settings_.ResolveActionButton(MouseActionType::PlaceBuilding);
   }
 
-  std::vector<net::Order*> Order(sim::World& world, CPos cell,
-                                 int2 world_pixel,
-                                 const MouseInput& mi) override;
+  std::vector<std::unique_ptr<net::Order>> Order(
+      sim::World& world, CPos cell,
+      int2 world_pixel,
+      const MouseInput& mi) override;
   void Tick(sim::World& world) override;
   std::vector<gfx::IRenderable*> Render(gfx::WorldRenderer& wr,
                                         sim::World& world) override;
@@ -81,11 +82,12 @@ class PlaceBuildingOrderGenerator final : public sim::IOrderGenerator {
 
  protected:
   /// L166-225 | L166-225.
-  virtual std::vector<net::Order*> InnerOrder(sim::World& world, CPos cell,
-                                              const MouseInput& mi);
+  virtual std::vector<std::unique_ptr<net::Order>> InnerOrder(
+      sim::World& world, CPos cell,
+      const MouseInput& mi);
 
   /// L332-335 | L332-335.
-  std::vector<net::Order*> ClearBlockersOrders(CPos top_left);
+  std::vector<std::unique_ptr<net::Order>> ClearBlockersOrders(CPos top_left);
 
   ProductionQueue* ptr_queue_ = nullptr;
   sim::World* ptr_world_ = nullptr;

@@ -44,6 +44,8 @@ std::vector<std::uint8_t> ReadFileBytes(const std::string& str_path) {
   std::FILE* file = std::fopen(str_path.c_str(), "rb");
   if (file == nullptr)
     return {};
+  auto up_file = std::unique_ptr<std::FILE, int (*)(std::FILE*)>(file,
+                                                                std::fclose);
   std::fseek(file, 0, SEEK_END);
   const long size = std::ftell(file);
   std::fseek(file, 0, SEEK_SET);
@@ -53,7 +55,6 @@ std::vector<std::uint8_t> ReadFileBytes(const std::string& str_path) {
     const std::size_t read = std::fread(bytes.data(), 1, bytes.size(), file);
     bytes.resize(read);
   }
-  std::fclose(file);
   return bytes;
 }
 
@@ -510,6 +511,8 @@ bool GameSave::Save(const std::string& str_path) const {
   std::FILE* file = std::fopen(str_path.c_str(), "wb");
   if (file == nullptr)
     return false;
+  auto up_file = std::unique_ptr<std::FILE, int (*)(std::FILE*)>(file,
+                                                                std::fclose);
 
   yaml::StringPool pool{};
   net::ByteWriter writer{};
@@ -568,7 +571,6 @@ bool GameSave::Save(const std::string& str_path) const {
   const bool b_ok =
       std::fwrite(writer.Bytes().data(), 1, writer.Bytes().size(), file) ==
       writer.Bytes().size();
-  std::fclose(file);
   return b_ok;
 }
 

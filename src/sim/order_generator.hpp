@@ -24,8 +24,9 @@ class IOrderGenerator {
   virtual ~IOrderGenerator() = default;
 
   virtual MouseButton ActionButton() const = 0;
-  virtual std::vector<net::Order*> Order(World& world, CPos cell, int2 world_pixel,
-                                         const MouseInput& mi) = 0;
+  virtual std::vector<std::unique_ptr<net::Order>> Order(
+      World& world, CPos cell, int2 world_pixel,
+      const MouseInput& mi) = 0;
   virtual void Tick(World& world) = 0;
   virtual std::vector<gfx::IRenderable*> Render(gfx::WorldRenderer& wr,
                                                 World& world) = 0;

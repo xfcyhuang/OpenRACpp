@@ -7,6 +7,7 @@ struct Order;
 
 namespace ora {
 
-void PlayVoiceForOrders(std::span<net::Order* const> vec_orders);
+void PlayVoiceForOrders(
+    std::span<const std::unique_ptr<net::Order>> vec_orders);
 
 }  // namespace ora

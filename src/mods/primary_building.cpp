@@ -58,11 +58,11 @@ std::vector<sim::IOrderTargeter*> PrimaryBuilding::Orders() {
   return orders;
 }
 
-net::Order* PrimaryBuilding::IssueOrder(sim::Actor& self,
-                                        sim::IOrderTargeter* order,
-                                        const sim::Target&, bool) {
+std::unique_ptr<net::Order> PrimaryBuilding::IssueOrder(
+    sim::Actor& self, sim::IOrderTargeter* order,
+    const sim::Target&, bool) {
   if (order->OrderID() == kOrderId)
-    return new net::Order(std::string{kOrderId}, &self, false);
+    return std::make_unique<net::Order>(std::string{kOrderId}, &self, false);
 
   return nullptr;
 }

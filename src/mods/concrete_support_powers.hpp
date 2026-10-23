@@ -173,9 +173,10 @@ class SelectSpawnActorPowerTarget final : public sim::IOrderGenerator {
 
   MouseButton ActionButton() const override;
   MouseButton CancelButton() const { return ActionButton(); }
-  std::vector<net::Order*> Order(sim::World& world, CPos cell,
-                                 int2 world_pixel,
-                                 const MouseInput& mi_input) override;
+  std::vector<std::unique_ptr<net::Order>> Order(
+      sim::World& world, CPos cell,
+      int2 world_pixel,
+      const MouseInput& mi_input) override;
   void Tick(sim::World& world) override;
   std::vector<gfx::IRenderable*> Render(gfx::WorldRenderer&,
                                         sim::World&) override {
@@ -300,9 +301,10 @@ class SelectConditionTarget final : public sim::IOrderGenerator {
 
   MouseButton ActionButton() const override;
   MouseButton CancelButton() const { return ActionButton(); }
-  std::vector<net::Order*> Order(sim::World& world, CPos cell,
-                                 int2 world_pixel,
-                                 const MouseInput& mi_input) override;
+  std::vector<std::unique_ptr<net::Order>> Order(
+      sim::World& world, CPos cell,
+      int2 world_pixel,
+      const MouseInput& mi_input) override;
   void Tick(sim::World& world) override;
   std::vector<gfx::IRenderable*> Render(gfx::WorldRenderer& wr,
                                         sim::World& world) override;

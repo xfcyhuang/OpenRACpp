@@ -141,7 +141,7 @@ PlaceBuildingOrderGenerator::PlaceBuildingOrderGenerator(
   }
 }
 
-std::vector<net::Order*> PlaceBuildingOrderGenerator::Order(
+std::vector<std::unique_ptr<net::Order>> PlaceBuildingOrderGenerator::Order(
     sim::World& world, CPos cell, int2 world_pixel, const MouseInput& mi) {
   const MouseButton action_button =
       game_settings_.ResolveActionButton(MouseActionType::PlaceBuilding);
@@ -152,13 +152,14 @@ std::vector<net::Order*> PlaceBuildingOrderGenerator::Order(
     if (mi.Button == cancel_button)
       world.CancelInputMode();
 
-    std::vector<net::Order*> vec_ret = InnerOrder(world, cell, mi);
+    std::vector<std::unique_ptr<net::Order>> vec_ret =
+        InnerOrder(world, cell, mi);
 
     bool b_placed = false;
-    for (const net::Order* o : vec_ret)
-      if (o->str_order_string == "PlaceBuilding" ||
-          o->str_order_string == "LineBuild" ||
-          o->str_order_string == "PlacePlug")
+    for (const auto& up_o : vec_ret)
+      if (up_o->str_order_string == "PlaceBuilding" ||
+          up_o->str_order_string == "LineBuild" ||
+          up_o->str_order_string == "PlacePlug")
         b_placed = true;
     if (b_placed)
       world.CancelInputMode();
@@ -180,7 +181,8 @@ CPos PlaceBuildingOrderGenerator::TopLeft() const {
   return ptr_viewport_->ViewToWorld(offset_pos);
 }
 
-std::vector<net::Order*> PlaceBuildingOrderGenerator::InnerOrder(
+std::vector<std::unique_ptr<net::Order>>
+PlaceBuildingOrderGenerator::InnerOrder(
     sim::World& world, CPos, const MouseInput& mi) {
   if (world.Paused())
     return {};
@@ -188,7 +190,7 @@ std::vector<net::Order*> PlaceBuildingOrderGenerator::InnerOrder(
   sim::Player& owner = *ptr_queue_->Actor()->Owner();
   const VariantWrapper& variant = *vec_variants_[n_variant_];
 
-  std::vector<net::Order*> vec_out;
+  std::vector<std::unique_ptr<net::Order>> vec_out;
   if (mi.Button == ActionButton()) {
     std::string order_type = "PlaceBuilding";
     const CPos top_left = TopLeft();
@@ -217,14 +219,14 @@ std::vector<net::Order*> PlaceBuildingOrderGenerator::InnerOrder(
         order_type = "LineBuild";
     }
 
-    net::Order* o = new net::Order(order_type, owner.PlayerActor(),
-                                   sim::Target::FromCell(world, top_left),
-                                   false);
-    o->str_target_string = vec_variants_.front()->actor_info->Name();
-    o->uint4_extra_data = ptr_queue_->Actor()->ActorID();
-    o->extra_location = CPos{static_cast<std::int32_t>(n_variant_), 0};
-    o->b_suppress_visual_feedback = true;
-    vec_out.push_back(o);
+    auto up_o = std::make_unique<net::Order>(
+        order_type, owner.PlayerActor(),
+        sim::Target::FromCell(world, top_left), false);
+    up_o->str_target_string = vec_variants_.front()->actor_info->Name();
+    up_o->uint4_extra_data = ptr_queue_->Actor()->ActorID();
+    up_o->extra_location = CPos{static_cast<std::int32_t>(n_variant_), 0};
+    up_o->b_suppress_visual_feedback = true;
+    vec_out.push_back(std::move(up_o));
   }
 
   return vec_out;
@@ -365,7 +367,8 @@ std::string PlaceBuildingOrderGenerator::GetCursorOverride(sim::World&,
   return str_world_default_cursor;
 }
 
-std::vector<net::Order*> PlaceBuildingOrderGenerator::ClearBlockersOrders(
+std::vector<std::unique_ptr<net::Order>>
+PlaceBuildingOrderGenerator::ClearBlockersOrders(
     CPos top_left) {
   return mods::ClearBlockersOrders(
       vec_variants_[n_variant_]->building_info.Tiles(top_left),

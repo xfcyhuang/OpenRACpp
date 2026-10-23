@@ -653,7 +653,7 @@ bool Aircraft::CanRepairAt(Actor& host) {
 
 void Aircraft::ModifyDeathActorInit(Actor& self,
                                     sim::TypeDictionary& init) {
-  init.Add(new sim::FacingInit{Facing()});
+  init.Add(std::make_unique<sim::FacingInit>(Facing()));
 }
 
 WPos Aircraft::GroundPosition(Actor& self) {
@@ -901,12 +901,14 @@ std::vector<sim::IOrderTargeter*> Aircraft::Orders() {
   return vec_orders;
 }
 
-net::Order* Aircraft::IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                                 const sim::Target& target, bool queued) {
+std::unique_ptr<net::Order> Aircraft::IssueOrder(
+    Actor& self, sim::IOrderTargeter* order,
+    const sim::Target& target, bool queued) {
   if (!IsTraitDisabled() &&
       (order->OrderID() == "Enter" || order->OrderID() == "Move" ||
        order->OrderID() == "Land" || order->OrderID() == "ForceEnter"))
-    return new net::Order(order->OrderID(), &self, target, queued);
+    return std::make_unique<net::Order>(order->OrderID(), &self, target,
+                                        queued);
 
   return nullptr;
 }
@@ -1094,7 +1096,7 @@ void Aircraft::ModifyActorPreviewInit(Actor& self,
                                       sim::TypeDictionary& inits) {
   if (!inits.Contains<sim::DynamicFacingInit>() &&
       !inits.Contains<sim::FacingInit>())
-    inits.Add(new sim::DynamicFacingInit{[this]() { return Facing(); }});
+    inits.Add(std::make_unique<sim::DynamicFacingInit>([this]() { return Facing(); }));
 }
 
 sim::Activity* Aircraft::GetCreationActivity() {

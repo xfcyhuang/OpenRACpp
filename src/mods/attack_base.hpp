@@ -213,8 +213,9 @@ class AttackBaseCore : public TraitBase,
   std::vector<sim::IOrderTargeter*> Orders() override;
 
   /// L190-196:IIssueOrder.IssueOrder
-  net::Order* IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                         const sim::Target& target, bool queued) override;
+  std::unique_ptr<net::Order> IssueOrder(
+      Actor& self, sim::IOrderTargeter* order,
+      const sim::Target& target, bool queued) override;
 
   /// L198-211:IResolveOrder.ResolveOrder
   void ResolveOrder(Actor& self, const net::Order& order) override;

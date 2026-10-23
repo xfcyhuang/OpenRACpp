@@ -63,8 +63,9 @@ class PrimaryBuilding final : public sim::TraitBase,
 
   /// IIssueOrder.IssueOrder(L77-84)
   /// IIssueOrder.IssueOrder (L77-84).
-  net::Order* IssueOrder(sim::Actor& self, sim::IOrderTargeter* order,
-                         const sim::Target& target, bool queued) override;
+  std::unique_ptr<net::Order> IssueOrder(
+      sim::Actor& self, sim::IOrderTargeter* order,
+      const sim::Target& target, bool queued) override;
 
   void ResolveOrder(sim::Actor& self,
                     const ora::net::Order& order) override;  // L85-92

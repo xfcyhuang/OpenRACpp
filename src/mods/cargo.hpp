@@ -89,8 +89,9 @@ class Cargo final : public TraitBase,
   }
 
   std::vector<sim::IOrderTargeter*> Orders() override;
-  net::Order* IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                         const sim::Target& target, bool queued) override;
+  std::unique_ptr<net::Order> IssueOrder(
+      Actor& self, sim::IOrderTargeter* order,
+      const sim::Target& target, bool queued) override;
   net::Order IssueDeployOrder(Actor& self, bool queued) override;
   bool CanIssueDeployOrder(Actor& self, bool queued) override;
   void ResolveOrder(Actor& self, const net::Order& order) override;

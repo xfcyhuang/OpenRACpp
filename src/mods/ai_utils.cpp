@@ -48,9 +48,10 @@ std::vector<CPos> ExpandFootprintCells(std::span<const CPos> vec_cells,
 
 }  // namespace util
 
-std::vector<net::Order*> ClearBlockersOrders(std::span<const CPos> vec_tiles,
-                                             sim::Player& owner,
-                                             sim::Actor* ignore_actor) {
+std::vector<std::unique_ptr<net::Order>> ClearBlockersOrders(
+    std::span<const CPos> vec_tiles,
+    sim::Player& owner,
+    sim::Actor* ignore_actor) {
   sim::World& world = owner.GetWorld();
   std::vector<CPos> vec_adjacent;
   for (const CPos cell : util::ExpandFootprintCells(vec_tiles, true))
@@ -68,7 +69,7 @@ std::vector<net::Order*> ClearBlockersOrders(std::span<const CPos> vec_tiles,
                       a) == vec_blocker_actors.end())
           vec_blocker_actors.push_back(a);
 
-  std::vector<net::Order*> vec_out;
+  std::vector<std::unique_ptr<net::Order>> vec_out;
   for (sim::Actor* blocker : vec_blocker_actors) {
     Mobile* mobile = blocker->TraitOrDefault<Mobile>();
 
@@ -86,11 +87,10 @@ std::vector<net::Order*> ClearBlockersOrders(std::span<const CPos> vec_tiles,
       continue;
     }
 
-    net::Order* o = new net::Order("Move", blocker,
-                                   sim::Target::FromCell(world, move_cell),
-                                   false);
-    o->b_suppress_visual_feedback = true;
-    vec_out.push_back(o);
+    auto up_order = std::make_unique<net::Order>(
+        "Move", blocker, sim::Target::FromCell(world, move_cell), false);
+    up_order->b_suppress_visual_feedback = true;
+    vec_out.push_back(std::move(up_order));
   }
 
   return vec_out;

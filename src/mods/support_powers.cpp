@@ -490,10 +490,9 @@ SelectGenericPowerTarget::SelectGenericPowerTarget(
     manager_.Self()->world().Selection()->Clear();
 }
 
-std::vector<net::Order*> SelectGenericPowerTarget::Order(sim::World& world,
-                                                         CPos cell,
-                                                         int2 world_pixel,
-                                                         const MouseInput& mi) {
+std::vector<std::unique_ptr<net::Order>> SelectGenericPowerTarget::Order(
+    sim::World& world, CPos cell, int2 world_pixel,
+    const MouseInput& mi) {
   if (mi.Button == ActionButton() && mi.Event == MouseInputEvent::Down)
     return OrderInner(world, cell, world_pixel, mi);
 
@@ -503,7 +502,7 @@ std::vector<net::Order*> SelectGenericPowerTarget::Order(sim::World& world,
   return {};
 }
 
-std::vector<net::Order*> SelectGenericPowerTarget::OrderInner(
+std::vector<std::unique_ptr<net::Order>> SelectGenericPowerTarget::OrderInner(
     sim::World& world, CPos cell, int2, const MouseInput&) {
   // CancelInputMode 经 AdoptOrderGenerator 可能销毁 *this(注册表产物换
   // 默认生成器)—— 成员读全部前置于取消
@@ -516,10 +515,12 @@ std::vector<net::Order*> SelectGenericPowerTarget::OrderInner(
   if (!world.Map().Contains(cell))
     return {};
 
-  auto* o = new net::Order(str_key, ptr_subject,
-                           sim::Target::FromCell(world, cell), false);
-  o->b_suppress_visual_feedback = true;
-  return {o};
+  auto up_order = std::make_unique<net::Order>(
+      str_key, ptr_subject, sim::Target::FromCell(world, cell), false);
+  up_order->b_suppress_visual_feedback = true;
+  std::vector<std::unique_ptr<net::Order>> vec_out;
+  vec_out.push_back(std::move(up_order));
+  return vec_out;
 }
 
 void SelectGenericPowerTarget::Tick(sim::World& world) {

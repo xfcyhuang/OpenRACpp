@@ -403,12 +403,13 @@ std::vector<sim::IOrderTargeter*> Harvester::Orders() {
   return vec_out;
 }
 
-net::Order* Harvester::IssueOrder(Actor& self,
-                                  sim::IOrderTargeter* order,
-                                  const sim::Target& target, bool queued) {
+std::unique_ptr<net::Order> Harvester::IssueOrder(
+    Actor& self, sim::IOrderTargeter* order,
+    const sim::Target& target, bool queued) {
   // L242-248
   if (order->OrderID() == "Harvest")
-    return new net::Order(order->OrderID(), &self, target, queued);
+    return std::make_unique<net::Order>(order->OrderID(), &self, target,
+                                        queued);
 
   return nullptr;
 }

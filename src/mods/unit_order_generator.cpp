@@ -81,9 +81,10 @@ MouseButton UnitOrderGenerator::CancelButton() const {
 }
 
 // ———— Order(L56-64)————
-std::vector<net::Order*> UnitOrderGenerator::Order(sim::World& world, CPos cell,
-                                                   int2 world_pixel,
-                                                   const MouseInput& mi) {
+std::vector<std::unique_ptr<net::Order>> UnitOrderGenerator::Order(
+    sim::World& world, CPos cell,
+    int2 world_pixel,
+    const MouseInput& mi) {
   if (mi.Button == game_settings_.ResolveActionButton(
                        MouseActionType::Contextual))  // ActionType(L27)
     return OrderInner(world, cell, world_pixel, mi);
@@ -95,7 +96,7 @@ std::vector<net::Order*> UnitOrderGenerator::Order(sim::World& world, CPos cell,
 }
 
 // ———— OrderInner(L66-84)————
-std::vector<net::Order*> UnitOrderGenerator::OrderInner(
+std::vector<std::unique_ptr<net::Order>> UnitOrderGenerator::OrderInner(
     sim::World& world, CPos cell, int2 world_pixel, const MouseInput& mi) {
   const sim::Target target = TargetForInput(world, cell, world_pixel, mi);
 
@@ -118,13 +119,13 @@ std::vector<net::Order*> UnitOrderGenerator::OrderInner(
   if (actors_involved.empty())
     return {};  // yield break(L76)| (L76).
 
-  std::vector<net::Order*> out;
+  std::vector<std::unique_ptr<net::Order>> out;
 
   // HACK: This is required by the hacky player actions-per-minute
   // calculation(上游注释)| (upstream comment)
-  out.push_back(new net::Order("CreateGroup",
-                               actors_involved[0]->Owner()->PlayerActor(),
-                               false, actors_involved));
+  out.push_back(std::make_unique<net::Order>(
+      "CreateGroup", actors_involved[0]->Owner()->PlayerActor(),
+      false, actors_involved));
 
   const bool queued = HasModifier(mi.ModifierFlags, Modifiers::Shift);
   for (UnitOrderResult& o : orders)
@@ -304,8 +305,8 @@ std::optional<UnitOrderResult> UnitOrderGenerator::OrderForUnit(
 }
 
 // ———— CheckSameOrder(L204-211)————
-net::Order* UnitOrderGenerator::CheckSameOrder(sim::IOrderTargeter* iot,
-                                               net::Order* order) {
+std::unique_ptr<net::Order> UnitOrderGenerator::CheckSameOrder(
+    sim::IOrderTargeter* iot, std::unique_ptr<net::Order> order) {
   // TextNotificationsManager.Debug → 注入钩子面(通知管理器随 Phase 6;
   // 静默 = D29 系)| the injected-hook face (the notification manager lands
   // in Phase 6; silence = the D29 family).

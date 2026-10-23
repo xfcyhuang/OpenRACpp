@@ -53,13 +53,15 @@ class UnitOrderGenerator : public sim::IOrderGenerator {
                                     const MouseInput& mi);
 
   /// Order(L56-64) | Order (L56-64).
-  std::vector<net::Order*> Order(sim::World& world, CPos cell,
-                                 int2 world_pixel, const MouseInput& mi) override;
+  std::vector<std::unique_ptr<net::Order>> Order(
+      sim::World& world, CPos cell,
+      int2 world_pixel, const MouseInput& mi) override;
 
   /// OrderInner(L66-84) | OrderInner (L66-84).
-  std::vector<net::Order*> OrderInner(sim::World& world, CPos cell,
-                                      int2 world_pixel,
-                                      const MouseInput& mi);
+  std::vector<std::unique_ptr<net::Order>> OrderInner(
+      sim::World& world, CPos cell,
+      int2 world_pixel,
+      const MouseInput& mi);
 
   // ———— IOrderGenerator 全量(IOrderGenerator.cs L20-27)————
   MouseButton ActionButton() const;                                        // L28
@@ -100,7 +102,8 @@ class UnitOrderGenerator : public sim::IOrderGenerator {
 
  private:
   /// CheckSameOrder(L204-211) | CheckSameOrder (L204-211).
-  static net::Order* CheckSameOrder(sim::IOrderTargeter* iot, net::Order* order);
+  static std::unique_ptr<net::Order> CheckSameOrder(
+      sim::IOrderTargeter* iot, std::unique_ptr<net::Order> order);
 
   std::string world_select_cursor_{"select"};    // L23(ChromeMetrics 面;
                                                  // 缺省键值 —— Chrome 装配批)

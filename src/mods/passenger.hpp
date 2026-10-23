@@ -59,8 +59,9 @@ class Passenger final : public TraitBase,
   Cargo* ReservedCargo() const { return ptr_reserved_cargo_; }
 
   std::vector<sim::IOrderTargeter*> Orders() override;
-  net::Order* IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                         const sim::Target& target, bool queued) override;
+  std::unique_ptr<net::Order> IssueOrder(
+      Actor& self, sim::IOrderTargeter* order,
+      const sim::Target& target, bool queued) override;
   std::string VoicePhraseForOrder(Actor& self,
                                   const net::Order& order) override;
   void ResolveOrder(Actor& self, const net::Order& order) override;

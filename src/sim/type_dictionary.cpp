@@ -44,6 +44,8 @@ void TypeDictionary::Remove(ActorInit* val) {
     if (bucket.empty())
       data_.erase(it);
   }
+
+  map_owned_.erase(val);
 }
 
 }  // namespace ora::sim

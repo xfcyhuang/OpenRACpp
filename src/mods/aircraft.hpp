@@ -289,8 +289,9 @@ class Aircraft final : public TraitBase,
   bool CanEnterTargetNow(Actor* self, const sim::Target& target) override;
 
   std::vector<sim::IOrderTargeter*> Orders() override;
-  net::Order* IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                         const sim::Target& target, bool queued) override;
+  std::unique_ptr<net::Order> IssueOrder(
+      Actor& self, sim::IOrderTargeter* order,
+      const sim::Target& target, bool queued) override;
   net::Order IssueDeployOrder(Actor& self, bool queued) override;
   bool CanIssueDeployOrder(Actor& self, bool queued) override;
   std::string VoicePhraseForOrder(Actor& self,

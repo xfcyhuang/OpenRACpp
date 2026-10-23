@@ -1842,7 +1842,6 @@ int main(int argc, char** argv) {
                 vec_orders[0]->str_order_string == instance->Key() &&
                 vec_orders[0]->b_suppress_visual_feedback,
             "p6b11: generic target order emits with feedback suppressed");
-      delete vec_orders[0];
       Check(world->OrderGenerator() != selector_ptr,
             "p6b11: OrderInner cancels the input mode");
 
@@ -3306,7 +3305,7 @@ int main(int argc, char** argv) {
       ora::MouseInput mi_beacon{};
       mi_beacon.Event = ora::MouseInputEvent::Down;
       mi_beacon.Button = ora::MouseButton::Left;
-      std::vector<net::Order*> vec_beacon_orders =
+      std::vector<std::unique_ptr<net::Order>> vec_beacon_orders =
           world->OrderGenerator()->Order(*world, CPos{cx, cy},
                                          int2{cx * 1024, cy * 1024},
                                          mi_beacon);
@@ -3316,8 +3315,6 @@ int main(int argc, char** argv) {
                 vec_beacon_orders.front()->b_suppress_visual_feedback,
             "p6b17: the beacon action orders PlaceBeacon with the "
             "visual-feedback suppression");
-      for (net::Order* order_beacon : vec_beacon_orders)
-        delete order_beacon;
       Check(dynamic_cast<mods::BeaconOrderGenerator*>(
                 world->OrderGenerator()) == nullptr,
             "p6b17: ordering the beacon cancels the input mode");
@@ -3327,7 +3324,7 @@ int main(int argc, char** argv) {
       ora::MouseInput mi_cancel{};
       mi_cancel.Event = ora::MouseInputEvent::Up;
       mi_cancel.Button = ora::MouseButton::Right;
-      const std::vector<net::Order*> vec_cancel_orders =
+      const std::vector<std::unique_ptr<net::Order>> vec_cancel_orders =
           world->OrderGenerator()->Order(*world, CPos{cx, cy},
                                          int2{cx * 1024, cy * 1024},
                                          mi_cancel);

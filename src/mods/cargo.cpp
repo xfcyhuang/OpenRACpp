@@ -164,14 +164,14 @@ Cargo::Cargo(sim::ActorInitializer& init, const CargoInfoData& info,
     for (const auto& u : cargo_init->Value()) {
       sim::TypeDictionary dict;
       sim::OwnerInit owner_init{self_.Owner()};
-      dict.Add(new sim::OwnerInit{self_.Owner()});
+      dict.Add(std::make_unique<sim::OwnerInit>(self_.Owner()));
       vec_initial.push_back(self_.world().CreateActor(
           false, ToLowerInvariant(u), dict));
     }
   } else {
     for (const auto& u : info_.vec_initial_units) {
       sim::TypeDictionary dict;
-      dict.Add(new sim::OwnerInit{self_.Owner()});
+      dict.Add(std::make_unique<sim::OwnerInit>(self_.Owner()));
       vec_initial.push_back(self_.world().CreateActor(
           false, ToLowerInvariant(u), dict));
     }
@@ -236,10 +236,11 @@ std::vector<sim::IOrderTargeter*> Cargo::Orders() {
   return vec_orders;
 }
 
-net::Order* Cargo::IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                              const sim::Target&, bool queued) {
+std::unique_ptr<net::Order> Cargo::IssueOrder(
+    Actor& self, sim::IOrderTargeter* order,
+    const sim::Target&, bool queued) {
   if (order->OrderID() == "Unload")
-    return new net::Order(order->OrderID(), &self, queued);
+    return std::make_unique<net::Order>(order->OrderID(), &self, queued);
 
   return nullptr;
 }
@@ -536,7 +537,7 @@ void Cargo::OnOwnerChanged(Actor&, Player& old_owner, Player& new_owner) {
 }
 
 void Cargo::ModifyTransformActorInit(Actor&, sim::TypeDictionary& init) {
-  init.Add(new sim::RuntimeCargoInit{vec_cargo_});
+  init.Add(std::make_unique<sim::RuntimeCargoInit>(vec_cargo_));
 }
 
 ParaDropInfoData ParaDropInfoData::Parse(const meta::RecordObject& rec_info) {

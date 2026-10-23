@@ -62,6 +62,12 @@ class ZipFolder final : public IReadOnlyPackage {
 
 }  // namespace
 
+void DestroyZipReader(void* ptr_reader) {
+  auto* reader = static_cast<mz_zip_archive*>(ptr_reader);
+  mz_zip_reader_end(reader);
+  delete reader;
+}
+
 ReadOnlyZipFile::ReadOnlyZipFile(std::vector<char> bytes, std::string filename)
     : vec_bytes_{std::move(bytes)}, str_name_{std::move(filename)} {
   auto* reader = new mz_zip_archive{};
@@ -69,20 +75,13 @@ ReadOnlyZipFile::ReadOnlyZipFile(std::vector<char> bytes, std::string filename)
     delete reader;
     throw std::runtime_error{"zip reader init failed: " + str_name_};
   }
-  reader_ = reader;
-}
-
-ReadOnlyZipFile::~ReadOnlyZipFile() {
-  if (reader_ != nullptr) {
-    mz_zip_reader_end(static_cast<mz_zip_archive*>(reader_));
-    delete static_cast<mz_zip_archive*>(reader_);
-  }
+  up_reader_ = {reader, &DestroyZipReader};
 }
 
 std::vector<std::string> ReadOnlyZipFile::Contents() const {
   // 仅文件条目(目录占位条目被过滤,上游 L57-59)
   // File entries only (directory placeholders filtered out, upstream L57-59).
-  auto* reader = static_cast<mz_zip_archive*>(reader_);
+  auto* reader = static_cast<mz_zip_archive*>(up_reader_.get());
   std::vector<std::string> names;
   const mz_uint count = mz_zip_reader_get_num_files(reader);
   std::string buf;
@@ -99,7 +98,7 @@ std::vector<std::string> ReadOnlyZipFile::Contents() const {
 
 std::optional<std::vector<char>> ReadOnlyZipFile::GetStream(
     const std::string& filename) const {
-  auto* reader = static_cast<mz_zip_archive*>(reader_);
+  auto* reader = static_cast<mz_zip_archive*>(up_reader_.get());
   const mz_int64 index = mz_zip_reader_locate_file(reader, filename.c_str(), nullptr,
                                                    MZ_ZIP_FLAG_CASE_SENSITIVE);
   if (index < 0)
@@ -114,7 +113,7 @@ std::optional<std::vector<char>> ReadOnlyZipFile::GetStream(
 }
 
 bool ReadOnlyZipFile::Contains(const std::string& filename) const {
-  auto* reader = static_cast<mz_zip_archive*>(reader_);
+  auto* reader = static_cast<mz_zip_archive*>(up_reader_.get());
   return mz_zip_reader_locate_file(reader, filename.c_str(), nullptr,
                                    MZ_ZIP_FLAG_CASE_SENSITIVE) >= 0;
 }
@@ -123,7 +122,7 @@ std::unique_ptr<IReadOnlyPackage> ReadOnlyZipFile::OpenPackage(const std::string
                                                                FileSystem& context) const {
   // 目录条目在索引中带尾部 '/'(上游 L76)
   // Directories are stored with a trailing '/' in the index (upstream L76).
-  auto* reader = static_cast<mz_zip_archive*>(reader_);
+  auto* reader = static_cast<mz_zip_archive*>(up_reader_.get());
   mz_int64 index = mz_zip_reader_locate_file(reader, filename.c_str(), nullptr,
                                              MZ_ZIP_FLAG_CASE_SENSITIVE);
   if (index < 0) {

@@ -221,9 +221,9 @@ std::vector<Actor*> AirstrikePower::SendAirstrike(Actor& self, WPos target,
                str_camera = airstrike_info_.str_camera_actor, owner,
                target_pos](sim::World& w) {
                 auto dict = sim::TypeDictionary{};
-                dict.Add(
-                    new sim::LocationInit{w.Map().CellContaining(target_pos)});
-                dict.Add(new sim::OwnerInit{owner});
+                dict.Add(std::make_unique<sim::LocationInit>(
+                    w.Map().CellContaining(target_pos)));
+                dict.Add(std::make_unique<sim::OwnerInit>(owner));
                 strike_state->camera = w.CreateActor(true, str_camera, dict);
               });
         }
@@ -264,9 +264,9 @@ std::vector<Actor*> AirstrikePower::SendAirstrike(Actor& self, WPos target,
     const auto target_offset = WVec{i * so.Y, 0, 0}.Rotate(attack_rotation);
 
     auto dict = sim::TypeDictionary{};
-    dict.Add(new sim::CenterPositionInit{start_edge + spawn_offset});
-    dict.Add(new sim::OwnerInit{self.Owner()});
-    dict.Add(new sim::FacingInit{*facing});
+    dict.Add(std::make_unique<sim::CenterPositionInit>(start_edge + spawn_offset));
+    dict.Add(std::make_unique<sim::OwnerInit>(self.Owner()));
+    dict.Add(std::make_unique<sim::FacingInit>(*facing));
     auto* a = self.world().CreateActor(false, airstrike_info_.str_unit_type,
                                        dict);
 
@@ -376,9 +376,9 @@ SelectDirectionalTarget::SelectDirectionalTarget(
                  static_cast<int>(info.vec_arrows.size()));
 }
 
-std::vector<net::Order*> SelectDirectionalTarget::Order(
+std::vector<std::unique_ptr<net::Order>> SelectDirectionalTarget::Order(
     sim::World& world, CPos cell, int2, const MouseInput& mi_input) {
-  std::vector<net::Order*> vec_orders;
+  std::vector<std::unique_ptr<net::Order>> vec_orders;
   if (mi_input.Button == CancelButton()) {
     world.CancelInputMode();
     return vec_orders;
@@ -430,16 +430,16 @@ std::vector<net::Order*> SelectDirectionalTarget::Order(
 
   if (mi_input.Button == ActionButton() &&
       mi_input.Event == MouseInputEvent::Up) {
-    auto* o = new net::Order(
+    auto up_order = std::make_unique<net::Order>(
         str_order_, manager_.Self(),
         sim::Target::FromCell(manager_.Self()->world(), cell_target_), false);
-    o->b_suppress_visual_feedback = true;
-    o->uint4_extra_data =
+    up_order->b_suppress_visual_feedback = true;
+    up_order->uint4_extra_data =
         IsOutsideDragZone()
             ? static_cast<std::uint32_t>(
                   arrow_current_.angle_direction.Facing())
             : 0xFFFFFFFFu;
-    vec_orders.push_back(o);
+    vec_orders.push_back(std::move(up_order));
 
     world.CancelInputMode();
   }

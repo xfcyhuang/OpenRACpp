@@ -24,9 +24,10 @@ class ModsOrderGeneratorBase : public sim::IOrderGenerator {
   MouseButton ActionButton() const override;
   MouseButton CancelButton() const;
 
-  std::vector<net::Order*> Order(sim::World& world, CPos cell,
-                                 int2 world_pixel,
-                                 const MouseInput& mi) override;
+  std::vector<std::unique_ptr<net::Order>> Order(
+      sim::World& world, CPos cell,
+      int2 world_pixel,
+      const MouseInput& mi) override;
   void Deactivate() override {}
   bool HandleKeyPress(const KeyInput&) override { return false; }
   void SelectionChanged(sim::World&,
@@ -34,9 +35,10 @@ class ModsOrderGeneratorBase : public sim::IOrderGenerator {
 
  protected:
   virtual MouseActionType ActionType() const = 0;
-  virtual std::vector<net::Order*> OrderInner(sim::World& world, CPos cell,
-                                              int2 world_pixel,
-                                              const MouseInput& mi) = 0;
+  virtual std::vector<std::unique_ptr<net::Order>> OrderInner(
+      sim::World& world, CPos cell,
+      int2 world_pixel,
+      const MouseInput& mi) = 0;
 
   GameSettingsFace game_settings_;
 };
@@ -69,9 +71,10 @@ class GlobalButtonOrderGenerator : public ModsOrderGeneratorBase {
 
   virtual bool IsValidTrait(const TraitT& trait_t) const;
 
-  std::vector<net::Order*> OrderInner(sim::World& world, CPos cell,
-                                      int2 world_pixel,
-                                      const MouseInput& mi) override;
+  std::vector<std::unique_ptr<net::Order>> OrderInner(
+      sim::World& world, CPos cell,
+      int2 world_pixel,
+      const MouseInput& mi) override;
 
   std::string str_order_;
 };
@@ -122,9 +125,10 @@ class RepairOrderGenerator final : public ModsOrderGeneratorBase {
   MouseActionType ActionType() const override {
     return MouseActionType::GlobalCommand;
   }
-  std::vector<net::Order*> OrderInner(sim::World& world, CPos cell,
-                                      int2 world_pixel,
-                                      const MouseInput& mi) override;
+  std::vector<std::unique_ptr<net::Order>> OrderInner(
+      sim::World& world, CPos cell,
+      int2 world_pixel,
+      const MouseInput& mi) override;
 };
 
 class BeaconOrderGenerator final : public ModsOrderGeneratorBase {
@@ -151,9 +155,10 @@ class BeaconOrderGenerator final : public ModsOrderGeneratorBase {
   MouseActionType ActionType() const override {
     return MouseActionType::PlaceBuilding;
   }
-  std::vector<net::Order*> OrderInner(sim::World& world, CPos cell,
-                                      int2 world_pixel,
-                                      const MouseInput& mi) override;
+  std::vector<std::unique_ptr<net::Order>> OrderInner(
+      sim::World& world, CPos cell,
+      int2 world_pixel,
+      const MouseInput& mi) override;
 };
 
 }

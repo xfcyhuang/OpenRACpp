@@ -23,7 +23,6 @@ class ReadOnlyZipFile final : public IReadOnlyPackage {
   /// Takes ownership of bytes (equivalent to the C# ctor taking over the
   /// stream and extracting into memory on demand).
   ReadOnlyZipFile(std::vector<char> bytes, std::string filename);
-  ~ReadOnlyZipFile() override;
 
   ReadOnlyZipFile(const ReadOnlyZipFile&) = delete;
   ReadOnlyZipFile& operator=(const ReadOnlyZipFile&) = delete;
@@ -38,7 +37,8 @@ class ReadOnlyZipFile final : public IReadOnlyPackage {
  private:
   std::vector<char> vec_bytes_;
   std::string str_name_;
-  void* reader_ = nullptr;  // mz_zip_archive*(实现细节,头文件不外泄 C 类型)
+  std::unique_ptr<void, void (*)(void*)> up_reader_{
+      nullptr, nullptr};  // mz_zip_archive*(deleter 在 cpp)
 };
 
 /// ZipFileLoader(ZipFile.cs L20):按本地文件头签名 0x04034b50 嗅探

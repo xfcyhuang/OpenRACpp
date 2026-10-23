@@ -205,9 +205,9 @@ ParatroopersPower::SendParatroopers(Actor& self, WPos target,
                str_camera = paratroopers_info_.str_camera_actor, owner,
                target_pos](sim::World& w) {
                 auto dict = sim::TypeDictionary{};
-                dict.Add(
-                    new sim::LocationInit{w.Map().CellContaining(target_pos)});
-                dict.Add(new sim::OwnerInit{owner});
+                dict.Add(std::make_unique<sim::LocationInit>(
+                    w.Map().CellContaining(target_pos)));
+                dict.Add(std::make_unique<sim::OwnerInit>(owner));
                 drop_state->camera = w.CreateActor(true, str_camera, dict);
               });
         }
@@ -255,16 +255,16 @@ ParatroopersPower::SendParatroopers(Actor& self, WPos target,
         WVec{i * so.Y, -std::abs(i) * so.X, 0}.Rotate(drop_rotation);
 
     auto dict = sim::TypeDictionary{};
-    dict.Add(new sim::CenterPositionInit{start_edge + spawn_offset});
-    dict.Add(new sim::OwnerInit{self.Owner()});
-    dict.Add(new sim::FacingInit{*facing});
+    dict.Add(std::make_unique<sim::CenterPositionInit>(start_edge + spawn_offset));
+    dict.Add(std::make_unique<sim::OwnerInit>(self.Owner()));
+    dict.Add(std::make_unique<sim::FacingInit>(*facing));
     vec_aircraft.push_back(self.world().CreateActor(
         false, str_unit_type_lower, dict));
   }
 
   for (const auto& p : paratroopers_info_.vec_drop_items) {
     auto dict = sim::TypeDictionary{};
-    dict.Add(new sim::OwnerInit{self.Owner()});
+    dict.Add(std::make_unique<sim::OwnerInit>(self.Owner()));
     vec_units.push_back(
         self.world().CreateActor(false, ToLowerInvariant(p), dict));
   }

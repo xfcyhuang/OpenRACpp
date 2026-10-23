@@ -150,10 +150,12 @@ std::vector<sim::IOrderTargeter*> Passenger::Orders() {
   return vec_orders;
 }
 
-net::Order* Passenger::IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                                  const sim::Target& target, bool queued) {
+std::unique_ptr<net::Order> Passenger::IssueOrder(
+    Actor& self, sim::IOrderTargeter* order,
+    const sim::Target& target, bool queued) {
   if (order->OrderID() == "EnterTransport")
-    return new net::Order(order->OrderID(), &self, target, queued);
+    return std::make_unique<net::Order>(order->OrderID(), &self, target,
+                                        queued);
 
   return nullptr;
 }

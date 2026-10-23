@@ -286,10 +286,12 @@ std::vector<sim::IOrderTargeter*> Repairable::Orders() {
   return vec_orders;
 }
 
-net::Order* Repairable::IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                                   const sim::Target& target, bool queued) {
+std::unique_ptr<net::Order> Repairable::IssueOrder(
+    Actor& self, sim::IOrderTargeter* order,
+    const sim::Target& target, bool queued) {
   if (order->OrderID() == "Repair")
-    return new net::Order(order->OrderID(), &self, target, queued);
+    return std::make_unique<net::Order>(order->OrderID(), &self, target,
+                                        queued);
 
   return nullptr;
 }

@@ -294,9 +294,10 @@ class Mobile final : public TraitBase,
 
   // ———— order 面(L919-987)————
   std::vector<sim::IOrderTargeter*> Orders() override;
-  net::Order* IssueOrder(Actor& self, sim::IOrderTargeter* order,
-                         const sim::Target& target,
-                         bool queued) override;                      // L929-935
+  std::unique_ptr<net::Order> IssueOrder(
+      Actor& self, sim::IOrderTargeter* order,
+      const sim::Target& target,
+      bool queued) override;                      // L929-935
   void ResolveOrder(Actor& self,
                     const net::Order& order) override;               // L937-963
   std::string VoicePhraseForOrder(
