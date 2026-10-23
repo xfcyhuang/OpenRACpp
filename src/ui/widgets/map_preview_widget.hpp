@@ -29,19 +29,6 @@ namespace ora::ui {
 
 class TooltipContainerWidget;
 
-class SpawnOccupant {
- public:
-  core::Color color_player{};
-  std::string str_player_name;
-  int int4_team = 0;
-  std::string str_faction;
-  int int4_spawn_point = 0;
-
-  SpawnOccupant(const net::SessionClient& client);
-  SpawnOccupant(const server::GameInformationPlayer& player);
-  SpawnOccupant(const server::GameClientData& player, bool b_suppress_faction);
-};
-
 class MapPreviewWidget : public Widget {
  public:
   static constexpr std::string_view kWidgetTypeName = "MapPreviewWidget";

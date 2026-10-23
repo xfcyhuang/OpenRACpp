@@ -111,11 +111,18 @@ bool ButtonWidget::HandleMouseInput(const MouseInput& mi_input) {
     }
   } else if (HasMouseFocus() && mi_input.Event == MouseInputEvent::Up) {
     // Only fire the onMouseUp event if we successfully lost focus, and were
-    // pressed
-    if (b_depressed && !b_disabled)
-      fn_on_mouse_up(mi_input);
+    // pressed. The depressed state is snapshotted because YieldMouseFocus
+    // clears it, and the callback fires off a stack copy — a
+    // self-destroying OnClick (CloseWindow/RemoveChild) takes the widget
+    // (and this very std::function) with it.
+    const bool b_was_depressed = b_depressed;
+    const bool b_yielded = YieldMouseFocus(mi_input);
+    if (b_was_depressed && !b_disabled) {
+      auto fn_on_mouse_up_copy = fn_on_mouse_up;
+      fn_on_mouse_up_copy(mi_input);
+    }
 
-    return YieldMouseFocus(mi_input);
+    return b_yielded;
   }
 
   if (mi_input.Event == MouseInputEvent::Down) {
@@ -389,8 +396,14 @@ void ButtonWidget::BindDefaults() {
   fn_get_color_disabled = [this] { return color_text_disabled; };
   fn_get_contrast_color_dark = [this] { return color_contrast_dark; };
   fn_get_contrast_color_light = [this] { return color_contrast_light; };
-  fn_on_mouse_up = [this](const MouseInput&) { fn_on_click(); };
-  fn_on_key_press = [this](const KeyInput&) { fn_on_click(); };
+  fn_on_mouse_up = [this](const MouseInput&) {
+    auto fn_on_click_copy = fn_on_click;
+    fn_on_click_copy();
+  };
+  fn_on_key_press = [this](const KeyInput&) {
+    auto fn_on_click_copy = fn_on_click;
+    fn_on_click_copy();
+  };
   fn_is_highlighted = [this] { return b_highlighted; };
   fn_get_tooltip_text = [this] {
     return cache_tooltip_text_->Update(opt_tooltip_text.value_or(""));

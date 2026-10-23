@@ -194,12 +194,20 @@ class Game {
   bool IsCurrentWorld(const sim::World* ptr_world) const;
 
   /// LobbyInfoChanged(L179-183 事件面;UnitOrders 的 SyncLobby* 分支经
-  /// Game.SyncLobbyInfo 触发 —— 第十六批客户端接线)
+  /// Game.SyncLobbyInfo 触发 —— 第十六批客户端接线)。返回退订器(上游
+  /// event -= 的等价;置空移除)
   /// LobbyInfoChanged (the L179-183 event face; UnitOrders' SyncLobby*
   /// branches fire it through Game.SyncLobbyInfo — the batch-16 client
-  /// wiring).
-  void AddLobbyInfoChangedHandler(std::function<void()> fn_changed) {
+  /// wiring). Returns the unsubscriber (the event -= equivalent; removal by
+  /// nulling out).
+  std::function<void()> AddLobbyInfoChangedHandler(
+      std::function<void()> fn_changed) {
     vec_lobby_info_changed_.push_back(std::move(fn_changed));
+    const std::size_t sz_slot = vec_lobby_info_changed_.size() - 1;
+    return [this, sz_slot] {
+      if (sz_slot < vec_lobby_info_changed_.size())
+        vec_lobby_info_changed_[sz_slot] = nullptr;
+    };
   }
 
   void SetWorldRenderer(std::unique_ptr<gfx::WorldRenderer> up_wr, gfx::Viewport* ptr_viewport);

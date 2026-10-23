@@ -34,6 +34,10 @@ struct LobbyOptionData {
   bool IsLocked = false;
   bool IsVisible = true;
   int DisplayOrder = 0;
+  /// 上游 `o is LobbyBooleanOption` 的接口判别承载
+  /// The interface-discrimination carrier of upstream's `o is
+  /// LobbyBooleanOption`.
+  bool IsBooleanOption = false;
 
   /// Values.ContainsKey(value)
   bool HasValue(std::string_view str_value) const {

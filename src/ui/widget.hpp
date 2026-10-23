@@ -43,18 +43,36 @@ struct SessionClient;
 }
 namespace ora::server {
 struct GameServerData;
+struct GameInformationPlayer;
+struct GameClientData;
 }
 namespace ora::gfx {
 class WorldRenderer;
 }
 namespace ora::map {
 class MapPreview;
+struct MapGenerationArgs;
 }
 namespace ora::game {
 class ModData;
 }
 
 namespace ora::ui {
+class MapPreviewWidget;
+class TooltipContainerWidget;
+
+class SpawnOccupant {
+ public:
+  core::Color color_player{};
+  std::string str_player_name;
+  int int4_team = 0;
+  std::string str_faction;
+  int int4_spawn_point = 0;
+
+  SpawnOccupant(const net::SessionClient& client);
+  SpawnOccupant(const server::GameInformationPlayer& player);
+  SpawnOccupant(const server::GameClientData& player, bool b_suppress_faction);
+};
 
 class Widget;
 class Ui;
@@ -91,7 +109,16 @@ using WidgetArgValue =
                  std::function<void(server::GameServerData&)>,  // onJoin
                  std::function<bool()>,                       // configurationDisabled
                  map::MapPreview*,                            // getMap 的空槽形态 | getMap's null-slot shape
-                 GetMapFn>;                                   // getMap
+                 GetMapFn,                                     // getMap
+                 std::function<std::pair<map::MapPreview*, int>()>,  // getMap (Map, MapStatus)
+                 std::function<void(MapPreviewWidget*, map::MapPreview*,
+                                    const MouseInput&)>,      // onMouseDown(MAP_PREVIEW)
+                 std::function<std::map<int, SpawnOccupant>()>,  // getSpawnOccupants
+                 std::function<std::vector<int>()>,            // getDisabledSpawnPoints
+                 MapPreviewWidget*,                            // preview(SpawnSelectorTooltip)
+                 TooltipContainerWidget*,                      // tooltipContainer
+                 const map::MapGenerationArgs*,                // initialGeneratedMap
+                 std::function<void(const map::MapGenerationArgs&)>>;  // onSelectGenerated
 
 /// WidgetArgs(L673-679;插入序条目表)
 /// WidgetArgs (L673-679; an insertion-ordered entry list).

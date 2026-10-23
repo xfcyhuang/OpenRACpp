@@ -329,6 +329,18 @@ class Ui {
     std::function<std::string()> fn_player_name = [] {
       return std::string{"Commander"};
     };
+    /// Game.Settings.Player.Name 的写面(LobbyUtils.SetupEditableNameWidget
+    /// 的存盘链;未接线 = no-op)
+    /// Game.Settings.Player.Name's write face (the persistence chain of
+    /// LobbyUtils.SetupEditableNameWidget; unwired = no-op).
+    std::function<void(const std::string&)> fn_player_name_set =
+        [](const std::string&) {};
+    /// Game.LobbyInfoChanged 订阅面(LobbyLogic;返回退订器;未接线 = 无订阅)
+    /// The Game.LobbyInfoChanged subscription face (LobbyLogic; returns the
+    /// unsubscriber; unwired = no subscription).
+    std::function<std::function<void()>(std::function<void()>)>
+        fn_subscribe_lobby_info_changed =
+            [](std::function<void()>) { return std::function<void()>{}; };
     /// Game.CreateServer(ServerSettings)(ServerCreationLogic;出参 = 端点/
     /// SocketException.ErrorCode/Message;false = 创建失败)
     /// Game.CreateServer (ServerSettings) (ServerCreationLogic; the out
@@ -539,6 +551,13 @@ class Ui {
     deps_.fn_server_settings_set(face_server);
   }
   std::string PlayerNameDeps() const { return deps_.fn_player_name(); }
+  void PlayerNameSetDeps(const std::string& str_name) const {
+    deps_.fn_player_name_set(str_name);
+  }
+  std::function<void()> SubscribeLobbyInfoChanged(
+      std::function<void()> fn_handler) const {
+    return deps_.fn_subscribe_lobby_info_changed(std::move(fn_handler));
+  }
   bool CreateServerDeps(const ServerSettingsFace& face_server,
                         int& int4_error_code, std::string& str_error_message,
                         net::ConnectionTarget& target_endpoint) const {

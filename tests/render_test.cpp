@@ -19,6 +19,8 @@ import std;
 #include "gfx/chrome_provider.hpp"
 #include "gfx/sheet.hpp"
 #include "mods/music_playlist.hpp"
+#include "mods/lobby_logics.hpp"
+#include "mods/lobby_utils.hpp"
 #include "mods/server_list_logic.hpp"
 #include "mods/asset_browser_logic.hpp"
 #include "mods/game_info_logics.hpp"
@@ -32,6 +34,8 @@ import std;
 #include "ui/widgets/drop_down_button_widget.hpp"
 #include "ui/widgets/image_widget.hpp"
 #include "ui/widgets/label_widget.hpp"
+#include "ui/widgets/progress_bar_widget.hpp"
+#include "ui/widgets/client_tooltip_region_widget.hpp"
 #include "ui/widgets/logic_ticker_widget.hpp"
 #include "ui/widgets/map_preview_widget.hpp"
 #include "ui/widgets/password_field_widget.hpp"
@@ -168,6 +172,7 @@ template <class T>
 void CheckEq(const T& a, const T& b, std::string_view what) {
   if (!(a == b)) {
     std::println("FAIL: {} ({} != {})", what, a, b);
+    std::fflush(stdout);
     ++g_failures;
   }
 }
@@ -175,6 +180,7 @@ void CheckEq(const T& a, const T& b, std::string_view what) {
 void Check(bool ok, std::string_view what) {
   if (!ok) {
     std::println("FAIL: {}", what);
+    std::fflush(stdout);
     ++g_failures;
   }
 }
@@ -6176,6 +6182,715 @@ int main(int argc, char** argv) {
       }
       logic_stats.reset();
     }
+  }
+
+  // ———— Phase 6 第二十二批:Lobby 大厅面板族 ————
+  // ———— Phase 6 batch 22: the lobby panel family ————
+  {
+    std::println("-- batch 22: lobby panels --");
+
+    map::MapPreview& preview_spawns = cache.At(str_uid);
+
+    static ui::ChromeMetrics metrics_panel22;
+    {
+      const auto dir_metrics22 =
+          std::filesystem::temp_directory_path() /
+          "ora_render_test_metrics_panel22";
+      std::filesystem::create_directories(dir_metrics22);
+      {
+        std::ofstream out_metrics(dir_metrics22 / "metrics.yaml");
+        const char sz_line_end = static_cast<char>(10);
+        auto fn_line = [&](std::string_view sv_line) {
+          out_metrics << sv_line << sz_line_end;
+        };
+        fn_line("Chrome:");
+        fn_line("	TextFont: Regular");
+        fn_line("	TextColor: FFFFFFFF");
+        fn_line("	TextContrast: True");
+        fn_line("	TextShadow: False");
+        fn_line("	TextContrastColorDark: 000000FF");
+        fn_line("	TextContrastColorLight: FFFFFFFF");
+        fn_line("	TextContrastRadius: 1");
+        fn_line("	TextDisabledColor: 808080FF");
+        fn_line("	ButtonDepth: 1");
+        fn_line("	ButtonFont: Regular");
+        fn_line("	ButtonTextColor: FFFFFFFF");
+        fn_line("	ButtonTextColorDisabled: 808080FF");
+        fn_line("	ButtonTextContrast: True");
+        fn_line("	ButtonTextShadow: False");
+        fn_line("	ButtonTextContrastColorDark: 000000FF");
+        fn_line("	ButtonTextContrastColorLight: FFFFFFFF");
+        fn_line("	ButtonTextContrastRadius: 1");
+        fn_line("	ButtonCursor: default");
+        fn_line("	ClickSound: click_sound");
+        fn_line("	ClickDisabledSound: click_disabled_sound");
+        fn_line("	TextfieldFont: Regular");
+        fn_line("	TextfieldColor: FFFFFFFF");
+        fn_line("	TextfieldColorDisabled: 808080FF");
+        fn_line("	TextfieldColorInvalid: FFFF00FF");
+        fn_line("	TextfieldColorHighlight: 808080FF");
+        fn_line("	NoticeSuccessColor: 00FF00FF");
+        fn_line("	NoticeErrorColor: FF0000FF");
+        fn_line("	NoticeInfoColor: FFFFFFFF");
+        fn_line("	SpawnColor: FFFFFFFF");
+        fn_line("	SpawnContrastColor: 000000FF");
+        fn_line("	SpawnFont: Regular");
+        fn_line("	SpawnLabelOffset: 0,0");
+      }
+      static fs::FileSystem fs_metrics22;
+      fs_metrics22.Mount(dir_metrics22.generic_string());
+      static const std::vector<std::string> vec_files_metrics22{
+          "metrics.yaml"};
+      metrics_panel22.Initialize(
+          {&fs_metrics22, &vec_files_metrics22});
+    }
+
+    {
+      mods::TabCompletionState state_tab;
+      state_tab.opt_names = std::vector<std::string>{"Alpha", "Bob",
+                                                     "Alice"};
+      Check(mods::CompleteTabCompletion(state_tab, " ") == " ",
+            "p6b22: whitespace passes through");
+      Check(mods::CompleteTabCompletion(state_tab, "Al") == "Alpha ",
+            "p6b22: the first prefix hit completes with a space");
+      Check(mods::CompleteTabCompletion(state_tab, "Alpha ") ==
+                "Alice ",
+            "p6b22: a repeated completion cycles candidates");
+      Check(mods::CompleteTabCompletion(state_tab, "Zed") == "Zed",
+            "p6b22: a miss returns the text");
+      state_tab.opt_commands = std::vector<std::string>{"help",
+                                                        "kick"};
+      Check(mods::CompleteTabCompletion(state_tab, "/") == "/help",
+            "p6b22: a bare slash completes the first command");
+      Check(mods::CompleteTabCompletion(state_tab, "/help") ==
+                "/kick",
+            "p6b22: commands cycle too");
+      Check(mods::CompleteTabCompletion(state_tab, "Bob A") ==
+                "Bob Alpha",
+            "p6b22: the last word of a sentence completes");
+    }
+
+    {
+      Check(mods::LatencyDescription(nullptr) == "Unknown",
+            "p6b22: a null client reads unknown latency");
+      net::SessionClient client_quality{};
+      client_quality.ConnectionQualityKind =
+          net::ConnectionQuality::Moderate;
+      Check(mods::LatencyDescription(&client_quality) == "Moderate",
+            "p6b22: moderate reads its label");
+      CheckEq(mods::LatencyColor(&client_quality).ToString(),
+              core::Color::FromArgb(255, 255, 165, 0).ToString(),
+              "p6b22: moderate paints orange");
+      client_quality.ConnectionQualityKind =
+          net::ConnectionQuality::Good;
+      CheckEq(mods::LatencyColor(&client_quality).ToString(),
+              core::Color::FromArgb(255, 50, 205, 50).ToString(),
+              "p6b22: good paints lime");
+      client_quality.ConnectionQualityKind =
+          net::ConnectionQuality::Poor;
+      CheckEq(mods::LatencyColor(&client_quality).ToString(),
+              core::Color::FromArgb(255, 255, 0, 0).ToString(),
+              "p6b22: poor paints red");
+    }
+
+    {
+      net::Session session_lobby{};
+      session_lobby.vec_disabled_spawn_points = {2};
+      const std::vector<int> vec_available =
+          mods::AvailableSpawnPoints(4, session_lobby);
+      CheckEq(vec_available,
+              (std::vector<int>{1, 3, 4}),
+              "p6b22: disabled spawn points drop from the pool");
+      Check(!mods::InsufficientEnabledSpawnPoints(
+                map::MapCache::UnknownMap(), session_lobby),
+            "p6b22: a spawnless map is never insufficient");
+      net::SessionClient client_obs{};
+      client_obs.Name = "Spectator";
+      session_lobby.vec_clients.push_back(client_obs);
+      session_lobby.vec_clients.push_back(client_obs);
+      session_lobby.vec_clients.push_back(client_obs);
+      const bool b_insufficient = mods::InsufficientEnabledSpawnPoints(
+          preview_spawns, session_lobby);
+      Check(!b_insufficient,
+            "p6b22: observers alone never starve the spawn pool");
+      net::SessionClient client_fighter{};
+      client_fighter.Name = "Fighter";
+      client_fighter.Slot = "Multi0";
+      client_fighter.SpawnPoint = 0;
+      session_lobby.vec_clients.push_back(client_fighter);
+      session_lobby.vec_clients.push_back(client_fighter);
+      session_lobby.vec_clients.push_back(client_fighter);
+      const int int4_spawn_count22 =
+          static_cast<int>(preview_spawns.SpawnPoints().size());
+      Check(mods::InsufficientEnabledSpawnPoints(preview_spawns,
+                                                 session_lobby) ==
+                (int4_spawn_count22 != 0 &&
+                 mods::AvailableSpawnPoints(int4_spawn_count22,
+                                            session_lobby)
+                         .size() < 3),
+            "p6b22: insufficiency compares non-observers with the pool");
+    }
+
+    struct PanelStub22 {
+      std::vector<std::string> vec_loaded_ids;
+      gfx::SheetBuilder builder_sheets{gfx::SheetType::BGRA, 128};
+      std::unique_ptr<gfx::SpriteFont> up_font;
+
+      void MakeFont() {
+        struct FakeFont22 final : platform::IFont {
+          platform::FontGlyph CreateGlyph(std::uint32_t, int,
+                                          float) override {
+            platform::FontGlyph glyph_ret;
+            glyph_ret.offset = int2{1, 2};
+            glyph_ret.int4_width = 2;
+            glyph_ret.int4_height = 3;
+            glyph_ret.fp4_advance = 4.0f;
+            glyph_ret.vec_data.assign(2 * 3, 0);
+            return glyph_ret;
+          }
+        };
+        up_font = std::make_unique<gfx::SpriteFont>(
+            "Regular", std::span<const std::uint8_t>{},
+            std::make_unique<FakeFont22>(), 10, 8, 1.0f, builder_sheets,
+            [](const gfx::Sprite&, core::Vector3, float, core::Vector3,
+               float) {},
+            [](const gfx::Sprite&, core::Vector3, core::Vector3,
+               core::Vector3, core::Vector3, core::Vector3, float) {});
+      }
+
+      enum Kind {
+        kContainer,
+        kLabel,
+        kLabelTooltip,
+        kButton,
+        kImage,
+        kCheckbox,
+        kDropDown,
+        kScrollPanel,
+        kScrollItem,
+        kTextField,
+        kColorBlock,
+        kProgressBar,
+        kClientTooltip,
+        kMapPreview
+      };
+
+      std::unique_ptr<ui::Widget> MakeNode(std::string_view str_id,
+                                           Kind kind_node) {
+        ui::WidgetArgs args_stub;
+        std::unique_ptr<ui::Widget> up_node;
+        switch (kind_node) {
+          case kLabel:
+            up_node = std::make_unique<ui::LabelWidget>(args_stub);
+            break;
+          case kLabelTooltip:
+            up_node =
+                std::make_unique<ui::LabelWithTooltipWidget>(args_stub);
+            break;
+          case kButton:
+            up_node = std::make_unique<ui::ButtonWidget>(args_stub);
+            break;
+          case kImage:
+            up_node = std::make_unique<ui::ImageWidget>();
+            break;
+          case kCheckbox:
+            up_node = std::make_unique<ui::CheckboxWidget>(args_stub);
+            break;
+          case kDropDown:
+            up_node =
+                std::make_unique<ui::DropDownButtonWidget>(args_stub);
+            break;
+          case kScrollPanel:
+            up_node =
+                std::make_unique<ui::ScrollPanelWidget>(args_stub);
+            break;
+          case kScrollItem:
+            up_node =
+                std::make_unique<ui::ScrollItemWidget>(args_stub);
+            break;
+          case kTextField:
+            up_node = std::make_unique<ui::TextFieldWidget>(args_stub);
+            break;
+          case kColorBlock:
+            up_node =
+                std::make_unique<ui::ColorBlockWidget>(args_stub);
+            break;
+          case kProgressBar:
+            up_node = std::make_unique<ui::ProgressBarWidget>();
+            break;
+          case kClientTooltip:
+            up_node =
+                std::make_unique<ui::ClientTooltipRegionWidget>();
+            break;
+          case kMapPreview:
+            up_node = std::make_unique<ui::MapPreviewWidget>();
+            break;
+          default:
+            up_node = std::make_unique<ui::ContainerWidget>();
+            break;
+        }
+        up_node->str_id = std::string{str_id};
+        up_node->bounds_widget.int4_width = 200;
+        up_node->bounds_widget.int4_height = 20;
+        return up_node;
+      }
+
+      ui::Widget* AttachNew(ui::Widget& ref_parent, std::string_view str_id,
+                           Kind kind_node) {
+        std::unique_ptr<ui::Widget> up_node = MakeNode(str_id, kind_node);
+        ui::Widget* ptr_node = up_node.get();
+        ref_parent.AddChild(std::move(up_node));
+        return ptr_node;
+      }
+
+      void MakePlayerRowTree(ui::Widget& ref_row, bool b_editable) {
+        ui::Widget* ptr_latency =
+            AttachNew(ref_row, "LATENCY", PanelStub22::kContainer);
+        AttachNew(*ptr_latency, "LATENCY_COLOR", PanelStub22::kColorBlock);
+        AttachNew(ref_row, "LATENCY_REGION", PanelStub22::kClientTooltip);
+        AttachNew(ref_row, "PROFILE", PanelStub22::kImage);
+        AttachNew(ref_row, "PROFILE_TOOLTIP", PanelStub22::kClientTooltip);
+        if (b_editable)
+          AttachNew(ref_row, "NAME", PanelStub22::kTextField);
+        else
+          AttachNew(ref_row, "NAME", PanelStub22::kLabel);
+        AttachNew(ref_row, "SLOT_OPTIONS", PanelStub22::kDropDown);
+        AttachNew(ref_row, "PLAYER_ACTION", PanelStub22::kDropDown);
+        ui::Widget* ptr_color =
+            AttachNew(ref_row, "COLOR", PanelStub22::kDropDown);
+        AttachNew(*ptr_color, "COLORBLOCK", PanelStub22::kColorBlock);
+        ui::Widget* ptr_faction =
+            AttachNew(ref_row, "FACTION", PanelStub22::kDropDown);
+        AttachNew(*ptr_faction, "FACTIONNAME", PanelStub22::kLabel);
+        AttachNew(*ptr_faction, "FACTIONFLAG", PanelStub22::kImage);
+        AttachNew(ref_row, "TEAM", PanelStub22::kLabel);
+        AttachNew(ref_row, "TEAM_DROPDOWN", PanelStub22::kDropDown);
+        AttachNew(ref_row, "HANDICAP", PanelStub22::kLabel);
+        AttachNew(ref_row, "HANDICAP_DROPDOWN", PanelStub22::kDropDown);
+        AttachNew(ref_row, "SPAWN", PanelStub22::kLabel);
+        AttachNew(ref_row, "SPAWN_DROPDOWN", PanelStub22::kDropDown);
+        AttachNew(ref_row, "STATUS_CHECKBOX", PanelStub22::kCheckbox);
+        AttachNew(ref_row, "STATUS_IMAGE", PanelStub22::kImage);
+        AttachNew(ref_row, "JOIN", PanelStub22::kButton);
+        AttachNew(ref_row, "SPECTATE", PanelStub22::kButton);
+        AttachNew(ref_row, "TOGGLE_SPECTATORS", PanelStub22::kCheckbox);
+      }
+
+      ui::Widget* MakeLoadedTree(const std::string& str_id) {
+        auto up_root = std::make_unique<ui::ContainerWidget>();
+        up_root->str_id = str_id;
+        ui::Widget* ptr_root = up_root.get();
+        if (str_id == "MAP_PREVIEW") {
+          for (const char* sz_variant : {"MAP_LARGE", "MAP_SMALL"}) {
+            ui::Widget* ptr_variant =
+                AttachNew(*ptr_root, sz_variant, kContainer);
+            AttachNew(*ptr_variant, "MAP_PREVIEW", kMapPreview);
+            AttachNew(*ptr_variant, "MAP_TITLE", kLabelTooltip);
+          }
+          const char* vec_panels[] = {
+              "MAP_AVAILABLE",
+              "MAP_INCOMPATIBLE",
+              "MAP_VALIDATING",
+              "MAP_GENERATING",
+              "MAP_GENERATION_ERROR",
+              "MAP_UPDATE_AVAILABLE",
+              "MAP_DOWNLOAD_AVAILABLE",
+              "MAP_UPDATE_DOWNLOAD_AVAILABLE",
+              "MAP_SEARCHING",
+              "MAP_DOWNLOADING",
+              "MAP_UNAVAILABLE",
+              "MAP_ERROR",
+          };
+          for (const char* sz_panel : vec_panels) {
+            ui::Widget* ptr_panel =
+                AttachNew(*ptr_root, sz_panel, PanelStub22::kContainer);
+            if (std::string{sz_panel}.find("DOWNLOAD_AVAILABLE") !=
+                std::string::npos)
+              AttachNew(*ptr_panel, "MAP_INSTALL", PanelStub22::kButton);
+            if (std::string{sz_panel} == "MAP_AVAILABLE" ||
+                std::string{sz_panel} == "MAP_DOWNLOAD_AVAILABLE")
+              AttachNew(*ptr_panel, "MAP_TYPE", PanelStub22::kLabel);
+            if (std::string{sz_panel} == "MAP_AVAILABLE" ||
+                std::string{sz_panel} ==
+                    "MAP_DOWNLOAD_AVAILABLE")
+              AttachNew(*ptr_panel, "MAP_AUTHOR", PanelStub22::kLabel);
+            if (std::string{sz_panel} == "MAP_DOWNLOADING") {
+              AttachNew(*ptr_panel, "MAP_PROGRESSBAR", PanelStub22::kProgressBar);
+              AttachNew(*ptr_panel, "MAP_STATUS_DOWNLOADING", PanelStub22::kLabel);
+            }
+          }
+          AttachNew(*ptr_root, "MAP_TITLE", PanelStub22::kLabelTooltip);
+          AttachNew(*ptr_root, "MAP_UPDATE", PanelStub22::kButton);
+          AttachNew(*ptr_root, "MAP_RETRY", PanelStub22::kButton);
+        } else if (str_id == "LOBBY_PLAYER_BIN") {
+          ui::Widget* ptr_players =
+              AttachNew(*ptr_root, "LOBBY_PLAYERS", PanelStub22::kScrollPanel);
+          const char* vec_templates[] = {
+              "TEMPLATE_EDITABLE_PLAYER",
+              "TEMPLATE_NONEDITABLE_PLAYER",
+              "TEMPLATE_EMPTY",
+              "TEMPLATE_EDITABLE_SPECTATOR",
+              "TEMPLATE_NONEDITABLE_SPECTATOR",
+              "TEMPLATE_NEW_SPECTATOR",
+          };
+          for (const char* sz_template : vec_templates) {
+            ui::Widget* ptr_row =
+                AttachNew(*ptr_players, sz_template, PanelStub22::kContainer);
+            const bool b_editable =
+                std::string{sz_template}.find("NONEDITABLE") ==
+                std::string::npos;
+            MakePlayerRowTree(*ptr_row, b_editable);
+          }
+        } else if (str_id == "LOBBY_OPTIONS_BIN") {
+          ui::Widget* ptr_panel =
+              AttachNew(*ptr_root, "", PanelStub22::kScrollPanel);
+          ui::Widget* ptr_container =
+              AttachNew(*ptr_panel, "LOBBY_OPTIONS", PanelStub22::kContainer);
+          ptr_container->bounds_widget.int4_y = 7;
+          ui::Widget* ptr_checkbox_row =
+              AttachNew(*ptr_container, "CHECKBOX_ROW_TEMPLATE",
+                        kContainer);
+          AttachNew(*ptr_checkbox_row, "CHECKBOX_1", PanelStub22::kCheckbox);
+          AttachNew(*ptr_checkbox_row, "CHECKBOX_2", PanelStub22::kCheckbox);
+          ui::Widget* ptr_dropdown_row =
+              AttachNew(*ptr_container, "DROPDOWN_ROW_TEMPLATE",
+                        kContainer);
+          AttachNew(*ptr_dropdown_row, "DROPDOWN_1", PanelStub22::kDropDown);
+          AttachNew(*ptr_dropdown_row, "DROPDOWN_1_DESC", PanelStub22::kLabel);
+        } else if (str_id == "FORCE_START_DIALOG") {
+          AttachNew(*ptr_root, "KICK_WARNING", PanelStub22::kLabel);
+          AttachNew(*ptr_root, "OK_BUTTON", PanelStub22::kButton);
+          AttachNew(*ptr_root, "CANCEL_BUTTON", PanelStub22::kButton);
+        } else if (str_id == "LABEL_DROPDOWN_TEMPLATE") {
+          ui::Widget* ptr_panel =
+              AttachNew(*ptr_root, "PANEL22", PanelStub22::kScrollPanel);
+          ui::Widget* ptr_item =
+              AttachNew(*ptr_panel, "TEMPLATE", PanelStub22::kScrollItem);
+          AttachNew(*ptr_item, "LABEL", PanelStub22::kLabel);
+        }
+        return up_root.release();
+      }
+    };
+
+    auto up_stub22 = std::make_unique<PanelStub22>();
+    up_stub22->MakeFont();
+    PanelStub22* ptr_stub22 = up_stub22.get();
+    static std::unique_ptr<PanelStub22> up_stub_holder22;
+    up_stub_holder22 = std::move(up_stub22);
+
+    ui::Ui::Deps deps_ui_22;
+    deps_ui_22.ptr_chrome_metrics = &metrics_panel22;
+    static gfx::ChromeProvider chrome_provider22;
+    chrome_provider22.Initialize(
+        {.ptr_file_system = &mod_data.ModFiles(),
+         .vec_chrome_files = &mod_data.ManifestRef().Chrome(),
+         .fp4_dpi_scale = 1.0f});
+    deps_ui_22.ptr_chrome_provider = &chrome_provider22;
+    deps_ui_22.fn_window_size = [] { return int2{1280, 720}; };
+    deps_ui_22.fn_try_get_font =
+        [ptr_font = up_stub_holder22->up_font.get()](
+            const std::string&) { return ptr_font; };
+    deps_ui_22.fn_load_widget =
+        [ptr_stub22](ui::WidgetArgs&, ui::Widget* ptr_parent,
+                     const std::string& str_id) -> ui::Widget* {
+      ptr_stub22->vec_loaded_ids.push_back(str_id);
+      ui::Widget* ptr_panel = ptr_stub22->MakeLoadedTree(str_id);
+      if (ptr_parent != nullptr)
+        ptr_parent->AddChild(
+            std::unique_ptr<ui::Widget>(ptr_panel));
+      return ptr_panel;
+    };
+    deps_ui_22.ptr_map_cache = &cache;
+    deps_ui_22.fn_is_host = [] { return true; };
+    deps_ui_22.fn_player_name = [] {
+      return std::string{"Commander"};
+    };
+    static int int4_lobby_saves22 = 0;
+    deps_ui_22.fn_settings_save = [] { ++int4_lobby_saves22; };
+    static std::string str_lobby_player_name22;
+    deps_ui_22.fn_player_name_set = [](
+        const std::string& str_next) {
+      str_lobby_player_name22 = str_next;
+    };
+    deps_ui_22.fn_clock = [] { return std::int64_t{1000}; };
+    ui::Ui::Instance().Initialize(std::move(deps_ui_22));
+
+    net::TextNotificationsManager::Instance().ResetForTest();
+
+    {
+      ui::Widget* ptr_map_preview_root = ptr_stub22->MakeLoadedTree(
+          "MAP_PREVIEW");
+
+      auto logic_preview_available =
+          std::make_unique<mods::MapPreviewLogic>(
+              *ptr_map_preview_root, mod_data,
+              [&preview_spawns]() {
+                return std::make_pair(
+                    &preview_spawns,
+                    static_cast<int>(
+                        net::SessionMapStatus::Playable));
+              },
+              nullptr, nullptr, false, nullptr, nullptr, true);
+      logic_preview_available->Tick();
+      Check(logic_preview_available->StatusForTest() ==
+                mods::MapPreviewLogic::PreviewStatus::Playable,
+            "p6b22: an available map with the playable flag reads "
+            "playable");
+      Check(!logic_preview_available->RetryTriggeredForTest(),
+            "p6b22: playable never trips the retry latch");
+
+      auto logic_preview_unknown =
+          std::make_unique<mods::MapPreviewLogic>(
+              *ptr_map_preview_root, mod_data,
+              []() {
+                return std::make_pair(
+                    &map::MapCache::UnknownMap(), 0);
+              },
+              nullptr, nullptr, false, nullptr, nullptr, true);
+      logic_preview_unknown->Tick();
+      Check(logic_preview_unknown->StatusForTest() ==
+                mods::MapPreviewLogic::PreviewStatus::Unknown,
+            "p6b22: the unknown map reads unknown");
+
+      auto logic_preview_incompatible =
+          std::make_unique<mods::MapPreviewLogic>(
+              *ptr_map_preview_root, mod_data,
+              [&preview_spawns]() {
+                return std::make_pair(
+                    &preview_spawns,
+                    static_cast<int>(
+                        net::SessionMapStatus::Incompatible));
+              },
+              nullptr, nullptr, false, nullptr, nullptr, true);
+      logic_preview_incompatible->Tick();
+      Check(logic_preview_incompatible->StatusForTest() ==
+                mods::MapPreviewLogic::PreviewStatus::Incompatible,
+            "p6b22: the incompatible flag reads incompatible");
+      logic_preview_incompatible.reset();
+      logic_preview_available.reset();
+      logic_preview_unknown.reset();
+      ui::Widget* ptr_released_map_tree = ptr_map_preview_root;
+      delete ptr_released_map_tree;
+    }
+
+    {
+      static std::function<
+          std::vector<server::LobbyOptionData>(const map::MapPreview&)>
+          fn_collector_options = [](const map::MapPreview&) {
+            std::vector<server::LobbyOptionData> vec_options;
+            vec_options.push_back(
+                server::MakeLobbyBooleanOption(
+                    "cheats", "label-cheats", "", true, 0, false,
+                    false));
+            server::LobbyOptionData option_difficulty{};
+            option_difficulty.Id = "difficulty";
+            option_difficulty.Name = "label-difficulty";
+            option_difficulty.vec_values = {{"e", "Easy"},
+                                            {"h", "Hard"}};
+            option_difficulty.DefaultValue = "e";
+            vec_options.push_back(option_difficulty);
+            return vec_options;
+          };
+      mods::SetMapLobbyOptionsCollectorForTest(&fn_collector_options);
+
+      net::OrderManager& om_options =
+          *game_.OrderManagerFace();
+      om_options.LobbyInfo().global_settings.map_lobby_options.clear();
+      net::SessionLobbyOption option_cheats{};
+      option_cheats.Value = "False";
+      om_options.LobbyInfo()
+          .global_settings.map_lobby_options.emplace("cheats",
+                                                     option_cheats);
+      net::SessionLobbyOption option_difficulty_state{};
+      option_difficulty_state.Value = "h";
+      om_options.LobbyInfo()
+          .global_settings.map_lobby_options.emplace(
+              "difficulty", option_difficulty_state);
+
+      ui::Widget* ptr_options_bin = ptr_stub22->MakeLoadedTree(
+          "LOBBY_OPTIONS_BIN");
+      ui::Widget* ptr_options_panel =
+          ptr_options_bin->GetOrNull("");
+      ui::ScrollPanelWidget* ptr_options_scroll =
+          dynamic_cast<ui::ScrollPanelWidget*>(ptr_options_panel);
+      mods::LobbyOptionsLogic logic_options(
+          dynamic_cast<ui::Widget&>(*ptr_options_scroll), om_options,
+          [&preview_spawns]() { return &preview_spawns; },
+          [] { return false; });
+
+      CheckEq(logic_options.RowCountForTest(), std::size_t{2},
+              "p6b22: the options panel stacks a checkbox and a "
+              "dropdown row");
+      ui::Widget* ptr_container_rows =
+          ptr_options_panel->Get("LOBBY_OPTIONS");
+      const auto vec_rows = ptr_container_rows->Children();
+      ui::CheckboxWidget* ptr_checkbox_cheats =
+          dynamic_cast<ui::CheckboxWidget*>(
+              vec_rows[0]->Children()[0]);
+      Check(ptr_checkbox_cheats != nullptr &&
+                ptr_checkbox_cheats->fn_get_text() == "label-cheats",
+            "p6b22: the checkbox row carries the option name");
+      Check(!ptr_checkbox_cheats->fn_is_checked(),
+            "p6b22: the checkbox mirrors the session value");
+      ptr_checkbox_cheats->fn_on_click();
+      Check(ptr_checkbox_cheats->fn_is_checked(),
+            "p6b22: a click predicts the toggled state");
+      ui::DropDownButtonWidget* ptr_dropdown_difficulty =
+          dynamic_cast<ui::DropDownButtonWidget*>(
+              vec_rows[1]->Children()[0]);
+      Check(ptr_dropdown_difficulty != nullptr &&
+                ptr_dropdown_difficulty->fn_get_text() == "Hard",
+            "p6b22: the dropdown reads the value label");
+      Check(ptr_dropdown_difficulty->str_id == "DROPDOWN_1" &&
+            ptr_container_rows->GetOrNull("DROPDOWN_1_DESC") !=
+                nullptr,
+            "p6b22: the row wires the dropdown description label");
+
+      logic_options.Tick();
+      mods::SetMapLobbyOptionsCollectorForTest(nullptr);
+      delete ptr_options_bin;
+    }
+
+    {
+      net::OrderManager& om_lobby = *game_.OrderManagerFace();
+      auto& session_lobby = om_lobby.LobbyInfo();
+      session_lobby.vec_clients.clear();
+      session_lobby.vec_slots.clear();
+      session_lobby.vec_disabled_spawn_points.clear();
+      session_lobby.global_settings.ServerName = "Batch 22 Server";
+      session_lobby.global_settings.Map = str_uid;
+      session_lobby.global_settings.MapStatusFlags =
+          static_cast<int>(net::SessionMapStatus::Playable);
+      session_lobby.global_settings.AllowSpectators = true;
+      session_lobby.global_settings.EnableSingleplayer = true;
+      session_lobby.global_settings.map_lobby_options.clear();
+
+      net::SessionClient client_host{};
+      client_host.Index = 1;
+      client_host.Name = "Host Commander";
+      client_host.Slot = "Multi0";
+      client_host.IsAdmin = true;
+      client_host.Faction = "allies";
+      client_host.Team = 1;
+      session_lobby.vec_clients.push_back(client_host);
+
+      net::SessionClient client_spectator{};
+      client_spectator.Index = 2;
+      client_spectator.Name = "Watcher";
+      session_lobby.vec_clients.push_back(client_spectator);
+
+      net::SessionSlot slot_first{};
+      slot_first.PlayerReference = "Multi0";
+      session_lobby.vec_slots.emplace_back("Multi0", slot_first);
+      net::SessionSlot slot_second{};
+      slot_second.PlayerReference = "Multi1";
+      session_lobby.vec_slots.emplace_back("Multi1", slot_second);
+
+      auto up_lobby_root = std::make_unique<ui::ContainerWidget>();
+      up_lobby_root->str_id = "SERVER_LOBBY";
+      ui::Widget* ptr_lobby_root = up_lobby_root.release();
+      ptr_stub22->AttachNew(*ptr_lobby_root, "SERVER_NAME", PanelStub22::kLabel);
+      ptr_stub22->AttachNew(*ptr_lobby_root, "MAP_PREVIEW_ROOT", PanelStub22::kContainer);
+      ptr_stub22->AttachNew(*ptr_lobby_root, "TOP_PANELS_ROOT", PanelStub22::kContainer);
+      ptr_stub22->AttachNew(*ptr_lobby_root, "CHANGEMAP_BUTTON", PanelStub22::kButton);
+      ptr_stub22->AttachNew(*ptr_lobby_root, "SLOTS_DROPDOWNBUTTON", PanelStub22::kDropDown);
+      ptr_stub22->AttachNew(*ptr_lobby_root, "RESET_OPTIONS_BUTTON", PanelStub22::kButton);
+      ptr_stub22->AttachNew(*ptr_lobby_root, "START_GAME_BUTTON", PanelStub22::kButton);
+      ptr_stub22->AttachNew(*ptr_lobby_root, "SETTINGS_BUTTON", PanelStub22::kButton);
+      ui::Widget* ptr_skirmish_tabs =
+          ptr_stub22->AttachNew(*ptr_lobby_root, "SKIRMISH_TABS", PanelStub22::kContainer);
+      ptr_stub22->AttachNew(*ptr_skirmish_tabs, "OPTIONS_TAB", PanelStub22::kButton);
+      ptr_stub22->AttachNew(*ptr_skirmish_tabs, "PLAYERS_TAB", PanelStub22::kButton);
+      ptr_stub22->AttachNew(*ptr_skirmish_tabs, "MUSIC_TAB", PanelStub22::kButton);
+      ptr_stub22->AttachNew(*ptr_skirmish_tabs, "SERVERS_TAB", PanelStub22::kButton);
+      ptr_stub22->AttachNew(*ptr_lobby_root, "CHAT_MODE", PanelStub22::kButton);
+      ptr_stub22->AttachNew(*ptr_lobby_root, "CHAT_TEXTFIELD", PanelStub22::kTextField);
+      ui::Widget* ptr_chat_display =
+          ptr_stub22->AttachNew(*ptr_lobby_root, "CHAT_DISPLAY", PanelStub22::kScrollPanel);
+      ptr_chat_display->bounds_widget.int4_width = 400;
+      ptr_stub22->AttachNew(*ptr_lobby_root, "DISCONNECT_BUTTON", PanelStub22::kButton);
+
+      int int4_on_start_count22 = 0;
+      auto logic_lobby = std::make_unique<mods::LobbyLogic>(
+          *ptr_lobby_root, mod_data, nullptr, om_lobby,
+          [] {}, [&int4_on_start_count22] { ++int4_on_start_count22; },
+          true, nullptr);
+
+      Check(logic_lobby->PanelForTest() ==
+                mods::LobbyLogic::PanelType::Players,
+            "p6b22: the lobby opens on the players panel");
+      Check(std::find(ptr_stub22->vec_loaded_ids.begin(),
+                      ptr_stub22->vec_loaded_ids.end(),
+                      "MAP_PREVIEW") !=
+                ptr_stub22->vec_loaded_ids.end() &&
+                std::find(ptr_stub22->vec_loaded_ids.begin(),
+                          ptr_stub22->vec_loaded_ids.end(),
+                          "LOBBY_PLAYER_BIN") !=
+                    ptr_stub22->vec_loaded_ids.end(),
+            "p6b22: the lobby assembles its preview and player bins");
+
+      logic_lobby->UpdatePlayerListForTest();
+
+      ui::ScrollPanelWidget* ptr_players_list =
+          ptr_lobby_root->Get<ui::ScrollPanelWidget>("LOBBY_PLAYERS");
+      ui::Widget* ptr_player_bin = ptr_players_list->ptr_parent;
+      Check(ptr_player_bin != nullptr &&
+                ptr_player_bin->str_id == "LOBBY_PLAYER_BIN",
+            "p6b22: the player bin attaches below the top-panels "
+            "root");
+      CheckEq(ptr_players_list->Children().size(), std::size_t{4},
+              "p6b22: two slots plus a spectator plus the spectate "
+              "button");
+      Check(ptr_players_list->Children()[0]->str_id ==
+                "TEMPLATE_EDITABLE_PLAYER" &&
+            ptr_players_list->Children()[1]->str_id ==
+                "TEMPLATE_EMPTY" &&
+            ptr_players_list->Children()[2]->str_id ==
+                "TEMPLATE_NONEDITABLE_SPECTATOR" &&
+            ptr_players_list->Children()[3]->str_id ==
+                "TEMPLATE_NEW_SPECTATOR",
+            "p6b22: the local editable row, the empty slot, the "
+            "spectator and the spectate button stack in order");
+      ui::CheckboxWidget* ptr_status_checkbox =
+          ptr_players_list->Children()[0]->GetOrNull<
+              ui::CheckboxWidget>("STATUS_CHECKBOX");
+      Check(ptr_status_checkbox != nullptr &&
+                ptr_status_checkbox->fn_is_visible(),
+            "p6b22: the editable row exposes its ready checkbox");
+
+      CheckEq(logic_lobby->TabCompletionForTest()
+                  .opt_names->size(),
+              std::size_t{2},
+              "p6b22: tab completion deduplicates player names");
+
+      logic_lobby->UpdateOptionsForTest();
+      Check(logic_lobby->InsufficientPlayerSpawnsForTest() ==
+                (mods::AvailableSpawnPoints(
+                     static_cast<int>(
+                         preview_spawns.SpawnPoints().size()),
+                     session_lobby)
+                     .size() < 2),
+            "p6b22: the spawn pool sizes against the lobby");
+
+      net::TextNotificationsManager::Instance()
+          .SetChatDisabledUntil(1000 + 5000);
+      logic_lobby->TickForTest();
+      Check(!logic_lobby->ChatEnabledForTest(),
+            "p6b22: chat stays disabled while the cooldown runs");
+      Check(!ptr_lobby_root->Get<ui::TextFieldWidget>("CHAT_TEXTFIELD")
+                  ->Text()
+                  .empty(),
+            "p6b22: the text field carries the countdown");
+      net::TextNotificationsManager::Instance()
+          .SetChatDisabledUntil(0);
+      logic_lobby->TickForTest();
+      Check(logic_lobby->ChatEnabledForTest(),
+            "p6b22: chat re-enables once the cooldown lapses");
+
+      logic_lobby.reset();
+      delete ptr_lobby_root;
+    }
+
   }
 
 

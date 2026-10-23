@@ -587,6 +587,7 @@ add_library(ora_mods STATIC
   src/mods/connection_logics.cpp
   src/mods/server_list_logic.cpp
   src/mods/lobby_utils.cpp
+  src/mods/lobby_logics.cpp
   src/mods/game_info_logics.cpp
   src/mods/server_creation_logic.cpp
   src/mods/asset_browser_logic.cpp

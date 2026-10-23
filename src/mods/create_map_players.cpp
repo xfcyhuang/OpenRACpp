@@ -23,6 +23,7 @@ import std;
 #include "mods/asset_browser_logic.hpp"
 #include "mods/browser_logics.hpp"
 #include "mods/connection_logics.hpp"
+#include "mods/lobby_logics.hpp"
 #include "mods/game_info_logics.hpp"
 #include "mods/lobby_utils.hpp"
 #include "mods/server_creation_logic.hpp"
@@ -945,6 +946,7 @@ void RegisterCommonTraits() {
     RegisterGameInfoLogics();
     RegisterServerCreationLogic();
     RegisterAssetBrowserLogic();
+    RegisterLobbyLogics();
 
     return true;
   }();

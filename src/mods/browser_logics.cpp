@@ -3514,12 +3514,28 @@ void RegisterBrowserLogics() {
                 std::get_if<std::int32_t>(&args_args.At("filter")))
           kind_filter = static_cast<map::MapVisibility>(*ptr_value);
 
+        const map::MapGenerationArgs* ptr_initial_generated = nullptr;
+        if (const auto* ptr_value =
+                std::get_if<const map::MapGenerationArgs*>(
+                    &args_args.At("initialGeneratedMap")))
+          ptr_initial_generated = *ptr_value;
+
+        std::function<void(const map::MapGenerationArgs&)>
+            fn_on_select_generated;
+        if (const auto* ptr_value =
+                std::get_if<
+                    std::function<void(const map::MapGenerationArgs&)>>(
+                    &args_args.At("onSelectGenerated")))
+          fn_on_select_generated = *ptr_value;
+
         return std::make_unique<MapChooserLogic>(
             *std::get<ora::ui::Widget*>(args_args.At("widget")),
             *std::get<game::ModData*>(args_args.At("modData")),
-            ptr_initial_map, nullptr, ptr_remote_pool, kind_initial_tab,
+            ptr_initial_map, ptr_initial_generated, ptr_remote_pool,
+            kind_initial_tab,
             std::get<std::function<void()>>(args_args.At("onExit")),
-            std::move(fn_on_select), nullptr, kind_filter);
+            std::move(fn_on_select), std::move(fn_on_select_generated),
+            kind_filter);
       });
 
   registry_logics.Register(

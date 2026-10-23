@@ -44,10 +44,13 @@ bool ColorBlockWidget::HandleMouseInput(const MouseInput& mi_input) {
 
   if (HasMouseFocus() && mi_input.Event == MouseInputEvent::Up) {
     // Only fire the onMouseUp event if we successfully lost focus, and were
-    // pressed
-    fn_on_mouse_up(mi_input);
+    // pressed. The focus yields first and the callback fires off a stack
+    // copy — a self-destroying OnClick takes the widget with it.
+    const bool b_yielded = YieldMouseFocus(mi_input);
+    auto fn_on_mouse_up_copy = fn_on_mouse_up;
+    fn_on_mouse_up_copy(mi_input);
 
-    return YieldMouseFocus(mi_input);
+    return b_yielded;
   }
 
   if (mi_input.Event == MouseInputEvent::Down) {

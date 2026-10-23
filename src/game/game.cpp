@@ -94,7 +94,8 @@ void Game::JoinInner(std::unique_ptr<net::OrderManager> up_om) {
   // ChatDisabledUntil arithmetic's consumer.
   net::SetLobbyInfoChangedHandler([this]() {
     for (auto& fn : vec_lobby_info_changed_)
-      fn();
+      if (fn)
+        fn();
   });
   net::SetRuntimeMsFn([this] { return RunTime(); });
 

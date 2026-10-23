@@ -28,6 +28,7 @@ LobbyOptionData MakeLobbyBooleanOption(std::string_view str_id,
   opt.vec_values = {{"True", "Enabled"}, {"False", "Disabled"}};
   opt.DefaultValue = b_default_value ? "True" : "False";
   opt.IsLocked = b_locked;
+  opt.IsBooleanOption = true;
   return opt;
 }
 

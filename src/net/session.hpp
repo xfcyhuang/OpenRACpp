@@ -156,8 +156,22 @@ struct Session {
     return nullptr;
   }
 
+  const SessionClient* ClientWithIndex(int index) const {
+    for (const auto& c : vec_clients)
+      if (c.Index == index)
+        return &c;
+    return nullptr;
+  }
+
   SessionClient* ClientInSlot(const std::string& str_slot) {
     for (auto& c : vec_clients)
+      if (c.Slot == str_slot)
+        return &c;
+    return nullptr;
+  }
+
+  const SessionClient* ClientInSlot(const std::string& str_slot) const {
+    for (const auto& c : vec_clients)
       if (c.Slot == str_slot)
         return &c;
     return nullptr;
