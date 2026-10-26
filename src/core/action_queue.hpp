@@ -68,6 +68,15 @@ class ActionQueue {
     return vec_actions_.size();
   }
 
+  /// 队列丢弃(Game.InitializeMod L481 的 delayedActions = new ActionQueue()
+  /// 等价;非移动类型故以清空承载)
+  /// Drops the queue (the Game.InitializeMod L481 delayedActions = new
+  /// ActionQueue() equivalent; a non-movable type carries it as a clear).
+  void Clear() {
+    std::lock_guard lock(mutex_sync_);
+    vec_actions_.clear();
+  }
+
  private:
   /// Index(L57-66):首个严格更大时间的位置 | the first strictly-greater
   /// position (L57-66).

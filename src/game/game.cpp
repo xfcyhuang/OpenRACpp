@@ -6,11 +6,14 @@ import std;
 #include "game/graphics_boot.hpp"
 #include "game/perf_history.hpp"
 
+#include "fluent/fluent_provider.hpp"
 #include "gfx/chrome_provider.hpp"
 #include "gfx/cursor_manager.hpp"
 #include "gfx/renderer.hpp"
 #include "gfx/viewport.hpp"
 #include "gfx/world_renderer.hpp"
+#include "game/fonts.hpp"
+#include "game/local_player_profile.hpp"
 #include "game/mod_data.hpp"
 #include "map/map_cache.hpp"
 #include "net/replay_recorder.hpp"
@@ -20,6 +23,7 @@ import std;
 #include "sim/trait_registry.hpp"
 #include "sim/world.hpp"
 #include "sound/sound.hpp"
+#include "ui/chrome_metrics.hpp"
 #include "ui/default_input_handler.hpp"
 
 namespace ora::game {
@@ -119,10 +123,10 @@ void Game::JoinReplay(std::vector<std::uint8_t> vec_replay_bytes,
 
 map::MapCache& Game::MapCacheFace() {
   if (up_map_cache_ == nullptr) {
-    if (deps_.ptr_mod_data == nullptr)
+    if (ModDataFace() == nullptr)
       throw std::runtime_error("NullReferenceException");
     up_map_cache_ = std::make_unique<map::MapCache>(
-        deps_.ptr_mod_data->ManifestRef(), deps_.ptr_mod_data->ModFiles());
+        ModDataFace()->ManifestRef(), ModDataFace()->ModFiles());
   }
   return *up_map_cache_;
 }
@@ -141,16 +145,19 @@ void Game::StartGame(const std::string& str_uid, sim::WorldType type) {
 }
 
 void Game::StartGame(map::Map& map_world, sim::WorldType type) {
-  // Game.cs L196-261
-  if (deps_.ptr_mod_data == nullptr || up_order_manager_ == nullptr)
+  if (ModDataFace() == nullptr || up_order_manager_ == nullptr)
     throw std::runtime_error("NullReferenceException");
 
   // Dispose of the old world before creating a new one.(上游注释)
   up_world_renderer_.reset();
   up_world_.reset();
 
-  // Cursor.SetCursor(null)(L201;光标面为注入 no-op)
-  // BeforeGameStart()(L202;事件面空)
+  if (CursorFace() != nullptr)
+    CursorFace()->SetCursor(nullptr);
+
+  for (auto& fn : vec_before_game_start_)
+    if (fn)
+      fn();
 
   // ModData.PrepareMap(map)(L206):InitializeLoaders + Sequences.LoadSprites
   // + 音乐装载 —— 序列装载面经 Deps.fn_prepare_map 注入(Phase 6 资产链)
@@ -159,7 +166,7 @@ void Game::StartGame(map::Map& map_world, sim::WorldType type) {
   sim::RegisterWorldTraits();
 
   // Renderer.SetDepthMargin(L219;深度边距面随渲染装配批)
-  auto world = std::make_unique<sim::World>(map_world, *deps_.ptr_mod_data,
+  auto world = std::make_unique<sim::World>(map_world, *ModDataFace(),
                                             *up_order_manager_, type);
   net::OrderManager* om = up_order_manager_.get();
   world->SetOrderIssueSink([om](net::Order* o) { om->IssueOrder(*o); });
@@ -182,10 +189,19 @@ void Game::StartGame(map::Map& map_world, sim::WorldType type) {
   if (om->GameStarted())
     return;
 
-  // Ui.MouseFocusWidget/KeyboardFocusWidget = null(L239-240)
+  ui::Ui& ui_face = deps_.ptr_ui != nullptr ? *deps_.ptr_ui : ui::Ui::Instance();
+  ui_face.SetMouseFocusWidget(nullptr);
+  ui_face.SetKeyboardFocusWidget(nullptr);
+
   om->StartGame();
-  // worldRenderer.RefreshPalette()(L243)
-  // Cursor.SetCursor(ChromeMetrics.Get<string>("DefaultCursor"))(L244)
+  if (up_world_renderer_ != nullptr)
+    up_world_renderer_->RefreshPalette(
+        std::span<gfx::IPaletteModifier* const>{});
+  if (CursorFace() != nullptr) {
+    const ui::ChromeMetrics* ptr_metrics = ui_face.ChromeMetricsDeps();
+    if (ptr_metrics != nullptr)
+      CursorFace()->SetCursor(&ptr_metrics->Get("DefaultCursor"));
+  }
   up_world_->PostLoadComplete(up_world_renderer_.get());
   // AfterGameStart()(L260;StartGame 尾触发 —— PerfDebugLogic 订阅)
   // AfterGameStart() (L260; fired at StartGame's tail — PerfDebugLogic's
@@ -199,15 +215,203 @@ void Game::JoinLocal() {
   JoinInner(std::make_unique<net::OrderManager>(
       std::make_unique<net::EchoConnection>()));
 
-  // Add a spectator client for the local player(上游注释;色面随 Phase 5)
   net::SessionClient client_spectator;
   client_spectator.Index = up_order_manager_->Connection().LocalClientId();
   client_spectator.Name = deps_.str_player_name;
+  core::Color color_player = core::Color::FromArgbRaw(0xFFC82020);
+  if (SettingsModule* ptr_player = Settings::Instance().Module("Player")) {
+    if (const std::optional<std::size_t> opt_slot =
+            ptr_player->SlotIndexOf("Color"))
+      color_player = core::Color::FromArgbRaw(
+          static_cast<std::uint32_t>(ptr_player->GetInt(*opt_slot)));
+  }
+  client_spectator.PreferredColor = color_player;
+  client_spectator.Color = color_player;
   client_spectator.Faction = "Random";
   client_spectator.SpawnPoint = 0;
   client_spectator.Team = 0;
   client_spectator.State = net::ClientState::Ready;
   up_order_manager_->LobbyInfo().vec_clients.push_back(client_spectator);
+}
+
+void Game::RemoteDirectConnect(const net::ConnectionTarget& target_endpoint) {
+  for (auto& fn : vec_on_remote_direct_connect_)
+    if (fn)
+      fn(target_endpoint);
+}
+
+bool Game::InitializeMod(const Manifest& manifest,
+                         const core::Arguments& args) {
+  vec_lobby_info_changed_.clear();
+  deps_.fn_connection_state_changed = nullptr;
+  vec_before_game_start_.clear();
+  vec_on_remote_direct_connect_.clear();
+  delayed_actions_.Clear();
+
+  ui::Ui& ui_face = deps_.ptr_ui != nullptr ? *deps_.ptr_ui : ui::Ui::Instance();
+  ui_face.ResetAll();
+
+  up_world_renderer_.reset();
+  up_world_.reset();
+  up_map_.reset();
+  up_map_cache_.reset();
+  if (deps_init_.fn_shutdown_server != nullptr)
+    deps_init_.fn_shutdown_server();
+  up_order_manager_.reset();
+
+  up_mod_data_.reset();
+  up_cursor_.reset();
+  up_load_screen_.reset();
+
+  std::println("Loading mod: {}", manifest.Id());
+
+  if (deps_.ptr_sound != nullptr)
+    deps_.ptr_sound->StopVideo();
+
+  if (deps_init_.fn_create_mod_data != nullptr) {
+    up_mod_data_ = deps_init_.fn_create_mod_data(manifest);
+    deps_.ptr_mod_data = up_mod_data_.get();
+  }
+  if (deps_init_.fn_reset_local_player_profile != nullptr)
+    deps_init_.fn_reset_local_player_profile();
+
+  if (ModDataFace() == nullptr)
+    throw std::runtime_error("NullReferenceException");
+
+  ModDataFace()->InitializeLoaders([this](const std::string& str_path) {
+    return std::optional<std::vector<char>>(
+        ModDataFace()->ModFiles().Open(str_path));
+  });
+
+  if (deps_init_.fn_create_load_screen != nullptr) {
+    up_load_screen_ = deps_init_.fn_create_load_screen(manifest);
+    if (up_load_screen_ != nullptr) {
+      up_load_screen_->Init(manifest, ModDataFace()->ModFiles());
+      up_load_screen_->Display();
+    }
+  }
+
+  if (up_load_screen_ != nullptr &&
+      !up_load_screen_->BeforeLoad(*ModDataFace()))
+    return false;
+
+  ModDataFace()->InitializeLoaders([this](const std::string& str_path) {
+    return std::optional<std::vector<char>>(
+        ModDataFace()->ModFiles().Open(str_path));
+  });
+
+  if (deps_.ptr_renderer != nullptr && deps_init_.fn_create_font != nullptr) {
+    Fonts& fonts_mod = ModDataFace()->GetOrCreateFonts();
+    std::vector<gfx::Renderer::FontDesc> vec_descs;
+    vec_descs.reserve(fonts_mod.vec_font_list.size());
+    for (const auto& [str_key, rec_font] : fonts_mod.vec_font_list)
+      vec_descs.push_back(gfx::Renderer::FontDesc{
+          str_key, rec_font.str_font, rec_font.int4_size,
+          rec_font.int4_ascender});
+    deps_.ptr_renderer->InitializeFonts(
+        vec_descs,
+        ModDataFace()->ManifestRef().RendererConstantsRef().int4_fontSheetSize,
+        deps_.ptr_renderer->EffectiveWindowScale(),
+        [this](const std::string& str_file) {
+          const std::vector<char> vec_bytes =
+              ModDataFace()->ModFiles().Open(str_file);
+          return std::vector<std::uint8_t>(vec_bytes.begin(), vec_bytes.end());
+        },
+        deps_init_.fn_create_font);
+  }
+
+  MapCacheFace().LoadMaps(*ModDataFace(), deps_init_.str_map_filter);
+
+  if (deps_init_.fn_create_cursor != nullptr)
+    up_cursor_ = deps_init_.fn_create_cursor(*ModDataFace());
+
+  const std::string& str_window_title =
+      ModDataFace()->ManifestRef().Metadata().str_windowTitle;
+  if (!str_window_title.empty() && deps_.ptr_renderer != nullptr)
+    deps_.ptr_renderer->window().SetWindowTitle(
+        fluent::FluentProvider::Instance().GetMessage(str_window_title));
+  for (const std::string_view sv_name : {"render", "batches", "render_world",
+                                          "render_widgets", "render_flip",
+                                          "terrain_lighting"})
+    PerfHistory::Instance().Item(std::string{sv_name}).b_has_normal_tick =
+        false;
+
+  JoinLocal();
+
+  if (up_load_screen_ != nullptr)
+    up_load_screen_->StartGame(args);
+
+  return true;
+}
+
+void Game::LoadShellMap() {
+  const std::string str_shellmap = ChooseShellmap();
+  StartGame(str_shellmap, sim::WorldType::Shellmap);
+  for (auto& fn : vec_on_shellmap_loaded_)
+    if (fn)
+      fn();
+}
+
+std::string Game::ChooseShellmap() {
+  std::vector<const std::string*> vec_uids;
+  for (const map::MapPreview* ptr_preview : MapCacheFace().Previews())
+    if (ptr_preview->Status() == map::MapStatus::Available &&
+        (static_cast<std::int32_t>(ptr_preview->Visibility()) &
+         static_cast<std::int32_t>(map::MapVisibility::Shellmap)) != 0)
+      vec_uids.push_back(&ptr_preview->Uid());
+  if (vec_uids.empty())
+    throw std::runtime_error("No valid shellmaps available");
+  const std::int32_t int4_pick =
+      mt_cosmetic_.Next(0, static_cast<std::int32_t>(vec_uids.size()));
+  if (int4_pick < 0)
+    throw std::runtime_error(
+        "System.ArgumentOutOfRangeException: Index was out of range. Must be "
+        "non-negative and less than the size of the collection. (Parameter "
+        "'index')");
+  return *vec_uids[static_cast<std::size_t>(int4_pick)];
+}
+
+void Game::LoadMap(const std::string& str_launch_map) {
+  std::vector<net::Order> vec_orders;
+  vec_orders.push_back(net::Order::Command("option gamespeed default"));
+  vec_orders.push_back(
+      net::Order::Command("state " +
+                          std::to_string(static_cast<std::int32_t>(
+                              net::ClientState::Ready))));
+
+  const map::MapPreview* ptr_found = nullptr;
+  for (const map::MapPreview* ptr_preview : MapCacheFace().Previews()) {
+    const std::filesystem::path path_map{ptr_preview->Path()};
+    if (ptr_preview->Uid() == str_launch_map ||
+        path_map.filename().string() == str_launch_map) {
+      ptr_found = ptr_preview;
+      break;
+    }
+  }
+  if (ptr_found == nullptr)
+    throw std::invalid_argument("Could not find map '" + str_launch_map +
+                                "'.");
+
+  CreateAndStartLocalServer(ptr_found->Uid(), std::move(vec_orders));
+}
+
+void Game::CreateAndStartLocalServer(
+    const std::string& str_map_uid, std::vector<net::Order> vec_setup_orders) {
+  auto up_orders =
+      std::make_shared<std::vector<net::Order>>(std::move(vec_setup_orders));
+  auto up_unsub = std::make_shared<std::function<void()>>();
+  *up_unsub = AddLobbyInfoChangedHandler([this, up_orders, up_unsub] {
+    (*up_unsub)();
+    if (up_order_manager_ != nullptr)
+      for (const net::Order& order_setup : *up_orders)
+        up_order_manager_->IssueOrder(order_setup);
+  });
+
+  if (deps_init_.fn_create_and_join_local_server != nullptr) {
+    if (auto up_om = deps_init_.fn_create_and_join_local_server(str_map_uid);
+        up_om != nullptr)
+      JoinInner(std::move(up_om));
+  }
 }
 
 bool Game::WorldIsLoadingGameSave(const sim::World& world_world) const {
@@ -227,8 +431,8 @@ void Game::InnerLogicTick(net::OrderManager& om_order) {
   if (ui_face.LastTickTime().ShouldAdvance(int8_tick)) {
     ui_face.LastTickTime().AdvanceTickTime(int8_tick);
     sim::RunUnsynced(true, ptr_world, [&ui_face] { ui_face.Tick(); });
-    if (deps_.ptr_cursor != nullptr)
-      deps_.ptr_cursor->Tick();
+    if (CursorFace() != nullptr)
+      CursorFace()->Tick();
   }
 
   if (om_order.LastTickTime().ShouldAdvance(int8_tick)) {
@@ -342,16 +546,16 @@ void Game::RenderTick() {
   ui_face.Draw();
 
   if (b_hide_cursor_) {
-    if (deps_.ptr_cursor != nullptr)
-      deps_.ptr_cursor->SetCursor(nullptr);
-  } else if (deps_.ptr_cursor != nullptr) {
+    if (CursorFace() != nullptr)
+      CursorFace()->SetCursor(nullptr);
+  } else if (CursorFace() != nullptr) {
     // 上游 `?? "default"` | the upstream ?? "default"
     static const std::string str_default_cursor = "default";
     const std::string* ptr_cursor_name =
         ui_face.Root()->GetCursorOuter(gfx::Viewport::int2_last_mouse_pos);
-    deps_.ptr_cursor->SetCursor(ptr_cursor_name != nullptr ? ptr_cursor_name
-                                                           : &str_default_cursor);
-    deps_.ptr_cursor->Render(*deps_.ptr_renderer);
+    CursorFace()->SetCursor(ptr_cursor_name != nullptr ? ptr_cursor_name
+                                                       : &str_default_cursor);
+    CursorFace()->Render(*deps_.ptr_renderer);
   }
 
   // EndFrame(new DefaultInputHandler(OM.World))(Game.cs L753;无 OM 世界 =

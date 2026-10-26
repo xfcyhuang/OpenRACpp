@@ -307,6 +307,12 @@ void Sdl2Window::SetVSyncEnabled(bool b_enabled) {
   int4_vsync_intent_.store(b_enabled ? 1 : 0, std::memory_order_relaxed);
 }
 
+void Sdl2Window::SetWindowTitle(const std::string& str_title) const {
+  if (ptr_window_ != nullptr)
+    SDL_SetWindowTitle(static_cast<SDL_Window*>(ptr_window_),
+                       str_title.c_str());
+}
+
 std::optional<Sdl2HardwareCursor> Sdl2Window::CreateHardwareCursor(
     std::string_view str_name, int int4_width, int int4_height,
     std::span<const std::uint8_t> span_data, int2 int2_hotspot, bool b_pixel_double) {

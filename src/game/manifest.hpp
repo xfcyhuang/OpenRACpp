@@ -70,6 +70,10 @@ class Manifest final {
   fs::IReadOnlyPackage& Package() const { return *pkg_package_; }
   const ModMetadata& Metadata() const { return rec_metadata_; }
 
+  const RendererConstants& RendererConstantsRef() const {
+    return rec_rendererConstants_;
+  }
+
   // YamlList 产物(节点 Key 拷贝;Manifest.cs L190-196)/ YamlList products
   // (node-key copies; Manifest.cs L190-196).
   const std::vector<std::string>& Rules() const { return vec_rules_; }
@@ -177,6 +181,7 @@ class Manifest final {
   yaml::MiniYaml yaml_merged_{};               // Merge([nodes]) 的树 / the Merge([nodes]) tree
 
   ModMetadata rec_metadata_;
+  RendererConstants rec_rendererConstants_{};
   std::vector<std::string> vec_rules_, vec_sequences_, vec_modelSequences_,
       vec_cursors_, vec_chrome_, vec_chromeLayout_, vec_weapons_, vec_voices_,
       vec_notifications_, vec_music_, vec_tileSets_, vec_chromeMetrics_,

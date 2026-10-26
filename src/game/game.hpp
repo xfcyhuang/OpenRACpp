@@ -20,11 +20,14 @@
 import std;
 
 #include "core/action_queue.hpp"
+#include "core/arguments.hpp"
 #include "core/mersenne_twister.hpp"
+#include "game/load_screen.hpp"
 #include "map/map.hpp"
 #include "map/map_cache.hpp"
 #include "net/connection.hpp"
 #include "net/order_manager.hpp"
+#include "platform/ifont.hpp"
 #include "platform/sdl2_input.hpp"
 #include "sim/world.hpp"
 #include "ui/ui.hpp"
@@ -44,11 +47,15 @@ class MapPreview;
 namespace ora::sound {
 class Sound;
 }
+namespace ora::net {
+class ConnectionTarget;
+}
 namespace ora::sim {
 class World;
 }
 namespace ora::game {
 class ModData;
+class LocalPlayerProfile;
 }
 
 namespace ora::game {
@@ -118,6 +125,33 @@ class Game {
     /// chain — no hook = skipped).
     std::function<void(map::Map&)> fn_prepare_map;
   };
+
+  struct InitializeModDeps {
+    std::function<void()> fn_shutdown_server;
+    std::function<std::unique_ptr<ModData>(const Manifest&)>
+        fn_create_mod_data;
+    std::function<std::unique_ptr<ILoadScreen>(const Manifest&)>
+        fn_create_load_screen;
+    std::function<std::unique_ptr<gfx::CursorManager>(ModData&)>
+        fn_create_cursor;
+    std::function<void()> fn_reset_local_player_profile;
+    std::function<void(const std::string&, const core::Arguments&)>
+        fn_switch_mod;
+    std::function<std::unique_ptr<net::OrderManager>(const std::string&)>
+        fn_create_and_join_local_server;
+    std::function<std::unique_ptr<platform::IFont>(
+        std::span<const std::uint8_t>)>
+        fn_create_font;
+    std::string str_map_filter;
+  };
+
+  void SetInitializeModDeps(InitializeModDeps deps_init) {
+    deps_init_ = std::move(deps_init);
+  }
+
+  void SetPrepareMapHook(std::function<void(map::Map&)> fn_prepare) {
+    deps_.fn_prepare_map = std::move(fn_prepare);
+  }
 
   explicit Game(Deps deps_args);
   ~Game();
@@ -218,6 +252,36 @@ class Game {
     };
   }
 
+  std::function<void()> AddBeforeGameStartHandler(std::function<void()> fn_handler) {
+    vec_before_game_start_.push_back(std::move(fn_handler));
+    const std::size_t sz_slot = vec_before_game_start_.size() - 1;
+    return [this, sz_slot] {
+      if (sz_slot < vec_before_game_start_.size())
+        vec_before_game_start_[sz_slot] = nullptr;
+    };
+  }
+
+  std::function<void()> AddShellmapLoadedHandler(std::function<void()> fn_handler) {
+    vec_on_shellmap_loaded_.push_back(std::move(fn_handler));
+    const std::size_t sz_slot = vec_on_shellmap_loaded_.size() - 1;
+    return [this, sz_slot] {
+      if (sz_slot < vec_on_shellmap_loaded_.size())
+        vec_on_shellmap_loaded_[sz_slot] = nullptr;
+    };
+  }
+
+  std::function<void()> AddOnRemoteDirectConnectHandler(
+      std::function<void(const net::ConnectionTarget&)> fn_handler) {
+    vec_on_remote_direct_connect_.push_back(std::move(fn_handler));
+    const std::size_t sz_slot = vec_on_remote_direct_connect_.size() - 1;
+    return [this, sz_slot] {
+      if (sz_slot < vec_on_remote_direct_connect_.size())
+        vec_on_remote_direct_connect_[sz_slot] = nullptr;
+    };
+  }
+
+  void RemoteDirectConnect(const net::ConnectionTarget& target_endpoint);
+
   void SetWorldRenderer(std::unique_ptr<gfx::WorldRenderer> up_wr, gfx::Viewport* ptr_viewport);
   gfx::WorldRenderer* WorldRendererFace() const { return up_world_renderer_.get(); }
 
@@ -231,6 +295,25 @@ class Game {
   /// StartGame(Map, WorldType)(L196-261)
   void StartGame(map::Map& map_world, sim::WorldType type);
 
+  ModData* ModDataFace() const {
+    return up_mod_data_ != nullptr ? up_mod_data_.get() : deps_.ptr_mod_data;
+  }
+
+  gfx::CursorManager* CursorFace() const {
+    return up_cursor_ != nullptr ? up_cursor_.get() : deps_.ptr_cursor;
+  }
+
+  ILoadScreen* LoadScreenFace() const { return up_load_screen_.get(); }
+
+  bool InitializeMod(const Manifest& manifest, const core::Arguments& args);
+
+  void LoadShellMap();
+
+  void LoadMap(const std::string& str_launch_map);
+
+  void CreateAndStartLocalServer(const std::string& str_map_uid,
+                                 std::vector<net::Order> vec_setup_orders);
+
  private:
   /// World.IsLoadingGameSave(World.cs L116:NetFrameNumber <= GameSaveLastFrame;
   /// 以世界自属 OM 求值)
@@ -238,12 +321,20 @@ class Game {
   /// OM.
   bool WorldIsLoadingGameSave(const sim::World& world_world) const;
 
+  std::string ChooseShellmap();
+
   Deps deps_;
   core::ActionQueue delayed_actions_;
   MersenneTwister mt_cosmetic_{0};  // 种子于 ctor 按时钟重设 | re-seeded in the ctor
 
   std::vector<std::function<void()>> vec_lobby_info_changed_;
   std::vector<std::function<void()>> vec_after_game_start_;
+  std::vector<std::function<void()>> vec_before_game_start_;
+  std::vector<std::function<void()>> vec_on_shellmap_loaded_;
+  std::vector<std::function<void(const net::ConnectionTarget&)>>
+      vec_on_remote_direct_connect_;
+
+  InitializeModDeps deps_init_;
 
   std::unique_ptr<net::OrderManager> up_order_manager_;
   std::unique_ptr<gfx::WorldRenderer> up_world_renderer_;
@@ -251,6 +342,9 @@ class Game {
   std::unique_ptr<map::MapCache> up_map_cache_;
   std::unique_ptr<map::Map> up_map_;
   std::unique_ptr<sim::World> up_world_;
+  std::unique_ptr<ModData> up_mod_data_;
+  std::unique_ptr<gfx::CursorManager> up_cursor_;
+  std::unique_ptr<ILoadScreen> up_load_screen_;
 
   std::int32_t int4_render_frame_ = 0;
   Modifiers kind_modifiers_ = Modifiers::None;

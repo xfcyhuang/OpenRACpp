@@ -29,6 +29,10 @@
 #pragma once
 import std;
 
+#ifdef DrawText
+#undef DrawText
+#endif
+
 #include "core/color.hpp"
 #include "core/int2.hpp"
 #include "core/vector_n.hpp"

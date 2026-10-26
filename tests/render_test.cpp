@@ -18,6 +18,11 @@ import std;
 #include "gfx/sprite_font.hpp"
 #include "gfx/chrome_provider.hpp"
 #include "gfx/sheet.hpp"
+#include "core/arguments.hpp"
+#include "net/launch_arguments.hpp"
+#include "net/connection_target.hpp"
+#include "game/load_screen.hpp"
+#include "mods/load_screens.hpp"
 #include "mods/music_playlist.hpp"
 #include "mods/lobby_logics.hpp"
 #include "mods/settings_logics.hpp"
@@ -8051,6 +8056,247 @@ int main(int argc, char** argv) {
 
   }
 
+
+    // ———— Phase 6 第二十五批:Game 装配链(Arguments/LaunchArguments +
+    // LoadScreen 族 + InitializeMod/LoadShellMap)————
+    {
+      {
+        const core::Arguments args_parse{std::vector<std::string>{
+            "a=b", "=lead=kept", "x==y", "noequals", "a=overwrite"}};
+        Check(args_parse.Contains("a") &&
+                  args_parse.GetValue("a", "") == "overwrite",
+              "p6b25: later keys overwrite earlier ones");
+        Check(args_parse.GetValue("lead", "") == "kept",
+              "p6b25: a leading '=' is skipped by the leftmost match");
+        Check(args_parse.GetValue("x", "") == "=y",
+              "p6b25: the value keeps later '='");
+        Check(!args_parse.Contains("noequals"),
+              "p6b25: an entry without '=' is skipped");
+        Check(args_parse.GetValue("missing", "dflt") == "dflt",
+              "p6b25: GetValue falls back to the default");
+        core::Arguments args_replace{};
+        args_replace.ReplaceValue("k", "v");
+        Check(args_replace.GetValue("k", "") == "v",
+              "p6b25: ReplaceValue writes through");
+      }
+
+      {
+        const core::Arguments args_launch{std::vector<std::string>{
+            "Launch.Connect=127.0.0.1:1234", "Launch.Map=shell",
+            "Launch.Replay=r", "Launch.Benchmark=b", "Launch.URI=u"}};
+        const net::LaunchArguments launch{args_launch};
+        Check(launch.str_connect == "127.0.0.1:1234" &&
+                  launch.str_map == "shell" && launch.str_replay == "r" &&
+                  launch.str_benchmark == "b" && launch.str_uri == "u",
+              "p6b25: the five launch fields load");
+
+        const net::LaunchArguments launch_tcp{core::Arguments{
+            std::vector<std::string>{"Launch.Connect=127.0.0.1:1234"}}};
+        const auto opt_tcp = launch_tcp.GetConnectEndPoint();
+        Check(opt_tcp.has_value() && opt_tcp->FirstEndpoint() != nullptr &&
+                  opt_tcp->FirstEndpoint()->str_host == "127.0.0.1" &&
+                  opt_tcp->FirstEndpoint()->int4_port == 1234,
+              "p6b25: Launch.Connect parses into a tcp endpoint");
+
+        const net::LaunchArguments launch_uri{core::Arguments{
+            std::vector<std::string>{"Launch.URI=openra://example.com:4242"}}};
+        const auto opt_uri = launch_uri.GetConnectEndPoint();
+        Check(opt_uri.has_value() && opt_uri->FirstEndpoint() != nullptr &&
+                  opt_uri->FirstEndpoint()->str_host == "example.com" &&
+                  opt_uri->FirstEndpoint()->int4_port == 4242,
+              "p6b25: Launch.URI parses into an openra endpoint");
+
+        const net::LaunchArguments launch_both{core::Arguments{
+            std::vector<std::string>{"Launch.URI=openra://from-uri:1111",
+                                     "Launch.Connect=from-connect:2222"}}};
+        const auto opt_both = launch_both.GetConnectEndPoint();
+        Check(opt_both.has_value() && opt_both->FirstEndpoint() != nullptr &&
+                  opt_both->FirstEndpoint()->str_host == "from-uri",
+              "p6b25: URI wins over Connect");
+
+        const net::LaunchArguments launch_noport{core::Arguments{
+            std::vector<std::string>{"Launch.Connect=127.0.0.1"}}};
+        const auto opt_noport = launch_noport.GetConnectEndPoint();
+        Check(opt_noport.has_value() && opt_noport->FirstEndpoint() != nullptr &&
+                  opt_noport->FirstEndpoint()->int4_port == -1,
+              "p6b25: a missing port yields -1");
+
+        const net::LaunchArguments launch_badport{core::Arguments{
+            std::vector<std::string>{"Launch.Connect=127.0.0.1:notaport"}}};
+        Check(!launch_badport.GetConnectEndPoint().has_value(),
+              "p6b25: a non-numeric port yields null");
+
+        const net::LaunchArguments launch_none{core::Arguments{
+            std::vector<std::string>{"Launch.Map=whatever"}}};
+        Check(!launch_none.GetConnectEndPoint().has_value(),
+              "p6b25: no connect inputs yields null");
+      }
+
+      {
+        auto up_logo = mods::CreateLoadScreen("LogoStripeLoadScreen", {});
+        Check(up_logo != nullptr,
+              "p6b25: the factory builds LogoStripeLoadScreen");
+        auto up_blank = mods::CreateLoadScreen("BlankLoadScreen", {});
+        Check(up_blank != nullptr,
+              "p6b25: the factory builds BlankLoadScreen");
+        bool b_threw_factory = false;
+        try {
+          mods::CreateLoadScreen("NopeLoadScreen", {});
+        } catch (const std::exception&) {
+          b_threw_factory = true;
+        }
+        Check(b_threw_factory,
+              "p6b25: the factory rejects an unknown load screen name");
+      }
+
+      Check(mod_data.ManifestRef().RendererConstantsRef().int4_fontSheetSize ==
+                512,
+            "p6b25: ra carries no RendererConstants node (the 512 default)");
+      Check(mod_data.ManifestRef().Metadata().str_windowTitle ==
+                "mod-windowtitle",
+            "p6b25: the ra window title key loads");
+
+      {
+        world.reset();
+        map_world.reset();
+
+        int int4_screens = 0;
+        int int4_saves = 0;
+        int int4_shellmap_loaded = 0;
+        int int4_before_start = 0;
+        int int4_switch_mod = 0;
+
+        auto fn_unsub_shell = game_.AddShellmapLoadedHandler(
+            [&] { ++int4_shellmap_loaded; });
+
+        game::Game::InitializeModDeps deps_init25{};
+        deps_init25.fn_create_load_screen =
+            [&](const game::Manifest& manifest_boot)
+            -> std::unique_ptr<game::ILoadScreen> {
+              ++int4_screens;
+              const yaml::MiniYaml* yaml_node =
+                  manifest_boot.MergedNode("LoadScreen");
+              const std::string str_name =
+                  yaml_node != nullptr && yaml_node->Value != nullptr
+                      ? *yaml_node->Value
+                      : std::string{"BlankLoadScreen"};
+              return mods::CreateLoadScreen(
+                  str_name,
+                  mods::LoadScreenDeps{
+                      .ptr_game = &game_,
+                      .fn_save_settings = [&] {
+                        ++int4_saves;
+                        return true;
+                      },
+                      .fn_switch_mod =
+                          [&](const std::string&, const core::Arguments&) {
+                            ++int4_switch_mod;
+                          },
+                  });
+            };
+        deps_init25.str_map_filter = "desert-shellmap";
+        game_.SetInitializeModDeps(std::move(deps_init25));
+        game_.SetPrepareMapHook([&](map::Map& map_boot) {
+          InstallSyntheticSequences(map_boot, *manifest, mod_data,
+                                    str_upstream_root);
+        });
+
+        const bool b_booted = game_.InitializeMod(mod_data.ManifestRef(),
+                                                  core::Arguments{});
+        Check(b_booted, "p6b25: InitializeMod completes for ra");
+        Check(int4_screens == 1,
+              "p6b25: the ra LogoStripeLoadScreen is constructed");
+        Check(game_.LoadScreenFace() != nullptr,
+              "p6b25: the Game keeps the load screen");
+        Check(int4_shellmap_loaded == 1,
+              "p6b25: OnShellmapLoaded fires at LoadShellMap's tail");
+        Check(game_.OrderManagerFace() != nullptr &&
+                  game_.OrderManagerFace()->World() != nullptr &&
+                  game_.OrderManagerFace()->World()->Type() ==
+                      sim::WorldType::Shellmap,
+              "p6b25: the shellmap world is live");
+        Check(int4_saves == 2,
+              "p6b25: BlankLoadScreen.StartGame saves settings twice");
+        Check(int4_switch_mod == 0,
+              "p6b25: no mod switch without a replay");
+
+        const auto& vec_clients_boot =
+            game_.OrderManagerFace()->LobbyInfo().vec_clients;
+        Check(vec_clients_boot.size() == 1 &&
+                  vec_clients_boot.front().Color ==
+                      core::Color::FromArgbRaw(0xFFC82020) &&
+                  vec_clients_boot.front().PreferredColor ==
+                      core::Color::FromArgbRaw(0xFFC82020),
+              "p6b25: the JoinLocal spectator carries the player color");
+
+        bool b_found_shellmap = false;
+        for (const map::MapPreview* ptr_preview :
+             game_.MapCacheFace().Previews())
+          if (ptr_preview->Status() == map::MapStatus::Available &&
+              (static_cast<std::int32_t>(ptr_preview->Visibility()) &
+               static_cast<std::int32_t>(map::MapVisibility::Shellmap)) != 0)
+            b_found_shellmap = true;
+        Check(b_found_shellmap,
+              "p6b25: the desert-shellmap filter loads an Available "
+              "Shellmap-visible map");
+
+        {
+          bool b_threw_map = false;
+          try {
+            mods::BlankLoadScreen screen_bad_map{
+                mods::LoadScreenDeps{.ptr_game = &game_}};
+            screen_bad_map.StartGame(core::Arguments{
+                std::vector<std::string>{"Launch.Map=no-such-map"}});
+          } catch (const std::invalid_argument& e_arg) {
+            b_threw_map = std::string{e_arg.what()} ==
+                          "Could not find map 'no-such-map'.";
+          }
+          Check(b_threw_map,
+                "p6b25: LoadMap rejects an unknown map by filename");
+        }
+
+        {
+          int int4_connects = 0;
+          std::string str_endpoint;
+          auto fn_unsub_connect = game_.AddOnRemoteDirectConnectHandler(
+              [&](const net::ConnectionTarget& target_direct) {
+                ++int4_connects;
+                if (const net::DnsEndpoint* ptr_endpoint =
+                        target_direct.FirstEndpoint())
+                  str_endpoint = ptr_endpoint->str_host + ":" +
+                                 std::to_string(ptr_endpoint->int4_port);
+              });
+          const int int4_before_connect = int4_shellmap_loaded;
+          auto fn_unsub_before = game_.AddBeforeGameStartHandler(
+              [&] { ++int4_before_start; });
+          mods::BlankLoadScreen screen_connect{
+              mods::LoadScreenDeps{.ptr_game = &game_}};
+          screen_connect.StartGame(core::Arguments{
+              std::vector<std::string>{"Launch.Connect=127.0.0.1:1234"}});
+          Check(int4_connects == 1 && str_endpoint == "127.0.0.1:1234",
+                "p6b25: the connect branch fires RemoteDirectConnect");
+          Check(int4_shellmap_loaded == int4_before_connect + 1,
+                "p6b25: the connect branch loads the shellmap first");
+          Check(int4_before_start == 1,
+                "p6b25: BeforeGameStart fires inside StartGame");
+          fn_unsub_connect();
+          fn_unsub_before();
+        }
+
+        {
+          const net::OrderManager* ptr_om_before_replay =
+              game_.OrderManagerFace();
+          mods::BlankLoadScreen screen_replay_bad{
+              mods::LoadScreenDeps{.ptr_game = &game_}};
+          screen_replay_bad.StartGame(core::Arguments{
+              std::vector<std::string>{"Launch.Replay=no-such-replay.orarep"}});
+          Check(game_.OrderManagerFace() == ptr_om_before_replay,
+                "p6b25: an unreadable replay leaves the order manager alone");
+        }
+
+        fn_unsub_shell();
+      }
+    }
 
     std::println("render_test: {} failures", g_failures);
 

@@ -149,6 +149,9 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
   const yaml::MiniYamlNode& node_metadata = yaml_merged_.NodeWithKey("Metadata");
   meta::Load(&rec_metadata_, node_metadata.Value);
 
+  if (const yaml::MiniYaml* yaml_renderer = find_node("RendererConstants"))
+    meta::Load(&rec_rendererConstants_, *yaml_renderer);
+
   // MapFolders(L119 + L198-204):my.Value 字典
   // MapFolders (L119 + L198-204): the my.Value dictionary.
   if (const yaml::MiniYaml* yaml_mapFolders = find_node("MapFolders")) {

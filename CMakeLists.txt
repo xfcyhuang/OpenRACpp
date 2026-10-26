@@ -281,8 +281,9 @@ add_library(ora_net STATIC
   src/net/sync_report.cpp
   src/net/replay_diff.cpp
   src/net/game_save.cpp
-  src/net/nat.cpp)
-target_link_libraries(ora_net PUBLIC ora_sim ora_yaml PRIVATE ora_fluent)
+  src/net/nat.cpp
+  src/net/launch_arguments.cpp)
+target_link_libraries(ora_net PUBLIC ora_sim ora_yaml PRIVATE ora_fluent ora_boost_url)
 ora_link_std(ora_net)
 
 # ———— Phase 7 第十四批:服务器实体(Server/Connection/OrderBuffer/
@@ -597,7 +598,8 @@ add_library(ora_mods STATIC
   src/mods/server_creation_logic.cpp
   src/mods/asset_browser_logic.cpp
   src/mods/trait_registry_batch17.cpp
-  src/mods/trait_registry_batch18.cpp)
+  src/mods/trait_registry_batch18.cpp
+  src/mods/load_screens.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui ora_sound)
 ora_link_std(ora_mods)
 

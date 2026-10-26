@@ -163,6 +163,7 @@ class Sdl2Window {
   void ReleaseWindowMouseFocus();
   bool TryOpenUrl(std::string_view str_url) const;
   void SetVSyncEnabled(bool b_enabled);
+  void SetWindowTitle(const std::string& str_title) const;
 
   std::function<void(float, float, float, float)> fn_on_window_scale_changed;
 
