@@ -201,6 +201,8 @@ add_library(ora_game STATIC
   src/game/mod_data.cpp
   src/game/loaders.cpp
   src/game/settings.cpp
+  src/game/mod_credits.cpp
+  src/game/graphics_boot.cpp
   src/game/local_player_profile.cpp
   src/ui/hotkey.cpp
   src/game/web_services.cpp)
@@ -665,7 +667,9 @@ add_library(ora_ui STATIC
   src/ui/logic/simple_tooltip_logic.cpp
   src/ui/logic/button_tooltip_logic.cpp
   src/ui/logic/version_label_logic.cpp
-  src/ui/logic/color_picker_logic.cpp)
+  src/ui/logic/color_picker_logic.cpp
+  src/ui/logic/credits_logic.cpp
+  src/ui/logic/perf_debug_logic.cpp)
 target_link_libraries(ora_ui PUBLIC ora_gfx ora_net ora_meta ora_map PRIVATE ora_fs ora_game ora_fluent ora_server ora_formats)
 ora_link_std(ora_ui)
 

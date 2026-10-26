@@ -3,6 +3,7 @@
 import std;
 
 #include "game/game.hpp"
+#include "game/graphics_boot.hpp"
 #include "game/perf_history.hpp"
 
 #include "gfx/chrome_provider.hpp"
@@ -186,7 +187,12 @@ void Game::StartGame(map::Map& map_world, sim::WorldType type) {
   // worldRenderer.RefreshPalette()(L243)
   // Cursor.SetCursor(ChromeMetrics.Get<string>("DefaultCursor"))(L244)
   up_world_->PostLoadComplete(up_world_renderer_.get());
-  // AfterGameStart()(L260;事件面空)
+  // AfterGameStart()(L260;StartGame 尾触发 —— PerfDebugLogic 订阅)
+  // AfterGameStart() (L260; fired at StartGame's tail — PerfDebugLogic's
+  // subscription).
+  for (auto& fn : vec_after_game_start_)
+    if (fn)
+      fn();
 }
 
 void Game::JoinLocal() {
@@ -397,11 +403,18 @@ void Game::Loop() {
               : ptr_logic_world->Timestep();
     }
 
-    // Ideal time between screen updates(上游注释)
+    // Ideal time between screen updates(上游注释;Game.cs L827-829 每帧
+    // 读 Settings.Graphics)
+    // Ideal time between screen updates (upstream comment; Game.cs L827-829
+    // reads Settings.Graphics every frame)
     std::int32_t int4_render_interval = int4_logic_interval;
-    if (!deps_.b_cap_framerate_to_game_fps) {
+    const GraphicsFramerateFace face_framerate =
+        GraphicsFramerateFromSettings(Settings::Instance());
+    if (!face_framerate.b_cap_framerate_to_game_fps) {
       const std::int32_t int4_max_framerate =
-          deps_.b_cap_framerate ? std::clamp(deps_.int4_max_framerate, 1, 1000) : 1000;
+          face_framerate.b_cap_framerate
+              ? std::clamp(face_framerate.int4_max_framerate, 1, 1000)
+              : 1000;
       int4_render_interval = 1000 / int4_max_framerate;
     }
 
@@ -472,10 +485,10 @@ void Game::Loop() {
 }
 
 RunStatus Game::Run() {
-  // 上游 MaxFramerate<1 的 Settings 修正随 Phase 5 实体;Loop 内 clamp 已保
-  // 证 1..1000 域
-  // the upstream MaxFramerate<1 Settings fix lands with the Phase 5 entity;
-  // Loop's clamp already guarantees the 1..1000 domain.
+  // Game.cs L901-904:MaxFramerate < 1 → 默认值 + CapFramerate = false
+  // Game.cs L901-904: MaxFramerate < 1 → the default and CapFramerate = false
+  SanitizeMaxFramerate(Settings::Instance());
+
   try {
     Loop();
   } catch (...) {

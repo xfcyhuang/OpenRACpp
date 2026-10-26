@@ -85,6 +85,7 @@ void RegisterGeneratedAll();
 #include "ui/widgets/text_notifications_display_widget.hpp"
 #include "ui/player_database.hpp"
 #include "game/perf_history.hpp"
+#include "game/graphics_boot.hpp"
 #include "game/settings.hpp"
 #include "ui/widgets/hue_slider_widget.hpp"
 #include "ui/widgets/color_mixer_widget.hpp"
@@ -3477,6 +3478,110 @@ int main(int argc, char** argv) {
             "GetPrefix 反查显式挂载名");
       Check(!file_system21.GetPrefix(vec_mounted[1]).has_value(),
             "GetPrefix 非显式挂载 = nullopt");
+    }
+  }
+
+  {
+    Check(game::GetGraphicsResolution(0, int2{1920, 1080},
+                                      int2{1024, 768}) == int2{1024, 768},
+          "graphics_boot: windowed mode picks WindowedSize");
+    Check(game::GetGraphicsResolution(1, int2{1920, 1080},
+                                      int2{1024, 768}) == int2{1920, 1080},
+          "graphics_boot: fullscreen mode picks FullscreenSize");
+    Check(game::GetGraphicsResolution(2, int2{1920, 1080},
+                                      int2{1024, 768}) == int2{1920, 1080},
+          "graphics_boot: pseudo-fullscreen picks FullscreenSize");
+
+    game::Settings settings_graphics24;
+    const game::GraphicsBootDesc desc_default =
+        game::GraphicsBootFromSettings(settings_graphics24);
+    Check(desc_default.mode_window ==
+                  platform::WindowMode::PseudoFullscreen &&
+              desc_default.int2_resolution == int2{0, 0} &&
+              desc_default.fp4_ui_scale == 1.0f &&
+              desc_default.b_cap_framerate == false &&
+              desc_default.int4_max_framerate == 60 &&
+              desc_default.int4_video_display == 0 &&
+              desc_default.kind_profile == platform::GLProfileKind::Modern,
+          "graphics_boot: the Graphics defaults boot pseudo-fullscreen "
+          "at the desktop-size zero sentinel");
+
+    game::SettingsModule* ptr_graphics =
+        settings_graphics24.Module("Graphics");
+    Check(ptr_graphics != nullptr, "graphics_boot: Graphics 段装配");
+    if (ptr_graphics != nullptr) {
+      const std::optional<std::size_t> opt_slot_mode =
+          ptr_graphics->SlotIndexOf("Mode");
+      const std::optional<std::size_t> opt_slot_full =
+          ptr_graphics->SlotIndexOf("FullscreenSize");
+      const std::optional<std::size_t> opt_slot_windowed =
+          ptr_graphics->SlotIndexOf("WindowedSize");
+      const std::optional<std::size_t> opt_slot_scale =
+          ptr_graphics->SlotIndexOf("UIScale");
+      const std::optional<std::size_t> opt_slot_display =
+          ptr_graphics->SlotIndexOf("VideoDisplay");
+      const std::optional<std::size_t> opt_slot_profile =
+          ptr_graphics->SlotIndexOf("GLProfile");
+      const std::optional<std::size_t> opt_slot_vsync =
+          ptr_graphics->SlotIndexOf("VSync");
+      const std::optional<std::size_t> opt_slot_cap =
+          ptr_graphics->SlotIndexOf("CapFramerate");
+      const std::optional<std::size_t> opt_slot_max =
+          ptr_graphics->SlotIndexOf("MaxFramerate");
+      Check(opt_slot_mode.has_value() && opt_slot_full.has_value() &&
+                opt_slot_windowed.has_value() && opt_slot_scale.has_value() &&
+                opt_slot_display.has_value() && opt_slot_profile.has_value() &&
+                opt_slot_vsync.has_value() && opt_slot_cap.has_value() &&
+                opt_slot_max.has_value(),
+            "graphics_boot: Graphics 段全字段槽");
+
+      ptr_graphics->SetInt(*opt_slot_mode, 0);
+      ptr_graphics->SetInt2(*opt_slot_full, int2{1920, 1080});
+      ptr_graphics->SetInt2(*opt_slot_windowed, int2{1280, 800});
+      ptr_graphics->SetFloat(*opt_slot_scale, 1.5f);
+      ptr_graphics->SetInt(*opt_slot_display, 1);
+      ptr_graphics->SetInt(*opt_slot_profile, 3);
+      ptr_graphics->SetBool(*opt_slot_vsync, false);
+      ptr_graphics->SetBool(*opt_slot_cap, true);
+      ptr_graphics->SetInt(*opt_slot_max, 100);
+
+      const game::GraphicsFramerateFace face_capped =
+          game::GraphicsFramerateFromSettings(settings_graphics24);
+      Check(face_capped.b_cap_framerate == true &&
+                face_capped.int4_max_framerate == 100 &&
+                face_capped.b_cap_framerate_to_game_fps == false,
+            "graphics_boot: the loop face reads the raw cap trio");
+
+      const game::GraphicsBootDesc desc_windowed =
+          game::GraphicsBootFromSettings(settings_graphics24);
+      Check(desc_windowed.mode_window == platform::WindowMode::Windowed &&
+                desc_windowed.int2_resolution == int2{1280, 800} &&
+                desc_windowed.fp4_ui_scale == 1.5f &&
+                desc_windowed.int4_video_display == 1 &&
+                desc_windowed.kind_profile ==
+                    platform::GLProfileKind::Embedded &&
+                desc_windowed.b_vsync == false,
+            "graphics_boot: an overridden section boots windowed on "
+            "display 1");
+
+      Check(!game::SanitizeMaxFramerate(settings_graphics24),
+            "graphics_boot: a positive MaxFramerate stays untouched");
+
+      ptr_graphics->SetInt(*opt_slot_max, -5);
+      ptr_graphics->SetInt(*opt_slot_profile, 0);
+      const game::GraphicsBootDesc desc_automatic =
+          game::GraphicsBootFromSettings(settings_graphics24);
+      Check(desc_automatic.kind_profile == platform::GLProfileKind::Modern,
+            "graphics_boot: the Automatic profile maps to Modern");
+
+      Check(game::SanitizeMaxFramerate(settings_graphics24),
+            "graphics_boot: MaxFramerate<1 trips the Run fixup");
+      Check(ptr_graphics->GetInt(*opt_slot_max) == 60 &&
+                ptr_graphics->GetBool(*opt_slot_cap) == false,
+            "graphics_boot: the fixup restores the default and drops the "
+            "cap");
+      Check(!game::SanitizeMaxFramerate(settings_graphics24),
+            "graphics_boot: the fixup is idempotent");
     }
   }
 

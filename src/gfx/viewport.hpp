@@ -149,7 +149,7 @@ class Viewport : public IViewportSurface {
   WPos CenterPosition() const;
   int2 TopLeft() override;
   int2 BottomRight() override;
-  int2 ViewportSize() const { return int2_viewport_size_; }
+  int2 ViewportSize() override { return int2_viewport_size_; }
   float Zoom() const override { return fp4_zoom_; }
   float MinZoom() const override { return fp4_min_zoom_; }
   float MaxZoom() const { return fp4_max_zoom_; }

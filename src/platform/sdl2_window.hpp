@@ -54,6 +54,12 @@ class Sdl2Window {
     WindowMode mode_window = WindowMode::Windowed;
     GLProfileKind kind_profile = GLProfileKind::Modern;
     bool b_hidden = true;  // 测试默认隐藏窗口 | hidden window by default for tests
+    /// 目标显示器(Settings.Graphics.VideoDisplay;Sdl2PlatformWindow.cs
+    /// L173-174 的域校验:<0 或 >= DisplayCount 回落 0)
+    /// The target display (Settings.Graphics.VideoDisplay; the domain check
+    /// of Sdl2PlatformWindow.cs L173-174: <0 or >= DisplayCount falls back
+    /// to 0).
+    int int4_video_display = 0;
   };
 
   /// 创建窗口(失败返回 std::nullopt,错误经 stderr)

@@ -30,6 +30,8 @@ import std;
 #include "net/nat.hpp"
 #include "mods/video_player_widget.hpp"
 #include "platform/ifont.hpp"
+#include "ui/logic/credits_logic.hpp"
+#include "ui/logic/perf_debug_logic.hpp"
 #include "ui/ui.hpp"
 #include "ui/widgets/checkbox_widget.hpp"
 #include "ui/widgets/color_block_widget.hpp"
@@ -374,6 +376,7 @@ int main(int argc, char** argv) {
       Rectangle GetScissorBounds(bool) override { return Rectangle{}; }
       int2 TopLeft() override { return int2{}; }
       int2 BottomRight() override { return int2{}; }
+      int2 ViewportSize() override { return int2{1280, 720}; }
       CPos ViewToWorld(int2 int2_view) override {
         return CPos{int2_view.X / 1024, int2_view.Y / 1024};
       }
@@ -6890,6 +6893,7 @@ int main(int argc, char** argv) {
       delete ptr_lobby_root;
     }
 
+    static ui::ChromeMetrics metrics_panel23;
     // ———— Phase 6 第二十三批:Settings 面板族 ————
     {
       std::println("-- batch 23: settings panels --");
@@ -7144,7 +7148,6 @@ int main(int argc, char** argv) {
         }
       };
 
-      static ui::ChromeMetrics metrics_panel23;
       {
         const auto dir_metrics23 =
             std::filesystem::temp_directory_path() /
@@ -7756,6 +7759,293 @@ int main(int argc, char** argv) {
         }
         Check(b_all_default23,
               "p6b23: the hotkey reset restores every default");
+      }
+    }
+
+    // ———— Phase 6 第二十四批:Credits + PerfDebug + GraphicSettings 启动装配 ————
+    {
+      std::println("-- batch 24: credits, perf debug, graphics boot --");
+      {
+        yaml::StringPool pool_24;
+        yaml::MiniYaml yaml_credits_node{};
+        yaml_credits_node.Nodes.emplace_back(
+            pool_24.Intern("ModTabTitle"),
+            yaml::MiniYaml{pool_24.Intern("Tiberium Dawn")});
+        yaml_credits_node.Nodes.emplace_back(
+            pool_24.Intern("ModCreditsFile"),
+            yaml::MiniYaml{pool_24.Intern("common|credits.txt")});
+        yaml_credits_node.Nodes.emplace_back(
+            pool_24.Intern("EngineCreditsFile"),
+            yaml::MiniYaml{pool_24.Intern("")});
+        const game::ModCredits credits_custom =
+            game::ModCreditsFromYaml(&yaml_credits_node);
+        Check(credits_custom.str_mod_tab_title == "Tiberium Dawn",
+              "p6b24: ModCreditsFromYaml reads the mod tab title");
+        Check(credits_custom.HasModCreditsFile(),
+              "p6b24: ModCreditsFromYaml reads the mod credits file");
+        Check(credits_custom.str_engine_credits_file.empty(),
+              "p6b24: ModCreditsFromYaml reads an emptied engine file");
+
+        const game::ModCredits credits_default =
+            game::ModCreditsFromYaml(nullptr);
+        Check(credits_default.str_mod_tab_title == "Game" &&
+                  !credits_default.HasModCreditsFile() &&
+                  credits_default.str_engine_credits_file ==
+                      "^EngineDir|AUTHORS",
+              "p6b24: a missing ModCredits node keeps the upstream "
+              "defaults");
+      }
+
+      const game::ModCredits& credits_ra =
+          mod_data.GetOrCreateModCredits();
+      Check(!credits_ra.HasModCreditsFile() &&
+                credits_ra.str_engine_credits_file ==
+                    "^EngineDir|AUTHORS",
+            "p6b24: the real ra manifest carries no ModCredits node");
+
+      struct PanelStub24 {
+        gfx::SheetBuilder builder_sheets{gfx::SheetType::BGRA, 128};
+        std::unique_ptr<gfx::SpriteFont> up_font;
+
+        void MakeFont() {
+          struct FakeFont24 final : platform::IFont {
+            platform::FontGlyph CreateGlyph(std::uint32_t, int,
+                                            float) override {
+              platform::FontGlyph glyph_ret;
+              glyph_ret.offset = int2{1, 2};
+              glyph_ret.int4_width = 2;
+              glyph_ret.int4_height = 3;
+              glyph_ret.fp4_advance = 4.0f;
+              glyph_ret.vec_data.assign(2 * 3, 0);
+              return glyph_ret;
+            }
+          };
+          up_font = std::make_unique<gfx::SpriteFont>(
+              "Regular", std::span<const std::uint8_t>{},
+              std::make_unique<FakeFont24>(), 10, 8, 1.0f,
+              builder_sheets,
+              [](const gfx::Sprite&, core::Vector3, float,
+                 core::Vector3, float) {},
+              [](const gfx::Sprite&, core::Vector3, core::Vector3,
+                 core::Vector3, core::Vector3, core::Vector3,
+                 float) {});
+        }
+
+        ui::Widget* AttachNew(ui::Widget& ref_parent,
+                             std::string_view str_id,
+                             std::unique_ptr<ui::Widget> up_node) {
+          up_node->str_id = std::string{str_id};
+          up_node->bounds_widget.int4_width = 200;
+          up_node->bounds_widget.int4_height = 20;
+          ui::Widget* ptr_node = up_node.get();
+          ref_parent.AddChild(std::move(up_node));
+          return ptr_node;
+        }
+      };
+      auto up_stub24 = std::make_unique<PanelStub24>();
+      up_stub24->MakeFont();
+      static std::unique_ptr<PanelStub24> up_stub_holder24;
+      up_stub_holder24 = std::move(up_stub24);
+
+      static std::int32_t int4_render_frame24 = 0;
+      static std::vector<std::function<void()>> vec_after_start24;
+      static bool b_unsubscribed24 = false;
+      vec_after_start24.clear();
+      b_unsubscribed24 = false;
+
+      ui::Ui::Deps deps_ui_24;
+      deps_ui_24.ptr_chrome_metrics = &metrics_panel23;
+      deps_ui_24.fn_window_size = [] { return int2{1280, 720}; };
+      deps_ui_24.fn_try_get_font =
+          [ptr_font = up_stub_holder24->up_font.get()](
+              const std::string&) { return ptr_font; };
+      deps_ui_24.fn_render_frame = [] { return int4_render_frame24; };
+      deps_ui_24.fn_add_after_game_start =
+          [](std::function<void()> fn_handler) {
+            vec_after_start24.push_back(std::move(fn_handler));
+            return [] { b_unsubscribed24 = true; };
+          };
+      ui::Ui::Instance().Initialize(std::move(deps_ui_24));
+
+      {
+        auto up_credits_root = std::make_unique<ui::ContainerWidget>();
+        up_credits_root->str_id = "CREDITS_PANEL";
+        ui::Widget* ptr_credits_root = up_credits_root.get();
+        ui::WidgetArgs args_button24;
+        ui::ButtonWidget* ptr_back =
+            static_cast<ui::ButtonWidget*>(up_stub_holder24->AttachNew(
+                *ptr_credits_root, "BACK_BUTTON",
+                std::make_unique<ui::ButtonWidget>(args_button24)));
+        ui::Widget* ptr_tabs = up_stub_holder24->AttachNew(
+            *ptr_credits_root, "TAB_CONTAINER",
+            std::make_unique<ui::ContainerWidget>());
+        up_stub_holder24->AttachNew(
+            *ptr_tabs, "MOD_TAB",
+            std::make_unique<ui::ButtonWidget>(args_button24));
+        up_stub_holder24->AttachNew(
+            *ptr_tabs, "ENGINE_TAB",
+            std::make_unique<ui::ButtonWidget>(args_button24));
+        ui::WidgetArgs args_scroll24;
+        ui::ScrollPanelWidget* ptr_scroll_credits =
+            static_cast<ui::ScrollPanelWidget*>(
+                up_stub_holder24->AttachNew(
+                    *ptr_credits_root, "CREDITS_DISPLAY",
+                    std::make_unique<ui::ScrollPanelWidget>(
+                        args_scroll24)));
+        ui::WidgetArgs args_label24;
+        ptr_scroll_credits->AddChild(
+            std::make_unique<ui::LabelWidget>(args_label24));
+        ptr_scroll_credits->Children().back()->str_id =
+            "CREDITS_TEMPLATE";
+        ptr_scroll_credits->Children().back()->bounds_widget.int4_width =
+            200;
+        ptr_scroll_credits->Children().back()->bounds_widget.int4_height =
+            20;
+
+        int int4_on_exit24 = 0;
+        ui::WidgetArgs args_logic24;
+        args_logic24.Add("widget",
+                         static_cast<ui::Widget*>(ptr_credits_root));
+        args_logic24.Add("modData", static_cast<game::ModData*>(&mod_data));
+        args_logic24.Add("onExit",
+                         std::function<void()>{[&int4_on_exit24] {
+                           ++int4_on_exit24;
+                         }});
+        auto logic_credits =
+            std::make_unique<ui::CreditsLogic>(args_logic24);
+
+        Check(logic_credits->ShowEngineTabForTest() &&
+                  !logic_credits->ShowModTabForTest(),
+              "p6b24: ra defaults show the engine tab only");
+        Check(!ptr_tabs->fn_is_visible(),
+              "p6b24: the tab container hides without both tabs");
+        Check(ptr_scroll_credits->bounds_widget.int4_y == 0,
+              "p6b24: the display panel keeps its layout with one tab");
+        Check(logic_credits->EngineLinesForTest().find("\u2022") !=
+                      std::string::npos &&
+                  logic_credits->EngineLinesForTest().find('*') ==
+                      std::string::npos,
+              "p6b24: AUTHORS bullets parse to unicode dots");
+        Check(logic_credits->EngineLinesForTest().find('\t') ==
+                  std::string::npos,
+              "p6b24: any tabs expand to four spaces");
+        Check(ptr_scroll_credits->Children().size() == 1,
+              "p6b24: showcredits lays exactly one label");
+        ui::LabelWidget* ptr_line =
+            ptr_scroll_credits->Get<ui::LabelWidget>(
+                ptr_scroll_credits->Children().front()->str_id);
+        Check(ptr_line != nullptr &&
+                  ptr_line->fn_get_text() ==
+                      logic_credits->EngineLinesForTest(),
+              "p6b24: the laid label reads the engine lines");
+
+        ptr_back->fn_on_click();
+        Check(int4_on_exit24 == 1,
+              "p6b24: back closes the window and fires onExit");
+
+        logic_credits.reset();
+      }
+
+      {
+        game::SettingsModule* ptr_debug =
+            game::Settings::Instance().Module("Debug");
+        Check(ptr_debug != nullptr, "p6b24: the debug section assembles");
+        const std::optional<std::size_t> opt_slot_graph =
+            ptr_debug->SlotIndexOf("PerfGraph");
+        const std::optional<std::size_t> opt_slot_text =
+            ptr_debug->SlotIndexOf("PerfText");
+        const std::optional<std::size_t> opt_slot_samples =
+            ptr_debug->SlotIndexOf("Samples");
+        Check(opt_slot_graph.has_value() && opt_slot_text.has_value() &&
+                  opt_slot_samples.has_value(),
+              "p6b24: the debug section carries the perf fields");
+        const bool b_graph_was = ptr_debug->GetBool(*opt_slot_graph);
+        const bool b_text_was = ptr_debug->GetBool(*opt_slot_text);
+        ptr_debug->SetBool(*opt_slot_graph, true);
+        ptr_debug->SetBool(*opt_slot_text, true);
+
+        auto up_perf_root = std::make_unique<ui::ContainerWidget>();
+        up_perf_root->str_id = "PERF_WIDGETS";
+        ui::Widget* ptr_perf_root = up_perf_root.get();
+        ui::Widget* ptr_graph_bg = up_stub_holder24->AttachNew(
+            *ptr_perf_root, "GRAPH_BG",
+            std::make_unique<ui::ContainerWidget>());
+        ui::WidgetArgs args_perf_label24;
+        ui::LabelWidget* ptr_perf_text =
+            static_cast<ui::LabelWidget*>(up_stub_holder24->AttachNew(
+                *ptr_perf_root, "PERF_TEXT",
+                std::make_unique<ui::LabelWidget>(args_perf_label24)));
+
+        class ViewportStub24 final : public gfx::IViewportSurface {
+         public:
+          int2 WorldToViewPx(int2 int2_world) override { return int2_world; }
+          int2 WorldToViewPx(const core::Vector3& vec_world) override {
+            return int2{static_cast<std::int32_t>(vec_world.X),
+                        static_cast<std::int32_t>(vec_world.Y)};
+          }
+          Rectangle GetScissorBounds(bool) override { return Rectangle{}; }
+          int2 TopLeft() override { return int2{}; }
+          int2 BottomRight() override { return int2{}; }
+          int2 ViewportSize() override { return int2{1280, 720}; }
+        };
+        static ViewportStub24 viewport_stub24;
+        wr.SetViewport(&viewport_stub24);
+
+        ui::WidgetArgs args_perf_logic24;
+        args_perf_logic24.Add("widget",
+                              static_cast<ui::Widget*>(ptr_perf_root));
+        args_perf_logic24.Add("worldRenderer",
+                              static_cast<gfx::WorldRenderer*>(&wr));
+        {
+          auto logic_perf =
+              std::make_unique<ui::PerfDebugLogic>(args_perf_logic24);
+
+          Check(ptr_graph_bg->fn_is_visible() &&
+                    ptr_perf_text->fn_is_visible(),
+                "p6b24: the perf widgets follow the debug flags");
+          Check(vec_after_start24.size() == 1,
+                "p6b24: the logic subscribes to after-game-start");
+
+          int4_render_frame24 = 7;
+          const std::string str_text_first =
+              logic_perf->TextDelegateForTest()();
+          int4_render_frame24 = 9;
+          const std::string str_text_second =
+              logic_perf->TextDelegateForTest()();
+
+          Check(str_text_second.starts_with("FPS: "),
+                "p6b24: line one reports fps");
+          Check(str_text_second.find(
+                    std::format("Tick: {} / 0 @ ", world->WorldTick())) !=
+                    std::string::npos,
+                "p6b24: line two reports the world and local ticks");
+          Check(str_text_second.find("Render 9 @ ") != std::string::npos,
+                "p6b24: line three reports the render frame");
+          Check(str_text_second.find("Batches: ") != std::string::npos,
+                "p6b24: line four reports the batch count");
+          Check(str_text_second.find("Viewport Size: 1280 x 720 / 1") !=
+                    std::string::npos,
+                "p6b24: line five reports the viewport and downscale");
+          Check(str_text_second.find("WFB Size: 0 x 0") !=
+                    std::string::npos,
+                "p6b24: line six reports the world framebuffer size");
+          Check(str_text_first != str_text_second,
+                "p6b24: the text refreshes per pull");
+
+          vec_after_start24.front()();
+          int4_render_frame24 = 12;
+          const std::string str_text_reset =
+              logic_perf->TextDelegateForTest()();
+          Check(str_text_reset.find("Render 12 @ ") != std::string::npos,
+                "p6b24: after-game-start resets the timing window");
+
+          Check(!b_unsubscribed24, "p6b24: no early unsubscribe");
+        }
+        Check(b_unsubscribed24,
+              "p6b24: destruction unsubscribes the handler");
+
+        ptr_debug->SetBool(*opt_slot_graph, b_graph_was);
+        ptr_debug->SetBool(*opt_slot_text, b_text_was);
       }
     }
 

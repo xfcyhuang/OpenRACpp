@@ -90,9 +90,33 @@ std::optional<Sdl2Window> Sdl2Window::Create(const Desc& desc) {
       break;
   }
 
+  // 目标显示器的域校验与居中(Sdl2PlatformWindow.cs L173-174 + L234:
+  // <0 或 >= DisplayCount 回落 0;窗口在该显示器居中)
+  // The target display's domain check and centering (Sdl2PlatformWindow.cs
+  // L173-174 + L234: <0 or >= DisplayCount falls back to 0; the window
+  // centers on that display).
+  int int4_video_display = desc.int4_video_display;
+  if (int4_video_display < 0 ||
+      int4_video_display >= SDL_GetNumVideoDisplays())
+    int4_video_display = 0;
+
+  // 0x0 请求 = 桌面分辨率(Sdl2PlatformWindow.cs L185-191 的 desktop 回落)
+  // A 0x0 request = the desktop resolution (Sdl2PlatformWindow.cs L185-191's
+  // desktop fallback).
+  int int4_width = desc.int4_width;
+  int int4_height = desc.int4_height;
+  if (int4_width == 0 && int4_height == 0) {
+    SDL_DisplayMode mode_display{};
+    if (SDL_GetCurrentDisplayMode(int4_video_display, &mode_display) == 0) {
+      int4_width = mode_display.w;
+      int4_height = mode_display.h;
+    }
+  }
+
   SDL_Window* ptr_window = SDL_CreateWindow(
-      "OpenRACpp", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-      desc.int4_width, desc.int4_height, ToSdlFlags(desc.mode_window, desc.b_hidden));
+      "OpenRACpp", SDL_WINDOWPOS_CENTERED_DISPLAY(int4_video_display),
+      SDL_WINDOWPOS_CENTERED_DISPLAY(int4_video_display),
+      int4_width, int4_height, ToSdlFlags(desc.mode_window, desc.b_hidden));
   if (ptr_window == nullptr) {
     std::println(stderr, "SDL_CreateWindow 失败 | SDL_CreateWindow failed: {}", SDL_GetError());
     return std::nullopt;

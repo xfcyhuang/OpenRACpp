@@ -68,12 +68,6 @@ class Game {
   struct Deps {
     std::function<std::int64_t()> fn_clock;  // Game.RunTime;缺省 = 构造起 steady ms
 
-    // Settings.Graphics 值面(Settings.cs L256-262 默认;Phase 5 换实体)
-    // the Settings.Graphics value face (Settings.cs L256-262 defaults).
-    bool b_cap_framerate = false;
-    std::int32_t int4_max_framerate = 60;
-    bool b_cap_framerate_to_game_fps = false;
-
     gfx::Renderer* ptr_renderer = nullptr;      // 空 = 无头(Loop 全逻辑化)
     sound::Sound* ptr_sound = nullptr;
     gfx::CursorManager* ptr_cursor = nullptr;
@@ -210,6 +204,20 @@ class Game {
     };
   }
 
+  /// AfterGameStart(L186 事件面;StartGame L260 触发 —— PerfDebugLogic 的
+  /// FPS 计时重置消费)。返回退订器(上游 event -= 的等价;置空移除)
+  /// AfterGameStart (the L186 event face; fired at StartGame L260 — consumed
+  /// by PerfDebugLogic's FPS-timing reset). Returns the unsubscriber (the
+  /// event -= equivalent; removal by nulling out).
+  std::function<void()> AddAfterGameStartHandler(std::function<void()> fn_handler) {
+    vec_after_game_start_.push_back(std::move(fn_handler));
+    const std::size_t sz_slot = vec_after_game_start_.size() - 1;
+    return [this, sz_slot] {
+      if (sz_slot < vec_after_game_start_.size())
+        vec_after_game_start_[sz_slot] = nullptr;
+    };
+  }
+
   void SetWorldRenderer(std::unique_ptr<gfx::WorldRenderer> up_wr, gfx::Viewport* ptr_viewport);
   gfx::WorldRenderer* WorldRendererFace() const { return up_world_renderer_.get(); }
 
@@ -235,6 +243,7 @@ class Game {
   MersenneTwister mt_cosmetic_{0};  // 种子于 ctor 按时钟重设 | re-seeded in the ctor
 
   std::vector<std::function<void()>> vec_lobby_info_changed_;
+  std::vector<std::function<void()>> vec_after_game_start_;
 
   std::unique_ptr<net::OrderManager> up_order_manager_;
   std::unique_ptr<gfx::WorldRenderer> up_world_renderer_;

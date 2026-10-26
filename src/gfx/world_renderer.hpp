@@ -169,6 +169,11 @@ struct IViewportSurface {
   /// RenderableActorsInBox).
   virtual int2 TopLeft() = 0;
   virtual int2 BottomRight() = 0;
+  /// ViewportSize(Viewport.cs L60;PerfDebugLogic 的视口尺寸行;缺省
+  /// {0,0} = 桩面)
+  /// ViewportSize (Viewport.cs L60; PerfDebugLogic's viewport-size line;
+  /// the {0, 0} default is the stub face).
+  virtual int2 ViewportSize() { return int2{0, 0}; }
   /// Center 族(Viewport.cs L350-362 的接口面;Center(IEnumerable&lt;Actor&gt;)
   /// 的均值由调用方求 —— ControlGroupsWidget 消费)
   /// The Center family (the interface face of Viewport.cs L350-362; the

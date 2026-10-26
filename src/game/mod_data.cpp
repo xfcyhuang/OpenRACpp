@@ -104,6 +104,7 @@ ModData::ModData(const Manifest& manifest_source, const InstalledMods& installed
   // Platform.ResolvePath 接线 + '$mod' 解析器(ModData 构造器 L61-64 的等价)
   // The Platform.ResolvePath wiring + the '$mod' resolver (the equivalent of
   // the ModData ctor L61-64).
+  str_engine_dir_ = str_engine_dir;
   const PathResolver resolver_paths{std::move(str_engine_dir), std::string{}};
   fs_modFiles_.SetPathResolver(
       [resolver_paths](const std::string& str_path) { return resolver_paths(str_path); });
@@ -209,6 +210,14 @@ Fonts& ModData::GetOrCreateFonts() {
   }
   return *fonts_;
 }
+
+const ModCredits& ModData::GetOrCreateModCredits() {
+  if (!opt_mod_credits_.has_value())
+    opt_mod_credits_ =
+        ModCreditsFromYaml(manifest_->GlobalModDataNode("ModCredits"));
+  return *opt_mod_credits_;
+}
+
 
 ui::HotkeyManager& ModData::Hotkeys() {
   if (hotkeys_ == nullptr) {

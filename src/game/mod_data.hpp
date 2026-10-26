@@ -19,6 +19,7 @@ import std;
 #include "game/fonts.hpp"
 #include "game/local_player_profile.hpp"
 #include "game/manifest.hpp"
+#include "game/mod_credits.hpp"
 #include "game/ruleset.hpp"
 #include "game/game_speed.hpp"
 #include "terrain/map_grid.hpp"
@@ -114,6 +115,19 @@ class ModData final {
   /// default is an empty table).
   GameSpeeds& GetOrCreateGameSpeeds();
 
+  /// GetOrCreate<ModCredits>()(mod.yaml 的 "ModCredits" 节点;缺省 = 上游
+  /// 三字面默认)。const 返回:上游 CreditsLogic 只读消费。
+  /// GetOrCreate<ModCredits>() (the mod.yaml "ModCredits" node; the lazy
+  /// default is upstream's three literals). const return: upstream's
+  /// CreditsLogic consumes it read-only.
+  const ModCredits& GetOrCreateModCredits();
+
+  /// ctor 注入的 '^EngineDir' 展开值(CreditsLogic 的 EngineCreditsFile
+  /// ResolvePath 消费)。
+  /// The injected '^EngineDir' expansion of the ctor (consumed by
+  /// CreditsLogic's EngineCreditsFile ResolvePath).
+  const std::string& EngineDir() const { return str_engine_dir_; }
+
   /// GetOrCreate<Fonts>()(mod.yaml 的 "Fonts" 节点 → Fonts::Load;缺省 =
   /// 空表)。Renderer.InitializeFonts 的 FontList 来源。
   /// GetOrCreate<Fonts>() (the mod.yaml "Fonts" node → Fonts::Load; the
@@ -133,6 +147,8 @@ class ModData final {
   std::unique_ptr<map::MapGrid> grid_;             // GetOrCreate<MapGrid> 面 | the GetOrCreate<MapGrid> face.
   std::unique_ptr<GameSpeeds> game_speeds_;   // GetOrCreate<GameSpeeds> 面 | the GetOrCreate face.
   std::unique_ptr<Fonts> fonts_;              // GetOrCreate<Fonts> 面 | the GetOrCreate face.
+  std::optional<ModCredits> opt_mod_credits_;  // GetOrCreate<ModCredits> 面 | the GetOrCreate face.
+  std::string str_engine_dir_;
   std::unique_ptr<ui::HotkeyManager> hotkeys_;
   std::unique_ptr<PlayerDatabase> player_database_;
   std::vector<std::pair<std::string, std::unique_ptr<map::ITerrainInfo>>>

@@ -8,6 +8,8 @@ import std;
 
 #include "ui/logic/button_tooltip_logic.hpp"
 #include "ui/logic/color_picker_logic.hpp"
+#include "ui/logic/credits_logic.hpp"
+#include "ui/logic/perf_debug_logic.hpp"
 #include "ui/logic/simple_tooltip_logic.hpp"
 #include "ui/logic/version_label_logic.hpp"
 #include "ui/widgets/badge_widget.hpp"
@@ -408,6 +410,16 @@ namespace {
       "VersionLabelLogic",
       [](WidgetArgs& args_args) -> std::unique_ptr<ChromeLogic> {
         return std::make_unique<VersionLabelLogic>(args_args);
+      });
+  ChromeLogicRegistry::Instance().Register(
+      "CreditsLogic",
+      [](WidgetArgs& args_args) -> std::unique_ptr<ChromeLogic> {
+        return std::make_unique<CreditsLogic>(args_args);
+      });
+  ChromeLogicRegistry::Instance().Register(
+      "PerfDebugLogic",
+      [](WidgetArgs& args_args) -> std::unique_ptr<ChromeLogic> {
+        return std::make_unique<PerfDebugLogic>(args_args);
       });
 
   registry_widgets.Register(

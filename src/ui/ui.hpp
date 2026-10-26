@@ -164,6 +164,19 @@ class Ui {
     /// Game.LocalTick (OrderManager.LocalFrameNumber; SupportPowerTimer's
     /// blink beat; unwired = 0).
     std::function<int()> fn_local_tick = [] { return 0; };
+    /// Game.RenderFrame(RenderTick 的渲染帧计数;PerfDebugLogic 的 FPS 窗;
+    /// 未接线 = 0)
+    /// Game.RenderFrame (RenderTick's rendered-frame counter;
+    /// PerfDebugLogic's FPS window; unwired = 0).
+    std::function<std::int32_t()> fn_render_frame = [] { return 0; };
+    /// Game.AfterGameStart += handler 的订阅面(PerfDebugLogic 的 FPS 计时
+    /// 重置;返回退订器;未接线 = 退订器 no-op)
+    /// The Game.AfterGameStart += subscription face (PerfDebugLogic's
+    /// FPS-timing reset; returns the unsubscriber; unwired = a no-op one).
+    std::function<std::function<void()>(std::function<void()>)>
+        fn_add_after_game_start = [](std::function<void()>) {
+          return std::function<void()>{};
+        };
     /// Game.Sound 的直连面(VideoPlayerWidget 的视频音频;未接线 = null =
     /// 静默)
     /// The Game.Sound direct face (VideoPlayerWidget's video audio;
