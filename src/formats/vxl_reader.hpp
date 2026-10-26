@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/VxlReader.cs @e180e3225(全文)。
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/VxlReader.cs @1f594e320(全文)。
 // Westwood VXL 体素:16 字节头("Voxel Animation" 前缀)+ 尺寸域(LimbCount/
 // bodySize)+ 770 保留;每肢体 28 字节头(Name 16 + 12 保留);肢体足注位于
 // 802 + 28*LimbCount + bodySize(limbDataOffset u32 + 8 保留 + Scale f32 +

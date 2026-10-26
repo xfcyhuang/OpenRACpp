@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/Sdl2PlatformWindow.cs @e180e3225 L34-587(窗口创建/模式/GL 属性段)
+// UPSTREAM: OpenRA.Platforms.Default/Sdl2PlatformWindow.cs @1f594e320 L34-587(窗口创建/模式/GL 属性段)
 // OPT-B5(docs/OPTIMIZATION_TRACKER.md):窗口几何为打包 atomic<u64> 快照,getter 无锁 ——
 // 替代上游每个属性 getter 各取一把 lock(Sdl2PlatformWindow.cs L42-120,scissor 等热路径
 // 每帧多次读)。OPT-A5:GL 上下文由渲染线程创建并持有(统一线程模型,上游
@@ -144,6 +144,22 @@ class Sdl2Window {
   /// HiDPI ratio = the OPT-B5 snapshot's scale field).
   float NativeWindowScale() const { return Geom().float_scale; }
 
+  int DisplayCount() const;
+  int CurrentDisplay() const;
+  int2 NativeWindowSize() const;
+  int2 EffectiveWindowSize() const;
+  float EffectiveWindowScale() const;
+  GLProfileKind GLProfileUsed() const {
+    return kind_profile_used_.load(std::memory_order_relaxed);
+  }
+  void SetScaleModifier(float fp4_scale);
+  void GrabWindowMouseFocus();
+  void ReleaseWindowMouseFocus();
+  bool TryOpenUrl(std::string_view str_url) const;
+  void SetVSyncEnabled(bool b_enabled);
+
+  std::function<void(float, float, float, float)> fn_on_window_scale_changed;
+
   /// SDL 窗口句柄(平台内部互通用;调用方不得直接调 SDL 窗口 API 之外的接口)
   /// SDL window handle (platform-internal interoperability).
   void* NativeHandle() const { return ptr_window_; }
@@ -155,6 +171,10 @@ class Sdl2Window {
   std::atomic<std::uint64_t> uint8_geom_{};         // {w:16|h:16|scale(8.8 定点):16|保留:16}
   std::atomic<bool> b_input_focus_{false};          // 焦点(OPT-B5 同款原子量)| focus (OPT-B5-style atomic)
   std::atomic<bool> b_suspended_{false};            // 挂起 | suspended
+  std::atomic<float> fp4_scale_modifier_{1.0f};
+  std::atomic<int> int4_vsync_intent_{-1};
+  std::atomic<int> int4_vsync_applied_{-2};
+  std::atomic<GLProfileKind> kind_profile_used_{GLProfileKind::Modern};
 };
 
 /// SDL 视频子系统初始化(引用计数;进程级一次物理初始化)。

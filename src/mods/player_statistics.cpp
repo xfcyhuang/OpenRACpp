@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlayerStatistics.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlayerStatistics.cs @1f594e320
 //          L22-311 的实现面
 //          The implementation face of L22-311.
 #include "mods/player_statistics.hpp"

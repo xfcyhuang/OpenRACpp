@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDamageOverlay.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDamageOverlay.cs @1f594e320
 //          L18-165 重损烟雾(start/loop/end 三段链 + 延迟触发)。
 //          The heavy-damage smoke (the start/loop/end chain + the delayed
 //          trigger).

@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Render/SelectionDecorationsBase.cs
-//          @e180e3225 L18-139 + SelectionDecorations.cs L18-93 +
+//          @1f594e320 L18-139 + SelectionDecorations.cs L18-93 +
 //          Graphics/SelectionBoxAnnotationRenderable.cs +
 //          SelectionBarsAnnotationRenderable.cs 选择框/血条/装饰注释族。
 //          StatusBars 读取 = 注入 provider(缺省 Standard;Settings 实体随

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Effects/SpriteEffect.cs @e180e3225 L18-86
+// UPSTREAM: OpenRA.Mods.Common/Effects/SpriteEffect.cs @1f594e320 L18-86
 #include "gfx/world_renderer.hpp"
 #include "map/map.hpp"
 #include "mods/sprite_effect.hpp"

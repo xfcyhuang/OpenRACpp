@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ClientTooltipRegionWidget.cs @e180e3225 L20-76(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ClientTooltipRegionWidget.cs @1f594e320 L20-76(全文)。
 #pragma once
 import std;
 

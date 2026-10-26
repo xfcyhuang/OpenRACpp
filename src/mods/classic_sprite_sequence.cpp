@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Mods.Cnc/Graphics/ClassicSpriteSequence.cs @e180e3225 L18-48 +
-//           OpenRA.Mods.Cnc/Util.cs @e180e3225 L18-67
+// UPSTREAM: OpenRA.Mods.Cnc/Graphics/ClassicSpriteSequence.cs @1f594e320 L18-48 +
+//           OpenRA.Mods.Cnc/Util.cs @1f594e320 L18-67
 //          (classic_sprite_sequence.hpp 的实现)
 //          Implementation of classic_sprite_sequence.hpp.
 import std;

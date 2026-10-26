@@ -1,7 +1,7 @@
-// UPSTREAM: OpenRA.Mods.Common/Orders/OrderGenerator.cs @e180e3225
-//          L18-61 全文 + GlobalButtonOrderGenerator.cs @e180e3225 L19-95
-//          全文 + RepairOrderGenerator.cs @e180e3225 L20-87 全文 +
-//          BeaconOrderGenerator.cs @e180e3225 L18-40 全文(实现部分)。
+// UPSTREAM: OpenRA.Mods.Common/Orders/OrderGenerator.cs @1f594e320
+//          L18-61 全文 + GlobalButtonOrderGenerator.cs @1f594e320 L19-95
+//          全文 + RepairOrderGenerator.cs @1f594e320 L20-87 全文 +
+//          BeaconOrderGenerator.cs @1f594e320 L18-40 全文(实现部分)。
 #include "mods/order_generators.hpp"
 
 #include "mods/actor_exts.hpp"

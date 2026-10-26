@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/BulkProductionQueue.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Player/BulkProductionQueue.cs @1f594e320
 //          L20-337 全文(同步面;ProductionBulkAirdrop 未移植 ——
 //          DeliveryHasArrived 的 producer 恒空集 = 无该 trait 世界的等价
 //          域,d2k 全链随 Phase 8;登记 COVERAGE)

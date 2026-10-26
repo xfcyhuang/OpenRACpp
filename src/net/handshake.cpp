@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Handshake.cs @e180e3225 L17-90(字段装载/
+// UPSTREAM: OpenRA.Game/Network/Handshake.cs @1f594e320 L17-90(字段装载/
 //          序列化全文;FieldLoader/FieldSaver → 按名手写表,与 Session 同形)
 //          Handshake.cs L17-90 (the whole load/serialize text; FieldLoader/
 //          FieldSaver → the by-name hand-written tables, the same shape as

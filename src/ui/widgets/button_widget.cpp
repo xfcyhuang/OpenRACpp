@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ButtonWidget.cs @e180e3225(button_widget.hpp
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ButtonWidget.cs @1f594e320(button_widget.hpp
 // 的实现)
 // The implementation of button_widget.hpp.
 import std;

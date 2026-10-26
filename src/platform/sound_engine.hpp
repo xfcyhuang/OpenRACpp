@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Sound/SoundDevice.cs @e180e3225 L20-46(ISoundEngine/
+// UPSTREAM: OpenRA.Game/Sound/SoundDevice.cs @1f594e320 L20-46(ISoundEngine/
 // ISoundSource/ISound 接口族与 SoundDevice 记录;文件另含 ISoundLoader/
 // ISoundFormat/SoundType,归 Sound 门面批次 —— Phase 6)
 // 接口族的 C++ 形态映射:byte[] 参数 → std::span 直传(README 有意优化表);

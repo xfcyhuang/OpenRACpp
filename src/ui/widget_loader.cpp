@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Widgets/WidgetLoader.cs @e180e3225(widget_loader.hpp 的
+// UPSTREAM: OpenRA.Game/Widgets/WidgetLoader.cs @1f594e320(widget_loader.hpp 的
 // 实现;基型 Container/Input 就地注册)
 // The implementation of widget_loader.hpp (the Container/Input base types
 // registered in place).

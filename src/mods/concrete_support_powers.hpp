@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/NukePower.cs @e180e3225 L23-243 +
+// UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/NukePower.cs @1f594e320 L23-243 +
 //          SpawnActorPower.cs L22-163 + ProduceActorPower.cs L19-113 +
 //          GrantExternalConditionPower.cs L23-178
 #pragma once

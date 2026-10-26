@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Support/HttpClientFactory.cs @e180e3225 +
-// OpenRA.Game/HttpExtension.cs L18-49 @e180e3225(实现半;契约半见头文件)
+// UPSTREAM: OpenRA.Game/Support/HttpClientFactory.cs @1f594e320 +
+// OpenRA.Game/HttpExtension.cs L18-49 @1f594e320(实现半;契约半见头文件)
 // GET 的分块读复刻 ReadAsStreamWithProgress 的 8192 缓冲;Content-
 // Disposition 的 filename 解析 = .NET ContentDisposition.FileName 的
 // 去引号参数值(参数名大小写不敏感;值两端的成对引号剥除)。

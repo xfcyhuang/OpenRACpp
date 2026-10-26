@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/VqaVideo.cs @e180e3225(全文)+
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/VqaVideo.cs @1f594e320(全文)+
 // VqaLoader.cs:逐句照抄。异常面:三条消息逐字(Invalid vqa×2 /
 // Unknown sub-chunk / Vqa uses unknown Subtype)+ 参数-less 的
 // NotSupportedException/IndexOutOfRangeException 以 .NET 全名 + 默认消息

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/FileFormats/FastByteReader.cs @e180e3225 L16-43(全文)
+// UPSTREAM: OpenRA.Mods.Common/FileFormats/FastByteReader.cs @1f594e320 L16-43(全文)
 // 快速字节读取器:LCW/XOR/RLE0 解码的内环热路径(每字节一次方法调用,
 // 无虚分发)。ReadWord 返回 int(x | next<<8),上游原样。
 // 形态适配:byte[] + int offset → span + size_t;越界读上游抛 CLR

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @e180e3225 L24-194(ui.hpp 的实现)
+// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @1f594e320 L24-194(ui.hpp 的实现)
 // The implementation of ui.hpp.
 import std;
 

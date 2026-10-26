@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/SpatiallyPartitioned.cs @e180e3225
+// UPSTREAM: OpenRA.Game/Primitives/SpatiallyPartitioned.cs @1f594e320
 //          (spatially_partitioned.hpp 的 Actor* 特化实现;OPT-A8 slab 形态)
 //          The SpatiallyPartitioned<Actor*> specialization implementation
 //          (the OPT-A8 slab form).

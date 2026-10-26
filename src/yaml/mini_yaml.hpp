@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/MiniYaml.cs @e180e3225 L22-791(全文件逐语义重写)
+// UPSTREAM: OpenRA.Game/MiniYaml.cs @1f594e320 L22-791(全文件逐语义重写)
 //          Full-file statement-by-statement rewrite of upstream MiniYaml.cs.
 // 已登记偏离(docs/COVERAGE.md)/ Registered deviations (docs/COVERAGE.md):
 //  1. 异常类型统一为 YamlException(C# 分散使用 YamlException/InvalidDataException/

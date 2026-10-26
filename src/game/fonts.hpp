@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Fonts.cs @e180e3225 L15-38(全文)。Fonts =
+// UPSTREAM: OpenRA.Game/Fonts.cs @1f594e320 L15-38(全文)。Fonts =
 // IGlobalModData,FontList 由 LoadUsing(LoadFonts) 从 mod.yaml "Fonts" 节点
 // 逐键装载(FontData = FieldLoader.Load 三字段)。C# FrozenDictionary →
 // 插入序 vector<pair>;GetOrCreate 的 C++ 承载 = ModData::GetOrCreateFonts

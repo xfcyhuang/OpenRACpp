@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/SupportPowerManager.cs
-//          @e180e3225 L21-320 + SupportPower.cs L18-260 的实现面
+//          @1f594e320 L21-320 + SupportPower.cs L18-260 的实现面
 //          The implementation face of L21-320 + SupportPower.cs L18-260.
 #include "mods/support_powers.hpp"
 

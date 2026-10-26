@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/PickupUnit.cs + DeliverUnit.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Activities/PickupUnit.cs + DeliverUnit.cs @1f594e320
 #pragma once
 import std;
 

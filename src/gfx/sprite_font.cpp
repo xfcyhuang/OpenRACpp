@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteFont.cs @e180e3225(sprite_font.hpp 的
+// UPSTREAM: OpenRA.Game/Graphics/SpriteFont.cs @1f594e320(sprite_font.hpp 的
 // 实现)
 // The implementation of sprite_font.hpp.
 import std;

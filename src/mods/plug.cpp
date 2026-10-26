@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Plug.cs + Traits/Pluggable.cs
-//          @e180e3225(实现部分)
+//          @1f594e320(实现部分)
 //          The implementation halves.
 #include "mods/plug.hpp"
 

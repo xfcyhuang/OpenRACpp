@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LogicKeyListenerWidget.cs @e180e3225 L19-36(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/LogicKeyListenerWidget.cs @1f594e320 L19-36(全文)。
 import std;
 
 #include "ui/widgets/logic_key_listener_widget.hpp"

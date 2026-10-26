@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Health.cs @e180e3225(实现部分)
+// UPSTREAM: OpenRA.Mods.Common/Traits/Health.cs @1f594e320(实现部分)
 //          The implementation half of Health.cs.
 import std;
 

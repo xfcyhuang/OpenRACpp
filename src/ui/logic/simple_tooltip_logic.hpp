@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/SimpleTooltipLogic.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/SimpleTooltipLogic.cs @1f594e320
 // L15-61(全文)。LABEL 模板 + LINE_HEIGHT 间距数据节点 + BeforeRender 的
 // cachedText 门控重建:文本变更时逐行克隆 Label 定宽排布并自适应 widget
 // 尺寸(horizontalPadding = LABEL 宽 - widget 宽,非正回落 2×LABEL.X)。

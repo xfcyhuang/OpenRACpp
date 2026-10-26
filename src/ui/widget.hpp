@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @e180e3225(Widget 树逐语义:Ui 门面
+// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @1f594e320(Widget 树逐语义:Ui 门面
 // /ChromeLogic/WidgetBounds/Widget/ContainerWidget/InputWidget/WidgetArgs/
 // Mediator)。C# static Ui → 进程级单例(Widget 的 Outer 族经其取焦点态);
 // 子 widget 所有权归父 unique_ptr,RemoveChild/HideChild 转移出树;Mediator
@@ -56,6 +56,9 @@ struct MapGenerationArgs;
 namespace ora::game {
 class ModData;
 }
+namespace ora::mods {
+class ISettingsLogic;
+}
 
 namespace ora::ui {
 class MapPreviewWidget;
@@ -94,6 +97,7 @@ using WidgetArgValue =
     std::variant<std::monostate, int2, std::int32_t, bool, std::string, Widget*, sim::World*,
                  net::OrderManager*, gfx::WorldRenderer*, game::ModData*, ChromeMetrics*,
                  Mediator*, net::SessionClient*, core::Color, sim::Player*,
+                 mods::ISettingsLogic*,
                  std::function<std::string()>,         // getText/getDesc 委托 | the getText/getDesc delegates
                  std::function<void(core::Color)>,     // onChange(Color) 委托 | the onChange(Color) delegate
                  std::function<void(Widget*)>,         // extraLogic 委托 | the extraLogic delegate

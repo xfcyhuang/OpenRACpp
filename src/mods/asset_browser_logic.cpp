@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/AssetBrowserLogic.cs
-//          @e180e3225(实现;头注见 asset_browser_logic.hpp)
+//          @1f594e320(实现;头注见 asset_browser_logic.hpp)
 //          Implementation; the header notes live in asset_browser_logic.hpp.
 #include "mods/asset_browser_logic.hpp"
 

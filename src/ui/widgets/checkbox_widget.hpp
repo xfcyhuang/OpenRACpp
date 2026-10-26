@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/CheckboxWidget.cs @e180e3225 L19-91(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/CheckboxWidget.cs @1f594e320 L19-91(全文)。
 // Background 以新字段隐藏 ButtonWidget.Background(C# new);双层
 // CachedTransform((CheckType,Checked) → 状态五元 → Sprite);文本色对来自
 // chrome metrics 的 TextColor/TextDisabledColor。

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/VersionLabelLogic.cs @e180e3225 L17-25(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/VersionLabelLogic.cs @1f594e320 L17-25(全文)。
 import std;
 
 #include "ui/logic/version_label_logic.hpp"

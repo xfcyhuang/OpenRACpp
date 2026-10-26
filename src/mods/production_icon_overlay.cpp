@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithProductionIconOverlay.cs +
-//          Traits/Render/ProductionIconOverlayManager.cs @e180e3225
+//          Traits/Render/ProductionIconOverlayManager.cs @1f594e320
 //          (实现部分)
 //          The implementation halves.
 #include "mods/production_icon_overlay.hpp"

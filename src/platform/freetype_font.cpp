@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/FreeTypeFont.cs @e180e3225 L20-143(实现)
+// UPSTREAM: OpenRA.Platforms.Default/FreeTypeFont.cs @1f594e320 L20-143(实现)
 // OPT-B2:真结构体直取(third_party/FreeType/include 官方 2.14.1 头);入口经
 // LoadLibraryA 运行时直连。进程级 FT_Library 一次初始化(上游 static
 // library 字段的等价物)。

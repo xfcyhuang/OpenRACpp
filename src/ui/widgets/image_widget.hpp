@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ImageWidget.cs @e180e3225 L20-98(全文)
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ImageWidget.cs @1f594e320 L20-98(全文)
 // + SpriteWidget.cs L18-83(全文)。Image = ChromeProvider 图像缓存 + ClickThrough
 // 输入门;Sprite = 调色板/缩放的 WorldRenderer 绘制(缓存三态 + 居中偏移)。
 // Game.Renderer/ChromeProvider/Ui.Root → Ui 注入;WorldRenderer ctor 形参 →

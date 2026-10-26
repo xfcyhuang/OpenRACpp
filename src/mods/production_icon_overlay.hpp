@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithProductionIconOverlay.cs
-//          @e180e3225 L17-40 + Traits/Render/ProductionIconOverlayManager.cs
+//          @1f594e320 L17-40 + Traits/Render/ProductionIconOverlayManager.cs
 //          L19-126 全文
 //          WithProductionIconOverlay.cs L17-40 + the whole of
 //          ProductionIconOverlayManager.cs L19-126.

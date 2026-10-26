@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Wanders.cs @e180e3225 L21-118 全文
+// UPSTREAM: OpenRA.Mods.Common/Traits/Wanders.cs @1f594e320 L21-118 全文
 //          (逐语义重写;第十二批随 G2 黄金对拍修出 —— 平民 7 人的
 //          SharedRandom 构造消耗缺失致帧 1 SyncHash 分歧)
 //          The whole of Wanders.cs L21-118 (verbatim-semantics rewrite;

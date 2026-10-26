@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWithHighlightWidget.cs @e180e3225 L20-86(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWithHighlightWidget.cs @1f594e320 L20-86(全文)。
 import std;
 
 #include "ui/widgets/label_with_highlight_widget.hpp"

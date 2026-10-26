@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/MapStatusCache.cs @e180e3225 L19-106
+// UPSTREAM: OpenRA.Game/Server/MapStatusCache.cs @1f594e320 L19-106
 //          (实现体)
 //          The implementation body.
 #include "server/map_status_cache.hpp"

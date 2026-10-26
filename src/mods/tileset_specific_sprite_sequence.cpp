@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Graphics/TilesetSpecificSpriteSequence.cs @e180e3225 L20-93
+// UPSTREAM: OpenRA.Mods.Common/Graphics/TilesetSpecificSpriteSequence.cs @1f594e320 L20-93
 //          (tileset_specific_sprite_sequence.hpp 的实现)
 //          Implementation of tileset_specific_sprite_sequence.hpp.
 import std;

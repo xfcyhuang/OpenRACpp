@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Exts.cs @e180e3225 L485-566 + OpenRA.Game/FieldLoader.cs L146-591
+// UPSTREAM: OpenRA.Game/Exts.cs @1f594e320 L485-566 + OpenRA.Game/FieldLoader.cs L146-591
 //          (parse.hpp 的实现;BCL 语义注记见头文件)
 //          Implementation of parse.hpp (BCL semantics documented in the header).
 import std;

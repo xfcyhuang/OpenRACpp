@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Cargo.cs + ParaDrop.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Cargo.cs + ParaDrop.cs @1f594e320
 #pragma once
 import std;
 

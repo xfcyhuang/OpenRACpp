@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/VoteKickTracker.cs @e180e3225 L18-223 全文
+// UPSTREAM: OpenRA.Game/Server/VoteKickTracker.cs @1f594e320 L18-223 全文
 //          (ClientHasPower 的管理员/存活双门/Tick 的离场结束与超时
 //          阻断/VoteKick 的七门 + 合法票数账本 + 起始广播与逐票进度 +
 //          EndKickVoteAndBlockKicker 的失败冷却/EndKickVote 的全清;

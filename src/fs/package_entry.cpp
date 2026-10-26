@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileSystem/PackageEntry.cs @e180e3225 L21-117
+// UPSTREAM: OpenRA.Mods.Cnc/FileSystem/PackageEntry.cs @1f594e320 L21-117
 #include "fs/package_entry.hpp"
 
 #include "formats/crc32.hpp"

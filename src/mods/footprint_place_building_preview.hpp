@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/FootprintPlaceBuildingPreview.cs
-//          @e180e3225 L21-135 全文(引擎 SpriteRenderable → 自有 custom
+//          @1f594e320 L21-135 全文(引擎 SpriteRenderable → 自有 custom
 //          renderable 承载:IOrderGenerator 的 IRenderable* 出参域)
 //          The whole of FootprintPlaceBuildingPreview.cs L21-135 (the
 //          engine SpriteRenderable → an own custom renderable: the

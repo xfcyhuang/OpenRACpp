@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/OpenAlSoundEngine.cs @e180e3225 L20-669(经
+// UPSTREAM: OpenRA.Platforms.Default/OpenAlSoundEngine.cs @1f594e320 L20-669(经
 // OpenRA-OpenAL-CS 的 AL10/ALC10/ALC11/EFX 调用面)
 // OPT-A6 同形态(docs/OPTIMIZATION_TRACKER.md):函数指针直连(LoadLibraryA +
 // GetProcAddress 一次加载),上游 OpenRA-OpenAL-CS 的 P/Invoke 包装层消失。

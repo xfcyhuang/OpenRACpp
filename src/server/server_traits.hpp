@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/TraitInterfaces.cs @e180e3225 L14-62(九个
+// UPSTREAM: OpenRA.Game/Server/TraitInterfaces.cs @1f594e320 L14-62(九个
 //          服务器 trait 接口 + ServerTrait 基类 + DebugServerTrait;接口
 //          分发面 = 服务器事件循环的 WithInterface<T> 查询 —— C++ 侧以
 //          注册期 dynamic_cast 装配的按接口向量承载,LobbyCommands 批

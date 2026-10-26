@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ProductionTabsWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ProductionTabsWidget.cs @1f594e320
 //          L24-371 全文
 //          The whole of ProductionTabsWidget.cs L24-371.
 #pragma once

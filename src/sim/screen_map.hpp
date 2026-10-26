@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/World/ScreenMap.cs @e180e3225 L21-287(逐语义
+// UPSTREAM: OpenRA.Game/Traits/World/ScreenMap.cs @1f594e320 L21-287(逐语义
 //          重写;FrozenActor 面随 FrozenActorLayer 批落地)
 //          Verbatim-semantics rewrite; the FrozenActor faces land with the
 //          FrozenActorLayer batch.

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/BulkProductionQueue.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Player/BulkProductionQueue.cs @1f594e320
 //          (实现部分)
 //          The implementation half.
 #include "mods/bulk_production_queue.hpp"

@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Carryall.cs + Carryable.cs +
-//          AutoCarryall.cs + AutoCarryable.cs + CarryableHarvester.cs @e180e3225
+//          AutoCarryall.cs + AutoCarryable.cs + CarryableHarvester.cs @1f594e320
 #pragma once
 import std;
 

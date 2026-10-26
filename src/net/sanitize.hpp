@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Settings.cs @e180e3225 L500-538(SanitizedName/
+// UPSTREAM: OpenRA.Game/Settings.cs @1f594e320 L500-538(SanitizedName/
 //          SanitizedPlayerName 全文;上游 Settings.cs 静态 —— C++ 依
 //          lib 层属(client/server 双消费)置于 net;SanitizedServerName
 //          仍随 server_settings)

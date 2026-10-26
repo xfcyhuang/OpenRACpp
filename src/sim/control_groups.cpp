@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/ControlGroups.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/ControlGroups.cs @1f594e320
 //          (实现部分)
 //          The implementation half of ControlGroups.cs.
 import std;

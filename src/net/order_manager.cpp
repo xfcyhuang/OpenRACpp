@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/OrderManager.cs @e180e3225(实现部分:锁步核心)
+// UPSTREAM: OpenRA.Game/Network/OrderManager.cs @1f594e320(实现部分:锁步核心)
 //          The implementation half of OrderManager.cs (the lockstep core).
 #include "net/order_manager.hpp"
 

@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/ServerTraits/MasterServerPinger.cs
-//          @e180e3225 L27-217 + BeaconLib 1.0.2(rix0rrr/beacon)的
+//          @1f594e320 L27-217 + BeaconLib 1.0.2(rix0rrr/beacon)的
 //          Beacon.cs(实现体;Task.Run 的闭包态 → shared_ptr 共享态,HTTP
 //          线程不触达 trait 生命周期 —— 上游 GC 常青语义的确定性等价)
 //          The implementation body (MasterServerPinger.cs + BeaconLib

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/AudioLoaders/VocLoader.cs @e180e3225 L19-394(全文逐语义)
+// UPSTREAM: OpenRA.Mods.Cnc/AudioLoaders/VocLoader.cs @1f594e320 L19-394(全文逐语义)
 // Creative Voice File(.voc):26 字节头(20 字节描述 + datablockOffset u16 +
 // version u16 + id u16,id = ~version + 0x1234 校验)+ 块序列(1 字节 code +
 // 3 字节 LE 长度)。声音块(code 1)携 freqDiv/codec 与绝对数据偏移;前一块

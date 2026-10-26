@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/CaptureManager.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/CaptureManager.cs @1f594e320
 //          L21-293 + Capturable.cs L15-50 + Captures.cs L15-173 +
 //          GivesCashOnCapture.cs L14-62 + Activities/Enter.cs L11-163 +
 //          Activities/CaptureActor.cs L11-135(逐语句重写;机制对照见

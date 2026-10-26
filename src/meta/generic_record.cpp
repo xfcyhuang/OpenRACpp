@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @e180e3225(generic_record.hpp 的实现;
+// UPSTREAM: OpenRA.Game/FieldLoader.cs @1f594e320(generic_record.hpp 的实现;
 //          解析分派结构承自 FieldLoader.cs)
 //          L146-752(GetValue + ParseXxx 家族),与 field_loader.cpp 的
 //          LoadValueInto 同源 —— 本文件是唯一解析实现(值形态),

@@ -1,9 +1,9 @@
-// UPSTREAM: OpenRA.Game/Graphics/Renderable.cs @e180e3225 L18-60 +
-//           OpenRA.Game/Graphics/SpriteRenderable.cs @e180e3225 L18-131 +
-//           OpenRA.Game/Graphics/UISpriteRenderable.cs @e180e3225 L17-79 +
-//           OpenRA.Game/Graphics/TargetLineRenderable.cs @e180e3225 L19-77 +
-//           OpenRA.Game/Graphics/MarkerTileRenderable.cs @e180e3225 L17-55 +
-//           OpenRA.Game/Graphics/WorldRenderer.cs @e180e3225 L25-26/141-175/319-323
+// UPSTREAM: OpenRA.Game/Graphics/Renderable.cs @1f594e320 L18-60 +
+//           OpenRA.Game/Graphics/SpriteRenderable.cs @1f594e320 L18-131 +
+//           OpenRA.Game/Graphics/UISpriteRenderable.cs @1f594e320 L17-79 +
+//           OpenRA.Game/Graphics/TargetLineRenderable.cs @1f594e320 L19-77 +
+//           OpenRA.Game/Graphics/MarkerTileRenderable.cs @1f594e320 L17-55 +
+//           OpenRA.Game/Graphics/WorldRenderer.cs @1f594e320 L25-26/141-175/319-323
 // 实现(头文件携带完整 UPSTREAM 锚点与 OPT-A7 论证)。
 // Implementations (the headers carry the full UPSTREAM anchors and the
 // OPT-A7 arguments).

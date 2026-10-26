@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/Selection.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/Selection.cs @1f594e320
 //          (selection.hpp 的实现) | The implementation of selection.hpp.
 import std;
 

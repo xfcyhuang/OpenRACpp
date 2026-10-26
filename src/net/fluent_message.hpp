@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/FluentMessage.cs @e180e3225 L19-124(服务
+// UPSTREAM: OpenRA.Game/Network/FluentMessage.cs @1f594e320 L19-124(服务
 //          器 ↔ 客户端的通知消息线格式:Protocol/Key/Arguments 三段 +
 //          FluentArgument 的 Key/Value/Type;Serialize 的 ToLines +
 //          JoinWith("\n") 形态逐字;FromYaml = 客户端侧 FluentMessage(

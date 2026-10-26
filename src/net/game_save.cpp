@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/GameSave.cs @e180e3225 L21-333(见 game_save.hpp)。
+// UPSTREAM: OpenRA.Game/Network/GameSave.cs @1f594e320 L21-333(见 game_save.hpp)。
 #include "net/game_save.hpp"
 
 #include <cstdio>

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/LineBuild.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/LineBuild.cs @1f594e320
 //          L19-124 全文 + Traits/Buildings/LineBuildNode.cs L18-34
 //          The whole of LineBuild.cs L19-124 + LineBuildNode.cs L18-34.
 #pragma once

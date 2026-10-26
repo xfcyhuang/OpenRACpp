@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Fonts.cs @e180e3225(fonts.hpp 的实现)
+// UPSTREAM: OpenRA.Game/Fonts.cs @1f594e320(fonts.hpp 的实现)
 // The implementation of fonts.hpp.
 import std;
 

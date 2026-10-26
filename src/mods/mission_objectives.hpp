@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/MissionObjectives.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Player/MissionObjectives.cs @1f594e320
 //          L21-70(Info 字段面 + 运行时类的 ISync 面;第十二批 G2 黄金
 //          对拍补面 — player actor 的 ISync 条目缺失平移 SyncHash 的 n
 //          计数)+ L21-25(MissionObjective)+ L115-125(Add 与

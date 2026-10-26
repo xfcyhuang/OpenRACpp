@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ObserverArmyIconsWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ObserverArmyIconsWidget.cs @1f594e320
 //          L24-211 + ObserverProductionIconsWidget.cs L25-281 +
 //          ObserverSupportPowerIconsWidget.cs L23-199 的实现面
 //          The implementation face of the three observer icon strips.

@@ -1,6 +1,6 @@
 // UPSTREAM: OpenRA.Game/Input/Hotkey.cs + HotkeyReference.cs +
 //          HotkeyDefinition.cs + HotkeyManager.cs + Keycode.cs(KeycodeExts)+
-//          IInputHandler.cs(ModifiersExts) @e180e3225(hotkey.hpp 的实现;
+//          IInputHandler.cs(ModifiersExts) @1f594e320(hotkey.hpp 的实现;
 //          键名/fluent 名表 = platform/keycode.hpp 枚举体 × 上游
 //          KeycodeFluentKeys,238 项同源生成)
 // The implementation of hotkey.hpp (the key-name/fluent tables generated
@@ -575,6 +575,13 @@ void HotkeyManager::Set(std::string_view str_name, Hotkey hk_value) {
     if (str_entry_key == str_name)
       hk_entry = hk_value;
 
+  if (fn_persist_sink_) {
+    std::optional<std::string> str_persist;
+    if (!(hk_value == ptr_definition->hk_default))
+      str_persist = hk_value.ToString();
+    fn_persist_sink_(std::string{str_name}, std::move(str_persist));
+  }
+
   const bool b_had_duplicates = ptr_definition->b_has_duplicates;
   ptr_definition->b_has_duplicates =
       GetFirstDuplicate(*ptr_definition, Get(str_name).GetValue()) != nullptr;
@@ -586,6 +593,19 @@ void HotkeyManager::Set(std::string_view str_name, Hotkey hk_value) {
       definition_entry.b_has_duplicates =
           GetFirstDuplicate(definition_entry, Get(str_entry_key).GetValue()) != nullptr;
     }
+}
+
+void HotkeyManager::SetPersistSink(
+    std::function<void(const std::string&, std::optional<std::string>)> fn_sink) {
+  fn_persist_sink_ = std::move(fn_sink);
+}
+
+void HotkeyManager::SetSaveSink(std::function<void()> fn_sink) {
+  fn_save_sink_ = std::move(fn_sink);
+}
+
+void HotkeyManager::Save() {
+  fn_save_sink_();
 }
 
 const HotkeyDefinition* HotkeyManager::GetFirstDuplicate(const HotkeyDefinition& definition,

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Util.cs @e180e3225 L53-73(TickFacing)+
+// UPSTREAM: OpenRA.Mods.Common/Util.cs @1f594e320 L53-73(TickFacing)+
 //          L78-84(IndexFacing)+ L105-107(QuantizeFacing)+ L129-140
 //          (BetweenCells)+ L181-185(AreAdjacentCells)+ L197-201
 //          (AdjacentCells;ApplyPercentageModifiers 已在

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ObserverArmyIconsWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ObserverArmyIconsWidget.cs @1f594e320
 //          L24-211 + ObserverProductionIconsWidget.cs L25-281 +
 //          ObserverSupportPowerIconsWidget.cs L23-199(观战三图标条)
 //          The three observer icon strips (army composition, in-progress

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/World/ScreenMap.cs @e180e3225(screen_map.hpp
+// UPSTREAM: OpenRA.Game/Traits/World/ScreenMap.cs @1f594e320(screen_map.hpp
 //          的实现) | The implementation of screen_map.hpp.
 import std;
 

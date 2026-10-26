@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Activities/PickupUnit.cs + DeliverUnit.cs +
-//          AutoCarryall.cs 的 FerryUnit 嵌套活动 @e180e3225
+//          AutoCarryall.cs 的 FerryUnit 嵌套活动 @1f594e320
 #include "mods/carryall_activities.hpp"
 
 #include "mods/actor_exts.hpp"

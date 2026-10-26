@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ColorMixerWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ColorMixerWidget.cs @1f594e320
 // (color_mixer_widget.hpp 的实现)
 // The implementation of color_mixer_widget.hpp.
 import std;

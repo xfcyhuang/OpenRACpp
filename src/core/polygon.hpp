@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/Polygon.cs @e180e3225 L18-119(逐语义重写)+
+// UPSTREAM: OpenRA.Game/Primitives/Polygon.cs @1f594e320 L18-119(逐语义重写)+
 //          OpenRA.Game/Exts.cs L~458-496(PolygonContains/LinesIntersect/
 //          WindingDirectionTest)
 //          Verbatim-semantics rewrite.

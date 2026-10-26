@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/ActionQueue.cs @e180e3225(线程安全延迟动作
+// UPSTREAM: OpenRA.Game/Primitives/ActionQueue.cs @1f594e320(线程安全延迟动作
 // 队列逐语义:时间升序稳定插入、锁内切片/锁外执行;C# BinarySearch+推进循环
 // 的等值段末插入 = upper_bound)
 // Verbatim-semantics rewrite of the thread-safe delayed-action queue

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDeathAnimation.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDeathAnimation.cs @1f594e320
 //          L18-127 死亡/碾压序列(效果载体 = SpriteEffect;DeathTypes 首命中
 //          键 + SharedRandom 后缀择取)。
 //          The death/crushed sequences (the carrier = SpriteEffect; the

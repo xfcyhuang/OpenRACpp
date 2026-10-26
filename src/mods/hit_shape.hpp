@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/HitShape.cs @e180e3225 L21-177 全文
+// UPSTREAM: OpenRA.Mods.Common/Traits/HitShape.cs @1f594e320 L21-177 全文
 //          (逐语义重写;RenderDebug* 渲染面随 Phase 6)
 //          The whole of HitShape.cs L21-177 (verbatim-semantics rewrite;
 //          the RenderDebug* faces land with Phase 6).

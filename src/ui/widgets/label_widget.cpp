@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWidget.cs @e180e3225(label_widget.hpp
+// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWidget.cs @1f594e320(label_widget.hpp
 // 的实现)
 // The implementation of label_widget.hpp.
 import std;

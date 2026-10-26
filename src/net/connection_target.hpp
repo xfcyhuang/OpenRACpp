@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/ConnectionTarget.cs @e180e3225 L19-62(逐语义
+// UPSTREAM: OpenRA.Game/Network/ConnectionTarget.cs @1f594e320 L19-62(逐语义
 //          重写;Dns.GetHostAddresses → getaddrinfo 全族解析,D204)
 //          Verbatim-semantics rewrite; Dns.GetHostAddresses → getaddrinfo
 //          all-family resolution, D204.

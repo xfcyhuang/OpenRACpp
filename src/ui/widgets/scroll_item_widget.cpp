@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ScrollItemWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ScrollItemWidget.cs @1f594e320
 // (scroll_item_widget.hpp 的实现)
 // The implementation of scroll_item_widget.hpp.
 import std;

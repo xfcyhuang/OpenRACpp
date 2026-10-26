@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FluentBundle.cs L87-201 @e180e3225 —— 求值承载
+// UPSTREAM: OpenRA.Game/FluentBundle.cs L87-201 @1f594e320 —— 求值承载
 // (Linguini.Bundle.TryGetAttrMessage 的等价面;选择子 = 精确数字键 →
 // CLDR 类别 → 缺省变体;未解析变量按 Fluent 规范回退为其源文本
 // "{ $name }"并计错误)。

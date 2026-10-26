@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Orders/DeployOrderTargeter.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Orders/DeployOrderTargeter.cs @1f594e320
 //          L18-46 全文
 //          The whole of DeployOrderTargeter.cs L18-46.
 #pragma once

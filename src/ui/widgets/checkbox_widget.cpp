@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/CheckboxWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/CheckboxWidget.cs @1f594e320
 // (checkbox_widget.hpp 的实现)
 // The implementation of checkbox_widget.hpp.
 import std;

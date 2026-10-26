@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/SliderWidget.cs @e180e3225 L20-146(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/SliderWidget.cs @1f594e320 L20-146(全文)。
 // 左键拖拽取值(ValueFromPx/PxFromValue 的 thumb 半宽补偿)/UpdateValue 的
 // Clamp + OnChange 变更通知/thumb 命中即消费;Draw 的刻度条(GetImage 直
 // 取)/轨道九宫格/ButtonWidget.DrawBackground 静态 thumb。ChromeProvider →

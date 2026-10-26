@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/ModData.cs @e180e3225 L29-233(Phase 2 最小集)+
+// UPSTREAM: OpenRA.Game/ModData.cs @1f594e320 L29-233(Phase 2 最小集)+
 //          OpenRA.Mods.Common/FileSystem/{Default,ContentInstallerFileSystem}Loader.cs
 //          (FileSystem 节点的挂载语义)
 //          The Phase 2 minimal ModData + the mount semantics of the
@@ -17,11 +17,13 @@ import std;
 #include "fs/file_system.hpp"
 #include "fs/folder.hpp"
 #include "game/fonts.hpp"
+#include "game/local_player_profile.hpp"
 #include "game/manifest.hpp"
 #include "game/ruleset.hpp"
 #include "game/game_speed.hpp"
 #include "terrain/map_grid.hpp"
 #include "terrain/terrain_info.hpp"
+#include "ui/hotkey.hpp"
 
 namespace ora::game {
 
@@ -119,6 +121,9 @@ class ModData final {
   /// Renderer.InitializeFonts.
   Fonts& GetOrCreateFonts();
 
+  ui::HotkeyManager& Hotkeys();
+  const PlayerDatabase& GetOrCreatePlayerDatabase();
+
   std::vector<std::vector<yaml::MiniYamlNode>> GetRulesYaml();
 
  private:
@@ -128,6 +133,8 @@ class ModData final {
   std::unique_ptr<map::MapGrid> grid_;             // GetOrCreate<MapGrid> 面 | the GetOrCreate<MapGrid> face.
   std::unique_ptr<GameSpeeds> game_speeds_;   // GetOrCreate<GameSpeeds> 面 | the GetOrCreate face.
   std::unique_ptr<Fonts> fonts_;              // GetOrCreate<Fonts> 面 | the GetOrCreate face.
+  std::unique_ptr<ui::HotkeyManager> hotkeys_;
+  std::unique_ptr<PlayerDatabase> player_database_;
   std::vector<std::pair<std::string, std::unique_ptr<map::ITerrainInfo>>>
       vec_terrain_info_;  // DefaultTerrainInfo 懒缓存 | the lazy cache.
 };

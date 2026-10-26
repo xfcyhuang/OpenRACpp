@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FluentProvider.cs @e180e3225(逐语义重写)。C#
+// UPSTREAM: OpenRA.Game/FluentProvider.cs @1f594e320(逐语义重写)。C#
 // static → 进程级单例(上游 Lock SyncObject → mutex);Initialize 的
 // `fileSystem is Map` 类型判 → 显式 map 定义节点出参(C++ 侧 Map 为具体
 // 类且住 ora_map,本库不得上依 —— 由调用方(ModData.InitializeLoaders)

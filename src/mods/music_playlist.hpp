@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/MusicPlaylist.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/MusicPlaylist.cs @1f594e320
 //          L22-254 全文。
 #pragma once
 import std;

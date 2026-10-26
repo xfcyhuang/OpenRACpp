@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Armament.cs @e180e3225 L22-431 实现部分
+// UPSTREAM: OpenRA.Mods.Common/Traits/Armament.cs @1f594e320 L22-431 实现部分
 //          (the implementation half)。
 #include "mods/armament.hpp"
 

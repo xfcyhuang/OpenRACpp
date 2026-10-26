@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/AffectsShroud.cs @e180e3225 L18-174 +
+// UPSTREAM: OpenRA.Mods.Common/Traits/AffectsShroud.cs @1f594e320 L18-174 +
 //          RevealsShroud.cs L18-72(全文逐语义重写)
 //          The whole of AffectsShroud.cs L18-174 + RevealsShroud.cs
 //          L18-72.

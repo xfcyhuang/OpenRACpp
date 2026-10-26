@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Mobile.cs @e180e3225 L25-1091 全文
+// UPSTREAM: OpenRA.Mods.Common/Traits/Mobile.cs @1f594e320 L25-1091 全文
 //          (逐语义重写;MoveOrderTargeter/ReturnToCellActivity/
 //          LeaveProductionActivity 内嵌同上游)
 //          The whole of Mobile.cs L25-1091 (verbatim-semantics rewrite;

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Cargo.cs + ParaDrop.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Cargo.cs + ParaDrop.cs @1f594e320
 #include "mods/cargo.hpp"
 
 #include "game/actor_info.hpp"

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDeathAnimation.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDeathAnimation.cs @1f594e320
 //          L18-127(statement-by-statement;机制对照见 with_death_animation.hpp)
 //          Statement-by-statement; the mechanism mapping lives in
 //          with_death_animation.hpp.

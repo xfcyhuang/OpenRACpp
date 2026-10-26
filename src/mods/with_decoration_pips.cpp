@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithSpriteControlGroupDecoration.cs
-//          @e180e3225(statement-by-statement;机制对照见
+//          @1f594e320(statement-by-statement;机制对照见
 //          with_decoration_pips.hpp)
 //          Statement-by-statement; the mechanism mapping lives in
 //          with_decoration_pips.hpp.

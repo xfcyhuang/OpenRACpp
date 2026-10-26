@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/ServerTraits/MasterServerPinger.cs
-//          @e180e3225 L27-217 全文(3min 广告刷新/1s 限速的 Tick 门 +
+//          @1f594e320 L27-217 全文(3min 广告刷新/1s 限速的 Tick 门 +
 //          isBusy 双闸 + GameServer.ToPOSTData 的在线/LAN 双投递 +
 //          首投的 [code]message 应答解析与错误码表 + 消息队列的服务器线
 //          程汇流;BeaconLib.Beacon → 自持 LanBeacon(UDP 35891 发现应

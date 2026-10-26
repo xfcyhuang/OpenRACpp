@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/TraitInterfaces.cs @e180e3225 L30-62
+// UPSTREAM: OpenRA.Game/Server/TraitInterfaces.cs @1f594e320 L30-62
 //          (DebugServerTrait 全文)
 //          TraitInterfaces.cs L30-62 (the whole of DebugServerTrait).
 import std;

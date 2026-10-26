@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/ChromeProvider.cs @e180e3225 L22-305
+// UPSTREAM: OpenRA.Game/Graphics/ChromeProvider.cs @1f594e320 L22-305
 //          (chrome_provider.hpp 的实现;头注的形态适配说明适用)
 //          Implementation of chrome_provider.hpp; the shape-adaptation notes
 //          of the hpp header apply.

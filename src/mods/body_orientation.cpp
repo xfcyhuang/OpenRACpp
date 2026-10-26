@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/BodyOrientation.cs @e180e3225 L18-127
+// UPSTREAM: OpenRA.Mods.Common/Traits/BodyOrientation.cs @1f594e320 L18-127
 //          实现部分(the implementation half)。
 #include "mods/body_orientation.hpp"
 

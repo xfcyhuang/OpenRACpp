@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/WidgetUtils.cs @e180e3225 L20-352(基础
+// UPSTREAM: OpenRA.Mods.Common/Widgets/WidgetUtils.cs @1f594e320 L20-352(基础
 // 渲染/格式化子集;WithSuffix/BindPlayerNameAndStatus/SetupTextNotification
 // 的会话与通知面板绑定面随其消费批)。Game.Renderer/ChromeProvider 静态 →
 // Ui::Instance() 注入承载(D 注册);CachedTransform → core/cached_transform。

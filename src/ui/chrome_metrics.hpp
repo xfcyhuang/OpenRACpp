@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Widgets/ChromeMetrics.cs @e180e3225(chrome.yaml 指标表
+// UPSTREAM: OpenRA.Game/Widgets/ChromeMetrics.cs @1f594e320(chrome.yaml 指标表
 // 逐语义:Merge 全部 ChromeMetrics 源 → 键值覆盖)。C# static → 实例类
 // (ChromeProvider 先例);Get<T> 的 T 域收敛为 string(引擎核心唯一消费
 // 形态,泛型面随消费批次扩展);Dictionary → 插入序条目表(索引写覆盖原位)。

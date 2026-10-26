@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Health.cs @e180e3225 L19-261(逐语义重写)
+// UPSTREAM: OpenRA.Mods.Common/Traits/Health.cs @1f594e320 L19-261(逐语义重写)
 //          Verbatim-semantics rewrite.
 //
 // 机制对照 / Mechanism mapping:

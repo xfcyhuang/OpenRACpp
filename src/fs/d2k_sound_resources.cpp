@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.D2k/PackageLoaders/D2kSoundResources.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.D2k/PackageLoaders/D2kSoundResources.cs @1f594e320
 //          L20-94(全文逐语义)
 #include "fs/d2k_sound_resources.hpp"
 

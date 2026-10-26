@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/PlatformInterfaces.cs @e180e3225 L192-203
+// UPSTREAM: OpenRA.Game/Graphics/PlatformInterfaces.cs @1f594e320 L192-203
 // (FontGlyph + IFont;Dispose 随 C++ 析构)。FreeTypeFont(freetype_font.hpp)
 // 实现该抽象;SpriteFont 经此消费(上游 Platform.CreateFont 的返回型)。
 // FontGlyph 自 freetype_font.hpp 上移至此(接口与其载荷同域;避免相互包含)。

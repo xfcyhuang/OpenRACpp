@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/RepairableNear.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/RepairableNear.cs @1f594e320
 //          L22-143 全文。
 #pragma once
 import std;

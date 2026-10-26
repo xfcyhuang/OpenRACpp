@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/HvaReader.cs @e180e3225(全文)+
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/HvaReader.cs @1f594e320(全文)+
 // OpenRA.Mods.Cnc/Util.cs L131-255 的 MatrixInverse 子集(HVA 唯一消费面;
 // Util 余部随 ModelRenderer 批次移植)。
 // Westwood HVA 骨骼动画:16 字节名 + FrameCount/LimbCount u32 + 16×LimbCount

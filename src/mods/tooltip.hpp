@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Tooltip.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Tooltip.cs @1f594e320
 //          L16-102(TooltipInfoBase/TooltipInfo 的字段面与
 //          TooltipForPlayerStance 的 Fluent 三前缀链 + Tooltip 运行时)
 //          L16-102 (the TooltipInfoBase/TooltipInfo field face with

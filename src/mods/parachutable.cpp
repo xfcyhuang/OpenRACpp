@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Parachutable.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Parachutable.cs @1f594e320
 #include "mods/parachutable.hpp"
 
 #include "map/map.hpp"

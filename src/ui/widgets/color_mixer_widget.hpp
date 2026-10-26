@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ColorMixerWidget.cs @e180e3225 L18-189(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ColorMixerWidget.cs @1f594e320 L18-189(全文)。
 // OnChange 多播 event → vector + 调用列表快照(D262 同族);Sheet 的 RAII
 // 持有(上游手动 Dispose → Removed 释放);modData 经 WidgetArgs。
 // The whole of ColorMixerWidget.cs L18-189. The OnChange multicast event

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/SelectionDecorations.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/SelectionDecorations.cs @1f594e320
 //          第九批 mods trait 注册表装配(SelectionDecorations/
 //          WithDecoration/WithDeathAnimation/WithDamageOverlay/
 //          ProductionBar + pips 装饰;Info 名 → 工厂 → WorldArena)。

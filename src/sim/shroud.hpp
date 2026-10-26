@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/Player/Shroud.cs @e180e3225 L19-514(全文逐语义
+// UPSTREAM: OpenRA.Game/Traits/Player/Shroud.cs @1f594e320 L19-514(全文逐语义
 //          重写)
 //          The whole of Shroud.cs L19-514 (verbatim-semantics rewrite).
 //

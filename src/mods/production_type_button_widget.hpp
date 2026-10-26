@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ProductionTypeButtonWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ProductionTypeButtonWidget.cs @1f594e320
 //          L12-28 全文
 //          The whole of ProductionTypeButtonWidget.cs L12-28.
 #pragma once

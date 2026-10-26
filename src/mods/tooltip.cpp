@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Tooltip.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Tooltip.cs @1f594e320
 //          L16-102(实现面)
 //          L16-102 (the implementation face).
 #include "mods/tooltip.hpp"

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Cloak.cs @e180e3225 L23-377 +
+// UPSTREAM: OpenRA.Mods.Common/Traits/Cloak.cs @1f594e320 L23-377 +
 //          DetectCloaked.cs L11-54 + IgnoresCloak.cs L11-19(逐语句重写;
 //          机制对照见 cloak.hpp 头注)
 //          Statement-by-statement; the mechanism mapping lives in

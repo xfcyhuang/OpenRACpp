@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Targetable.cs @e180e3225 L18-55 全文
+// UPSTREAM: OpenRA.Mods.Common/Traits/Targetable.cs @1f594e320 L18-55 全文
 //          (逐语义重写;Cloak trait 未移植 → cloaks 空集的等价面,
 //          COVERAGE 登记)
 //          The whole of Targetable.cs L18-55 (verbatim-semantics rewrite;

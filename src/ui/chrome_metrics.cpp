@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Widgets/ChromeMetrics.cs @e180e3225(chrome_metrics.hpp
+// UPSTREAM: OpenRA.Game/Widgets/ChromeMetrics.cs @1f594e320(chrome_metrics.hpp
 // 的实现;Get<T> 的标量域经 meta GetValue,类型名进错误文本)
 // The implementation of chrome_metrics.hpp (Get<T>'s scalar domain through
 // meta GetValue; the type names enter the error texts).

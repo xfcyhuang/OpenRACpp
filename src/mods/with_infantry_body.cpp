@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithInfantryBody.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithInfantryBody.cs @1f594e320
 //          L21-225(实现部分;头注见 with_infantry_body.hpp)
 //          The implementation half of WithInfantryBody.cs L21-225 (the
 //          header note lives in with_infantry_body.hpp).

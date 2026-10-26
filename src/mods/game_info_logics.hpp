@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/GameInfoLogic.cs
-//          @e180e3225 L23-195 全文(五面板字典 + AutoSelect 流 + Chat 焦点
+//          @1f594e320 L23-195 全文(五面板字典 + AutoSelect 流 + Chat 焦点
 //          转发)+ GameInfoBriefingLogic.cs L17-40 全文 + GameInfo
 //          ObjectivesLogic.cs L19-92 全文 + GameInfoStatsLogic.cs L24-335
 //          全文(队伍分组的计分板 + 踢人/投票踢对话 + 观战者行)。

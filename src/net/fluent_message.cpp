@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/FluentMessage.cs @e180e3225 L60-124
+// UPSTREAM: OpenRA.Game/Network/FluentMessage.cs @1f594e320 L60-124
 //          (Serialize + LoadArguments 全文)
 //          (Serialize + the whole of LoadArguments.)
 import std;

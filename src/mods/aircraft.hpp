@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Air/Aircraft.cs @e180e3225 L26-1381
+// UPSTREAM: OpenRA.Mods.Common/Traits/Air/Aircraft.cs @1f594e320 L26-1381
 #pragma once
 import std;
 

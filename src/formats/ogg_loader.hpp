@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/AudioLoaders/OggLoader.cs @e180e3225 L19-150(形态逐语义;
+// UPSTREAM: OpenRA.Mods.Common/AudioLoaders/OggLoader.cs @1f594e320 L19-150(形态逐语义;
 //          解码后端替换)
 // Ogg/Vorbis 音频:NVorbis 的容器头解析与 PCM 流面。OggStream.Read 的换算
 // 逐句:count = bytes/2(16 位样点),count -= count % channels(奇数消费

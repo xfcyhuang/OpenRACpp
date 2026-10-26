@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/BlocksProjectiles.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/BlocksProjectiles.cs @1f594e320
 //          L17-75 全文(逐语义重写)
 //          The whole of BlocksProjectiles.cs L17-75.
 #pragma once

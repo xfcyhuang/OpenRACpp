@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/SequenceSet.cs @e180e3225 L19-119
+// UPSTREAM: OpenRA.Game/Graphics/SequenceSet.cs @1f594e320 L19-119
 //          (sequence_set.hpp 的实现;头注的形态适配说明适用)
 //          Implementation of sequence_set.hpp; the shape-adaptation notes of
 //          the hpp header apply.

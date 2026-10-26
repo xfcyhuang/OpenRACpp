@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Map/TerrainInfo.cs @e180e3225 + OpenRA.Mods.Common/
-//          Terrain/{TerrainInfo,DefaultTerrain}.cs @e180e3225(terrain_info.hpp
+// UPSTREAM: OpenRA.Game/Map/TerrainInfo.cs @1f594e320 + OpenRA.Mods.Common/
+//          Terrain/{TerrainInfo,DefaultTerrain}.cs @1f594e320(terrain_info.hpp
 //          的实现) | The implementation of terrain_info.hpp.
 import std;
 

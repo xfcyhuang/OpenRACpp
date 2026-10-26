@@ -3312,12 +3312,10 @@ int main(int argc, char** argv) {
           settings_sound.Save(pool_sound);
       bool b_sound_section_present = false;
       for (const auto& node : vec_saved_default)
-        if (node.Key != nullptr && *node.Key == "Sound") {
+        if (node.Key != nullptr && *node.Key == "Sound")
           b_sound_section_present = true;
-          Check(node.Value.Nodes.empty(),
-                "Sound 段默认值全免存(Commit 差异协议)");
-        }
-      Check(b_sound_section_present, "Sound 段键出现在 Save");
+      Check(!b_sound_section_present,
+            "Sound 段默认值全免存(空节点段过滤 = 上游 Where(Count > 0))");
 
       std::vector<yaml::MiniYamlNode> vec_override;
       vec_override.emplace_back(
@@ -3416,12 +3414,10 @@ int main(int argc, char** argv) {
           settings_server21.Save(pool_server21);
       bool b_server_section_present = false;
       for (const auto& node : vec_saved_default)
-        if (node.Key != nullptr && *node.Key == "Server") {
+        if (node.Key != nullptr && *node.Key == "Server")
           b_server_section_present = true;
-          Check(node.Value.Nodes.empty(),
-                "Server 段默认值全免存(Commit 差异协议)");
-        }
-      Check(b_server_section_present, "Server 段键出现在 Save");
+      Check(!b_server_section_present,
+            "Server 段默认值全免存(空节点段过滤 = 上游 Where(Count > 0))");
 
       std::vector<yaml::MiniYamlNode> vec_override21;
       vec_override21.emplace_back(

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FluentProvider.cs @e180e3225 —— 单例承载实现
+// UPSTREAM: OpenRA.Game/FluentProvider.cs @1f594e320 —— 单例承载实现
 // (Initialize 的 map 文件表/base64 文本装载 = FluentBundle.cs L129-137 的
 // 调用序;GetMessage 的 mod → map → 键回落序)。
 // The singleton-carrier implementation of OpenRA.Game/FluentProvider.cs

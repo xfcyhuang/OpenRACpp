@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ColorPickerLogic.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ColorPickerLogic.cs @1f594e320
 // (color_picker_logic.hpp 的实现)
 // The implementation of color_picker_logic.hpp.
 import std;

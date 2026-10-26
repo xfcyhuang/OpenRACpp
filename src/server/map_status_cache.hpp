@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/MapStatusCache.cs @e180e3225 L19-106 全文
+// UPSTREAM: OpenRA.Game/Server/MapStatusCache.cs @1f594e320 L19-106 全文
 //          (索引器的规则装载/UnsafeCustomRules 位/玩家数上限三段定级 +
 //          Validating 的后台 lint 线程 + RunLintTests 的失败定位级;
 //          ILintServerMapPass 的类型枚举 = ObjectCreator 反射 → 注入面

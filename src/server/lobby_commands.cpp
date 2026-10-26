@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/ServerTraits/LobbyCommands.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/ServerTraits/LobbyCommands.cs @1f594e320
 //          L29-1492 + LobbyUtils.cs L289-302(实现体;Dictionary 命令表 →
 //          静态 string_view/function 表,LINQ → 消费时物化)
 //          The implementation body (LobbyCommands.cs + LobbyUtils.cs

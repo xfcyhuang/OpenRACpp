@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FluentBundle.cs L87-201 @e180e3225(逐语义重写;
+// UPSTREAM: OpenRA.Game/FluentBundle.cs L87-201 @1f594e320(逐语义重写;
 // Linguini.Bundle 的承载面 = 自研 Fluent 子集)。args 的 name/value 对校验
 // 与异常吞并 → false + 错误报告(上游 ArgumentException/ArgumentNullException
 // 由 catch(Exception) 转 Log.Write + false;错误路径文本仅在 debug 日志可

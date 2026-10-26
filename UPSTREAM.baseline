@@ -1,14 +1,15 @@
 # 上游语义基线(PORTING_PLAN §7.1)——所有移植与黄金数据以此为锚
 repo=Z:/source_code/OpenRA
-commit=e180e3225f3930272dd451917467631618f8976f
-short=e180e3225
-# 2026-10-12 自 4f7930b56c 前进一提交:
-#   e180e3225f packaging.yml 的 Windows 安装器上传条件由仓库名判断
-#               改为 SignPath 签名结果判断(纯 CI/打包面,1 增 1 删)。
-# 语义影响评估:唯一变更文件 .github/workflows/packaging.yml 为
-# GitHub Actions 工作流配置,不属任何 C# 工程文件,不进入任何移植面
-# → C++ 侧零改动;459 条溯源标注对应的全部上游文件在两提交间
-# 逐字节恒等(git diff --name-only 证实唯一变更文件无对应标注)。
+commit=1f594e32065615ed1847962c80ecfe6e868a11c3
+short=1f594e320
+# 2026-10-24 自 e180e3225f 前进一提交:
+#   1f594e3206 UpdateModCommand 的 usage 文本补列 --yes 开关
+#               (OpenRA.Mods.Common/UtilityCommands/UpdateModCommand.cs,
+#                3 增 2 删,纯命令行帮助文本;--apply 的 Console.ReadKey
+#                在输入重定向时抛异常,--yes 本就跳过提示但 usage 未列)。
+# 语义影响评估:唯一变更文件为 utility 命令行工具的 usage 字符串,
+# 不属任何 C# 工程语义面,不进入任何移植面(C++ 侧 git grep 证实
+# UpdateModCommand 零引用)→ C++ 侧零改动(仅标注随基线全量改写)。
 # 五黄金影响判定(按变更文件证据,全部证据豁免):
 #   yaml   —— 输入 = mods/**/*.yaml,唯一变更文件非输入 → 不可能变;
 #            证据豁免。
@@ -18,9 +19,9 @@ short=e180e3225
 #            DLL loader 代码 —— 唯一变更文件不在格式/加载器/文件系统
 #            路径 → 不可能变;证据豁免。
 #   fonts  —— FreeType 解码路径与字体资产零变更 → 不可能变;证据豁免。
-#   replay —— 引擎语义面,CI 工作流不入黄金场景 → 不可能变;证据豁免。
-# C++ 侧复验:Release 全量 ctest(35 项)绿 + std_import/upstream_check
-# 门禁 PASS(标注随基线前进全量改写 @4f7930b5→@e180e3225,411 文件)。
+#   replay —— 引擎语义面,utility 工具不入黄金场景 → 不可能变;证据豁免。
+# C++ 侧复验:Release 全量 ctest(38 项)绿 + std_import/upstream_check
+# 门禁 PASS(标注随基线前进全量改写 @e180e3225→@1f594e320,642 文件)。
 # 黄金数据 tests/golden_core.txt 由该 commit 的 C# 实现
 # (tools/golden_gen/Program.cs 内嵌的 OpenRA 原语逐字副本)生成,与被测语言无关。
 # 上游更新流程:checkout 新 commit → 依变更文件判定各黄金受扰面 →

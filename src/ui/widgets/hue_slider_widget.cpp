@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/HueSliderWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/HueSliderWidget.cs @1f594e320
 // (hue_slider_widget.hpp 的实现)
 // The implementation of hue_slider_widget.hpp.
 import std;

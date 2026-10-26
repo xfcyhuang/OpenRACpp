@@ -1,6 +1,6 @@
-// UPSTREAM: OpenRA.Game/Support/HttpClientFactory.cs @e180e3225 +
+// UPSTREAM: OpenRA.Game/Support/HttpClientFactory.cs @1f594e320 +
 // OpenRA.Game/HttpExtension.cs L18-49 + System.Net.Http.HttpClient 的
-// GetAsync/PostAsync 语义面 @e180e3225(消费点直调的同步承载)
+// GetAsync/PostAsync 语义面 @1f594e320(消费点直调的同步承载)
 // 上游 HttpClient 的同步直调形态(boost::beast + boost::url;../cpp26.md
 // §二 Boost 补位 —— HTTP 为 std 未落地面):HttpGetSync = GetAsync +
 // HttpCompletionOption.ResponseHeadersRead + ReadAsStreamWithProgress(

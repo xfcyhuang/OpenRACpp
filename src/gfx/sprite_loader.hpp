@@ -1,7 +1,7 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteLoader.cs @e180e3225 L53-114(ISpriteLoader/
+// UPSTREAM: OpenRA.Game/Graphics/SpriteLoader.cs @1f594e320 L53-114(ISpriteLoader/
 //          FrameCache/FrameLoader)+
-//          OpenRA.Game/ModData.cs @e180e3225 L107(ObjectCreator.GetLoaders&lt;ISpriteLoader&gt;)
-//          OpenRA.Game/ObjectCreator.cs @e180e3225 L155(loader 未找到的异常文本)
+//          OpenRA.Game/ModData.cs @1f594e320 L107(ObjectCreator.GetLoaders&lt;ISpriteLoader&gt;)
+//          OpenRA.Game/ObjectCreator.cs @1f594e320 L155(loader 未找到的异常文本)
 // 精灵加载链:按 Manifest.SpriteFormats 名序逐个尝试(首个命中即用)。
 // C++ 形态:
 //   - ISpriteLoader 接口 → 函数指针 bool(*)(span, vector<unique_ptr<

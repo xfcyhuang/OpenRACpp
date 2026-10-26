@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/ExternalCondition.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/ExternalCondition.cs @1f594e320
 //          L14-190 + Traits/Conditions/ProximityExternalCondition.cs
 //          L18-194(逐语句重写;机制对照见 external_condition.hpp 头注)
 //          Statement-by-statement; the mechanism mapping lives in

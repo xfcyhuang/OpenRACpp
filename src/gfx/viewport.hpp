@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/Viewport.cs @e180e3225 L21-447(全文逐语义)
+// UPSTREAM: OpenRA.Game/Graphics/Viewport.cs @1f594e320 L21-447(全文逐语义)
 // 视口:缩放/居中/滚动/世界-屏幕坐标换算 + 可见投影格区(惰性缓存)。
 // 形态适配(注入面,D89~D92 同族;完整 Map/Settings/Renderer 随 Phase 5):
 //   - Game.Renderer.NativeResolution / SetMaximumViewportSize →
@@ -98,6 +98,7 @@ struct WorldViewportSizes {
   float fp4_max_zoom_scale = 2.0f;
   std::int32_t int4_max_zoom_window_height = 240;
   bool b_allow_native_zoom = true;
+  int2 int2_min_effective_resolution{1024, 720};
 
   int2 GetSizeRange(WorldViewport kind_distance) const {
     return kind_distance == WorldViewport::Close ? int2_close_window_heights

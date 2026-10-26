@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Mods.Cnc/Graphics/ClassicSpriteSequence.cs @e180e3225 L18-48 +
-//           OpenRA.Mods.Cnc/Util.cs @e180e3225 L18-67(SpriteRanges/SpriteFacings 表
+// UPSTREAM: OpenRA.Mods.Cnc/Graphics/ClassicSpriteSequence.cs @1f594e320 L18-48 +
+//           OpenRA.Mods.Cnc/Util.cs @1f594e320 L18-67(SpriteRanges/SpriteFacings 表
 //           与 ClassicIndexFacing/ClassicQuantizeFacing)
 // 一代 Westwood 作品怪癖的序列:UseClassicFacings(仅 32 面向合法)启用
 // 非线性面向映射 ClassicIndexFacing。

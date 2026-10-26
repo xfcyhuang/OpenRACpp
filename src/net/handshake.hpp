@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Handshake.cs @e180e3225 L17-90(握手请求/
+// UPSTREAM: OpenRA.Game/Network/Handshake.cs @1f594e320 L17-90(握手请求/
 //          响应的 yaml 线格式:Handshake 节按名装载,Response 另挂 Client
 //          节 = FieldSaver.Save(Session.Client);Serialize 的显式字段序
 //          Mod/Version/Password/Fingerprint/AuthSignature/OrdersProtocol

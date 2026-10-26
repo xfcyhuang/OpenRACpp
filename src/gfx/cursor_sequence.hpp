@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/CursorSequence.cs @e180e3225 L14-52(全文逐语义)
+// UPSTREAM: OpenRA.Game/Graphics/CursorSequence.cs @1f594e320 L14-52(全文逐语义)
 // cursors.yaml 的单条光标序列:Name/Src(来自文件级上下文)+ X/Y 热点
 // (TryParseInt32Invariant,失败静默保持 0 的上游怪癖)+ Start(必填,缺键 =
 // KeyNotFound 等价抛)+ Length 的三态怪癖照抄 —— Length 键存在且值 != "*" =

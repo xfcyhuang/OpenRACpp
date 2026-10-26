@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/TooltipContainerWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/TooltipContainerWidget.cs @1f594e320
 // (tooltip_container_widget.hpp 的实现)
 // The implementation of tooltip_container_widget.hpp.
 import std;

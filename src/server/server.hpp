@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/Server.cs @e180e3225 L33-1601(服务器实体
+// UPSTREAM: OpenRA.Game/Server/Server.cs @1f594e320 L33-1601(服务器实体
 //          全文:监听线程群 + 单线程事件循环 + AcceptConnection 的令牌
 //          握手 + ValidateClient 的六门校验 + CompleteConnection 的槽位
 //          装配 + ReceiveOrders 的 OrderLatency 前投影与 Ack 回执 +

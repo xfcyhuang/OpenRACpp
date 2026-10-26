@@ -1,6 +1,6 @@
-// UPSTREAM: OpenRA.Game/Sound/Sound.cs @e180e3225 L22-34(ISoundLoader/
+// UPSTREAM: OpenRA.Game/Sound/Sound.cs @1f594e320 L22-34(ISoundLoader/
 //          ISoundFormat)+
-//           OpenRA.Game/ObjectCreator.cs @e180e3225 L149-156(GetLoader 名分派)+
+//           OpenRA.Game/ObjectCreator.cs @1f594e320 L149-156(GetLoader 名分派)+
 //           OpenRA.Mods.{Cnc,Common}/AudioLoaders/*.cs(五格式名)
 // 声音格式链:名字分派表(Manifest.SoundFormats,如 "Aud, Wav")+
 // TryParseSound 的统一签名(嗅探 + 元数据 + 整段 PCM 物化 = D74 形态)。

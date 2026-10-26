@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/ServerTraits/LobbyCommands.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/ServerTraits/LobbyCommands.cs @1f594e320
 //          L29-1492 全文(24 命令分发字典 + ValidateCommand 双前置门 +
 //          CheckAutoStart 的六段自动开局 + State/StartGame/Slot/
 //          AllowSpectators/Spectate/SlotClose/SlotOpen/SlotBot/Map/Option/

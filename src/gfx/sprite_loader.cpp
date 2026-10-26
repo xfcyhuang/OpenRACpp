@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteLoader.cs @e180e3225 L53-114 +
-//          OpenRA.Game/ObjectCreator.cs @e180e3225 L155
+// UPSTREAM: OpenRA.Game/Graphics/SpriteLoader.cs @1f594e320 L53-114 +
+//          OpenRA.Game/ObjectCreator.cs @1f594e320 L155
 //          (sprite_loader.hpp 的实现)
 //          Implementation of sprite_loader.hpp.
 import std;

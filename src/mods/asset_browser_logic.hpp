@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/AssetBrowser.cs @e180e3225 L16-22(IGlobal
+// UPSTREAM: OpenRA.Mods.Common/AssetBrowser.cs @1f594e320 L16-22(IGlobal
 //          ModData 的四扩展名表;mod.yaml "AssetBrowser" 节点装载)+
 //          OpenRA.Mods.Common/Widgets/Logic/AssetBrowserLogic.cs L26-770
 //          全文(源包下拉/五类型过滤/帧滑条与播放三键/sprite-voxel-

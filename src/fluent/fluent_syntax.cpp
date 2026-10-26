@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FluentBundle.cs @e180e3225 —— Fluent 资源解析的
+// UPSTREAM: OpenRA.Game/FluentBundle.cs @1f594e320 —— Fluent 资源解析的
 // 自研承载(Linguini.Syntax 的等价面;空白规范 = 公共缩进扣除 + 行尾修剪
 // + placeable 邻接修剪,Fluent 规范 Patterns 节;语料实测差异由
 // golden_fluent 对拍钉住)。

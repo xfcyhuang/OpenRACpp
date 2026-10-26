@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/RadarPings.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/RadarPings.cs @1f594e320
 //          L20-115 + Traits/Player/PlayerRadarTerrain.cs L19-96 +
 //          Traits/Radar/{AppearsOnRadar,ProvidesRadar,RadarColorFromTerrain}.cs
 //          (雷达链五件:ping 星箭头动画/玩家雷达地形缓存/minimap 签名三元

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/OrderBuffer.cs @e180e3225 L42-137 全文
+// UPSTREAM: OpenRA.Game/Server/OrderBuffer.cs @1f594e320 L42-137 全文
 //          (the whole of OrderBuffer.cs L42-137)
 import std;
 

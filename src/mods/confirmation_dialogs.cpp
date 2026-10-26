@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ConfirmationDialogs.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ConfirmationDialogs.cs @1f594e320
 //          L17-193 全文(实现部分)。
 #include "mods/confirmation_dialogs.hpp"
 

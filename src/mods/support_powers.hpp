@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/SupportPowerManager.cs
-//          @e180e3225 L21-320(SupportPowerManager/SupportPowerInstance/
+//          @1f594e320 L21-320(SupportPowerManager/SupportPowerInstance/
 //          SelectGenericPowerTarget)+ SupportPower.cs L18-260(基类与
 //          Info 字段面;具体 power 子类随其批)
 //          L21-320 (SupportPowerManager/SupportPowerInstance/

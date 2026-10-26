@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/World.cs @e180e3225 L28-627(world.hpp 的实现;全量
+// UPSTREAM: OpenRA.Game/World.cs @1f594e320 L28-627(world.hpp 的实现;全量
 //          构造链 + trait arena + 系统 trait 面)
 //          The implementation of world.hpp — the full construction chain,
 //          the trait arena, and the system-trait faces.

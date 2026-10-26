@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/ProtocolVersion.cs @e180e3225 L73-81(握手
+// UPSTREAM: OpenRA.Game/Server/ProtocolVersion.cs @1f594e320 L73-81(握手
 //          协议版本 = 7(同 net/network_connection.hpp 的
 //          kHandshakeProtocolVersion,双锚点合一处)+ 订单协议版本 = 21;
 //          常量语义照抄,注释块描述的线格式见各实现文件的字段序)

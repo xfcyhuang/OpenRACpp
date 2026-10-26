@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/AIUtils.cs @e180e3225 L63-95 的
+// UPSTREAM: OpenRA.Mods.Common/AIUtils.cs @1f594e320 L63-95 的
 //          ClearBlockersOrders(AI 面的其余成员随 Phase 8 bot 模块批;
 //          Aircraft 分支未移植 = 无该 trait 世界的等价域 —— 落
 //          `continue` 的 else 同构)

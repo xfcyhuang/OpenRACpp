@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/RenderSprites.cs @e180e3225(第八批
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/RenderSprites.cs @1f594e320(第八批
 //          mods trait 的注册表装配:RenderSprites/WithSpriteBody/
 //          WithFacingSpriteBody/WithInfantryBody/WithSpriteTurret/
 //          WithMakeAnimation/WithMakeOverlay + ProximityCapturable 族;

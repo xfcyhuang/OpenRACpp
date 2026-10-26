@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/TerrainSpriteLayer.cs @e180e3225 L21-269(逐方法)
+// UPSTREAM: OpenRA.Game/Graphics/TerrainSpriteLayer.cs @1f594e320 L21-269(逐方法)
 // 地形精灵层:全图静态大 VB(每格 4 顶点),脏行级 SetData 增量上传 +
 // 共享静态 IB(每 World 一份,引用计数)+ 调色板失效全图标脏 +
 // 地形光照的四角采样 tint。

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ProgressBarWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ProgressBarWidget.cs @1f594e320
 // (progress_bar_widget.hpp 的实现)
 // The implementation of progress_bar_widget.hpp.
 import std;

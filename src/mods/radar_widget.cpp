@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/RadarWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/RadarWidget.cs @1f594e320
 //          L25-539 的实现面
 //          The implementation face of L25-539.
 #include "mods/radar_widget.hpp"

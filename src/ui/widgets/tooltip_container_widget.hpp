@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/TooltipContainerWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/TooltipContainerWidget.cs @1f594e320
 // L18-114(全文)。令牌化的 SetTooltip/RemoveTooltip 对 + 懒装载的 tooltip
 // 子树 + 光标偏移 ChildOrigin 的屏幕边缘回退。Game.Settings.Graphics.
 // CursorDouble / Game.RunTime / Game.Renderer.Resolution / Viewport 静态 →

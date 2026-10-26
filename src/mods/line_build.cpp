@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/LineBuild.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/LineBuild.cs @1f594e320
 //          (实现部分)+ Traits/Buildings/LineBuildNode.cs
 //          The implementation half + LineBuildNode.cs.
 #include "mods/line_build.hpp"

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/WorldButtonWidget.cs @e180e3225 L19-49(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/WorldButtonWidget.cs @1f594e320 L19-49(全文)。
 import std;
 
 #include "ui/widgets/world_button_widget.hpp"

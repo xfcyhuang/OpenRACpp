@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/Server.cs @e180e3225 L181-1601 + OpenRA.Game/
+// UPSTREAM: OpenRA.Game/Server/Server.cs @1f594e320 L181-1601 + OpenRA.Game/
 //          Server/PlayerMessageTracker.cs L26-84(服务器实体与聊天闸的实
 //          现全文;事件闭包/注入面偏离见 docs/COVERAGE.md D216~)
 //          Server.cs L181-1601 + PlayerMessageTracker.cs L26-84 (the

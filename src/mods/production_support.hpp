@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Valued.cs @e180e3225 L17-25 +
+// UPSTREAM: OpenRA.Mods.Common/Traits/Valued.cs @1f594e320 L17-25 +
 //          Traits/Buildable.cs L15-69 + Traits/Buildings/Exit.cs L19-95 +
 //          Traits/Buildings/Reservable.cs L19-106 + Traits/Buildings/
 //          RallyPoint.cs L19-199 + Traits/Player/ProvidesPrerequisite.cs

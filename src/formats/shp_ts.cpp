@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/SpriteLoaders/ShpTSLoader.cs @e180e3225 L17-163
+// UPSTREAM: OpenRA.Mods.Common/SpriteLoaders/ShpTSLoader.cs @1f594e320 L17-163
 // 实现文件:ShpTSFrame 头解析与三种扫描线格式、IsShpTS 判定循环、
 // ParseFrames 逐句照抄;Stream → SpanReader。
 // Implementation file: the ShpTSFrame header parse with its three

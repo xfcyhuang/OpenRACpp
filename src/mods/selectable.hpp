@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Selectable.cs @e180e3225 L15-55 全文 +
+// UPSTREAM: OpenRA.Mods.Common/Traits/Selectable.cs @1f594e320 L15-55 全文 +
 //          Interactable.cs L15-105 全文
 //          The whole of Selectable.cs L15-55 + Interactable.cs L15-105.
 //

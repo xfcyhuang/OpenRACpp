@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/SupportPowerTimerWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/SupportPowerTimerWidget.cs @1f594e320
 //          L23-97 的实现面
 //          The implementation face of L23-97.
 #include "mods/support_power_timer_widget.hpp"

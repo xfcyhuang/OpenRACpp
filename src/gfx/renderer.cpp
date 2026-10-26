@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Renderer.cs @e180e3225 L24-585(实现)
+// UPSTREAM: OpenRA.Game/Renderer.cs @1f594e320 L24-585(实现)
 // 头文件携带完整 UPSTREAM 锚点、OPT-B1 单级合成论证与形态适配清单。
 // Implementation of Renderer.cs; the header carries the full UPSTREAM
 // anchors, the OPT-B1 single-pass compositing argument, and the shape
@@ -66,6 +66,7 @@ WorldSpriteParams ComputeWorldSpriteParams(int2 int2_world_sheet_size, int2 int2
 
 Renderer::Renderer(platform::Sdl2Window& window, RenderThread& render, const Desc& desc)
     : window_{window}, render_{render} {
+  vec_supported_profiles_.push_back(window_.GLProfileUsed());
   // Renderer.cs L93-94:批次尺寸按 4 对齐。
   // Renderer.cs L93-94: batch sizes align to 4.
   const std::int32_t int4_temp_vertex_buffer_size =

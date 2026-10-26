@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/OpenAlSoundEngine.cs @e180e3225 L20-669(实现)
+// UPSTREAM: OpenRA.Platforms.Default/OpenAlSoundEngine.cs @1f594e320 L20-669(实现)
 // 逐语句移植;浮点表达式(衰减公式、lengthInSecs)的运算序与字面量逐字照抄。
 // 上游 Log.Write("sound",…) 形态偏离为 stderr 前缀打印(日志不入任何对拍面)。
 // Statement-by-statement port; the float expressions (the attenuation

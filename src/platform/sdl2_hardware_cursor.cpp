@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/Sdl2HardwareCursor.cs @e180e3225 L20-73(实现)
+// UPSTREAM: OpenRA.Platforms.Default/Sdl2HardwareCursor.cs @1f594e320 L20-73(实现)
 // + Sdl2PlatformWindow.cs L364-377(DoublePixelData 实现)
 // Implementation of the hardware cursor; the pixel masks
 // (0x00FF0000/0x0000FF00/0x000000FF/0xFF000000) and the 3-retry loop are

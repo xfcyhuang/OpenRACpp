@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/ImageWidget.cs + SpriteWidget.cs
-// @e180e3225(image_widget.hpp 的实现)
+// @1f594e320(image_widget.hpp 的实现)
 // The implementation of image_widget.hpp.
 import std;
 

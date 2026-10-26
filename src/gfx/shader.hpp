@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/ShaderBindings.cs @e180e3225 L17-34 +
-// OpenRA.Platforms.Default/Shader.cs @e180e3225 L20-260(逐方法)
+// UPSTREAM: OpenRA.Game/Graphics/ShaderBindings.cs @1f594e320 L17-34 +
+// OpenRA.Platforms.Default/Shader.cs @1f594e320 L20-260(逐方法)
 // 语义面:{VERSION} 占位替换(Embedded→"300 es",否则→"140",全量替换)、
 // 属性循环(EnableVertexAttribArray + BindAttribLocation)、Modern 档
 // BindFragDataLocation(program, 0, "fragColor")、链接后 active uniform 枚举

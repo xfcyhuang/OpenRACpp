@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/Connection.cs @e180e3225 L24-220(服务器侧
+// UPSTREAM: OpenRA.Game/Server/Connection.cs @1f594e320 L24-220(服务器侧
 //          每连接线程全文:100ms Poll 读帧机(Header/Data 状态机 + 128kB
 //          超长闸)、Ping 的线程内自处理(历史 15 样本上限)、发送队列的
 //          WouldBlock 回落阻塞发送、空包断连语义;BlockingCollection →

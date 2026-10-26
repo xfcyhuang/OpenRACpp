@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/TextFieldWidget.cs @e180e3225 L20-618
+// UPSTREAM: OpenRA.Mods.Common/Widgets/TextFieldWidget.cs @1f594e320 L20-618
 // (全文)。全编辑面:选择区双索引 + 鼠标拖选/键盘左移右移的词跳(Ctrl)/
 // Home/End/Ctrl+D·K·U 的直写 backing field 面/Ctrl+X·C·V·A 的剪贴板对/
 // 删除族(DELETE/BACKSPACE 的词删)/MaxLength 截断/blink 光标(20 tick 相位);

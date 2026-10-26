@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Map/CellRegion.cs @e180e3225 L18-247(逐语义重写)+
+// UPSTREAM: OpenRA.Game/Map/CellRegion.cs @1f594e320 L18-247(逐语义重写)+
 //          OpenRA.Game/Map/CellCoordsRegion.cs L15-368 +
 //          OpenRA.Game/Map/MapCoordsRegion.cs L17-89
 //          C# IEnumerable/yield → 零分配枚举器结构体(begin/end 迭代对;

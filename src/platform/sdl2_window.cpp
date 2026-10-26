@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Platforms.Default/Sdl2PlatformWindow.cs @e180e3225 L124-215,270-353,538-587
+// UPSTREAM: OpenRA.Platforms.Default/Sdl2PlatformWindow.cs @1f594e320 L124-215,270-353,538-587
 // 实现:窗口创建/模式切换式样、GL 属性序列(DOUBLEBUFFER=1,RGB888,ALPHA=0;Modern=3.2
 // Core / Embedded=3.0 ES)、HiDPI scale = drawable/window(Sdl2PlatformWindow.cs L270-276)、
 // 事件泵。几何快照为打包原子量(OPT-B5)。
@@ -109,6 +109,7 @@ std::optional<Sdl2Window> Sdl2Window::Create(const Desc& desc) {
   SDL_GL_GetDrawableSize(ptr_window, &int4_draw_w, &int4_draw_h);
   const float float_scale = int4_win_w > 0 ? static_cast<float>(int4_draw_w) / int4_win_w : 1.0f;
   window_result.uint8_geom_.store(PackGeom(int4_win_w, int4_win_h, float_scale), std::memory_order_relaxed);
+  window_result.kind_profile_used_.store(desc.kind_profile, std::memory_order_relaxed);
   return window_result;
 }
 
@@ -148,6 +149,11 @@ bool Sdl2Window::MakeGlCurrent(void* ptr_context) {
 }
 
 void Sdl2Window::SwapBuffers() {
+  const int int4_intent = int4_vsync_intent_.load(std::memory_order_relaxed);
+  if (int4_intent != int4_vsync_applied_.load(std::memory_order_relaxed)) {
+    SDL_GL_SetSwapInterval(int4_intent);
+    int4_vsync_applied_.store(int4_intent, std::memory_order_relaxed);
+  }
   SDL_GL_SwapWindow(static_cast<SDL_Window*>(ptr_window_));
 }
 
@@ -211,6 +217,70 @@ WindowGeomSnapshot Sdl2Window::Geom() const {
       .int4_height = static_cast<std::int32_t>((uint8_packed >> 16) & 0xFFFF),
       .float_scale = static_cast<float>((uint8_packed >> 32) & 0xFFFF) / 256.0f,
   };
+}
+
+int Sdl2Window::DisplayCount() const {
+  const int int4_displays = SDL_GetNumVideoDisplays();
+  return int4_displays > 0 ? int4_displays : 0;
+}
+
+int Sdl2Window::CurrentDisplay() const {
+  if (ptr_window_ == nullptr)
+    return 0;
+  const int int4_index = SDL_GetWindowDisplayIndex(static_cast<SDL_Window*>(ptr_window_));
+  return int4_index >= 0 ? int4_index : 0;
+}
+
+int2 Sdl2Window::NativeWindowSize() const {
+  const WindowGeomSnapshot geom_window = Geom();
+  return int2{geom_window.int4_width, geom_window.int4_height};
+}
+
+int2 Sdl2Window::EffectiveWindowSize() const {
+  const WindowGeomSnapshot geom_window = Geom();
+  const float fp4_modifier =
+      fp4_scale_modifier_.load(std::memory_order_relaxed);
+  return int2{
+      static_cast<std::int32_t>(geom_window.int4_width / fp4_modifier),
+      static_cast<std::int32_t>(geom_window.int4_height / fp4_modifier)};
+}
+
+float Sdl2Window::EffectiveWindowScale() const {
+  return NativeWindowScale() * fp4_scale_modifier_.load(std::memory_order_relaxed);
+}
+
+void Sdl2Window::SetScaleModifier(float fp4_scale) {
+  const float fp4_old = fp4_scale_modifier_.load(std::memory_order_relaxed);
+  fp4_scale_modifier_.store(fp4_scale, std::memory_order_relaxed);
+  if (fn_on_window_scale_changed) {
+    const float fp4_native = NativeWindowScale();
+    fn_on_window_scale_changed(fp4_native, fp4_native * fp4_old, fp4_native,
+                               fp4_native * fp4_scale);
+  }
+}
+
+void Sdl2Window::GrabWindowMouseFocus() {
+  if (ptr_window_ != nullptr)
+    SDL_SetWindowGrab(static_cast<SDL_Window*>(ptr_window_), SDL_TRUE);
+}
+
+void Sdl2Window::ReleaseWindowMouseFocus() {
+  if (ptr_window_ != nullptr)
+    SDL_SetWindowGrab(static_cast<SDL_Window*>(ptr_window_), SDL_FALSE);
+}
+
+bool Sdl2Window::TryOpenUrl(std::string_view str_url) const {
+  const std::string str_null_terminated{str_url};
+#if SDL_VERSION_ATLEAST(2, 0, 14)
+  return SDL_OpenURL(str_null_terminated.c_str()) == 0;
+#else
+  (void)str_null_terminated;
+  return false;
+#endif
+}
+
+void Sdl2Window::SetVSyncEnabled(bool b_enabled) {
+  int4_vsync_intent_.store(b_enabled ? 1 : 0, std::memory_order_relaxed);
 }
 
 std::optional<Sdl2HardwareCursor> Sdl2Window::CreateHardwareCursor(

@@ -1,9 +1,9 @@
-// UPSTREAM: OpenRA.Game/Graphics/Renderable.cs @e180e3225 L18-60(接口族 + TintModifiers)+
-//           OpenRA.Game/Graphics/SpriteRenderable.cs @e180e3225 L18-131 +
-//           OpenRA.Game/Graphics/UISpriteRenderable.cs @e180e3225 L17-79 +
-//           OpenRA.Game/Graphics/TargetLineRenderable.cs @e180e3225 L19-77 +
-//           OpenRA.Game/Graphics/MarkerTileRenderable.cs @e180e3225 L17-55 +
-//           OpenRA.Game/Graphics/WorldRenderer.cs @e180e3225 L25-26/141-175(排序键公式)
+// UPSTREAM: OpenRA.Game/Graphics/Renderable.cs @1f594e320 L18-60(接口族 + TintModifiers)+
+//           OpenRA.Game/Graphics/SpriteRenderable.cs @1f594e320 L18-131 +
+//           OpenRA.Game/Graphics/UISpriteRenderable.cs @1f594e320 L17-79 +
+//           OpenRA.Game/Graphics/TargetLineRenderable.cs @1f594e320 L19-77 +
+//           OpenRA.Game/Graphics/MarkerTileRenderable.cs @1f594e320 L17-55 +
+//           OpenRA.Game/Graphics/WorldRenderer.cs @1f594e320 L25-26/141-175(排序键公式)
 // 可渲染物族。上游是接口 + 每次调用 With* 都 new 一个堆对象的不可变类;
 // C++ 侧按 OPT-A7(docs/OPTIMIZATION_TRACKER.md)以 **RenderItem POD(带 kind
 // 判别)** 承载引擎内四种具体 renderable —— With* 返回按值拷贝,零分配;

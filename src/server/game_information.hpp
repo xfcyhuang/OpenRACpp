@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/GameInformation.cs @e180e3225 L21-237(Root/Player
+// UPSTREAM: OpenRA.Game/GameInformation.cs @1f594e320 L21-237(Root/Player
 //          双节 yaml 形态:字段序 = 声明序;DateTime → "yyyy-MM-dd HH-mm-ss"
 //          不变量格式;WinState → 枚举名;玩家空位 = 上游 null 的
 //          std::optional 承载 —— 服务器 defeat 跟踪保持 world.Players

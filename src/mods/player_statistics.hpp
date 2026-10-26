@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlayerStatistics.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlayerStatistics.cs @1f594e320
 //          L22-311(观战统计账本 + ArmyUnit 的图标面 + 单位侧记账 trait)
 //          L22-311 (the observer statistics ledger, ArmyUnit's icon face,
 //          and the per-unit accounting trait).

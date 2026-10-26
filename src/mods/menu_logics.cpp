@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/AddFactionSuffixLogic.cs
-//          @e180e3225 L18-74 全文 + SupportPowerBinLogic.cs L16-79 全文 +
+//          @1f594e320 L18-74 全文 + SupportPowerBinLogic.cs L16-79 全文 +
 //          OrderButtonsChromeLogic.cs L18-55 全文 +
 //          MenuButtonsChromeLogic.cs L18-124 全文(实现部分;头注见
 //          menu_logics.hpp)。

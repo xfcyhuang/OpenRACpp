@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/ParatroopersPower.cs
-//          @e180e3225
+//          @1f594e320
 #include "mods/paratroopers_power.hpp"
 
 #include "game/actor_info.hpp"

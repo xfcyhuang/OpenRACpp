@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/SequenceSet.cs @e180e3225 L19-119(全文逐语义)
+// UPSTREAM: OpenRA.Game/Graphics/SequenceSet.cs @1f594e320 L19-119(全文逐语义)
 // 序列集:sequences.yaml 的引擎侧容器。ISpriteSequence = 单条序列的查询面
 // (mods 侧 ClassicSpriteSequence 家族实现,Phase 5 移植;本批留注入面);
 // ISpriteSequenceLoader = 解析器(modData.SpriteSequenceLoader,manifest 的

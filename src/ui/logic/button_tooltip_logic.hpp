@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ButtonTooltipLogic.cs @e180e3225 L17-68(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ButtonTooltipLogic.cs @1f594e320 L17-68(全文)。
 #pragma once
 import std;
 

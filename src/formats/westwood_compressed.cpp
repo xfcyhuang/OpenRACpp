@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/FileFormats/WestwoodCompressedReader.cs
-// @e180e3225 L20-84:逐句照抄;byte[]/Span → span;output 越界守卫 = 上游
+// @1f594e320 L20-84:逐句照抄;byte[]/Span → span;output 越界守卫 = 上游
 // IndexOutOfRange 的等价抛点(D61 先例)。Clamp(byte.MinValue,
 // byte.MaxValue) 对 int 差分恒在 0..255 内截,无需分支。
 // [UPSTREAM continued] WestwoodCompressedReader.cs L20-84, copied statement by

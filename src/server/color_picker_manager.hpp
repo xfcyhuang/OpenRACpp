@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/World/ColorPickerManager.cs
-//          @e180e3225 L28-186(服务器消费面全文:IsInvalidColor 的 compuphase
+//          @1f594e320 L28-186(服务器消费面全文:IsInvalidColor 的 compuphase
 //          感知度量 / MakeValid 的双色域钳制 + 双向扩幅搜索 + 400 次迭代
 //          上限 / RandomPresetColor 的 Fisher-Yates 洗牌遍历与随机回落;
 //          PresetColors 表 = 规则装载注入;ShowColorDropDown 的 UI 下拉

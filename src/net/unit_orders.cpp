@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/UnitOrders.cs @e180e3225 L48-431(第十六批
+// UPSTREAM: OpenRA.Game/Network/UnitOrders.cs @1f594e320 L48-431(第十六批
 //          客户端接线:ProcessOrder 全分支实现;上游 Game/Settings/
 //          ModData/MapCache/ExternalMods 静态面以注入族承载,见
 //          unit_orders.hpp;ExternalMods 注册表恒空 —— 跨进程 mod 切换

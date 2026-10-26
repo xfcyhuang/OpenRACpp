@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/RadarWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/RadarWidget.cs @1f594e320
 //          L25-539 全文(四层 2x2 单 sheet 的雷达 minimap:地形/迷雾/actor
 //          三层 + 视口框与 ping 星;开关动画与 Classic 的 minimap 移动)
 //          The whole of RadarWidget.cs L25-539 (the radar minimap on a

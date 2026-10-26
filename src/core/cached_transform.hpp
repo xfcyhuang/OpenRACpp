@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/CachedTransform.cs @e180e3225 L15-41(全文)
+// UPSTREAM: OpenRA.Game/Primitives/CachedTransform.cs @1f594e320 L15-41(全文)
 // + PredictedCachedTransform.cs L15-45(全文)。
 // 输入相等(Equals)则回放缓存输出;T 的空值对判 = monostate 形态由调用方
 // 保证(本仓消费面的 T 均为值语义)。C# Func → std::function。

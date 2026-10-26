@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/ 的 HUD 第一组
-//          @e180e3225:
+//          @1f594e320:
 //          IngameRadarDisplayLogic.cs L18-52 全文 /
 //          ClassicProductionLogic.cs L13-186 全文 /
 //          ProductionTabsLogic.cs L13-97 全文 /
@@ -7,7 +7,7 @@
 //          IngamePowerCounterLogic.cs L14-55 全文 /
 //          IngameSiloBarLogic.cs L14-49 全文 /
 //          GameTimerLogic.cs L14-95 全文。
-//          The HUD group one under Ingame/ @e180e3225: the whole of
+//          The HUD group one under Ingame/ @1f594e320: the whole of
 //          IngameRadarDisplayLogic.cs L18-52 / ClassicProductionLogic.cs
 //          L13-186 / ProductionTabsLogic.cs L13-97 / IngameCashCounterLogic.cs
 //          L14-86 / IngamePowerCounterLogic.cs L14-55 / IngameSiloBarLogic.cs

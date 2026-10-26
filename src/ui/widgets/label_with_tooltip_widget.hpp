@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWithTooltipWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWithTooltipWidget.cs @1f594e320
 // L20-64(全文)。Tooltip 容器的 Lazy 解析(Ui.Root.Get<TooltipContainer
 // Widget>)挂 MouseEntered/MouseExited 对;MouseExited 仅在容器已物化时才
 // RemoveTooltip(上游 IsValueCreated 门,防 widget 与容器同批移除的崩溃)。

@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/World/ColorPickerManager.cs
-//          @e180e3225 L66-186(实现体;IsInvalidColor/MakeValid/
+//          @1f594e320 L66-186(实现体;IsInvalidColor/MakeValid/
 //          RandomPresetColor 的 RNG 消耗序逐字保真)
 //          The implementation body (L66-186; IsInvalidColor/MakeValid/
 //          RandomPresetColor with the RNG consumption order kept verbatim).

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/SpawnMapActors.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/SpawnMapActors.cs @1f594e320
 //          L17-75 + Game/Map/ActorReference.cs L17-113(逐语句重写;机制
 //          对照见 spawn_map_actors.hpp 头注)
 //          Statement-by-statement; the mechanism mapping lives in

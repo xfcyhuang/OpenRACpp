@@ -1,6 +1,6 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/AmmoPool.cs + Rearmable.cs +
 //          Repairable.cs + RepairsUnits.cs + Air/FallsToEarth.cs
-//          @e180e3225
+//          @1f594e320
 #pragma once
 import std;
 

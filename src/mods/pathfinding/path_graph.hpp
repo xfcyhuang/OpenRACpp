@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Pathfinder/IPathGraph.cs @e180e3225 +
+// UPSTREAM: OpenRA.Mods.Common/Pathfinder/IPathGraph.cs @1f594e320 +
 //          Pathfinder/CellInfo.cs + Pathfinder/Grid.cs(逐语义重写)
 //          Verbatim-semantics rewrites.
 //

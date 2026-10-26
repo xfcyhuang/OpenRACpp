@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/Vertex.cs @e180e3225 L17-64
+// UPSTREAM: OpenRA.Game/Graphics/Vertex.cs @1f594e320 L17-64
 // 批渲染顶点(48B 胖顶点,字段序 = 上游 StructLayout(LayoutKind.Sequential)):
 //   [x,y,z] 位置;[s,t] 主纹理坐标(或 RGBA 颜色);[u,v] 次纹理坐标;
 //   [c] 调色板/通道打包位域(布局注释见 combined.vert,gfx_util::FastCreateQuad);

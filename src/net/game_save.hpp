@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/GameSave.cs @e180e3225 L21-333 全文
+// UPSTREAM: OpenRA.Game/Network/GameSave.cs @1f594e320 L21-333 全文
 //          (SlotClient 值面 + GameSave 的 orasav 读/写双态)。
 //          The whole of GameSave.cs L21-333 (the SlotClient value face +
 //          GameSave's orasav read/write states).

@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/DirectionalSupportPower.cs
-//          + AirstrikePower.cs + SelectDirectionalTarget.cs @e180e3225
+//          + AirstrikePower.cs + SelectDirectionalTarget.cs @1f594e320
 //          的实现面
 #include "mods/airstrike_power.hpp"
 

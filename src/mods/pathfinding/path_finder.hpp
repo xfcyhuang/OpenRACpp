@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/PathFinder.cs @e180e3225 L22-295
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/PathFinder.cs @1f594e320 L22-295
 //          + Mods.Common/TraitsInterfaces.cs L930-960 的 IPathFinder 接口面
 //          (逐语义重写 + Mobile 挂点)
 //          Verbatim-semantics rewrite + the Mobile hook face.

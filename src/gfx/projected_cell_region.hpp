@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Map/ProjectedCellRegion.cs @e180e3225 L18-125(全文逐语义)
+// UPSTREAM: OpenRA.Game/Map/ProjectedCellRegion.cs @1f594e320 L18-125(全文逐语义)
 // 投影单元格区域:屏幕上的 (U,V) 矩形集合(TopLeft/BottomRight 含端点)。
 // 构造期由 Map 的 MaximumTerrainHeight 与 Height 层换算出"可能投影进本
 // 区域"的地图坐标包围区(mapTopLeft/mapBottomRight);枚举器逐列推进

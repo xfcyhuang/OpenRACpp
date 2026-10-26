@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/SliderWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/SliderWidget.cs @1f594e320
 // (slider_widget.hpp 的实现)
 // The implementation of slider_widget.hpp.
 import std;

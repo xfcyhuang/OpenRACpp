@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/MenuButtonWidget.cs @e180e3225 L19-33(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/MenuButtonWidget.cs @1f594e320 L19-33(全文)。
 import std;
 
 #include "ui/widgets/menu_button_widget.hpp"

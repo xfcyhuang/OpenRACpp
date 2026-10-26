@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/BuildingUtils.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/BuildingUtils.cs @1f594e320
 //          L21-139 全文(world 扩展形态)
 //          The whole of BuildingUtils.cs L21-139 (the world-extension
 //          form).

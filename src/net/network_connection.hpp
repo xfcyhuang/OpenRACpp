@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Connection.cs @e180e3225 L99-386(Network
+// UPSTREAM: OpenRA.Game/Network/Connection.cs @1f594e320 L99-386(Network
 //          Connection 全文:连接竞赛/读线程/发送链/Ack·Ping·TickScale 分发;
 //          线程与并发原语的形态偏离 D203~D206,见 docs/COVERAGE.md)+
 //          OpenRA.Game/Server/ProtocolVersion.cs L75(Handshake = 7)

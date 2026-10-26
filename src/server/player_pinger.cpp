@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/ServerTraits/PlayerPinger.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/ServerTraits/PlayerPinger.cs @1f594e320
 //          L18-104(实现体)
 //          The implementation body.
 #include "server/player_pinger.hpp"

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/ReplayRecorder.cs @e180e3225 L19-118 +
+// UPSTREAM: OpenRA.Game/Network/ReplayRecorder.cs @1f594e320 L19-118 +
 //           OpenRA.Game/FileFormats/ReplayMetadata.cs L17-108 +
 //           OpenRA.Game/Network/ReplayConnection.cs L19-135(实现部分)
 //           The implementation halves (the header note lives in

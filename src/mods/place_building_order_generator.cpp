@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Orders/PlaceBuildingOrderGenerator.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Orders/PlaceBuildingOrderGenerator.cs @1f594e320
 //          (实现部分)
 //          The implementation half.
 #include "mods/place_building_order_generator.hpp"

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/VideoPlayerWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/VideoPlayerWidget.cs @1f594e320
 //          L22-313 的实现面
 //          The implementation face of L22-313.
 #include "mods/video_player_widget.hpp"

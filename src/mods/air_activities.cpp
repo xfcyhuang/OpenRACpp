@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/Air/Fly.cs @e180e3225 +
+// UPSTREAM: OpenRA.Mods.Common/Activities/Air/Fly.cs @1f594e320 +
 //          TakeOff.cs + Land.cs + FlyOffMap.cs + FlyIdle.cs +
 //          FlyForward.cs + FlyFollow.cs + ReturnToBase.cs + FallToEarth.cs
 //          + ../Resupply.cs 的实现面

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/IdxReader.cs @e180e3225(全文)+
+// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/IdxReader.cs @1f594e320(全文)+
 // IdxEntry.cs L16-45(全文)。RA2 声音索引:16 字节名 + "GABA" 魔数头 +
 // u32==2 校验 + SoundCount 条目(名 16B/偏移/长度/采样率/标志/块大小)。
 // IdxEntry 怪癖照抄:NUL 位 pos==0 不截断(16 个 NUL 原样入名);pos==-1

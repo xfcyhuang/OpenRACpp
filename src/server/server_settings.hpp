@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Settings.cs @e180e3225 L92-154(ServerSettings 全
+// UPSTREAM: OpenRA.Game/Settings.cs @1f594e320 L92-154(ServerSettings 全
 //          字段 + 默认值逐字;L500-541 的 SanitizedName/SanitizedServerName/
 //          SanitizedPlayerName 全文 —— MiniYAML/JSON 保留字符剥离与 16 字
 //          截断;Ban/MapPool 的 FrozenSet → 插入序 vector,Whitelist/

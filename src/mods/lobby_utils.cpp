@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Lobby/LobbyUtils.cs
-//          @e180e3225(实现;头注见 lobby_utils.hpp)
+//          @1f594e320(实现;头注见 lobby_utils.hpp)
 //          Implementation; the header notes live in lobby_utils.hpp.
 #include "mods/lobby_utils.hpp"
 

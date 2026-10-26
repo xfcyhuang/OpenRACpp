@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/TraitsInterfaces.cs @e180e3225 L576-620
+// UPSTREAM: OpenRA.Game/Traits/TraitsInterfaces.cs @1f594e320 L576-620
 //          (LobbyOption/LobbyBooleanOption 值面;实现体)
 //          LobbyOption/LobbyBooleanOption's value face (implementation).
 #include "server/lobby_option.hpp"

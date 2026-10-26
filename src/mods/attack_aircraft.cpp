@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Air/AttackAircraft.cs +
-//          AttackBomber.cs @e180e3225 + Activities/Air/FlyAttack.cs 的实现面
+//          AttackBomber.cs @1f594e320 + Activities/Air/FlyAttack.cs 的实现面
 #include "mods/attack_aircraft.hpp"
 
 #include "map/map.hpp"

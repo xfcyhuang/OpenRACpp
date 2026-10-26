@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/SimpleTooltipLogic.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/SimpleTooltipLogic.cs @1f594e320
 // (simple_tooltip_logic.hpp 的实现)
 // The implementation of simple_tooltip_logic.hpp.
 import std;

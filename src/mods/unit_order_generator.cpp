@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Orders/UnitOrderGenerator.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Orders/UnitOrderGenerator.cs @1f594e320
 //          (实现部分)
 //          The implementation half of UnitOrderGenerator.cs.
 import std;

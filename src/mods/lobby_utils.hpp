@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Lobby/LobbyUtils.cs
-//          @e180e3225 全文(SetupProfileWidget 先于本批承载;本批补齐
+//          @1f594e320 全文(SetupProfileWidget 先于本批承载;本批补齐
 //          其余:下拉族/出生点选择/Setup* widget 族/延迟色面)
 //          The whole file (SetupProfileWidget landed before this batch;
 //          this batch completes the rest: the dropdown family / spawn

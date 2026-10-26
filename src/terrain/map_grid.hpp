@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Map/MapGrid.cs @e180e3225 L20-256(逐语义重写)
+// UPSTREAM: OpenRA.Game/Map/MapGrid.cs @1f594e320 L20-256(逐语义重写)
 //          Verbatim-semantics rewrite.
 //
 // 机制对照 / Mechanism mapping:

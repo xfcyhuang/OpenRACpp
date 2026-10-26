@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Warheads/DamageWarhead.cs @e180e3225 L20-94 +
+// UPSTREAM: OpenRA.Mods.Common/Warheads/DamageWarhead.cs @1f594e320 L20-94 +
 //          SpreadDamageWarhead.cs L20-143(全文逐语义重写;DebugVisualizations
 //          的 WarheadDebugOverlay 面随 Phase 6)
 //          The whole of DamageWarhead.cs L20-94 + SpreadDamageWarhead.cs

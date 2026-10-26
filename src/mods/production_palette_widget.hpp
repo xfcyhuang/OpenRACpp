@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ProductionPaletteWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ProductionPaletteWidget.cs @1f594e320
 //          L28-650 全文
 //          The whole of ProductionPaletteWidget.cs L28-650.
 #pragma once

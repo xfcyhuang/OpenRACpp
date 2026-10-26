@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Armor.cs @e180e3225 L17-30 全文
+// UPSTREAM: OpenRA.Mods.Common/Traits/Armor.cs @1f594e320 L17-30 全文
 //          (ArmorType 标签在 hit_shape.hpp —— BitSet 注册面的就近锚)
 //          The whole of Armor.cs L17-30 (the ArmorType tag lives in
 //          hit_shape.hpp — anchored next to the BitSet registration face).

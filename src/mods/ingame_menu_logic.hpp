@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/IngameMenuLogic.cs
-//          @e180e3225 L23-647 全文。
+//          @1f594e320 L23-647 全文。
 #pragma once
 import std;
 

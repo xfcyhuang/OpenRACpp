@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Primitives/PriorityQueue.cs @e180e3225(逐语义重写)
+// UPSTREAM: OpenRA.Game/Primitives/PriorityQueue.cs @1f594e320(逐语义重写)
 //          Verbatim-semantics rewrite.
 //
 // 机制对照 / Mechanism mapping:

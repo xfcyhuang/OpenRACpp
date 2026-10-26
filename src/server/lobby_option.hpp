@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/TraitsInterfaces.cs @e180e3225 L571-612(
+// UPSTREAM: OpenRA.Game/Traits/TraitsInterfaces.cs @1f594e320 L571-612(
 //          ILobbyOptions 接口 + LobbyOption/LobbyBooleanOption 值面全
 //          文;map.GetMessage 的本地化名 = 上游直返 key 的回落面 ——
 //          FluentProvider 随 Phase 6,LobbyOptions(map) 的逐 trait 装配

@@ -1,5 +1,5 @@
-// UPSTREAM: OpenRA.Game/Sound/Sound.cs @e180e3225 L22-34 + OpenRA.Game/
-//          ObjectCreator.cs @e180e3225 L149-156 + 五个 AudioLoaders
+// UPSTREAM: OpenRA.Game/Sound/Sound.cs @1f594e320 L22-34 + OpenRA.Game/
+//          ObjectCreator.cs @1f594e320 L149-156 + 五个 AudioLoaders
 //          (sound_loader.hpp 的实现)
 //          Implementation of sound_loader.hpp.
 import std;

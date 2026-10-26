@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithMakeAnimation.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithMakeAnimation.cs @1f594e320
 //          L20-203 全文 + WithMakeOverlay.cs L17-64 全文
 //          The whole of WithMakeAnimation.cs L20-203 + WithMakeOverlay.cs
 //          L17-64.

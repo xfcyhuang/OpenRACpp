@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/Connection.cs @e180e3225 L47-216(读循环/
+// UPSTREAM: OpenRA.Game/Server/Connection.cs @1f594e320 L47-216(读循环/
 //          发送队列全文)
 //          Connection.cs L47-216 (the read loop/send queue's whole text).
 import std;

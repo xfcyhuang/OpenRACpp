@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWithTooltipWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWithTooltipWidget.cs @1f594e320
 // (label_with_tooltip_widget.hpp 的实现)
 // The implementation of label_with_tooltip_widget.hpp.
 import std;

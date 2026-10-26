@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/RepairableBuilding.cs
-//          @e180e3225 L22-208 全文。
+//          @1f594e320 L22-208 全文。
 #pragma once
 import std;
 

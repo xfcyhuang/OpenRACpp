@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/DebugPauseState.cs @e180e3225 L18-39 全文
+// UPSTREAM: OpenRA.Game/Traits/DebugPauseState.cs @1f594e320 L18-39 全文
 //          (第十二批 G2 黄金对拍补面:world actor 的 ISync 条目缺失会
 //          平移 SyncHash 的 n 计数)
 //          The whole of DebugPauseState.cs L18-39 (the batch-12 G2 golden

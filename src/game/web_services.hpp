@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/WebServices.cs @e180e3225 L15-60 +
+// UPSTREAM: OpenRA.Mods.Common/WebServices.cs @1f594e320 L15-60 +
 // OpenRA.Game/Support/HttpQueryBuilder.cs L16-59(值面 + CheckModVersion)
 // 五服务 URL 的值面(上游 readonly 字面量;此处可注入覆写 = 测试/宿主
 // 面)+ CheckModVersion 的三态查询(GET {VersionCheck}?protocol=1&engine=

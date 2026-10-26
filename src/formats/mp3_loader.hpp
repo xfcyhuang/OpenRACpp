@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/AudioLoaders/Mp3Loader.cs @e180e3225 L19-120(形态逐语义;
+// UPSTREAM: OpenRA.Mods.Common/AudioLoaders/Mp3Loader.cs @1f594e320 L19-120(形态逐语义;
 //          解码后端替换)
 // MP3 音频:IsMp3 嗅探逐句 —— 首 3 字节 ASCII "ID3"(ID3v2 元数据头)或首
 // u16(小端)== 0xfbff(MPEG 帧同步字节 FF FB)。解码输出 16 位 PCM。

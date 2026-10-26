@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/TabCompletionLogic.cs
-//          @e180e3225 全文 + OpenRA.Mods.Common/Widgets/Logic/Lobby/
+//          @1f594e320 全文 + OpenRA.Mods.Common/Widgets/Logic/Lobby/
 //          {LatencyTooltipLogic,SpawnSelectorTooltipLogic,KickClientLogic,
 //          KickSpectatorsLogic,MapPreviewLogic,LobbyOptionsLogic,LobbyLogic}
 //          .cs 全文(大厅面板族九件;ChromeLogic 注册锚之外全部以

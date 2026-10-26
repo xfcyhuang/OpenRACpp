@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Support/MersenneTwister.cs @e180e3225 L17-153(全类型)
+// UPSTREAM: OpenRA.Game/Support/MersenneTwister.cs @1f594e320 L17-153(全类型)
 // MT19937(OpenRA 变体)——仿真确定性的根基:任何数值/顺序变化都会导致 desync。
 // Last/TotalCount 为上游公有字段,参与 SyncHash,字段名保留原名。
 // 无参构造(Environment.TickCount 种子)不移植:同步路径必须显式播种。

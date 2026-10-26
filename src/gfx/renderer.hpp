@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Renderer.cs @e180e3225 L24-585(逐方法)
+// UPSTREAM: OpenRA.Game/Renderer.cs @1f594e320 L24-585(逐方法)
 // 帧编排:BeginWorld(world FBO 渲染)→ BeginUI(合成 + UI)→ EndFrame(Present)。
 // OPT-B1(docs/OPTIMIZATION_TRACKER.md)单级合成 —— 上游三级 pow2 链
 // (world FBO → screen FBO → 默认帧缓冲;1920×1080 窗口被迫 2048² 双 FBO,
@@ -244,6 +244,21 @@ class Renderer {
   /// EffectiveWindowScale rides the UIScale batch).
   float NativeWindowScale() const { return window_.Geom().float_scale; }
 
+  int2 Resolution() const { return window_.EffectiveWindowSize(); }
+  int2 NativeResolution() const { return window_.NativeWindowSize(); }
+  int DisplayCount() const { return window_.DisplayCount(); }
+  int CurrentDisplay() const { return window_.CurrentDisplay(); }
+  const std::vector<platform::GLProfileKind>& SupportedGLProfiles() const {
+    return vec_supported_profiles_;
+  }
+  void SetUIScale(float fp4_scale) { window_.SetScaleModifier(fp4_scale); }
+  void SetVSyncEnabled(bool b_enabled) { window_.SetVSyncEnabled(b_enabled); }
+  void GrabWindowMouseFocus() { window_.GrabWindowMouseFocus(); }
+  void ReleaseWindowMouseFocus() { window_.ReleaseWindowMouseFocus(); }
+  bool TryOpenUrl(std::string_view str_url) const {
+    return window_.TryOpenUrl(str_url);
+  }
+
  private:
   void BeginFrame();
 
@@ -279,6 +294,7 @@ class Renderer {
   std::vector<Rectangle> vec_scissor_stack_;
   IBatchRenderer* ptr_current_batch_ = nullptr;
   RenderType kind_render_type_ = RenderType::None;
+  std::vector<platform::GLProfileKind> vec_supported_profiles_;
 
   float float_depth_margin_ = 0.0f;
   int2 int2_last_maximum_viewport_size_{};

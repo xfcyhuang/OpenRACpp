@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/ObjectCreator.cs @e180e3225 L78-137(按名实例化)+
+// UPSTREAM: OpenRA.Game/ObjectCreator.cs @1f594e320 L78-137(按名实例化)+
 //          TraitInfo.Create(ActorInitializer) 的分发面(PORTING_PLAN D26/D27
 //          的 Phase 5 接线)
 //          The name-keyed instantiation of ObjectCreator + the dispatch face

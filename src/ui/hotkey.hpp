@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Input/Hotkey.cs @e180e3225 L20-101(全文)+
+// UPSTREAM: OpenRA.Game/Input/Hotkey.cs @1f594e320 L20-101(全文)+
 //          HotkeyReference.cs L15-46(全文)+ HotkeyDefinition.cs L20-66(全文)
 //          + HotkeyManager.cs L20-116(核心面)+ Keycode.cs L259-511
 //          (KeycodeExts.KeycodeFluentKeys/DisplayString)+ IInputHandler.cs
@@ -166,12 +166,13 @@ class HotkeyManager {
   /// this[name] (L108) → GetHotkeyReference (L50-66).
   HotkeyReference Get(std::string_view str_name) const;
 
-  /// Set(L70-95):Readonly/未知定义跳过;keys 写 + 重复位重算(settings 节点
-  /// 的持久化面随 Settings 批,偏离登记)。
-  /// Set (L70-95): Readonly/unknown definitions skip; the keys write + the
-  /// duplicate-bit recompute (the settings-node persistence awaits the
-  /// Settings batch; registered).
   void Set(std::string_view str_name, Hotkey hk_value);
+
+  void SetPersistSink(
+      std::function<void(const std::string& str_name,
+                         std::optional<std::string> str_value)> fn_sink);
+  void SetSaveSink(std::function<void()> fn_sink);
+  void Save();
 
   /// GetFirstDuplicate(L98-107):值相等且 Contexts 相交的首个其它定义。
   /// GetFirstDuplicate (L98-107): the first other definition with an equal
@@ -182,6 +183,9 @@ class HotkeyManager {
  private:
   std::vector<std::pair<std::string, HotkeyDefinition>> vec_definitions_;
   std::vector<std::pair<std::string, Hotkey>> vec_keys_;
+  std::function<void(const std::string&, std::optional<std::string>)>
+      fn_persist_sink_;
+  std::function<void()> fn_save_sink_ = [] {};
 };
 
 /// ParseHotkeyReference(FieldLoader.cs L222-225)的缺省回落:GetHotkeyReference

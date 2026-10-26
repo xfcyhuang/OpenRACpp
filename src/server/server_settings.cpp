@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Settings.cs @e180e3225 L515-522(SanitizedServerName
+// UPSTREAM: OpenRA.Game/Settings.cs @1f594e320 L515-522(SanitizedServerName
 //          全文;SanitizedName/SanitizedPlayerName 已随第十六批迁入
 //          ora::net —— net/sanitize.cpp)
 //          The whole of SanitizedServerName (L515-522); SanitizedName/

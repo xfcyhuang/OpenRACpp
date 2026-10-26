@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/TextNotificationsManager.cs @e180e3225 L26-117
+// UPSTREAM: OpenRA.Game/TextNotificationsManager.cs @1f594e320 L26-117
 //          (实现全文)
 //          (the whole implementation).
 import std;

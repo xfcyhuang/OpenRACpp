@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/ReplayRecorder.cs @e180e3225 L19-118 全文 +
+// UPSTREAM: OpenRA.Game/Network/ReplayRecorder.cs @1f594e320 L19-118 全文 +
 //           OpenRA.Game/FileFormats/ReplayMetadata.cs L17-108 全文 +
 //           OpenRA.Game/Network/ReplayConnection.cs L19-135 全文(第十一批:
 //           回放驱动世界 = OrderManager 装配;orderLatency/FinalGameTick 为

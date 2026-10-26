@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWidget.cs @e180e3225 L20-133(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWidget.cs @1f594e320 L20-133(全文)。
 // Text 为 Fluent 键(CachedTransform 空串/空值直通);字体经 Game.Renderer.
 // Fonts 注入面(缺名抛 ArgumentException 文本逐字);WordWrap/三态对齐/
 // IncreaseHeightToFitCurrentText 保真;DrawInner 虚面供 LabelWithTooltip 等

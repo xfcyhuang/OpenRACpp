@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/WebServices.cs @e180e3225 L15-60 +
+// UPSTREAM: OpenRA.Mods.Common/WebServices.cs @1f594e320 L15-60 +
 // OpenRA.Game/Support/HttpQueryBuilder.cs L16-59(实现半;契约半见头文件)
 // The implementation half (the contract half is in the header).
 #include "game/web_services.hpp"

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Map/PlayerReference.cs @e180e3225 L15-65(逐语义重写)+
+// UPSTREAM: OpenRA.Game/Map/PlayerReference.cs @1f594e320 L15-65(逐语义重写)+
 //          OpenRA.Game/Map/MapPlayers.cs L12-82(全量;ToMiniYaml 属编辑面
 //          随编辑器批) | Verbatim-semantics rewrite; MapPlayers.ToMiniYaml
 //          is an editor-face item landing with the editor batch.

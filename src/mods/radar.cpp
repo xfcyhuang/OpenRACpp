@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/RadarPings.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/RadarPings.cs @1f594e320
 //          L20-115 + PlayerRadarTerrain.cs L19-96 + Radar/ 三件的实现面
 //          L20-115, PlayerRadarTerrain.cs L19-96 and the three Radar/
 //          traits' implementation face.

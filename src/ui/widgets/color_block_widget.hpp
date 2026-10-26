@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ColorBlockWidget.cs @e180e3225 L18-80(全文)
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ColorBlockWidget.cs @1f594e320 L18-80(全文)
 // + GradientColorBlockWidget.cs L18-57(全文)。ColorBlock 的输入三态
 // (Down 持焦/Up 让焦触发)与 ClickSound 通知;Gradient 的四角色 FillRect。
 // ModData.DefaultRules → WidgetArgs "modData";Game.Sound → Ui 注入。

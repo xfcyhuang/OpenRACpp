@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/CreateMapPlayers.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/CreateMapPlayers.cs @1f594e320
 //          L22-181 + OpenRA.Game/Traits/World/Faction.cs(逐语义重写)
 //          Verbatim-semantics rewrites.
 //

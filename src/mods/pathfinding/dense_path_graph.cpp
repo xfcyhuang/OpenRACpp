@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Pathfinder/DensePathGraph.cs @e180e3225 +
+// UPSTREAM: OpenRA.Mods.Common/Pathfinder/DensePathGraph.cs @1f594e320 +
 //          MapPathGraph.cs + GridPathGraph.cs + SparsePathGraph.cs
 //          (实现部分)
 //          The implementation halves.

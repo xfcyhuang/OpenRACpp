@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/AIUtils.cs @e180e3225(实现部分)
+// UPSTREAM: OpenRA.Mods.Common/AIUtils.cs @1f594e320(实现部分)
 //          The implementation half.
 #include "mods/ai_utils.hpp"
 

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ButtonWidget.cs @e180e3225 L20-298(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ButtonWidget.cs @1f594e320 L20-298(全文)。
 // 输入三态(Depressed/双击/键重复门)/键激活(HotkeyReference)/Tooltip 容器
 // 懒查/GetTextPosition 三对齐/DrawBackground 静态九宫格。Game.Sound/
 // Game.Renderer.Fonts/Ui.MouseOverWidget → Ui::Instance() 注入承载;

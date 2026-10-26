@@ -201,6 +201,8 @@ add_library(ora_game STATIC
   src/game/mod_data.cpp
   src/game/loaders.cpp
   src/game/settings.cpp
+  src/game/local_player_profile.cpp
+  src/ui/hotkey.cpp
   src/game/web_services.cpp)
 target_link_libraries(ora_game PUBLIC ora_gen ora_terrain PRIVATE ora_fs ora_formats ora_http ora_fluent)
 ora_link_std(ora_game)
@@ -589,6 +591,7 @@ add_library(ora_mods STATIC
   src/mods/lobby_utils.cpp
   src/mods/lobby_logics.cpp
   src/mods/game_info_logics.cpp
+  src/mods/settings_logics.cpp
   src/mods/server_creation_logic.cpp
   src/mods/asset_browser_logic.cpp
   src/mods/trait_registry_batch17.cpp
@@ -617,7 +620,6 @@ add_library(ora_ui STATIC
   src/ui/default_input_handler.cpp
   src/ui/chrome_metrics.cpp
   src/ui/widget_loader.cpp
-  src/ui/hotkey.cpp
   src/ui/widget_utils.cpp
   src/ui/widgets/label_widget.cpp
   src/ui/widgets/label_with_tooltip_widget.cpp

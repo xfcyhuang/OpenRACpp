@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Order.cs @e180e3225 L18-495(逐字节序列化协议
+// UPSTREAM: OpenRA.Game/Network/Order.cs @1f594e320 L18-495(逐字节序列化协议
 //          逐语义重写;BinaryWriter/Reader → byte_io 兼容层)
 //          Verbatim-bytes rewrite of the serialization protocol via the
 //          byte_io shim.

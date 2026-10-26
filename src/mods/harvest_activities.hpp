@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/HarvestResource.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Activities/HarvestResource.cs @1f594e320
 //          L19-124 全文 + FindAndDeliverResources.cs L19-263 全文(逐语义
 //          重写)
 //          The whole of HarvestResource.cs L19-124 + the whole of

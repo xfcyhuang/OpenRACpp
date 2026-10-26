@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/Wait.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Activities/Wait.cs @1f594e320
 //          实现部分(Wait/Turn/Drag/Nudge/AttackMoveActivity/
 //          MoveCooldownHelper/MoveAdjacentTo/MoveWithinRange/MoveOnto/
 //          MoveOntoAndTurn/Follow/LocalMoveIntoTarget/Move +

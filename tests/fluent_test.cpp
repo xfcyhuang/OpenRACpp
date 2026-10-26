@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FluentProvider.cs + FluentBundle.cs @e180e3225
+// UPSTREAM: OpenRA.Game/FluentProvider.cs + FluentBundle.cs @1f594e320
 // (Phase 6 第一批验收:golden_fluent 对拍门 + 单元面)。
 // 重放器与 golden_gen FluentGoldenMode 同一行扫描/同一探针表;微用例集
 // 逐字节同文嵌入。oracle = Linguini 0.8.1(上游 FluentBundle 的依赖)。

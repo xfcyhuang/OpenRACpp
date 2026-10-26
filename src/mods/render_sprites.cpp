@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/RenderSprites.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/RenderSprites.cs @1f594e320
 //          L24-302(实现部分;头注见 render_sprites.hpp)
 //          The implementation half of RenderSprites.cs L24-302 (the header
 //          note lives in render_sprites.hpp).

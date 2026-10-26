@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteFont.cs @e180e3225 L20-431(全文)+
+// UPSTREAM: OpenRA.Game/Graphics/SpriteFont.cs @1f594e320 L20-431(全文)+
 // PlatformInterfaces.cs L192-195(IFont)。字形缓存/对比度字形(灰度膨胀的
 // 圆形权图)/阴影与对比度文本绘制/Measure 的行宽累加;deviceScale 的屏幕
 // 像素取整面(0.5f 偏移 + (int) 截断)逐行保真。

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithParachute.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithParachute.cs @1f594e320
 #include "mods/with_parachute.hpp"
 
 #include "gfx/renderable.hpp"

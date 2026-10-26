@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/ColorBlockWidget.cs + Gradient-
-// ColorBlockWidget.cs @e180e3225(color_block_widget.hpp 的实现)
+// ColorBlockWidget.cs @1f594e320(color_block_widget.hpp 的实现)
 // The implementation of color_block_widget.hpp.
 import std;
 

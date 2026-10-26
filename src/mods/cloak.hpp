@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Cloak.cs @e180e3225 L23-377 全文 +
+// UPSTREAM: OpenRA.Mods.Common/Traits/Cloak.cs @1f594e320 L23-377 全文 +
 //          DetectCloaked.cs L11-54 全文 + IgnoresCloak.cs L11-19 全文
 //          The whole of Cloak.cs L23-377 + DetectCloaked.cs L11-54 +
 //          IgnoresCloak.cs L11-19.

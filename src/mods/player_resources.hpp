@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlayerResources.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlayerResources.cs @1f594e320
 //          L17-264 全文(InsufficientFunds 的声音/文本通知随注入面;
 //          ILobbyOptions 的 startingcash 选项声明随 Phase 7 lobby)
 //          The whole of PlayerResources.cs L17-264 (the

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Settings.cs @e180e3225 L52-340(实现部分;头注见
+// UPSTREAM: OpenRA.Game/Settings.cs @1f594e320 L52-340(实现部分;头注见
 //          settings.hpp)
 //          The implementation half of Settings.cs L52-340 (the header note
 //          lives in settings.hpp).
@@ -39,16 +39,15 @@ constexpr FieldDesc kPlayerSettingsFields[] = {
      .str_loader = {}},
 };
 
-/// GameSettings 字段表(Settings.cs L319-341;核心标量子集)
-/// The GameSettings field table (Settings.cs L319-341; the core scalar
-/// subset).
 constexpr FieldDesc kGameSettingsFields[] = {
     {.str_name = "Platform", .type = FieldType::String},
     {.str_name = "ViewportEdgeScroll", .type = FieldType::Bool},
     {.str_name = "ViewportEdgeScrollMargin", .type = FieldType::Int32},
     {.str_name = "LockMouseWindow", .type = FieldType::Bool},
-    {.str_name = "MouseControlStyle", .type = FieldType::Enum},
-    {.str_name = "MouseScroll", .type = FieldType::Enum},
+    {.str_name = "MouseControlStyle", .type = FieldType::Enum,
+     .str_type_name = "OpenRA.MouseControlStyle"},
+    {.str_name = "MouseScroll", .type = FieldType::Enum,
+     .str_type_name = "OpenRA.MouseScrollType"},
     {.str_name = "ViewportEdgeScrollStep", .type = FieldType::Float},
     {.str_name = "UIScrollSpeed", .type = FieldType::Float},
     {.str_name = "ZoomSpeed", .type = FieldType::Float},
@@ -56,13 +55,23 @@ constexpr FieldDesc kGameSettingsFields[] = {
     {.str_name = "MouseScrollDeadzone", .type = FieldType::Int32},
     {.str_name = "UseAlternateScrollButton", .type = FieldType::Bool},
     {.str_name = "HideReplayChat", .type = FieldType::Bool},
-    {.str_name = "StatusBars", .type = FieldType::Enum},
-    {.str_name = "TargetLines", .type = FieldType::Enum},
+    {.str_name = "StatusBars", .type = FieldType::Enum,
+     .str_type_name = "OpenRA.StatusBarsType"},
+    {.str_name = "TargetLines", .type = FieldType::Enum,
+     .str_type_name = "OpenRA.TargetLinesType"},
     {.str_name = "UsePlayerStanceColors", .type = FieldType::Bool},
-    {.str_name = "AllowDownloading", .type = FieldType::Bool,
-     .b_required = false},
-    {.str_name = "MPGameFilters", .type = FieldType::Enum, .b_required = false,
-     .str_loader = {}, .str_type_name = "OpenRA.MPGameFilters"},
+    {.str_name = "AllowDownloading", .type = FieldType::Bool},
+    {.str_name = "AuthProfile", .type = FieldType::String},
+    {.str_name = "ZoomModifier", .type = FieldType::Enum,
+     .str_type_name = "OpenRA.Modifiers"},
+    {.str_name = "FetchNews", .type = FieldType::Bool},
+    {.str_name = "IntroductionPromptVersion", .type = FieldType::Int32},
+    {.str_name = "MPGameFilters", .type = FieldType::Enum,
+     .str_type_name = "OpenRA.MPGameFilters"},
+    {.str_name = "PauseShellmap", .type = FieldType::Bool},
+    {.str_name = "EnableDiscordService", .type = FieldType::Bool},
+    {.str_name = "TextNotificationPoolFilters", .type = FieldType::Enum,
+     .str_type_name = "OpenRA.TextNotificationPoolFilters"},
 };
 
 /// GraphicSettings 字段表(Settings.cs L237-280;全字段;枚举经本文件的
@@ -125,7 +134,14 @@ const std::vector<GenericValue>& GameSettingsDefaults() {
       GenericValue::Of(static_cast<std::int64_t>(1)),
       GenericValue::Of(false),
       GenericValue::Of(true),
+      GenericValue::Of(std::string{"player.oraid"}),
+      GenericValue::Of(static_cast<std::int64_t>(0)),
+      GenericValue::Of(true),
+      GenericValue::Of(static_cast<std::int64_t>(0)),
       GenericValue::Of(static_cast<std::int64_t>(15)),
+      GenericValue::Of(false),
+      GenericValue::Of(true),
+      GenericValue::Of(static_cast<std::int64_t>(3)),
   };
   return vec_defaults;
 }
@@ -487,6 +503,18 @@ constexpr meta::EnumMemberDesc kEnumMPGameFilters[] = {
     {.str_name = "Started", .int4_value = 8},
     {.str_name = "Incompatible", .int4_value = 16},
 };
+constexpr meta::EnumMemberDesc kEnumModifiers[] = {
+    {.str_name = "None", .int4_value = 0},
+    {.str_name = "Shift", .int4_value = 1},
+    {.str_name = "Alt", .int4_value = 2},
+    {.str_name = "Ctrl", .int4_value = 4},
+    {.str_name = "Meta", .int4_value = 8},
+};
+constexpr meta::EnumMemberDesc kEnumTextNotificationPoolFilters[] = {
+    {.str_name = "None", .int4_value = 0},
+    {.str_name = "Feedback", .int4_value = 1},
+    {.str_name = "Transients", .int4_value = 2},
+};
 
 void RegisterGameSettingsEnums() {
   meta::RegisterEnum("OpenRA.MouseControlStyle", kEnumMouseControlStyle);
@@ -494,7 +522,35 @@ void RegisterGameSettingsEnums() {
   meta::RegisterEnum("OpenRA.StatusBarsType", kEnumStatusBarsType);
   meta::RegisterEnum("OpenRA.TargetLinesType", kEnumTargetLinesType);
   meta::RegisterEnum("OpenRA.MPGameFilters", kEnumMPGameFilters);
+  meta::RegisterEnum("OpenRA.Modifiers", kEnumModifiers);
+  meta::RegisterEnum("OpenRA.TextNotificationPoolFilters",
+                     kEnumTextNotificationPoolFilters);
 }
+
+constexpr FieldDesc kAutoSaveSettingsFields[] = {
+    {.str_name = "AutoSaveInterval", .type = FieldType::Int32,
+     .b_required = false},
+    {.str_name = "AutoSaveMaxFileCount", .type = FieldType::Int32,
+     .b_required = false},
+};
+
+const std::vector<GenericValue>& AutoSaveSettingsDefaults() {
+  static const std::vector<GenericValue> vec_defaults = {
+      GenericValue::Of(static_cast<std::int64_t>(0)),
+      GenericValue::Of(static_cast<std::int64_t>(10)),
+  };
+  return vec_defaults;
+}
+
+constexpr meta::RecordDesc kAutoSaveSettingsDesc = {
+    .str_name = "AutoSaveSettings",
+    .str_full_name = "OpenRA.Mods.Common.Traits.AutoSaveSettings",
+    .str_base = "",
+    .fields = kAutoSaveSettingsFields,
+    .requires_types = {},
+    .not_before_types = {},
+    .interfaces = {},
+};
 
 }  // namespace
 
@@ -511,6 +567,8 @@ const meta::RecordDesc* SettingsDescOf(std::string_view str_section) {
     return &kDebugSettingsDesc;
   if (str_section == "Server")
     return &kServerSettingsDesc;
+  if (str_section == "AutoSave")
+    return &kAutoSaveSettingsDesc;
   return nullptr;
 }
 
@@ -534,6 +592,8 @@ SettingsModule::SettingsModule(const meta::RecordDesc& desc,
     ptr_defaults = &DebugSettingsDefaults();
   else if (&desc == &kServerSettingsDesc)
     ptr_defaults = &ServerSettingsDefaults();
+  else if (&desc == &kAutoSaveSettingsDesc)
+    ptr_defaults = &AutoSaveSettingsDefaults();
   else {
     // 未知段:空字段承载(上游 Activator.CreateInstance 的缺省面)
     // An unknown section: the empty carrier (upstream's
@@ -579,7 +639,190 @@ std::vector<yaml::MiniYamlNode> SettingsModule::Commit(
   return vec_nodes;
 }
 
+std::optional<std::size_t> SettingsModule::SlotIndexOf(
+    std::string_view str_field) const {
+  const std::vector<const FieldDesc*> vec_fields =
+      meta::CollectFields(up_record_->record_desc());
+  for (std::size_t sz_i = 0; sz_i < vec_fields.size(); ++sz_i)
+    if (vec_fields[sz_i]->str_name == str_field)
+      return sz_i;
+  return std::nullopt;
+}
+
+meta::FieldType SettingsModule::SlotType(std::size_t sz_slot) const {
+  const std::vector<const FieldDesc*> vec_fields =
+      meta::CollectFields(up_record_->record_desc());
+  return vec_fields.at(sz_slot)->type;
+}
+
+bool SettingsModule::GetBool(std::size_t sz_slot) const {
+  return std::get<bool>(up_record_->Slot(sz_slot).val);
+}
+
+void SettingsModule::SetBool(std::size_t sz_slot, bool b_value) {
+  up_record_->Slot(sz_slot) = GenericValue::Of(b_value);
+}
+
+float SettingsModule::GetFloat(std::size_t sz_slot) const {
+  return std::get<float>(up_record_->Slot(sz_slot).val);
+}
+
+void SettingsModule::SetFloat(std::size_t sz_slot, float fp4_value) {
+  up_record_->Slot(sz_slot) = GenericValue::Of(fp4_value);
+}
+
+std::int64_t SettingsModule::GetInt(std::size_t sz_slot) const {
+  return std::get<std::int64_t>(up_record_->Slot(sz_slot).val);
+}
+
+void SettingsModule::SetInt(std::size_t sz_slot, std::int64_t int8_value) {
+  up_record_->Slot(sz_slot) = GenericValue::Of(int8_value);
+}
+
+const std::string& SettingsModule::GetString(std::size_t sz_slot) const {
+  return std::get<std::string>(up_record_->Slot(sz_slot).val);
+}
+
+void SettingsModule::SetString(std::size_t sz_slot, std::string str_value) {
+  up_record_->Slot(sz_slot) = GenericValue::Of(std::move(str_value));
+}
+
+int2 SettingsModule::GetInt2(std::size_t sz_slot) const {
+  const meta::GenericTuple& tuple =
+      std::get<meta::GenericTuple>(up_record_->Slot(sz_slot).val);
+  return int2{static_cast<std::int32_t>(tuple.arr_ints[0]),
+              static_cast<std::int32_t>(tuple.arr_ints[1])};
+}
+
+void SettingsModule::SetInt2(std::size_t sz_slot, int2 int2_value) {
+  meta::GenericTuple tuple{};
+  tuple.arr_ints[0] = int2_value.X;
+  tuple.arr_ints[1] = int2_value.Y;
+  tuple.uint1_count = 2;
+  up_record_->Slot(sz_slot) = GenericValue::Of(std::move(tuple));
+}
+
+const meta::GenericValue& SettingsModule::DefaultSlot(
+    std::size_t sz_slot) const {
+  return up_defaults_->Slot(sz_slot);
+}
+
+bool SettingsModule::DefaultBool(std::size_t sz_slot) const {
+  return std::get<bool>(up_defaults_->Slot(sz_slot).val);
+}
+
+float SettingsModule::DefaultFloat(std::size_t sz_slot) const {
+  return std::get<float>(up_defaults_->Slot(sz_slot).val);
+}
+
+std::int64_t SettingsModule::DefaultInt(std::size_t sz_slot) const {
+  return std::get<std::int64_t>(up_defaults_->Slot(sz_slot).val);
+}
+
+const std::string& SettingsModule::DefaultString(
+    std::size_t sz_slot) const {
+  return std::get<std::string>(up_defaults_->Slot(sz_slot).val);
+}
+
+meta::GeneratedRecord SettingsModule::CloneRecord() const {
+  return *up_record_;
+}
+
+
+namespace {
+
+yaml::MiniYaml CopyYamlDeep(const yaml::MiniYaml& yaml_src,
+                            std::deque<std::string>& deque_strings) {
+  const std::string* ptr_value = nullptr;
+  if (yaml_src.Value != nullptr) {
+    deque_strings.emplace_back(*yaml_src.Value);
+    ptr_value = &deque_strings.back();
+  }
+  std::vector<yaml::MiniYamlNode> vec_nodes;
+  vec_nodes.reserve(yaml_src.Nodes.size());
+  for (const auto& node : yaml_src.Nodes) {
+    deque_strings.emplace_back(node.Key != nullptr ? *node.Key
+                                                   : std::string{});
+    const std::string* ptr_key = &deque_strings.back();
+    vec_nodes.emplace_back(ptr_key, CopyYamlDeep(node.Value, deque_strings),
+                           node.Comment);
+  }
+  return yaml::MiniYaml{ptr_value, std::move(vec_nodes)};
+}
+
+yaml::MiniYaml InternYamlDeep(const yaml::MiniYaml& yaml_src,
+                              yaml::StringPool& pool) {
+  const std::string* ptr_value = nullptr;
+  if (yaml_src.Value != nullptr)
+    ptr_value = pool.Intern(*yaml_src.Value);
+  std::vector<yaml::MiniYamlNode> vec_nodes;
+  vec_nodes.reserve(yaml_src.Nodes.size());
+  for (const auto& node : yaml_src.Nodes)
+    vec_nodes.emplace_back(
+        pool.Intern(node.Key != nullptr ? std::string_view{*node.Key}
+                                        : std::string_view{}),
+        InternYamlDeep(node.Value, pool), node.Comment);
+  return yaml::MiniYaml{ptr_value, std::move(vec_nodes)};
+}
+
+}  // namespace
+
+void RawSettingsSection::Load(const yaml::MiniYaml& yaml_section) {
+  vec_nodes_.clear();
+  vec_nodes_.reserve(yaml_section.Nodes.size());
+  for (const auto& node : yaml_section.Nodes) {
+    deque_strings_.emplace_back(node.Key != nullptr ? *node.Key
+                                                    : std::string{});
+    const std::string* ptr_key = &deque_strings_.back();
+    vec_nodes_.emplace_back(ptr_key, CopyYamlDeep(node.Value, deque_strings_),
+                            node.Comment);
+  }
+}
+
+std::vector<yaml::MiniYamlNode> RawSettingsSection::Commit(
+    yaml::StringPool& pool) const {
+  std::vector<yaml::MiniYamlNode> vec_nodes;
+  vec_nodes.reserve(vec_nodes_.size());
+  for (const auto& node : vec_nodes_)
+    vec_nodes.emplace_back(
+        pool.Intern(node.Key != nullptr ? std::string_view{*node.Key}
+                                        : std::string_view{}),
+        InternYamlDeep(node.Value, pool), node.Comment);
+  return vec_nodes;
+}
+
+void RawSettingsSection::RemoveNodesNamed(std::string_view str_name) {
+  std::erase_if(vec_nodes_, [&](const yaml::MiniYamlNode& node) {
+    return node.Key != nullptr && *node.Key == str_name;
+  });
+}
+
+void RawSettingsSection::AddNode(const std::string& str_name,
+                                 const std::string& str_value) {
+  deque_strings_.emplace_back(str_name);
+  const std::string* ptr_key = &deque_strings_.back();
+  deque_strings_.emplace_back(str_value);
+  vec_nodes_.emplace_back(ptr_key, yaml::MiniYaml{&deque_strings_.back()});
+}
+
 // ———— Settings ————
+
+namespace {
+
+std::unique_ptr<Settings>& InstanceSlot() {
+  static std::unique_ptr<Settings> up_settings = std::make_unique<Settings>();
+  return up_settings;
+}
+
+}  // namespace
+
+Settings& Settings::Instance() {
+  return *InstanceSlot();
+}
+
+void Settings::ResetInstanceForTest() {
+  InstanceSlot() = std::make_unique<Settings>();
+}
 
 Settings::Settings() {
   // 上游 [YamlNode("Player"/"Game"/"Graphics")] 三段(shared: true)
@@ -610,9 +853,19 @@ void Settings::Load(const std::vector<yaml::MiniYamlNode>& vec_nodes,
   for (const auto& node : vec_nodes) {
     if (node.Key == nullptr)
       continue;
+    bool b_consumed = false;
     for (auto& module : vec_modules_)
-      if (*node.Key == module->Key())
+      if (*node.Key == module->Key()) {
         module->Load(node.Value);
+        b_consumed = true;
+      }
+    for (auto& section : vec_raw_sections_)
+      if (*node.Key == section->Key()) {
+        section->Load(node.Value);
+        b_consumed = true;
+      }
+    if (!b_consumed)
+      vec_pending_nodes_.push_back(node);
     (void)pool;
   }
 }
@@ -620,10 +873,22 @@ void Settings::Load(const std::vector<yaml::MiniYamlNode>& vec_nodes,
 std::vector<yaml::MiniYamlNode> Settings::Save(
     yaml::StringPool& pool) const {
   std::vector<yaml::MiniYamlNode> vec_nodes;
-  for (const auto& module : vec_modules_)
+  for (const auto& module : vec_modules_) {
+    std::vector<yaml::MiniYamlNode> vec_section = module->Commit(pool);
+    if (vec_section.empty())
+      continue;
     vec_nodes.emplace_back(
         pool.Intern(module->Key()),
-        yaml::MiniYaml{nullptr, module->Commit(pool)});
+        yaml::MiniYaml{nullptr, std::move(vec_section)});
+  }
+  for (const auto& section : vec_raw_sections_) {
+    std::vector<yaml::MiniYamlNode> vec_section = section->Commit(pool);
+    if (vec_section.empty())
+      continue;
+    vec_nodes.emplace_back(
+        pool.Intern(section->Key()),
+        yaml::MiniYaml{nullptr, std::move(vec_section)});
+  }
   return vec_nodes;
 }
 
@@ -639,6 +904,39 @@ const SettingsModule* Settings::Module(std::string_view str_key) const {
     if (module->Key() == str_key)
       return module.get();
   return nullptr;
+}
+
+SettingsModule* Settings::ModuleOrCreate(std::string_view str_key) {
+  if (SettingsModule* ptr_module = Module(str_key))
+    return ptr_module;
+
+  const meta::RecordDesc* ptr_desc = SettingsDescOf(str_key);
+  if (ptr_desc == nullptr)
+    return nullptr;
+
+  auto up_module = std::make_unique<SettingsModule>(*ptr_desc,
+                                                    std::string{str_key},
+                                                    true);
+  for (const auto& node : vec_pending_nodes_) {
+    if (node.Key != nullptr && *node.Key == str_key)
+      up_module->Load(node.Value);
+  }
+  vec_modules_.push_back(std::move(up_module));
+  return vec_modules_.back().get();
+}
+
+RawSettingsSection& Settings::RawSection(std::string_view str_key) {
+  for (auto& section : vec_raw_sections_)
+    if (section->Key() == str_key)
+      return *section;
+
+  auto up_section = std::make_unique<RawSettingsSection>(std::string{str_key});
+  for (const auto& node : vec_pending_nodes_) {
+    if (node.Key != nullptr && *node.Key == str_key)
+      up_section->Load(node.Value);
+  }
+  vec_raw_sections_.push_back(std::move(up_section));
+  return *vec_raw_sections_.back();
 }
 
 }  // namespace ora::game

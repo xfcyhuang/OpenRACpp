@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/GameSpeed.cs @e180e3225 L17-62(逐语义重写)
+// UPSTREAM: OpenRA.Game/GameSpeed.cs @1f594e320 L17-62(逐语义重写)
 //          Verbatim-semantics rewrite.
 //
 // 机制对照 / Mechanism mapping:

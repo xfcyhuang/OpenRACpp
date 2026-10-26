@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/RepairableBuilding.cs
-//          @e180e3225 L22-208 全文(实现部分)。
+//          @1f594e320 L22-208 全文(实现部分)。
 #include "mods/repairable_building.hpp"
 
 #include "mods/actor_exts.hpp"

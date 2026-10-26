@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.D2k/Graphics/D2kSpriteSequence.cs @e180e3225 L19-116
+// UPSTREAM: OpenRA.Mods.D2k/Graphics/D2kSpriteSequence.cs @1f594e320 L19-116
 //          (d2k_sprite_sequence.hpp 的实现)
 //          Implementation of d2k_sprite_sequence.hpp.
 import std;

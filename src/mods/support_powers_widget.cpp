@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/SupportPowersWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/SupportPowersWidget.cs @1f594e320
 //          L24-297 的实现面
 //          The implementation face of L24-297.
 #include "mods/support_powers_widget.hpp"

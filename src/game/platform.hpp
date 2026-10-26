@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Platform.cs @e180e3225 L288-312(ResolvePath)+
+// UPSTREAM: OpenRA.Game/Platform.cs @1f594e320 L288-312(ResolvePath)+
 //          OpenRA.Game/Game.cs L98-110(EngineDir/BinDir/SupportDir 常量来源)
 //          ResolvePath + the EngineDir/BinDir/SupportDir constants.
 //

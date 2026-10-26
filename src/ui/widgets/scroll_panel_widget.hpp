@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ScrollPanelWidget.cs @e180e3225 L20-528
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ScrollPanelWidget.cs @1f594e320 L20-528
 // (核心面;Bind/Unbind 的 IObservableCollection 绑定族随其消费批 ——
 // ObservableCollection 基建未移植,偏离登记)+ ListLayout.cs L15-47(全文)
 // + GridLayout.cs L18-48(全文)。

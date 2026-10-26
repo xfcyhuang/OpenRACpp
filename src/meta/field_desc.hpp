@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @e180e3225 L937-1032(FieldLoadInfo/SerializeAttribute 体系)
+// UPSTREAM: OpenRA.Game/FieldLoader.cs @1f594e320 L937-1032(FieldLoadInfo/SerializeAttribute 体系)
 //          + OpenRA.Game/ObjectCreator.cs L78-137(类型按名实例化)
 //          The FieldLoadInfo/SerializeAttribute system + string-named type
 //          instantiation.

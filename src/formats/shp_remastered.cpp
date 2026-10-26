@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpRemasteredLoader.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpRemasteredLoader.cs @1f594e320
 // L24-121(实现半;头文件为契约半)。两条上游正则 boost::regex 消费点
 // 直调(D235;原等价手写复刻 D67 由本批取代):
 //   - FilenameRegex ^(?<prefix>.+?[\-_])(?<frame>\d{4})\.tga$ 的惰性

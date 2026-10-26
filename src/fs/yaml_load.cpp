@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/MiniYaml.cs @e180e3225 L684-698(Load 逐语义移植;
+// UPSTREAM: OpenRA.Game/MiniYaml.cs @1f594e320 L684-698(Load 逐语义移植;
 // 与 FileSystem 同处一编译单元以解 yaml→fs 的依赖方向)
 // The Load entry point ported statement-by-statement (kept in the fs
 // translation unit so the yaml→fs dependency stays one-directional).

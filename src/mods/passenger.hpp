@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Traits/Passenger.cs +
-//          Orders/EnterAlliedActorTargeter.cs @e180e3225
+//          Orders/EnterAlliedActorTargeter.cs @1f594e320
 #pragma once
 import std;
 

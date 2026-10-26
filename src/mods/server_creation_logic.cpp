@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ServerCreationLogic.cs
-//          @e180e3225(实现;头注见 server_creation_logic.hpp)
+//          @1f594e320(实现;头注见 server_creation_logic.hpp)
 //          Implementation; the header notes live in server_creation_logic.hpp.
 #include "mods/server_creation_logic.hpp"
 

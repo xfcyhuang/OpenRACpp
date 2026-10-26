@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/DockHost.cs @e180e3225 L16-185 全文
+// UPSTREAM: OpenRA.Mods.Common/Traits/DockHost.cs @1f594e320 L16-185 全文
 //          (逐语义重写;DockType 位标签在 sim/trait_interfaces.hpp)
 //          The whole of DockHost.cs L16-185 (a verbatim-semantics rewrite;
 //          the DockType bit tag lives in sim/trait_interfaces.hpp).

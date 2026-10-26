@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/GrantCondition.cs @e180e3225(逐语句
+// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/GrantCondition.cs @1f594e320(逐语句
 //          重写;文件清单见 conditions.hpp 头注)
 //          Statement-by-statement rewrite; the file list lives in
 //          conditions.hpp's header note.

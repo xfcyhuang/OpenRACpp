@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/ServerTraits/PlayerPinger.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/ServerTraits/PlayerPinger.cs @1f594e320
 //          L18-104 全文(5s ping 周期的无 client 踢/超时预警/60s 超时
 //          踢线 + 20s 周期的超时倒计汇报;单机 < 2 人且非专用服豁免;
 //          Game.RunTime → Server::RunTimeMs 注入面)

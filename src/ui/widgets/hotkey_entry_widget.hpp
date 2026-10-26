@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/HotkeyEntryWidget.cs @e180e3225 L19-162(全文;
+// UPSTREAM: OpenRA.Mods.Common/Widgets/HotkeyEntryWidget.cs @1f594e320 L19-162(全文;
 // 键捕获 + 15-tick blink + 三色态)。
 #pragma once
 import std;

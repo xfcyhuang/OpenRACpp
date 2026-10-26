@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/HueSliderWidget.cs @e180e3225 L18-75(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/HueSliderWidget.cs @1f594e320 L18-75(全文)。
 #pragma once
 import std;
 

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/ObjectCreator.cs @e180e3225(trait_registry.hpp 的实现)
+// UPSTREAM: OpenRA.Game/ObjectCreator.cs @1f594e320(trait_registry.hpp 的实现)
 //          The implementation of trait_registry.hpp.
 import std;
 #include <cassert>  // assert 为宏,规范允许的 import/#include 并用正形态

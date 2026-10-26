@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Armament.cs @e180e3225 L22-431 全文
+// UPSTREAM: OpenRA.Mods.Common/Traits/Armament.cs @1f594e320 L22-431 全文
 //          (逐语义重写)
 //          The whole of Armament.cs L22-431 (verbatim-semantics rewrite).
 //

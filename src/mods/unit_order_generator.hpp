@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Orders/OrderGenerator.cs @e180e3225 L18-61 +
+// UPSTREAM: OpenRA.Mods.Common/Orders/OrderGenerator.cs @1f594e320 L18-61 +
 //          Orders/UnitOrderGenerator.cs L21-227(逐语义重写 + 注入面)
 //          Verbatim-semantics rewrite + the injection faces.
 //

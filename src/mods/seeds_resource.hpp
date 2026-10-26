@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/SeedsResource.cs @e180e3225 L21-81 全文
+// UPSTREAM: OpenRA.Mods.Common/Traits/SeedsResource.cs @1f594e320 L21-81 全文
 //          (第十二批 G2 黄金对拍修出:mine 的 Tick 播种 RandomWalk 是
 //          SharedRandom 的每 tick 大宗消费者,缺失即 desync)
 //          The whole of SeedsResource.cs L21-81 (rooted out by the

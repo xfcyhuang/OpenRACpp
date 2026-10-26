@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Connection.cs @e180e3225 L99-386(实现;头
+// UPSTREAM: OpenRA.Game/Network/Connection.cs @1f594e320 L99-386(实现;头
 //          文件同条目)
 //          The implementation; the header carries the same tag.
 #include "net/network_connection.hpp"

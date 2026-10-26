@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Plug.cs @e180e3225 L15-24 +
+// UPSTREAM: OpenRA.Mods.Common/Traits/Plug.cs @1f594e320 L15-24 +
 //          Traits/Pluggable.cs L15-160
 //          Plug.cs L15-24 + Pluggable.cs L15-160.
 #pragma once

@@ -1,5 +1,5 @@
 // UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/GameInfoLogic.cs
-//          @e180e3225(实现;头注见 game_info_logics.hpp)
+//          @1f594e320(实现;头注见 game_info_logics.hpp)
 //          Implementation; the header notes live in game_info_logics.hpp.
 #include "mods/game_info_logics.hpp"
 

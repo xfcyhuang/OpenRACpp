@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Orders/PlaceBuildingOrderGenerator.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Orders/PlaceBuildingOrderGenerator.cs @1f594e320
 //          L24-337 全文
 //          The whole of PlaceBuildingOrderGenerator.cs L24-337.
 #pragma once

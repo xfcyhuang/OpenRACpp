@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Traits/Player/FrozenActorLayer.cs @e180e3225 L19-386
+// UPSTREAM: OpenRA.Game/Traits/Player/FrozenActorLayer.cs @1f594e320 L19-386
 //          实现部分(the implementation half)。
 #include "sim/frozen_actor_layer.hpp"
 

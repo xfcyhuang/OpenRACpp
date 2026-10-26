@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/GeneratedMapPreviewWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/GeneratedMapPreviewWidget.cs @1f594e320
 // L24-168(全文;自有 Sheet 的预览位图 + 出生点标签对)。
 import std;
 

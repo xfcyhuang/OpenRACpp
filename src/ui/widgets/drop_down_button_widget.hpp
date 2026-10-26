@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/DropDownButtonWidget.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Widgets/DropDownButtonWidget.cs @1f594e320
 // L20-257(全文)。开面板三件套(AttachPanel 的全屏 MaskWidget + 边缘回退
 // 定位/RemovePanel 的退焦点与 tooltip 重置/ShowDropDown 双模板 —— 平面与
 // 分组头部形态);箭头与分隔条的状态图缓存(??= 惰性初建 → optional);

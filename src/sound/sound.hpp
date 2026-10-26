@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Sound/Sound.cs @e180e3225 L36-481(全文逐语义)
+// UPSTREAM: OpenRA.Game/Sound/Sound.cs @1f594e320 L36-481(全文逐语义)
 // 声音门面:格式链 + 源缓存 + 调度(Play 族/PlayPredefined 通知池)、音乐
 // 与视频声道、音量面。Game.Settings/Game.CosmeticRandom/Selection 以注入
 // 面承载(主循环 Phase 5 接线)。

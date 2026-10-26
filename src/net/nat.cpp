@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Nat.cs @e180e3225(实现;头注见 nat.hpp)
+// UPSTREAM: OpenRA.Game/Network/Nat.cs @1f594e320(实现;头注见 nat.hpp)
 //          Implementation of Nat.cs; the header notes live in nat.hpp.
 #include "net/nat.hpp"
 

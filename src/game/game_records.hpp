@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/GameRules/WeaponInfo.cs @e180e3225 L74-175(加载链部分)+
+// UPSTREAM: OpenRA.Game/GameRules/WeaponInfo.cs @1f594e320 L74-175(加载链部分)+
 //          SoundInfo.cs L19-77 + MusicInfo.cs L16-47
 //          The loading-chain parts of WeaponInfo/SoundInfo/MusicInfo.
 //

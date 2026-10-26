@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Map/Map.cs @e180e3225(map.hpp 的实现)
+// UPSTREAM: OpenRA.Game/Map/Map.cs @1f594e320(map.hpp 的实现)
 //          The implementation of map.hpp.
 import std;
 

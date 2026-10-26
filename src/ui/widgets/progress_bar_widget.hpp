@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ProgressBarWidget.cs @e180e3225 L19-85(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ProgressBarWidget.cs @1f594e320 L19-85(全文)。
 // 定态/不定态双面(Tick 的 offset 往返 + tickStep 翻转;wasIndeterminate 的
 // 复位语义);ChromeProvider.GetMinimumPanelSize 的最小条宽。
 // The whole of ProgressBarWidget.cs L19-85. The determinate/indeterminate

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/PrimaryBuilding.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/PrimaryBuilding.cs @1f594e320
 //          L19-134 全文
 //          The whole of PrimaryBuilding.cs L19-134.
 #pragma once

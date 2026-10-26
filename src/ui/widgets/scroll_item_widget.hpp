@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ScrollItemWidget.cs @e180e3225 L19-97(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/ScrollItemWidget.cs @1f594e320 L19-97(全文)。
 // IsVisible 恒 false 模板 + VisualHeight 0 + Initialize 的
 // IgnoreChildMouseOver 翻转 HACK;Setup 三静态模板装配方;面板图缓存走
 // GetCachedStatefulPanelImages。

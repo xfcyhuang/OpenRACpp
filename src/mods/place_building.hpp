@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlaceBuilding.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlaceBuilding.cs @1f594e320
 //          L18-268 全文 + Traits/Buildings/PlaceBuildingVariants.cs +
 //          Traits/Replacement.cs + Traits/Replaceable.cs
 //          The whole of PlaceBuilding.cs + PlaceBuildingVariants.cs +

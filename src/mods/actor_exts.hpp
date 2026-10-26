@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/ActorExts.cs @e180e3225 L21-83(逐语义重写;
+// UPSTREAM: OpenRA.Mods.Common/ActorExts.cs @1f594e320 L21-83(逐语义重写;
 //          AppearsHostileTo 已随第四批落地;ClosestCell 随消费批)+ WorldUtils.cs L26-45
 //          的 ClosestToIgnoringPath 位置面
 //          Verbatim-semantics rewrite (AppearsHostileTo/ClosestCell land

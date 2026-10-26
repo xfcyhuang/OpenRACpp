@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Network/Nat.cs @e180e3225 L18-101(全文;
+// UPSTREAM: OpenRA.Game/Network/Nat.cs @1f594e320 L18-101(全文;
 //          Mono.Nat 的 UPnP/NAT-PMP 发现链 → 极小承载:发现从不启动或
 //          从无设备两态 + 端口映射恒 false —— Mono.Nat 依赖的 C++ 侧
 //          等价域登记于 docs/COVERAGE.md)

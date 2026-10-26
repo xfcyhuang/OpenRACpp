@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/OrderBuffer.cs @e180e3225 L21-138 全文
+// UPSTREAM: OpenRA.Game/Server/OrderBuffer.cs @1f594e320 L21-138 全文
 //          (TickScale 动态延迟的测量核:玩家订单时间戳 → 基线差值的中位
 //          数 → (timestep + deltaPerTick)/timestep,钳 [1, 1.1];20 帧
 //          窗口/1000ms 更新间隔;ConcurrentDictionary → 单线程服务器事

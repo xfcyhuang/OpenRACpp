@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Air/Aircraft.cs @e180e3225 的实现面
+// UPSTREAM: OpenRA.Mods.Common/Traits/Air/Aircraft.cs @1f594e320 的实现面
 #include "mods/aircraft.hpp"
 
 #include "game/actor_info.hpp"

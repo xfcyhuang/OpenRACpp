@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Server/VoteKickTracker.cs @e180e3225 L18-223
+// UPSTREAM: OpenRA.Game/Server/VoteKickTracker.cs @1f594e320 L18-223
 //          (实现体)
 //          The implementation body.
 #include "server/vote_kick_tracker.hpp"

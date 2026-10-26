@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/Settings.cs @e180e3225 L500-538(实现全文;
+// UPSTREAM: OpenRA.Game/Settings.cs @1f594e320 L500-538(实现全文;
 //          第十六批自 src/server/server_settings.cpp 迁入)
 //          The whole implementation (migrated from src/server/
 //          server_settings.cpp with batch 16).

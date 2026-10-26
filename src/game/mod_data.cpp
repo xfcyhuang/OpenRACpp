@@ -1,10 +1,11 @@
-// UPSTREAM: OpenRA.Game/ModData.cs @e180e3225(mod_data.hpp 的实现;
+// UPSTREAM: OpenRA.Game/ModData.cs @1f594e320(mod_data.hpp 的实现;
 //          Phase 2 最小集挂载链,见 hpp 头注)
 //          Implementation of mod_data.hpp — the Phase 2 minimal mount
 //          chain; see the hpp header notes.
 import std;
 #include "game/mod_data.hpp"
 #include "game/platform.hpp"
+#include "game/settings.hpp"
 #include "fs/d2k_sound_resources.hpp"
 #include "fs/mix_file.hpp"
 #include "fluent/fluent_provider.hpp"
@@ -207,6 +208,45 @@ Fonts& ModData::GetOrCreateFonts() {
       fonts_->vec_font_list = Fonts::Load(*node);
   }
   return *fonts_;
+}
+
+ui::HotkeyManager& ModData::Hotkeys() {
+  if (hotkeys_ == nullptr) {
+    RawSettingsSection& section_keys = Settings::Instance().RawSection("Keys");
+    std::vector<ui::HotkeyManager::SettingsOverride> vec_overrides;
+    for (const auto& node : section_keys.Nodes())
+      if (node.Key != nullptr && node.Value.Value != nullptr)
+        vec_overrides.push_back(
+            ui::HotkeyManager::SettingsOverride{*node.Key,
+                                                *node.Value.Value});
+
+    hotkeys_ = std::make_unique<ui::HotkeyManager>(
+        [this](const std::string& str_file) {
+          return fs_modFiles_.Open(str_file);
+        },
+        manifest_->Hotkeys(), vec_overrides);
+
+    hotkeys_->SetPersistSink(
+        [&section_keys](const std::string& str_name,
+                        std::optional<std::string> str_value) {
+          section_keys.RemoveNodesNamed(str_name);
+          if (str_value)
+            section_keys.AddNode(str_name, *str_value);
+        });
+  }
+  return *hotkeys_;
+}
+
+const PlayerDatabase& ModData::GetOrCreatePlayerDatabase() {
+  if (player_database_ == nullptr) {
+    if (const yaml::MiniYaml* node =
+            manifest_->GlobalModDataNode("PlayerDatabase"))
+      player_database_ = std::make_unique<PlayerDatabase>(
+          PlayerDatabaseFromYaml(*node));
+    else
+      player_database_ = std::make_unique<PlayerDatabase>();
+  }
+  return *player_database_;
 }
 
 map::MapGrid& ModData::GetOrCreateMapGrid() {

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithSpriteTurret.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithSpriteTurret.cs @1f594e320
 //          L21-144 全文
 //          The whole of WithSpriteTurret.cs L21-144.
 //

@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/BackgroundWidget.cs @e180e3225 L18-43(全文)。
+// UPSTREAM: OpenRA.Mods.Common/Widgets/BackgroundWidget.cs @1f594e320 L18-43(全文)。
 // The whole of BackgroundWidget.cs L18-43.
 #pragma once
 import std;

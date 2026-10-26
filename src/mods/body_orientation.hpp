@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/BodyOrientation.cs @e180e3225 L18-127
+// UPSTREAM: OpenRA.Mods.Common/Traits/BodyOrientation.cs @1f594e320 L18-127
 //          全文(逐语义重写)
 //          The whole of BodyOrientation.cs L18-127 (verbatim-semantics
 //          rewrite).

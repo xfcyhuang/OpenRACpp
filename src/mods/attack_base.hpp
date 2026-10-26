@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Attack/AttackBase.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Attack/AttackBase.cs @1f594e320
 //          L23-526 全文(逐语义重写;AttackFrontal.cs L18-48 同文件承载)
 //          The whole of AttackBase.cs L23-526 + AttackFrontal.cs L18-48
 //          (verbatim-semantics rewrite).

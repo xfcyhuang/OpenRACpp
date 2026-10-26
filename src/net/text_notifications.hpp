@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/TextNotification.cs @e180e3225 L19-54 +
+// UPSTREAM: OpenRA.Game/TextNotification.cs @1f594e320 L19-54 +
 //          OpenRA.Game/TextNotificationsManager.cs L19-117(全文;C#
 //          static → 进程级单例;FluentProvider.GetMessage/
 //          ChromeMetrics["SystemMessageLabel"]/Ui.Send/Game.RunTime/

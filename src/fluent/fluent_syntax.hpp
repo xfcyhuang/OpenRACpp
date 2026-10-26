@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Game/FluentBundle.cs @e180e3225(经 Linguini.Bundle/
+// UPSTREAM: OpenRA.Game/FluentBundle.cs @1f594e320(经 Linguini.Bundle/
 // Linguini.Syntax 的 Fluent 0.x 子集自研承载 —— 上游依赖 Linguini 0.8.1 的
 // 解析与求值,本侧按 Fluent 语法规范 + mods 语料实测面逐语义重写;语料
 // 未用的面(term 引用/内建函数/消息引用)按解析错误落 junk,与上游

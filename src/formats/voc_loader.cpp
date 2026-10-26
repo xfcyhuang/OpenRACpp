@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/AudioLoaders/VocLoader.cs @e180e3225 L19-394
+// UPSTREAM: OpenRA.Mods.Cnc/AudioLoaders/VocLoader.cs @1f594e320 L19-394
 //          (voc_loader.hpp 的实现;头注的形态适配说明适用)
 //          Implementation of voc_loader.hpp; the shape-adaptation notes of
 //          the hpp header apply.

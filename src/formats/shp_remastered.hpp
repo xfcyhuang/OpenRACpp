@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpRemasteredLoader.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpRemasteredLoader.cs @1f594e320
 // L24-121(全文逐语义)
 // Remastered SHP = zip 容器:条目名正则 ^(?<prefix>.+?[\-_])(?<frame>
 // \d{4})\.tga$ 的惰性前缀(最短 .+? 后随 -/_ 分隔)、帧数 = max(帧号+1)、

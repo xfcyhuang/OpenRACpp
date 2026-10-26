@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/GrantCondition.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/GrantCondition.cs @1f594e320
 //          (第七批 31 件:GrantCondition L17-51 / GrantRandomCondition
 //          L23-46 / GrantConditionOnTileSet L19-48 / GrantConditionWhileAiming
 //          L19-46 / GrantConditionOnDamageState L19-82 / GrantConditionOnHealth
