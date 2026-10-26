@@ -6,3 +6,6 @@ build-asan/
 
 tools/
 build-hardened/
+.codegraph/
+.zcode/
+Testing/

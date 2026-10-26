@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/WidgetUtils.cs @e180e3225(widget_utils.hpp
+// UPSTREAM: OpenRA.Mods.Common/Widgets/WidgetUtils.cs @1f594e320(widget_utils.hpp
 // 的实现)
 // The implementation of widget_utils.hpp.
 import std;
@@ -392,7 +392,7 @@ void TruncateButtonToTooltip(ButtonWidget& button_target, const std::string& str
       TruncateText(str_text,
                    button_target.bounds_widget.int4_width - button_target.int4_left_margin -
                        button_target.int4_right_margin,
-                   RequireRenderer().Font(button_target.str_font));
+                   RequireWidgetFont(button_target.str_font));
 
   button_target.fn_get_text = [str_truncated_text] { return str_truncated_text; };
 

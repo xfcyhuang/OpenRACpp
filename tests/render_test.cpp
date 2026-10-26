@@ -20,6 +20,8 @@ import std;
 #include "gfx/sheet.hpp"
 #include "mods/music_playlist.hpp"
 #include "mods/lobby_logics.hpp"
+#include "mods/settings_logics.hpp"
+#include "ui/widgets/hotkey_entry_widget.hpp"
 #include "mods/lobby_utils.hpp"
 #include "mods/server_list_logic.hpp"
 #include "mods/asset_browser_logic.hpp"
@@ -6886,6 +6888,875 @@ int main(int argc, char** argv) {
 
       logic_lobby.reset();
       delete ptr_lobby_root;
+    }
+
+    // ———— Phase 6 第二十三批:Settings 面板族 ————
+    {
+      std::println("-- batch 23: settings panels --");
+      struct PanelStub23 {
+        std::vector<std::string> vec_loaded_ids;
+
+        enum Kind {
+          kContainer,
+          kLabel,
+          kButton,
+          kCheckbox,
+          kDropDown,
+          kScrollPanel,
+          kTextField,
+          kPassword,
+          kColorBlock,
+          kSlider,
+          kHotkeyEntry
+        };
+
+        std::unique_ptr<ui::Widget> MakeNode(std::string_view str_id,
+                                             Kind kind_node) {
+          ui::WidgetArgs args_stub;
+          std::unique_ptr<ui::Widget> up_node;
+          switch (kind_node) {
+            case kLabel:
+              up_node = std::make_unique<ui::LabelWidget>(args_stub);
+              break;
+            case kButton:
+              up_node = std::make_unique<ui::ButtonWidget>(args_stub);
+              break;
+            case kCheckbox:
+              up_node = std::make_unique<ui::CheckboxWidget>(args_stub);
+              break;
+            case kDropDown:
+              up_node =
+                  std::make_unique<ui::DropDownButtonWidget>(args_stub);
+              break;
+            case kScrollPanel:
+              up_node =
+                  std::make_unique<ui::ScrollPanelWidget>(args_stub);
+              break;
+            case kTextField:
+              up_node = std::make_unique<ui::TextFieldWidget>(args_stub);
+              break;
+            case kPassword:
+              up_node =
+                  std::make_unique<ui::PasswordFieldWidget>(args_stub);
+              break;
+            case kColorBlock:
+              up_node =
+                  std::make_unique<ui::ColorBlockWidget>(args_stub);
+              break;
+            case kSlider:
+              up_node = std::make_unique<ui::SliderWidget>(args_stub);
+              break;
+            case kHotkeyEntry:
+              up_node = std::make_unique<ui::HotkeyEntryWidget>();
+              break;
+            default:
+              up_node = std::make_unique<ui::ContainerWidget>();
+              break;
+          }
+          up_node->str_id = std::string{str_id};
+          up_node->bounds_widget.int4_width = 200;
+          up_node->bounds_widget.int4_height = 20;
+          return up_node;
+        }
+
+        ui::Widget* AttachNew(ui::Widget& ref_parent, std::string_view str_id,
+                             Kind kind_node) {
+          std::unique_ptr<ui::Widget> up_node = MakeNode(str_id, kind_node);
+          ui::Widget* ptr_node = up_node.get();
+          ref_parent.AddChild(std::move(up_node));
+          return ptr_node;
+        }
+
+        void AddCheckboxes(ui::Widget& ref_parent,
+                           std::initializer_list<std::string_view> vec_ids) {
+          for (const std::string_view sv_id : vec_ids)
+            AttachNew(ref_parent, sv_id, kCheckbox);
+        }
+
+        ui::Widget* MakePanelTree(const std::string& str_id) {
+          auto up_root = std::make_unique<ui::ContainerWidget>();
+          up_root->str_id = str_id;
+          ui::Widget* ptr_root = up_root.get();
+
+          if (str_id == "AUDIO_PANEL") {
+            AttachNew(*ptr_root, "SETTINGS_SCROLLPANEL", kScrollPanel);
+            AddCheckboxes(*ptr_root,
+                          {"CASH_TICKS", "MUTE_SOUND",
+                           "MUTE_BACKGROUND_MUSIC"});
+            AttachNew(*ptr_root, "SOUND_VOLUME", kSlider);
+            AttachNew(*ptr_root, "MUSIC_VOLUME", kSlider);
+            AttachNew(*ptr_root, "VIDEO_VOLUME", kSlider);
+            AttachNew(*ptr_root, "AUDIO_DEVICE", kDropDown);
+            AttachNew(*ptr_root, "AUDIO_RESTART_REQUIRED_DESC", kLabel);
+            for (const std::string_view sv_id :
+                 {"NO_AUDIO_DEVICE_CONTAINER", "CASH_TICKS_CONTAINER",
+                  "MUTE_SOUND_CONTAINER",
+                  "MUTE_BACKGROUND_MUSIC_CONTAINER",
+                  "SOUND_VOLUME_CONTAINER", "MUSIC_VOLUME_CONTAINER",
+                  "VIDEO_VOLUME_CONTAINER"})
+              AttachNew(*ptr_root, sv_id, kContainer);
+          } else if (str_id == "ADVANCED_PANEL") {
+            AttachNew(*ptr_root, "SETTINGS_SCROLLPANEL", kScrollPanel);
+            AddCheckboxes(*ptr_root,
+                          {"NAT_DISCOVERY", "PERFTEXT_CHECKBOX",
+                           "PERFGRAPH_CHECKBOX", "FETCH_NEWS_CHECKBOX",
+                           "SENDSYSINFO_CHECKBOX",
+                           "CHECK_VERSION_CHECKBOX",
+                           "ENABLE_DISCORD_SERVICE",
+                           "BOTDEBUG_CHECKBOX", "LUADEBUG_CHECKBOX",
+                           "REPLAY_COMMANDS_CHECKBOX",
+                           "CHECKUNSYNCED_CHECKBOX",
+                           "CHECKBOTSYNC_CHECKBOX",
+                           "PERFLOGGING_CHECKBOX"});
+            for (const std::string_view sv_id :
+                 {"BOTDEBUG_CHECKBOX_CONTAINER",
+                  "CHECKUNSYNCED_CHECKBOX_CONTAINER",
+                  "CHECKBOTSYNC_CHECKBOX_CONTAINER",
+                  "LUADEBUG_CHECKBOX_CONTAINER",
+                  "REPLAY_COMMANDS_CHECKBOX_CONTAINER",
+                  "PERFLOGGING_CHECKBOX_CONTAINER",
+                  "DEBUG_HIDDEN_CONTAINER"})
+              AttachNew(*ptr_root, sv_id, kContainer);
+          } else if (str_id == "DISPLAY_PANEL") {
+            AttachNew(*ptr_root, "SETTINGS_SCROLLPANEL", kScrollPanel);
+            AddCheckboxes(*ptr_root,
+                          {"CURSORDOUBLE_CHECKBOX", "VSYNC_CHECKBOX",
+                           "FRAME_LIMIT_CHECKBOX",
+                           "FRAME_LIMIT_GAMESPEED_CHECKBOX",
+                           "PLAYER_STANCE_COLORS_CHECKBOX",
+                           "PAUSE_SHELLMAP_CHECKBOX"});
+            AttachNew(*ptr_root, "FRAME_LIMIT_SLIDER", kSlider);
+            AttachNew(*ptr_root, "MODE_DROPDOWN", kDropDown);
+            AttachNew(*ptr_root, "DISPLAY_SELECTION_DROPDOWN", kDropDown);
+            AttachNew(*ptr_root, "GL_PROFILE_DROPDOWN", kDropDown);
+            AttachNew(*ptr_root, "STATUS_BAR_DROPDOWN", kDropDown);
+            AttachNew(*ptr_root, "TARGET_LINES_DROPDOWN", kDropDown);
+            AttachNew(*ptr_root, "BATTLEFIELD_CAMERA_DROPDOWN", kDropDown);
+            AttachNew(*ptr_root, "UI_SCALE_DROPDOWN", kDropDown);
+            AttachNew(*ptr_root, "RESOLUTION_PRESET_DROPDOWN", kDropDown);
+            AttachNew(*ptr_root, "WINDOW_WIDTH", kTextField);
+            AttachNew(*ptr_root, "WINDOW_HEIGHT", kTextField);
+            AttachNew(*ptr_root, "VIDEO_RESTART_REQUIRED_DESC", kLabel);
+            AttachNew(*ptr_root, "DISPLAY_SELECTION_CONTAINER", kContainer);
+            AttachNew(*ptr_root, "WINDOW_RESOLUTION_CONTAINER", kContainer);
+          } else if (str_id == "INPUT_PANEL") {
+            AttachNew(*ptr_root, "SETTINGS_SCROLLPANEL", kScrollPanel);
+            AddCheckboxes(*ptr_root,
+                          {"ALTERNATE_SCROLL_CHECKBOX",
+                           "EDGESCROLL_CHECKBOX", "LOCKMOUSE_CHECKBOX"});
+            AttachNew(*ptr_root, "ZOOMSPEED_SLIDER", kSlider);
+            AttachNew(*ptr_root, "SCROLLSPEED_SLIDER", kSlider);
+            AttachNew(*ptr_root, "UI_SCROLLSPEED_SLIDER", kSlider);
+            AttachNew(*ptr_root, "MOUSE_CONTROL_DROPDOWN", kDropDown);
+            AttachNew(*ptr_root, "MOUSE_SCROLL_TYPE_DROPDOWN", kDropDown);
+            AttachNew(*ptr_root, "ZOOM_MODIFIER", kDropDown);
+            for (const std::string_view sv_id :
+                 {"MOUSE_CONTROL_DESC_CLASSIC",
+                  "MOUSE_CONTROL_DESC_MODERN",
+                  "MOUSE_CONTROL_DESC_OTHERRTS"}) {
+              ui::Widget* ptr_desc =
+                  AttachNew(*ptr_root, sv_id, kContainer);
+              AttachNew(*ptr_desc, "DESC_SCROLL_RIGHT", kLabel);
+              AttachNew(*ptr_desc, "DESC_SCROLL_MIDDLE", kLabel);
+              AttachNew(*ptr_desc, "DESC_ZOOM", kLabel);
+              AttachNew(*ptr_desc, "DESC_ZOOM_MODIFIER", kLabel);
+              AttachNew(*ptr_desc, "DESC_EDGESCROLL", kLabel);
+            }
+          } else if (str_id == "GAMEPLAY_PANEL") {
+            AttachNew(*ptr_root, "SETTINGS_SCROLLPANEL", kScrollPanel);
+            AttachNew(*ptr_root, "PLAYERNAME", kTextField);
+            AttachNew(*ptr_root, "USERNAME", kTextField);
+            AttachNew(*ptr_root, "PASSWORD", kPassword);
+            ui::Widget* ptr_color =
+                AttachNew(*ptr_root, "PLAYERCOLOR", kDropDown);
+            AttachNew(*ptr_color, "COLORBLOCK", kColorBlock);
+            AttachNew(*ptr_root, "HIDE_REPLAY_CHAT_CHECKBOX", kCheckbox);
+            AttachNew(*ptr_root, "CHECKING_FINGERPRINT", kLabel);
+            AttachNew(*ptr_root, "CONNECTION_ERROR", kLabel);
+            AttachNew(*ptr_root, "PROFILE_STATUS", kLabel);
+            AttachNew(*ptr_root, "LINK_BUTTON", kButton);
+            AttachNew(*ptr_root, "RETRY_BUTTON", kButton);
+            AttachNew(*ptr_root, "FORUM_BUTTON", kButton);
+            AttachNew(*ptr_root, "AUTO_SAVE_INTERVAL_DROP_DOWN", kDropDown);
+            AttachNew(*ptr_root, "AUTO_SAVE_FILE_NUMBER_DROP_DOWN",
+                      kDropDown);
+          } else if (str_id == "HOTKEYS_PANEL") {
+            ui::Widget* ptr_list =
+                AttachNew(*ptr_root, "HOTKEY_LIST", kScrollPanel);
+            ui::Widget* ptr_header =
+                AttachNew(*ptr_list, "HEADER", kContainer);
+            AttachNew(*ptr_header, "LABEL", kLabel);
+            ui::Widget* ptr_template =
+                AttachNew(*ptr_list, "TEMPLATE", kContainer);
+            AttachNew(*ptr_template, "FUNCTION", kLabel);
+            AttachNew(*ptr_template, "HOTKEY", kButton);
+            AttachNew(*ptr_root, "HOTKEY_EMPTY_LIST", kContainer);
+            ui::Widget* ptr_dialog =
+                AttachNew(*ptr_root, "HOTKEY_REMAP_DIALOG", kContainer);
+            AttachNew(*ptr_dialog, "HOTKEY_LABEL", kLabel);
+            AttachNew(*ptr_dialog, "DUPLICATE_NOTICE", kLabel);
+            AttachNew(*ptr_dialog, "ORIGINAL_NOTICE", kLabel);
+            AttachNew(*ptr_dialog, "READONLY_NOTICE", kLabel);
+            AttachNew(*ptr_dialog, "RESET_HOTKEY_BUTTON", kButton);
+            AttachNew(*ptr_dialog, "CLEAR_HOTKEY_BUTTON", kButton);
+            AttachNew(*ptr_dialog, "OVERRIDE_HOTKEY_BUTTON", kButton);
+            AttachNew(*ptr_dialog, "HOTKEY_ENTRY", kHotkeyEntry);
+            AttachNew(*ptr_root, "FILTER_INPUT", kTextField);
+            AttachNew(*ptr_root, "CONTEXT_DROPDOWN", kDropDown);
+          }
+
+          up_root.release();
+          return ptr_root;
+        }
+
+        ui::Widget* MakePromptTree(const std::string& str_id) {
+          auto up_root = std::make_unique<ui::ContainerWidget>();
+          up_root->str_id = str_id;
+          ui::Widget* ptr_root = up_root.get();
+          AttachNew(*ptr_root, "PROMPT_TITLE", kLabel);
+          AttachNew(*ptr_root, "PROMPT_TEXT", kLabel);
+          AttachNew(*ptr_root, "CONFIRM_BUTTON", kButton);
+          AttachNew(*ptr_root, "CANCEL_BUTTON", kButton);
+          AttachNew(*ptr_root, "OTHER_BUTTON", kButton);
+          up_root.release();
+          return ptr_root;
+        }
+      };
+
+      struct SettingsHostStub23 final : mods::ISettingsLogic {
+        std::function<std::function<bool()>(ui::Widget&)> fn_init;
+        std::function<std::function<void()>(ui::Widget&)> fn_reset;
+
+        void RegisterSettingsPanel(
+            const std::string&, const std::string&,
+            std::function<std::function<bool()>(ui::Widget&)> fn_init_in,
+            std::function<std::function<void()>(ui::Widget&)> fn_reset_in)
+            override {
+          fn_init = std::move(fn_init_in);
+          fn_reset = std::move(fn_reset_in);
+        }
+
+        void CaptureForTest(ui::Widget& ref_panel,
+                            std::function<bool()>& fn_leave_out,
+                            std::function<void()>& fn_reset_out) {
+          fn_leave_out = fn_init(ref_panel);
+          fn_reset_out = fn_reset(ref_panel);
+        }
+      };
+
+      static ui::ChromeMetrics metrics_panel23;
+      {
+        const auto dir_metrics23 =
+            std::filesystem::temp_directory_path() /
+            "ora_render_test_metrics_panel23";
+        std::filesystem::create_directories(dir_metrics23);
+        {
+          std::ofstream out_metrics(dir_metrics23 / "metrics.yaml");
+          const char sz_line_end = static_cast<char>(10);
+          auto fn_line = [&](std::string_view sv_line) {
+            out_metrics << sv_line << sz_line_end;
+          };
+          fn_line("Chrome:");
+          fn_line("	TextFont: Regular");
+          fn_line("	TextColor: FFFFFFFF");
+          fn_line("	TextContrast: True");
+          fn_line("	TextShadow: False");
+          fn_line("	TextContrastColorDark: 000000FF");
+          fn_line("	TextContrastColorLight: FFFFFFFF");
+          fn_line("	TextContrastRadius: 1");
+          fn_line("	TextDisabledColor: 808080FF");
+          fn_line("	ButtonDepth: 1");
+          fn_line("	ButtonFont: Regular");
+          fn_line("	ButtonTextColor: FFFFFFFF");
+          fn_line("	ButtonTextColorDisabled: 808080FF");
+          fn_line("	ButtonTextContrast: True");
+          fn_line("	ButtonTextShadow: False");
+          fn_line("	ButtonTextContrastColorDark: 000000FF");
+          fn_line("	ButtonTextContrastColorLight: FFFFFFFF");
+          fn_line("	ButtonTextContrastRadius: 1");
+          fn_line("	ButtonCursor: default");
+          fn_line("	ClickSound: click_sound");
+          fn_line("	ClickDisabledSound: click_disabled_sound");
+          fn_line("	TextfieldFont: Regular");
+          fn_line("	TextfieldColor: FFFFFFFF");
+          fn_line("	TextfieldColorDisabled: 808080FF");
+          fn_line("	TextfieldColorInvalid: FFFF00FF");
+          fn_line("	TextfieldColorHighlight: 808080FF");
+          fn_line("	NoticeSuccessColor: 00FF00FF");
+          fn_line("	NoticeErrorColor: FF0000FF");
+          fn_line("	NoticeInfoColor: FFFFFFFF");
+          fn_line("	HotkeyFont: Regular");
+          fn_line("	HotkeyColor: FFFFFFFF");
+          fn_line("	HotkeyColorDisabled: 808080FF");
+          fn_line("	HotkeyColorInvalid: FF0000FF");
+        }
+        static fs::FileSystem fs_metrics23;
+        fs_metrics23.Mount(dir_metrics23.generic_string());
+        static const std::vector<std::string> vec_files_metrics23{
+            "metrics.yaml"};
+        metrics_panel23.Initialize(
+            {&fs_metrics23, &vec_files_metrics23});
+      }
+
+      auto up_stub23 = std::make_unique<PanelStub23>();
+      PanelStub23* ptr_stub23 = up_stub23.get();
+      static std::unique_ptr<PanelStub23> up_stub_holder23;
+      up_stub_holder23 = std::move(up_stub23);
+
+      static int int4_settings_saves23 = 0;
+      int4_settings_saves23 = 0;
+
+      ui::Ui::Deps deps_ui_23;
+      deps_ui_23.ptr_chrome_metrics = &metrics_panel23;
+      deps_ui_23.ptr_chrome_provider = &chrome_provider22;
+      deps_ui_23.fn_window_size = [] { return int2{1280, 720}; };
+      deps_ui_23.fn_try_get_font =
+          [ptr_font = up_stub_holder22->up_font.get()](
+              const std::string&) { return ptr_font; };
+      deps_ui_23.fn_settings_save = [] { ++int4_settings_saves23; };
+      deps_ui_23.fn_load_widget =
+          [ptr_stub23](ui::WidgetArgs&, ui::Widget* ptr_parent,
+                       const std::string& str_id) -> ui::Widget* {
+        ptr_stub23->vec_loaded_ids.push_back(str_id);
+        ui::Widget* ptr_panel =
+            str_id == "TWOBUTTON_PROMPT" || str_id == "THREEBUTTON_PROMPT"
+                ? ptr_stub23->MakePromptTree(str_id)
+                : ptr_stub23->MakePanelTree(str_id);
+        if (ptr_parent != nullptr)
+          ptr_parent->AddChild(
+              std::unique_ptr<ui::Widget>(ptr_panel));
+        return ptr_panel;
+      };
+      deps_ui_23.ptr_map_cache = &cache;
+      deps_ui_23.fn_is_host = [] { return true; };
+      deps_ui_23.fn_clock = [] { return std::int64_t{1000}; };
+      ui::Ui::Instance().Initialize(std::move(deps_ui_23));
+
+      mods::ResetSettingsPanelSnapshotsForTest();
+      game::Settings::Instance().ModuleOrCreate("AutoSave");
+
+      {
+        yaml::StringPool pool_settings23;
+        yaml::MiniYaml yaml_panels23{};
+        yaml_panels23.Nodes.emplace_back(
+            pool_settings23.Intern("GAMEPLAY_PANEL"),
+            yaml::MiniYaml{
+                pool_settings23.Intern("button-panel-gameplay")});
+        yaml_panels23.Nodes.emplace_back(
+            pool_settings23.Intern("AUDIO_PANEL"),
+            yaml::MiniYaml{
+                pool_settings23.Intern("button-panel-audio")});
+        yaml::MiniYaml yaml_stride23{pool_settings23.Intern("10, 5")};
+        const ui::YamlDictionary vec_args23{
+            {std::string_view{"ButtonStride"}, &yaml_stride23},
+            {std::string_view{"Panels"}, &yaml_panels23}};
+
+        auto up_settings_root = std::make_unique<ui::ContainerWidget>();
+        ui::Widget* ptr_settings_root = up_settings_root.release();
+        ui::Widget* ptr_panel_container =
+            ptr_stub23->AttachNew(*ptr_settings_root, "PANEL_CONTAINER",
+                                  PanelStub23::kContainer);
+        ptr_stub23->AttachNew(*ptr_panel_container, "PANEL_TEMPLATE",
+                              PanelStub23::kContainer);
+        ui::Widget* ptr_tab_container =
+            ptr_stub23->AttachNew(*ptr_settings_root,
+                                  "SETTINGS_TAB_CONTAINER",
+                                  PanelStub23::kContainer);
+        ptr_stub23->AttachNew(*ptr_tab_container, "BUTTON_TEMPLATE",
+                              PanelStub23::kButton);
+        auto* ptr_back_button = static_cast<ui::ButtonWidget*>(
+            ptr_stub23->AttachNew(*ptr_settings_root, "BACK_BUTTON",
+                                  PanelStub23::kButton));
+        auto* ptr_reset_button = static_cast<ui::ButtonWidget*>(
+            ptr_stub23->AttachNew(*ptr_settings_root, "RESET_BUTTON",
+                                  PanelStub23::kButton));
+
+        int int4_on_exit23 = 0;
+        auto logic_settings = std::make_unique<mods::SettingsLogic>(
+            *ptr_settings_root, [&int4_on_exit23] { ++int4_on_exit23; },
+            nullptr, mod_data, &vec_args23);
+
+        Check(ptr_panel_container->GetOrNull("PANEL_TEMPLATE") ==
+                      nullptr &&
+                  ptr_tab_container->GetOrNull("BUTTON_TEMPLATE") ==
+                      nullptr,
+              "p6b23: the settings root removes its templates");
+        Check(ptr_panel_container->GetOrNull("GAMEPLAY_PANEL") !=
+                  nullptr &&
+                  ptr_panel_container->GetOrNull("AUDIO_PANEL") !=
+                      nullptr,
+              "p6b23: each declared panel clones into the container");
+        Check(std::find(ptr_stub23->vec_loaded_ids.begin(),
+                        ptr_stub23->vec_loaded_ids.end(),
+                        "GAMEPLAY_PANEL") !=
+                  ptr_stub23->vec_loaded_ids.end() &&
+                  std::find(ptr_stub23->vec_loaded_ids.begin(),
+                            ptr_stub23->vec_loaded_ids.end(),
+                            "AUDIO_PANEL") !=
+                      ptr_stub23->vec_loaded_ids.end(),
+              "p6b23: the panels load their widget trees");
+        CheckEq(ptr_tab_container->Children().size(), std::size_t{0},
+                "p6b23: no tabs exist until panels register");
+
+        bool b_leave_one_tripped = false;
+        int int4_reset_one_runs = 0;
+        logic_settings->RegisterSettingsPanel(
+            "GAMEPLAY_PANEL", "Gameplay",
+            [&b_leave_one_tripped](ui::Widget&) {
+              return [&b_leave_one_tripped] {
+                b_leave_one_tripped = true;
+                return false;
+              };
+            },
+            [&int4_reset_one_runs](ui::Widget&) {
+              return [&int4_reset_one_runs] { ++int4_reset_one_runs; };
+            });
+
+        bool b_leave_two_tripped = false;
+        bool b_leave_two_demands_restart = false;
+        logic_settings->RegisterSettingsPanel(
+            "AUDIO_PANEL", "Audio",
+            [&b_leave_two_tripped,
+             &b_leave_two_demands_restart](ui::Widget&) {
+              return [&b_leave_two_tripped,
+                      &b_leave_two_demands_restart] {
+                b_leave_two_tripped = true;
+                return b_leave_two_demands_restart;
+              };
+            },
+            [](ui::Widget&) { return [] {}; });
+
+        CheckEq(ptr_tab_container->Children().size(), std::size_t{2},
+                "p6b23: two registered panels gain two tabs");
+        Check(ptr_tab_container->Children()[1]->bounds_widget.int4_x ==
+                      ptr_tab_container->Children()[0]->bounds_widget
+                          .int4_x +
+                          10 &&
+                  ptr_tab_container->Children()[1]->bounds_widget
+                          .int4_y ==
+                      ptr_tab_container->Children()[0]->bounds_widget
+                          .int4_y +
+                      5,
+              "p6b23: the second tab strides from the first");
+        Check(ptr_panel_container->Get("GAMEPLAY_PANEL")
+                      ->fn_is_visible() &&
+                  !ptr_panel_container->Get("AUDIO_PANEL")
+                       ->fn_is_visible(),
+              "p6b23: the first registered panel starts active");
+
+        auto* ptr_tab_one = static_cast<ui::ButtonWidget*>(
+            ptr_tab_container->Children()[0]);
+        auto* ptr_tab_two = static_cast<ui::ButtonWidget*>(
+            ptr_tab_container->Children()[1]);
+        ptr_tab_two->fn_on_click();
+        Check(b_leave_one_tripped && int4_settings_saves23 == 1,
+              "p6b23: switching tabs runs the leaving panel and "
+              "saves");
+        Check(!ptr_panel_container->Get("GAMEPLAY_PANEL")
+                       ->fn_is_visible() &&
+                  ptr_panel_container->Get("AUDIO_PANEL")
+                      ->fn_is_visible() &&
+                  ptr_tab_two->fn_is_highlighted(),
+              "p6b23: the clicked tab becomes the active panel");
+
+        ptr_reset_button->fn_on_click();
+        Check(int4_reset_one_runs == 0,
+              "p6b23: reset defers its panel action until "
+              "confirmed");
+        Check(ptr_stub23->vec_loaded_ids.back() == "TWOBUTTON_PROMPT",
+              "p6b23: reset opens the confirmation prompt");
+        ptr_tab_one->fn_on_click();
+        int4_settings_saves23 = 0;
+        ptr_back_button->fn_on_click();
+        Check(b_leave_one_tripped && int4_settings_saves23 == 1 &&
+                  int4_on_exit23 == 1,
+              "p6b23: back without a pending restart closes and "
+              "exits");
+
+        ptr_tab_two->fn_on_click();
+        b_leave_two_demands_restart = true;
+        ptr_tab_one->fn_on_click();
+        ptr_stub23->vec_loaded_ids.clear();
+        ptr_back_button->fn_on_click();
+        Check(int4_on_exit23 == 1 &&
+                  ptr_stub23->vec_loaded_ids.back() ==
+                      "TWOBUTTON_PROMPT",
+              "p6b23: back with a pending restart opens the prompt "
+              "instead of exiting");
+
+        logic_settings.reset();
+        ora::ui::Ui::Instance().CloseWindow();
+        ora::ui::Ui::Instance().CloseWindow();
+        delete ptr_settings_root;
+      }
+
+      {
+        auto up_panel = std::unique_ptr<ui::Widget>(
+            ptr_stub23->MakePanelTree("ADVANCED_PANEL"));
+        ui::Widget* ptr_panel = up_panel.get();
+        SettingsHostStub23 host_advanced;
+        mods::AdvancedSettingsLogic logic_advanced(
+            mod_data, host_advanced, "ADVANCED_PANEL", "Advanced");
+
+        game::SettingsModule& module_server =
+            *game::Settings::Instance().Module("Server");
+        const std::size_t sz_slot_nat =
+            module_server.SlotIndexOf("DiscoverNatDevices").value();
+        module_server.SetBool(sz_slot_nat, false);
+        game::SettingsModule& module_debug =
+            *game::Settings::Instance().Module("Debug");
+        const std::size_t sz_slot_developer =
+            module_debug.SlotIndexOf("DisplayDeveloperSettings").value();
+
+        std::function<bool()> fn_leave_advanced;
+        std::function<void()> fn_reset_advanced;
+        host_advanced.CaptureForTest(*ptr_panel, fn_leave_advanced,
+                                     fn_reset_advanced);
+
+        Check(!fn_leave_advanced(),
+              "p6b23: advanced reports no restart while NAT matches "
+              "the snapshot");
+        ptr_panel->Get<ui::CheckboxWidget>("NAT_DISCOVERY")->fn_on_click();
+        Check(module_server.GetBool(sz_slot_nat),
+              "p6b23: the NAT checkbox flips the server preference");
+        Check(fn_leave_advanced(),
+              "p6b23: advanced demands a restart once NAT diverges "
+              "from the snapshot");
+
+        module_debug.SetBool(sz_slot_developer, true);
+        Check(ptr_panel->Get("BOTDEBUG_CHECKBOX_CONTAINER")
+                      ->fn_is_visible() &&
+                  !ptr_panel->Get("DEBUG_HIDDEN_CONTAINER")
+                       ->fn_is_visible(),
+              "p6b23: developer containers surface the developer "
+              "settings");
+        module_debug.SetBool(sz_slot_developer, false);
+
+        module_server.SetBool(sz_slot_nat, false);
+
+        game::SettingsModule& module_game =
+            *game::Settings::Instance().Module("Game");
+        const std::size_t sz_slot_discord =
+            module_game.SlotIndexOf("EnableDiscordService").value();
+        const std::size_t sz_slot_fetch_news =
+            module_game.SlotIndexOf("FetchNews").value();
+        module_game.SetBool(sz_slot_discord, false);
+        module_game.SetBool(sz_slot_fetch_news, false);
+        Check(ptr_panel->Get<ui::CheckboxWidget>("SENDSYSINFO_CHECKBOX")
+                  ->fn_is_disabled(),
+              "p6b23: send-sysinfo disables without fetch-news");
+
+        fn_reset_advanced();
+        Check(module_game.GetBool(sz_slot_discord),
+              "p6b23: the advanced reset restores the defaults");
+      }
+
+      {
+        auto up_panel = std::unique_ptr<ui::Widget>(
+            ptr_stub23->MakePanelTree("AUDIO_PANEL"));
+        ui::Widget* ptr_panel = up_panel.get();
+        SettingsHostStub23 host_audio;
+        mods::AudioSettingsLogic logic_audio(
+            mod_data, host_audio, "AUDIO_PANEL", "Audio", nullptr);
+
+        std::function<bool()> fn_leave_audio;
+        std::function<void()> fn_reset_audio;
+        host_audio.CaptureForTest(*ptr_panel, fn_leave_audio,
+                                  fn_reset_audio);
+
+        game::SettingsModule& module_sound =
+            *game::Settings::Instance().Module("Sound");
+        const std::size_t sz_slot_cash =
+            module_sound.SlotIndexOf("CashTicks").value();
+        module_sound.SetBool(sz_slot_cash, true);
+        ptr_panel->Get<ui::CheckboxWidget>("CASH_TICKS")->fn_on_click();
+        Check(!module_sound.GetBool(sz_slot_cash),
+              "p6b23: the cash-ticks checkbox toggles the sound "
+              "preference");
+
+        ui::SliderWidget* ptr_volume_slider =
+            ptr_panel->Get<ui::SliderWidget>("SOUND_VOLUME");
+        ptr_volume_slider->fn_on_change(0.75f);
+        Check(module_sound.GetFloat(
+                  module_sound.SlotIndexOf("SoundVolume").value()) ==
+                  0.75f,
+              "p6b23: the volume slider writes the sound preference");
+        ptr_volume_slider->fn_on_change(0.5f);
+
+        Check(!fn_leave_audio(),
+              "p6b23: audio reports no restart while the device "
+              "matches");
+        fn_reset_audio();
+        Check(module_sound.GetBool(sz_slot_cash) &&
+                  module_sound.GetFloat(
+                      module_sound.SlotIndexOf("SoundVolume").value()) ==
+                      0.5f,
+              "p6b23: the audio reset restores the defaults");
+      }
+
+      {
+        auto up_panel = std::unique_ptr<ui::Widget>(
+            ptr_stub23->MakePanelTree("DISPLAY_PANEL"));
+        ui::Widget* ptr_panel = up_panel.get();
+        SettingsHostStub23 host_display;
+        mods::DisplaySettingsLogic logic_display(
+            mod_data, host_display, "DISPLAY_PANEL", "Display", nullptr);
+
+        std::function<bool()> fn_leave_display;
+        std::function<void()> fn_reset_display;
+        host_display.CaptureForTest(*ptr_panel, fn_leave_display,
+                                    fn_reset_display);
+
+        game::SettingsModule& module_graphics =
+            *game::Settings::Instance().Module("Graphics");
+        const std::size_t sz_slot_mode =
+            module_graphics.SlotIndexOf("Mode").value();
+        const std::size_t sz_slot_windowed =
+            module_graphics.SlotIndexOf("WindowedSize").value();
+        module_graphics.SetInt(sz_slot_mode, 2);
+        module_graphics.SetInt2(sz_slot_windowed, int2{1024, 768});
+
+        Check(!fn_leave_display(),
+              "p6b23: display reports no restart while graphics match "
+              "the snapshot");
+        ptr_panel->Get<ui::CheckboxWidget>("VSYNC_CHECKBOX")->fn_on_click();
+        Check(!module_graphics.GetBool(
+                  module_graphics.SlotIndexOf("VSync").value()),
+              "p6b23: the vsync checkbox toggles the graphics "
+              "preference");
+        module_graphics.SetBool(
+            module_graphics.SlotIndexOf("VSync").value(), true);
+
+        ui::TextFieldWidget* ptr_width_field =
+            ptr_panel->Get<ui::TextFieldWidget>("WINDOW_WIDTH");
+        ui::TextFieldWidget* ptr_height_field =
+            ptr_panel->Get<ui::TextFieldWidget>("WINDOW_HEIGHT");
+        ptr_width_field->SetText("1280");
+        ptr_height_field->SetText("720");
+        Check(ptr_panel->Get<ui::DropDownButtonWidget>(
+                  "RESOLUTION_PRESET_DROPDOWN")
+                      ->fn_get_text() == "1280x720",
+              "p6b23: a common width/height pair names its preset");
+        ptr_width_field->SetText("1024");
+        ptr_height_field->SetText("768");
+
+        module_graphics.SetInt(sz_slot_mode, 0);
+        Check(fn_leave_display(),
+              "p6b23: display demands a restart once the mode diverges");
+        module_graphics.SetInt(sz_slot_mode, 2);
+
+        fn_reset_display();
+        Check(module_graphics.GetInt(
+                      module_graphics.SlotIndexOf("MaxFramerate")
+                          .value()) == 60 &&
+                  module_graphics.GetInt2(sz_slot_windowed).X == 1024,
+              "p6b23: the display reset restores the defaults");
+      }
+
+      {
+        auto up_panel = std::unique_ptr<ui::Widget>(
+            ptr_stub23->MakePanelTree("INPUT_PANEL"));
+        ui::Widget* ptr_panel = up_panel.get();
+        SettingsHostStub23 host_input;
+        mods::InputSettingsLogic logic_input(
+            mod_data, host_input, "INPUT_PANEL", "Input");
+
+        std::function<bool()> fn_leave_input;
+        std::function<void()> fn_reset_input;
+        host_input.CaptureForTest(*ptr_panel, fn_leave_input,
+                                  fn_reset_input);
+
+        game::SettingsModule& module_game =
+            *game::Settings::Instance().Module("Game");
+        const std::size_t sz_slot_edge =
+            module_game.SlotIndexOf("ViewportEdgeScroll").value();
+        const std::size_t sz_slot_style =
+            module_game.SlotIndexOf("MouseControlStyle").value();
+        module_game.SetBool(sz_slot_edge, true);
+        module_game.SetInt(sz_slot_style, 0);
+        ptr_panel->Get<ui::CheckboxWidget>("EDGESCROLL_CHECKBOX")
+            ->fn_on_click();
+        Check(!module_game.GetBool(sz_slot_edge),
+              "p6b23: the edge-scroll checkbox toggles the game "
+              "preference");
+
+        ui::Widget* ptr_desc_classic =
+            ptr_panel->Get("MOUSE_CONTROL_DESC_CLASSIC");
+        Check(ptr_desc_classic->fn_is_visible() &&
+                  ptr_desc_classic->Get("DESC_SCROLL_RIGHT")
+                      ->fn_is_visible() &&
+                  !ptr_desc_classic->Get("DESC_SCROLL_MIDDLE")
+                       ->fn_is_visible(),
+              "p6b23: the classic scheme shows the right-button "
+              "scroll");
+
+        ptr_panel->Get<ui::SliderWidget>("SCROLLSPEED_SLIDER")
+            ->fn_on_change(40.0f);
+        Check(module_game.GetFloat(
+                  module_game.SlotIndexOf("ViewportEdgeScrollStep")
+                      .value()) == 40.0f,
+              "p6b23: the scroll-speed slider writes the game "
+              "preference");
+
+        fn_reset_input();
+        Check(module_game.GetInt(sz_slot_style) == 1 &&
+                  module_game.GetFloat(
+                      module_game.SlotIndexOf("ViewportEdgeScrollStep")
+                          .value()) == 30.0f,
+              "p6b23: the input reset restores the defaults");
+      }
+
+      {
+        auto up_panel = std::unique_ptr<ui::Widget>(
+            ptr_stub23->MakePanelTree("GAMEPLAY_PANEL"));
+        ui::Widget* ptr_panel = up_panel.get();
+        SettingsHostStub23 host_gameplay;
+        mods::GameplaySettingsLogic logic_gameplay(
+            mod_data, host_gameplay, "GAMEPLAY_PANEL", "Gameplay",
+            nullptr);
+
+        std::function<bool()> fn_leave_gameplay;
+        std::function<void()> fn_reset_gameplay;
+        host_gameplay.CaptureForTest(*ptr_panel, fn_leave_gameplay,
+                                     fn_reset_gameplay);
+
+        game::SettingsModule& module_player =
+            *game::Settings::Instance().Module("Player");
+        const std::size_t sz_slot_name =
+            module_player.SlotIndexOf("Name").value();
+        module_player.SetString(sz_slot_name, "Commander");
+
+        ui::TextFieldWidget* ptr_name_field =
+            ptr_panel->Get<ui::TextFieldWidget>("PLAYERNAME");
+        Check(ptr_name_field->fn_is_disabled(),
+              "p6b23: the name field stays disabled outside the "
+              "shellmap");
+        ptr_name_field->SetText("  Napoleon  ");
+        ptr_name_field->fn_on_lose_focus();
+        Check(module_player.GetString(sz_slot_name) == "Napoleon",
+              "p6b23: losing focus sanitizes and stores the name");
+
+        ptr_name_field->SetText("   ");
+        ptr_name_field->fn_on_lose_focus();
+        Check(module_player.GetString(sz_slot_name) == "Napoleon" &&
+                  ptr_name_field->Text() == "Napoleon",
+              "p6b23: an emptied field falls back to the stored name");
+
+        game::SettingsModule& module_autosave =
+            *game::Settings::Instance().Module("AutoSave");
+        const std::size_t sz_slot_interval =
+            module_autosave.SlotIndexOf("AutoSaveInterval").value();
+        module_autosave.SetInt(sz_slot_interval, 30);
+        Check(ptr_panel->Get<ui::DropDownButtonWidget>(
+                      "AUTO_SAVE_INTERVAL_DROP_DOWN")
+                      ->fn_get_text() ==
+                  "auto-save-interval.options",
+              "p6b23: the interval dropdown names the seconds");
+        module_autosave.SetInt(sz_slot_interval, 120);
+        Check(ptr_panel->Get<ui::DropDownButtonWidget>(
+                      "AUTO_SAVE_INTERVAL_DROP_DOWN")
+                      ->fn_get_text() ==
+                  "auto-save-interval.minute-options",
+              "p6b23: the interval dropdown names the minutes");
+        module_autosave.SetInt(sz_slot_interval, 0);
+        Check(ptr_panel->Get<ui::DropDownButtonWidget>(
+                      "AUTO_SAVE_INTERVAL_DROP_DOWN")
+                      ->fn_get_text() == "auto-save-interval.disabled",
+              "p6b23: a zero interval names the disabled option");
+        Check(ptr_panel->Get<ui::DropDownButtonWidget>(
+                      "AUTO_SAVE_FILE_NUMBER_DROP_DOWN")
+                      ->fn_is_disabled(),
+              "p6b23: the file-count dropdown disables on interval "
+              "zero");
+
+        fn_reset_gameplay();
+        Check(module_player.GetString(sz_slot_name) == "Commander" &&
+                  ptr_name_field->Text() == "Commander",
+              "p6b23: the gameplay reset restores the default name");
+      }
+
+      {
+        yaml::StringPool pool_hotkeys23;
+        yaml::MiniYaml yaml_groups23{};
+        yaml::MiniYamlNode node_game_group{};
+        node_game_group.Key = pool_hotkeys23.Intern(
+            "hotkey-group-game-commands");
+        node_game_group.Value.Nodes.emplace_back(
+            pool_hotkeys23.Intern("Types"),
+            yaml::MiniYaml{
+                pool_hotkeys23.Intern("OrderGenerator, World, Menu")});
+        yaml::MiniYamlNode node_production_group{};
+        node_production_group.Key = pool_hotkeys23.Intern(
+            "hotkey-group-production-commands");
+        node_production_group.Value.Nodes.emplace_back(
+            pool_hotkeys23.Intern("Types"),
+            yaml::MiniYaml{
+                pool_hotkeys23.Intern("Production, ProductionSlot")});
+        yaml_groups23.Nodes.push_back(std::move(node_game_group));
+        yaml_groups23.Nodes.push_back(
+            std::move(node_production_group));
+        const ui::YamlDictionary vec_args_hotkeys23{
+            {std::string_view{"HotkeyGroups"}, &yaml_groups23}};
+
+        auto up_panel = std::unique_ptr<ui::Widget>(
+            ptr_stub23->MakePanelTree("HOTKEYS_PANEL"));
+        ui::Widget* ptr_panel = up_panel.get();
+        SettingsHostStub23 host_hotkeys;
+        mods::HotkeysSettingsLogic logic_hotkeys(
+            mod_data, host_hotkeys, "HOTKEYS_PANEL", "Hotkeys",
+            &vec_args_hotkeys23);
+
+        std::function<bool()> fn_leave_hotkeys;
+        std::function<void()> fn_reset_hotkeys;
+        host_hotkeys.CaptureForTest(*ptr_panel, fn_leave_hotkeys,
+                                    fn_reset_hotkeys);
+
+        ui::ScrollPanelWidget* ptr_hotkey_list =
+            ptr_panel->Get<ui::ScrollPanelWidget>("HOTKEY_LIST");
+        Check(ptr_hotkey_list->Children().size() > 2,
+              "p6b23: the hotkey list assembles its groups");
+
+        const std::string* ptr_first_key = nullptr;
+        for (const auto& [str_key, definition] :
+             mod_data.Hotkeys().Definitions())
+          if (std::find(definition.vec_types.begin(),
+                        definition.vec_types.end(), "Production") !=
+              definition.vec_types.end()) {
+            ptr_first_key = &str_key;
+            break;
+          }
+        Check(ptr_first_key != nullptr,
+              "p6b23: the real ra hotkey table carries production "
+              "keys");
+        if (ptr_first_key != nullptr)
+          Check(ptr_hotkey_list->GetOrNull(*ptr_first_key) != nullptr &&
+                    ptr_hotkey_list->GetOrNull(*ptr_first_key)
+                            ->GetOrNull<ui::ButtonWidget>("HOTKEY") !=
+                        nullptr,
+                "p6b23: the production hotkey gains a remap row");
+
+        Check(ptr_panel->Get<ui::DropDownButtonWidget>(
+                      "CONTEXT_DROPDOWN")
+                      ->fn_get_text()
+                      .find("any") != std::string::npos,
+              "p6b23: the context dropdown opens on any-context");
+
+        fn_reset_hotkeys();
+        bool b_all_default23 = true;
+        for (const auto& [str_key, definition] :
+             mod_data.Hotkeys().Definitions()) {
+          const ui::Hotkey hk_current =
+              mod_data.Hotkeys().Get(str_key).GetValue();
+          const bool b_matches_default =
+              hk_current == definition.hk_default ||
+              (!hk_current.IsValid() &&
+               !definition.hk_default.IsValid());
+          if (!b_matches_default)
+            b_all_default23 = false;
+        }
+        Check(b_all_default23,
+              "p6b23: the hotkey reset restores every default");
+      }
     }
 
   }

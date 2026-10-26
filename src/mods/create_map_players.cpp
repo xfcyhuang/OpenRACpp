@@ -1,4 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/CreateMapPlayers.cs @e180e3225
+// UPSTREAM: OpenRA.Mods.Common/Traits/World/CreateMapPlayers.cs @1f594e320
 //          (实现部分)+ 本批 mods trait 的注册表装配
 //          The implementation half of CreateMapPlayers.cs + this batch's
 //          mods-trait registry assembly.
@@ -28,6 +28,7 @@ import std;
 #include "mods/lobby_utils.hpp"
 #include "mods/server_creation_logic.hpp"
 #include "mods/server_list_logic.hpp"
+#include "mods/settings_logics.hpp"
 #include "mods/menu_logics.hpp"
 
 #include "meta/field_loader.hpp"
@@ -947,6 +948,7 @@ void RegisterCommonTraits() {
     RegisterServerCreationLogic();
     RegisterAssetBrowserLogic();
     RegisterLobbyLogics();
+    RegisterSettingsLogics();
 
     return true;
   }();
