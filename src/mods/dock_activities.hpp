@@ -1,24 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/MoveToDock.cs @1f594e320 L19-150
-//          全文 + GenericDockSequence.cs L22-216 全文(逐语义重写;
-//          WithDockingOverlay/IDockClientBody 的动画面 = 未移植空集:
-//          PlayThen 回调即置 Loop 态 —— 上游无该 trait 时的等价路径)
-//          The whole of MoveToDock.cs L19-150 + the whole of
-//          GenericDockSequence.cs L22-216 (verbatim-semantics rewrites;
-//          the WithDockingOverlay/IDockClientBody animation faces are the
-//          unported empty set: the PlayThen callback sets the Loop state
-//          at once — upstream's equivalent path without those traits).
-//
-// 机制对照 / Mechanism mapping:
-//  - 嵌套 DockingState 枚举照抄;PlayDockAnimations 的 Action after 闭包
-//    链 → std::function(无动画 trait 时直接调用 —— 上游 else 分支)
-//    The nested DockingState enum copied; PlayDockAnimations' Action-after
-//    closure chain → std::function (invoked directly without the
-//    animation traits — upstream's else branches).
-//  - INotifyDockClientMoving/INotifyDockClient/INotifyDockHost 的通知面
-//    = TraitsImplementing 直查(空集 = 上游无实现者时的等价域)
-//    The INotifyDockClientMoving/INotifyDockClient/INotifyDockHost
-//    notification faces query TraitsImplementing directly (the empty set
-//    = upstream's equivalent domain without implementors).
 #pragma once
 import std;
 
@@ -33,7 +12,6 @@ import std;
 
 namespace ora::mods::activities {
 
-/// MoveToDock.cs L20-150
 class MoveToDock final : public sim::Activity {
  public:
   MoveToDock(sim::Actor& self, Actor* dock_host_actor,
@@ -58,10 +36,9 @@ class MoveToDock final : public sim::Activity {
   bool b_docking_cancelled_ = false;
 };
 
-/// GenericDockSequence.cs L23-215
 class GenericDockSequence : public sim::Activity {
  public:
-  /// L25:DockingState | L25: DockingState.
+
   enum class DockingState {
     Wait,
     Drag,
@@ -78,21 +55,13 @@ class GenericDockSequence : public sim::Activity {
 
   bool Tick(sim::Actor& self) override;
 
-  /// L127-143:PlayDockAnimations(virtual)
-  /// L127-143: PlayDockAnimations (virtual).
   virtual void PlayDockAnimations(sim::Actor& self);
 
-  /// L145-155:PlayDockCientAnimation(virtual;上游拼写)
-  /// L145-155: PlayDockCientAnimation (virtual; upstream's spelling).
   virtual void PlayDockCientAnimation(
       sim::Actor& self, std::function<void()> after);
 
-  /// L157-173:PlayUndockAnimations(virtual)
-  /// L157-173: PlayUndockAnimations (virtual).
   virtual void PlayUndockAnimations(sim::Actor& self);
 
-  /// L175-184:PlayUndockClientAnimation(virtual)
-  /// L175-184: PlayUndockClientAnimation (virtual).
   virtual void PlayUndockClientAnimation(sim::Actor& self,
                                          std::function<void()> after);
 
@@ -108,8 +77,7 @@ class GenericDockSequence : public sim::Activity {
   DockingState docking_state_;
 
  private:
-  /// L187-204:NotifyDocked/NotifyUndocked
-  /// L187-204: NotifyDocked/NotifyUndocked.
+
   void NotifyDocked(sim::Actor& self);
   void NotifyUndocked(sim::Actor& self);
 
@@ -119,4 +87,4 @@ class GenericDockSequence : public sim::Activity {
   bool b_dock_initiated_ = false;
 };
 
-}  // namespace ora::mods::activities
+}

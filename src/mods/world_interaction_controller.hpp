@@ -62,4 +62,4 @@ private:
 
 void RegisterWorldInteractionControllerWidget();
 
-}  // namespace ora::mods
+}

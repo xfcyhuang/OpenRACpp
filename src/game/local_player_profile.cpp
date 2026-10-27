@@ -12,7 +12,7 @@ LocalPlayerProfileState& ProfileSlot() {
   return *up_state;
 }
 
-}  // namespace
+}
 
 LocalPlayerProfileState& LocalPlayerProfileInstance() {
   return ProfileSlot();
@@ -84,4 +84,4 @@ PlayerDatabase PlayerDatabaseFromYaml(const yaml::MiniYaml& yaml_source) {
   return db_player;
 }
 
-}  // namespace ora::game
+}

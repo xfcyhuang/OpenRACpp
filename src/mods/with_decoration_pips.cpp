@@ -1,8 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithSpriteControlGroupDecoration.cs
-//          @1f594e320(statement-by-statement;机制对照见
-//          with_decoration_pips.hpp)
-//          Statement-by-statement; the mechanism mapping lives in
-//          with_decoration_pips.hpp.
 #include "gfx/world_renderer.hpp"
 #include "mods/player_resources.hpp"
 #include "mods/render_sprites.hpp"
@@ -23,8 +18,6 @@ int2 ParseInt2Value(const meta::GenericValue& gv_value) {
   return int2{};
 }
 
-/// 上游 pip 行的共用绘制段:逐 pip 步进 screenPos
-/// The common draw segment of a pip row: screenPos advances per pip.
 void DrawPipRow(gfx::Animation& anim_pips, Actor& self,
                 const PipDecorationSegment& seg_pips, gfx::WorldRenderer& wr,
                 int2 int2_screen_pos,
@@ -54,7 +47,7 @@ void DrawPipRow(gfx::Animation& anim_pips, Actor& self,
   }
 }
 
-}  // namespace
+}
 
 void PipDecorationSegment::ParseCommon(const meta::RecordObject& rec_info) {
   if (const auto v = sim::RecordFieldInt(rec_info, "PipCount"))
@@ -70,8 +63,6 @@ void PipDecorationSegment::ParseCommon(const meta::RecordObject& rec_info) {
   if (const auto v = sim::RecordFieldString(rec_info, "Palette"))
     str_palette = std::string{*v};
 }
-
-// ———— WithSpriteControlGroupDecoration ————
 
 WithSpriteControlGroupDecorationInfoData
 WithSpriteControlGroupDecorationInfoData::Parse(
@@ -125,8 +116,6 @@ void WithSpriteControlGroupDecoration::RenderDecoration(
       0, ptr_palette));
 }
 
-// ———— WithResourceStoragePipsDecoration ————
-
 WithResourceStoragePipsDecorationInfoData
 WithResourceStoragePipsDecorationInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -156,7 +145,7 @@ WithResourceStoragePipsDecoration::WithResourceStoragePipsDecoration(
 
 void WithResourceStoragePipsDecoration::OnOwnerChanged(
     Actor& self, sim::Player& old_owner, sim::Player& new_owner) {
-  // L71-74
+
   (void)self;
   (void)old_owner;
   BindPlayerResources(new_owner);
@@ -165,8 +154,7 @@ void WithResourceStoragePipsDecoration::OnOwnerChanged(
 void WithResourceStoragePipsDecoration::RenderDecorationAt(
     Actor& self, gfx::WorldRenderer& wr, int2 int2_screen_pos,
     std::vector<gfx::RenderItem>& vec_out) {
-  // 满判定 = 整数交叉乘法(Resources*PipCount > i*Capacity)
-  // The full test = integer cross-multiplication.
+
   const int int4_resources = ptr_player_resources_->Resources;
   const int int4_capacity = ptr_player_resources_->ResourceCapacity;
   const PipDecorationSegment& seg_pips = InfoData().pips;
@@ -179,8 +167,6 @@ void WithResourceStoragePipsDecoration::RenderDecorationAt(
              },
              vec_out);
 }
-
-// ———— WithStoresResourcesPipsDecoration ————
 
 WithStoresResourcesPipsDecorationInfoData
 WithStoresResourcesPipsDecorationInfoData::Parse(
@@ -216,9 +202,7 @@ WithStoresResourcesPipsDecoration::WithStoresResourcesPipsDecoration(
 
 std::string_view WithStoresResourcesPipsDecoration::GetPipSequence(
     int int4_index) {
-  // L68-87:n = i*Capacity/PipCount;Contents 前缀和减法定位资源桶
-  // n = i*Capacity/PipCount;Contents 前缀和定位资源桶
-  // n = i*Capacity/PipCount; Contents's prefix sums locate the bucket.
+
   const int int4_pip_count = InfoData().pips.int4_pip_count;
   int int4_n = int4_index * ptr_stores_resources_->Capacity() /
                int4_pip_count;
@@ -244,4 +228,4 @@ void WithStoresResourcesPipsDecoration::RenderDecorationAt(
              vec_out);
 }
 
-}  // namespace ora::mods
+}

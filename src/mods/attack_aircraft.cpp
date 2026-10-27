@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Air/AttackAircraft.cs +
-//          AttackBomber.cs @1f594e320 + Activities/Air/FlyAttack.cs 的实现面
 #include "mods/attack_aircraft.hpp"
 
 #include "map/map.hpp"
@@ -399,6 +397,6 @@ bool StrafeAttackRun::Tick(sim::Actor& self) {
   return false;
 }
 
-}  // namespace activities
+}
 
-}  // namespace ora::mods
+}

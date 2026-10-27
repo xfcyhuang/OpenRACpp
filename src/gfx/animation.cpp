@@ -1,8 +1,3 @@
-// UPSTREAM: OpenRA.Game/Graphics/Animation.cs @1f594e320 L21-261 +
-//           OpenRA.Game/Graphics/AnimationWithOffset.cs @1f594e320 L17-60
-//          (animation.hpp 的实现;头注的形态适配说明适用)
-//          Implementation of animation.hpp; the shape-adaptation notes of
-//          the hpp header apply.
 import std;
 #include "gfx/animation.hpp"
 #include "gfx/gfx_util.hpp"
@@ -12,9 +7,6 @@ namespace ora::gfx {
 
 namespace {
 
-/// string.ToLowerInvariant(ASCII 域;上游调用点均为序列/图像名)。
-/// string.ToLowerInvariant (the ASCII domain; upstream's call sites are all
-/// sequence/image names).
 std::string ToLowerInvariantAscii(std::string str_source) {
   for (char& chr_c : str_source)
     if (chr_c >= 'A' && chr_c <= 'Z')
@@ -22,7 +14,7 @@ std::string ToLowerInvariantAscii(std::string str_source) {
   return str_source;
 }
 
-}  // namespace
+}
 
 Animation::Animation(Deps deps, std::string str_name, std::function<WAngle()> fn_facing,
                      std::function<bool()> fn_paused)
@@ -141,8 +133,7 @@ void Animation::Play(const std::string& str_sequence_name) {
 }
 
 std::int32_t Animation::CurrentSequenceTickOrDefault() const {
-  // 25 fps == 40 ms(上游常量注释照抄)| 25 fps == 40 ms (the upstream
-  // constant comment kept).
+
   constexpr std::int32_t kDefaultTick = 40;
   return ptr_current_sequence_ != nullptr ? ptr_current_sequence_->Tick() : kDefaultTick;
 }
@@ -194,9 +185,6 @@ void Animation::PlayFetchIndex(const std::string& str_sequence_name,
   b_tick_always_ = true;
   PlaySequence(str_sequence_name);
 
-  // 上游 frame = func() 先于 tickFunc 装配(func 参数已在手)
-  // Upstream's frame = func() runs before the tickFunc assembly (the func
-  // parameter is already in hand).
   fn_fetch_ = std::move(fn_fetch);
   int4_frame_ = fn_fetch_();
   mode_tick_ = TickMode::FetchIndex;
@@ -226,13 +214,7 @@ void Animation::RunTickFunc() {
       if (int4_frame_ >= ptr_current_sequence_->Length()) {
         int4_frame_ = ptr_current_sequence_->Length() - 1;
         mode_tick_ = TickMode::None;
-        // 先移出再执行:after 闭包体内常再入 Play(CancelCustomAnimation
-        // 等),PlaySequence 会清 fn_after_ —— 执行中析构自身即 UAF(上游
-        // C# 委托 GC 无此问题;ASan 实证)
-        // Move out before invoking: after-callbacks routinely re-enter
-        // Play (CancelCustomAnimation etc.), and PlaySequence clears
-        // fn_after_ — destroying the closure mid-invocation is a UAF
-        // (upstream's C# delegates lean on the GC; ASan-proven).
+
         std::function<void()> fn_done = std::move(fn_after_);
         if (fn_done)
           fn_done();
@@ -254,7 +236,7 @@ void Animation::RunTickFunc() {
 
 void Animation::Tick() {
   if (!fn_paused_ || !fn_paused_())
-    Tick(40);  // tick one frame(上游注释)| tick one frame (upstream comment)
+    Tick(40);
 }
 
 void Animation::Tick(std::int32_t int4_t) {
@@ -289,17 +271,12 @@ ISpriteSequence& Animation::GetSequence(const std::string& str_sequence_name) co
 
 std::string Animation::GetRandomExistingSequence(std::span<const std::string> vec_sequences,
                                                  MersenneTwister& random) const {
-  // sequences.Where(HasSequence).RandomOrDefault(random)(L257-260)
+
   std::vector<const std::string*> vec_existing;
   for (const std::string& str_candidate : vec_sequences)
     if (HasSequence(str_candidate))
       vec_existing.push_back(&str_candidate);
 
-  // RandomOrDefault:空集 → default(null → 空串);xs.ElementAt(r.Next(count))
-  // 的 r.Next 可负 → 上游 ElementAt 抛 ArgumentOutOfRangeException(等价抛)
-  // RandomOrDefault: an empty set → default (null → the empty string);
-  // xs.ElementAt(r.Next(count)) with a possibly-negative r.Next → upstream's
-  // ElementAt throws ArgumentOutOfRangeException (thrown equivalently).
   if (vec_existing.empty())
     return std::string{};
   const std::int32_t int4_index = random.Next(0, static_cast<std::int32_t>(vec_existing.size()));
@@ -309,8 +286,6 @@ std::string Animation::GetRandomExistingSequence(std::span<const std::string> ve
         "less than the size of the collection. (Parameter 'index')");
   return *vec_existing[static_cast<std::size_t>(int4_index)];
 }
-
-// ———— AnimationWithOffset ————
 
 std::int32_t AnimationWithOffset::Render(WPos wpos_center, const PaletteReference* ptr_palette,
                                          std::array<RenderItem, 2>& arr_out) {
@@ -322,4 +297,4 @@ std::int32_t AnimationWithOffset::Render(WPos wpos_center, const PaletteReferenc
   return int4_count;
 }
 
-}  // namespace ora::gfx
+}

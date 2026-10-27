@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @1f594e320(widget.hpp 的实现,方法体
-// 逐行对照)
-// The implementation of widget.hpp (method bodies line-checked).
 import std;
 
 #include "ui/chrome_metrics.hpp"
@@ -24,7 +21,6 @@ std::unique_ptr<ChromeLogic> ChromeLogicRegistry::Create(const std::string& str_
     if (str_entry_name == str_name)
       return fn_entry_factory(args);
 
-  // ObjectCreator.cs L92 | verbatim
   throw std::runtime_error("Cannot locate type: " + str_name);
 }
 
@@ -83,13 +79,11 @@ void Widget::Initialize(WidgetArgs& args) {
       map_substitutions = **ptr_subs;
 
   const auto fn_add = [&](const std::string& str_key, std::int32_t int4_value) {
-    // C# Dictionary.Add 撞键即抛 | C# Dictionary.Add throws on duplicates
+
     if (!map_substitutions.emplace(str_key, int4_value).second)
       throw std::runtime_error("An item with the same key has already been added.");
   };
-  // 上游 WINDOW_* 恒取 Renderer.Resolution,PARENT_* 取父界(根 = 全窗口)
-  // upstream WINDOW_* always reads Renderer.Resolution, PARENT_* the parent
-  // bounds (root = the full window)
+
   fn_add("WINDOW_WIDTH", int2_window.X);
   fn_add("WINDOW_HEIGHT", int2_window.Y);
   fn_add("PARENT_WIDTH", bounds_parent.int4_width);
@@ -140,7 +134,7 @@ void Widget::PostInit(WidgetArgs& args) {
 
 bool Widget::LoadFieldOrProperty(std::string_view str_key, std::string_view str_value) {
   const auto fn_parse_bool = [](std::string_view str_text) {
-    // bool.Parse 大小写敏感 | bool.Parse is case-sensitive
+
     if (str_text == "true")
       return true;
     if (str_text == "false")
@@ -169,7 +163,7 @@ bool Widget::LoadFieldOrProperty(std::string_view str_key, std::string_view str_
     return true;
   }
   if (str_key == "Logic") {
-    // Split(',') + Trim + RemoveEmptyEntries(FieldLoader.cs L349-356)
+
     vec_logic.clear();
     std::size_t int4_pos = 0;
     while (int4_pos <= str_value.size()) {
@@ -243,8 +237,7 @@ bool Widget::YieldMouseFocus(const MouseInput&) {
 }
 
 void Widget::ForceYieldMouseFocus() {
-  // 拒绝让出仍强制清指针(L377-381) | a refused yield still clears the
-  // pointer (L377-381)
+
   if (Ui::Instance().MouseFocusWidget() == this && !YieldMouseFocus(MouseInput{}))
     Ui::Instance().SetMouseFocusWidget(nullptr);
 }
@@ -281,8 +274,6 @@ const std::string* Widget::GetCursorOuter(int2 pt_pos) const {
   if (!(fn_is_visible() && EventBoundsContains(pt_pos)))
     return nullptr;
 
-  // 逆序优先(上游 LINQ Last 面的显式循环) | reverse priority (upstream's
-  // LINQ Last face as an explicit loop)
   for (std::size_t int4_index = vec_children_.size(); int4_index-- > 0;) {
     const std::string* ptr_cursor = vec_children_[int4_index]->GetCursorOuter(pt_pos);
     if (ptr_cursor != nullptr)
@@ -298,7 +289,6 @@ bool Widget::HandleMouseInputOuter(const MouseInput& mi_input) {
 
   Widget* ptr_old_mouse_over = Ui::Instance().MouseOverWidget();
 
-  // 子级先行冒泡(倒序) | children first, bubbling (reverse order)
   for (std::size_t int4_index = vec_children_.size(); int4_index-- > 0;)
     if (vec_children_[int4_index]->HandleMouseInputOuter(mi_input))
       return true;
@@ -402,8 +392,7 @@ void Widget::RemoveChildren() {
 }
 
 void Widget::Hidden() {
-  // 已从树摘除,用强制版让出(上游注释) | already detached from the tree,
-  // hence the forced yields (upstream comment)
+
   ForceYieldKeyboardFocus();
   ForceYieldMouseFocus();
 
@@ -423,11 +412,7 @@ void Widget::Removed() {
       ptr_logic->UnsubscribeAll(*ptr_mediator_);
   }
   ptr_mediator_ = nullptr;
-  // LogicObjects 数组不清空(上游 Removed 后仍可观察,BecameHidden 快照怪癖
-  // 依赖此);C++ 的 Dispose 语义 = 随 widget 析构
-  // the LogicObjects array is not cleared (upstream keeps it observable
-  // after Removed — the BecameHidden snapshot quirk depends on it); the C++
-  // Dispose semantics = destruction with the widget.
+
 }
 
 Widget* Widget::GetOrNull(std::string_view str_id_to_find) const {
@@ -468,9 +453,7 @@ bool ContainerWidget::LoadFieldOrProperty(std::string_view str_key,
 
 InputWidget::InputWidget(const InputWidget& widget_other)
     : Widget(widget_other), b_disabled(widget_other.b_disabled) {
-  // 上游怪癖:IsDisabled 闭包读**源体** Disabled(拷贝构造搬走源委托,未重绑)
-  // the upstream quirk: IsDisabled reads the SOURCE's Disabled (the copy
-  // carries the source's delegate away, un-rebound)
+
   fn_is_disabled = [ptr_source = &widget_other]() -> bool {
     return ptr_source->b_disabled;
   };
@@ -490,4 +473,4 @@ bool InputWidget::LoadFieldOrProperty(std::string_view str_key,
   return Widget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

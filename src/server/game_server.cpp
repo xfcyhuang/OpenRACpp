@@ -124,7 +124,7 @@ std::int64_t UnixNowSeconds() {
       .count();
 }
 
-}  // namespace
+}
 
 std::optional<GameClientData> GameClientData::TryFromYaml(
     const yaml::MiniYaml& yaml) {
@@ -364,9 +364,6 @@ std::string GameServerData::ToPOSTData(bool b_lan_game) const {
         int4_players++;
     }
 
-    // LAN 以 GUID 串占用 Id 字段(Platform.SessionGUID.ToString())
-    // LAN overloads Id with the GUID string (Platform.SessionGUID.
-    // ToString()).
     root.push_back(MakeLeaf(pool, "Id", SessionGuid));
     root.push_back(
         MakeLeaf(pool, "Players", std::to_string(int4_players)));
@@ -415,4 +412,4 @@ std::string GameServerData::ToPOSTData(bool b_lan_game) const {
   return str_out;
 }
 
-}  // namespace ora::server
+}

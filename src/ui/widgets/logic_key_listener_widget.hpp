@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LogicKeyListenerWidget.cs @1f594e320 L19-36(全文)。
 #pragma once
 import std;
 
@@ -29,4 +28,4 @@ class LogicKeyListenerWidget : public Widget {
   std::vector<std::function<bool(const KeyInput&)>> vec_handlers_;
 };
 
-}  // namespace ora::ui
+}

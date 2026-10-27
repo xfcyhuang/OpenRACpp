@@ -1,10 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/RadarWidget.cs @1f594e320
-//          L25-539 全文(四层 2x2 单 sheet 的雷达 minimap:地形/迷雾/actor
-//          三层 + 视口框与 ping 星;开关动画与 Classic 的 minimap 移动)
-//          The whole of RadarWidget.cs L25-539 (the radar minimap on a
-//          single 2x2 four-layer sheet: terrain/shroud/actor plus the
-//          viewport rect and ping stars; the toggle animation and Classic's
-//          minimap movement).
 #pragma once
 import std;
 
@@ -50,15 +43,15 @@ class RadarWidget final : public ora::ui::Widget {
   void Draw() override;
   void Removed() override;
 
-  std::uint32_t uint4_color_fog = 0x80000000u;  // L27(128-alpha 黑)
-  std::uint32_t uint4_color_shroud = 0xFF000000u;  // L28
+  std::uint32_t uint4_color_fog = 0x80000000u;
+  std::uint32_t uint4_color_shroud = 0xFF000000u;
 
-  std::string str_world_interaction_controller;  // L30
-  int int4_animation_length = 5;                 // L31
-  std::string str_radar_online_sound;            // L32
-  std::string str_radar_offline_sound;           // L33
-  std::string str_sound_up;                      // L34
-  std::string str_sound_down;                    // L35
+  std::string str_world_interaction_controller;
+  int int4_animation_length = 5;
+  std::string str_radar_online_sound;
+  std::string str_radar_offline_sound;
+  std::string str_sound_up;
+  std::string str_sound_down;
   std::function<bool()> fn_is_enabled = [] { return true; };
   std::function<void()> fn_after_open = [] {};
   std::function<void()> fn_after_close = [] {};
@@ -122,4 +115,4 @@ class RadarWidget final : public ora::ui::Widget {
 
 void RegisterRadarWidget();
 
-}  // namespace ora::mods
+}

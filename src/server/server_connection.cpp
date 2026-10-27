@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/Server/Connection.cs @1f594e320 L47-216(读循环/
-//          发送队列全文)
-//          Connection.cs L47-216 (the read loop/send queue's whole text).
 import std;
 
 #include "server/server_connection.hpp"
@@ -12,9 +9,9 @@ namespace ora::server {
 
 namespace {
 
-enum class ReceiveState { Header, Data };  // L219
+enum class ReceiveState { Header, Data };
 
-}  // namespace
+}
 
 ServerConnection::ServerConnection(int int4_index, std::string str_token,
                                    std::string str_endpoint,
@@ -65,9 +62,6 @@ void ServerConnection::SendReceiveLoop(Server* p_server, bool b_multiplayer) {
   tcp_.SetNonBlocking(true);
   tcp_.SetNoDelay();
 
-  // finally 块(L188-192):断连事件 + socket 释放 + 存活计数归还
-  // The finally block (L188-192): the disconnect event + the socket
-  // release + the liveness counter's return.
   struct LoopExit {
     ServerConnection* p_self;
     Server* p_server;
@@ -243,4 +237,4 @@ ServerConnection::~ServerConnection() {
   }
 }
 
-}  // namespace ora::server
+}

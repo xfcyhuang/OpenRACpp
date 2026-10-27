@@ -1,13 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Util.cs @1f594e320 L53-73(TickFacing)+
-//          L78-84(IndexFacing)+ L105-107(QuantizeFacing)+ L129-140
-//          (BetweenCells)+ L181-185(AreAdjacentCells)+ L197-201
-//          (AdjacentCells;ApplyPercentageModifiers 已在
-//          core/percent_modifiers.hpp = OPT-A1)
-//          Util.cs L53-73 (TickFacing) + L78-84 (IndexFacing) + L105-107
-//          (QuantizeFacing) + L129-140 (BetweenCells) + L181-185
-//          (AreAdjacentCells) + L197-201 (AdjacentCells;
-//          ApplyPercentageModifiers already lives in
-//          core/percent_modifiers.hpp = OPT-A1).
 #pragma once
 import std;
 
@@ -24,19 +14,12 @@ import std;
 
 namespace ora::mods {
 
-/// Util.cs 的 InaccuracyType(GetProjectileInaccuracy 的参数域;gen 枚举
-/// OpenRA.Mods.Common.InaccuracyType 同步)
-/// Util.cs's InaccuracyType (GetProjectileInaccuracy's parameter domain;
-/// mirroring the gen enum OpenRA.Mods.Common.InaccuracyType).
 enum class InaccuracyType : std::int32_t {
   Maximum = 0,
   PerCellIncrement = 1,
   Absolute = 2,
 };
 
-/// Util.cs L228-238:RandomInRange(空 = 0;单值 = 该值;双值 = [a,b) 随机)
-/// Util.cs L228-238: RandomInRange (empty = 0; a lone value = itself; a
-/// pair = random within [a, b)).
 inline int RandomInRange(MersenneTwister& random,
                          const std::vector<int>& vec_range) {
   if (vec_range.empty())
@@ -46,10 +29,6 @@ inline int RandomInRange(MersenneTwister& random,
   return random.Next(vec_range[0], vec_range[1]);
 }
 
-
-/// Util.cs L26-45:TickFacing(int, int, int)(facing 域 0-255 的 &0xFF 回绕版)
-/// Util.cs L26-45: TickFacing(int, int, int) (the &0xFF-wrapping form over
-/// the 0-255 facing domain).
 inline int TickFacingInt(int facing, int desired_facing, int rot) {
   const int left_turn = (facing - desired_facing) & 0xFF;
   if (left_turn < rot)
@@ -65,9 +44,6 @@ inline int TickFacingInt(int facing, int desired_facing, int rot) {
   return (facing - rot) & 0xFF;
 }
 
-/// Util.cs L111-118:NormalizeFacing(任意整数 facing 回绕到 0-255)
-/// Util.cs L111-118: NormalizeFacing (wraps an arbitrary integer facing
-/// into 0-255).
 inline int NormalizeFacing(int f) {
   if (f >= 0)
     return f & 0xFF;
@@ -76,7 +52,6 @@ inline int NormalizeFacing(int f) {
   return negative == 0 ? 0 : 256 - negative;
 }
 
-/// Util.cs L53-73:TickFacing
 inline WAngle TickFacing(WAngle facing, WAngle desired_facing, WAngle step) {
   const int left_turn = (facing - desired_facing).Angle;
   if (left_turn < step.Angle)
@@ -89,28 +64,21 @@ inline WAngle TickFacing(WAngle facing, WAngle desired_facing, WAngle step) {
   return right_turn < left_turn ? facing + step : facing - step;
 }
 
-/// Util.cs L70-73:GetTurnDirection
 inline int GetTurnDirection(WAngle facing, WAngle desired_facing) {
   return (facing - desired_facing).Angle < 512 ? -1 : 1;
 }
 
-/// Util.cs L78-84:IndexFacing
 inline int IndexFacing(WAngle facing, int num_frames) {
-  // 1024 here is the max angle, so we divide the max angle by the total
-  // number of facings (numFrames)
+
   const int step = 1024 / num_frames;
   const int a = (facing.Angle + step / 2) & 1023;
   return a / step;
 }
 
-/// Util.cs L105-107:QuantizeFacing
 inline WAngle QuantizeFacing(WAngle facing, int facings) {
   return WAngle{IndexFacing(facing, facings) * (1024 / facings)};
 }
 
-/// Util.cs L129-140:BetweenCells(自定义层经 CustomMovementLayers)
-/// Util.cs L129-140: BetweenCells (custom layers go through
-/// CustomMovementLayers).
 inline WPos BetweenCells(sim::World& w, CPos from, CPos to) {
   const WPos from_pos =
       from.Layer() == 0
@@ -125,15 +93,11 @@ inline WPos BetweenCells(sim::World& w, CPos from, CPos to) {
   return WPos::Lerp(from_pos, to_pos, 1, 2);
 }
 
-/// Util.cs L181-185:AreAdjacentCells
 inline bool AreAdjacentCells(CPos a, CPos b) {
   const CVec offset = b - a;
   return std::abs(offset.X) < 2 && std::abs(offset.Y) < 2;
 }
 
-/// Util.cs L164-179:Neighbours(先自身再邻域;AdjacentCells 的展开核)
-/// Util.cs L164-179: Neighbours (the cell itself first, then the ring;
-/// AdjacentCells's expansion core).
 inline void AppendNeighbours(std::vector<CPos>& vec_out, CPos cell,
                              bool allow_diagonal) {
   vec_out.push_back(cell);
@@ -149,13 +113,8 @@ inline void AppendNeighbours(std::vector<CPos>& vec_out, CPos cell,
   }
 }
 
-/// Util.cs L197-201:AdjacentCells = ExpandFootprint(cells, true)
-/// (Positions → CellContaining → Distinct → 展开后 Distinct)
-/// Util.cs L197-201: AdjacentCells = ExpandFootprint(cells, true)
-/// (Positions → CellContaining → Distinct → the post-expansion Distinct).
 inline std::vector<CPos> AdjacentCells(sim::World& w, const sim::Target& target) {
-  // Positions → CellContaining → Distinct(保序去重)
-  // Positions → CellContaining → Distinct (order-preserving dedup).
+
   std::vector<CPos> vec_cells;
   for (const auto& p : target.Positions()) {
     const CPos cell = w.Map().CellContaining(p);
@@ -163,9 +122,6 @@ inline std::vector<CPos> AdjacentCells(sim::World& w, const sim::Target& target)
       vec_cells.push_back(cell);
   }
 
-  // ExpandFootprint = SelectMany(Neighbours).Distinct()(展开后保序去重)
-  // ExpandFootprint = SelectMany(Neighbours).Distinct() (the
-  // post-expansion order-preserving dedup).
   std::vector<CPos> vec_expanded;
   for (const CPos cell : vec_cells)
     AppendNeighbours(vec_expanded, cell, true);
@@ -178,9 +134,6 @@ inline std::vector<CPos> AdjacentCells(sim::World& w, const sim::Target& target)
   return vec_distinct;
 }
 
-
-/// Util.cs L92-104:FacingWithinTolerance
-/// Util.cs L92-104: FacingWithinTolerance.
 inline bool FacingWithinTolerance(WAngle facing, WAngle desired_facing,
                                   WAngle facing_tolerance) {
   if (facing_tolerance.Angle == 0 && facing == desired_facing)
@@ -191,8 +144,6 @@ inline bool FacingWithinTolerance(WAngle facing, WAngle desired_facing,
          delta >= 1024 - facing_tolerance.Angle;
 }
 
-/// Util.cs L140-147:GetVerticalAngle
-/// Util.cs L140-147: GetVerticalAngle.
 inline WAngle GetVerticalAngle(const WPos& source, const WPos& target) {
   const WVec delta = target - source;
   const std::int32_t horizontal_delta = delta.HorizontalLength();
@@ -201,9 +152,6 @@ inline WAngle GetVerticalAngle(const WPos& source, const WPos& target) {
   return vertical_vector.Yaw();
 }
 
-/// Util.cs L369-386:GetProjectileInaccuracy(修正链经 ApplyPercentageModifiers)
-/// Util.cs L369-386: GetProjectileInaccuracy (the modifier chain via
-/// ApplyPercentageModifiers).
 inline std::int32_t GetProjectileInaccuracy(
     std::int32_t int4_base_inaccuracy, InaccuracyType inaccuracy_type,
     const sim::ProjectileArgs& args) {
@@ -227,4 +175,4 @@ inline std::int32_t GetProjectileInaccuracy(
   }
 }
 
-}  // namespace ora::mods
+}

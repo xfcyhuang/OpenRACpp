@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/HotkeyEntryWidget.cs @1f594e320 L19-162(全文;
-// 键捕获 + 15-tick blink + 三色态)。
 import std;
 
 #include "ui/widgets/hotkey_entry_widget.hpp"
@@ -174,4 +172,4 @@ bool HotkeyEntryWidget::LoadFieldOrProperty(std::string_view str_key,
   return InputWidget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

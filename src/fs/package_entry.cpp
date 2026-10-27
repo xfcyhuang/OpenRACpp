@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileSystem/PackageEntry.cs @1f594e320 L21-117
 #include "fs/package_entry.hpp"
 
 #include "formats/crc32.hpp"
@@ -7,13 +6,6 @@ namespace ora::fs {
 
 namespace {
 
-/// 大写化 + ASCII 字节化:.NET ToUpperInvariant + Encoding.ASCII 的等价域
-/// (a-z 翻转;≥ 0x80 → '?',与 ASCII 编码的替换一致)。返回按 4 字节对
-/// 填充后的字节数组与填充长度。
-/// Uppercase + ASCII encode: the equivalent domain of .NET's
-/// ToUpperInvariant + Encoding.ASCII (a-z flipped; >= 0x80 -> '?', matching
-/// the ASCII encoder's replacement). Returns the padded byte array (aligned
-/// to 4) and the padding length.
 std::vector<std::uint8_t> UpperAsciiPadded(std::string_view str_name, std::size_t& st_padding) {
   const std::size_t st_len = str_name.size();
   st_padding = st_len % 4 != 0 ? 4 - st_len % 4 : 0;
@@ -32,7 +24,7 @@ std::vector<std::uint8_t> UpperAsciiPadded(std::string_view str_name, std::size_
   return vec_out;
 }
 
-}  // namespace
+}
 
 std::uint32_t PackageEntry::HashFilename(std::string_view str_name, PackageHashType enum_type) {
   std::size_t st_padding = 0;
@@ -41,9 +33,7 @@ std::uint32_t PackageEntry::HashFilename(std::string_view str_name, PackageHashT
 
   switch (enum_type) {
     case PackageHashType::Classic: {
-      // L71-85:尾部填 NUL;逐 4 字节(小端 u32)rotate-1 累加。
-      // L71-85: NUL padding; rotate-1 accumulate over each 4-byte
-      // little-endian word.
+
       for (std::size_t st_p = 0; st_p < st_padding; st_p++)
         vec_upper[st_padded_length - 1 - st_p] = 0;
 
@@ -59,11 +49,7 @@ std::uint32_t PackageEntry::HashFilename(std::string_view str_name, PackageHashT
     }
 
     case PackageHashType::CRC32: {
-      // L87-101:upperPaddedName[length] = (char)(length - length/4*4),其余
-      // 填充位复制该字节;标准 CRC-32。
-      // L87-101: upperPaddedName[length] = (char)(length -
-      // length/4*4); the remaining padding replicates that byte; the
-      // standard CRC-32.
+
       const std::size_t st_length = str_name.size();
       const std::size_t st_rounded = st_length / 4 * 4;
       if (st_length != st_rounded && st_padding > 0) {
@@ -78,10 +64,7 @@ std::uint32_t PackageEntry::HashFilename(std::string_view str_name, PackageHashT
     }
   }
 
-  // 上游 default:NotImplementedException —— enum 两值已穷尽,不可达。
-  // Upstream default: NotImplementedException — both enum values are
-  // covered, unreachable.
   throw std::runtime_error{"Unknown hash type"};
 }
 
-}  // namespace ora::fs
+}

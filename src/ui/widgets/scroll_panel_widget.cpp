@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ScrollPanelWidget.cs + ListLayout.cs
-// + GridLayout.cs @1f594e320(scroll_panel_widget.hpp 的实现)
-// The implementation of scroll_panel_widget.hpp.
 import std;
 
 #include "ui/widgets/scroll_panel_widget.hpp"
@@ -16,8 +13,6 @@ import std;
 #include "ui/widgets/scroll_item_widget.hpp"
 
 namespace ora::ui {
-
-// ———— ListLayout ————
 
 void ListLayout::AdjustChild(Widget& widget_child) {
   if (ptr_widget_->OwnedChildren().empty())
@@ -41,13 +36,9 @@ void ListLayout::AdjustChildren() {
           up_child->bounds_widget.int4_height + ptr_widget_->int4_item_spacing;
   }
 
-  // The loop above appended an extra widget.ItemSpacing after the last item.
-  // Replace it with proper bottom spacing.
   ptr_widget_->int4_content_height +=
       ptr_widget_->int4_top_bottom_spacing - ptr_widget_->int4_item_spacing;
 }
-
-// ———— GridLayout ————
 
 void GridLayout::AdjustChild(Widget& widget_child) {
   if (ptr_widget_->OwnedChildren().empty()) {
@@ -57,7 +48,7 @@ void GridLayout::AdjustChild(Widget& widget_child) {
 
   if (int2_pos.X + widget_child.bounds_widget.int4_width + ptr_widget_->int4_item_spacing >
       ptr_widget_->bounds_widget.int4_width - ptr_widget_->int4_scrollbar_width) {
-    // start a new row
+
     int2_pos = int2{ptr_widget_->int4_item_spacing,
                     ptr_widget_->int4_content_height -
                         ptr_widget_->int4_top_bottom_spacing +
@@ -75,8 +66,6 @@ void GridLayout::AdjustChild(Widget& widget_child) {
                int2_pos.Y + widget_child.bounds_widget.int4_height +
                    ptr_widget_->int4_top_bottom_spacing);
 }
-
-// ———— ScrollPanelWidget ————
 
 ScrollPanelWidget::ScrollPanelWidget(WidgetArgs& args_args)
     : cache_up_arrow_(GetCachedStatefulImage(str_decorations, str_decoration_scroll_up)),
@@ -127,7 +116,7 @@ void ScrollPanelWidget::RemoveChildren() {
 }
 
 void ScrollPanelWidget::AddChild(std::unique_ptr<Widget> ptr_child) {
-  // Initial setup of margins/height(上游注释)| upstream's comment
+
   ptr_layout->AdjustChild(*ptr_child);
   Widget::AddChild(std::move(ptr_child));
 }
@@ -158,7 +147,6 @@ void ScrollPanelWidget::SetListOffset(float fp4_value, bool b_smooth) {
     const float fp4_old_list_offset = fp4_current_list_offset_;
     fp4_current_list_offset_ = fp4_value;
 
-    // Update mouseover
     if (fp4_old_list_offset != fp4_current_list_offset_)
       Ui::Instance().ResetTooltips();
   }
@@ -173,8 +161,6 @@ void ScrollPanelWidget::DrawOuter() {
   const Rectangle rect_rb = RenderBounds();
   const int int4_scrollbar_height = rect_rb.Height - 2 * int4_scrollbar_width;
 
-  // Scroll thumb is only visible if the content does not fit within the
-  // panel bounds
   int int4_thumb_height = 0;
   int int4_thumb_origin = rect_rb.Y + int4_scrollbar_width;
   if (int4_content_height > rect_rb.Height) {
@@ -263,8 +249,6 @@ void ScrollPanelWidget::DrawOuter() {
                                          -int4_border_width);
   RequireRenderer().EnableScissor(rect_draw_bounds);
 
-  // ChildOrigin enumerates the widget tree, so only evaluate it once
-  // (upstream's comment)
   const int2 int2_child_origin = ChildOrigin();
   rect_draw_bounds = Rectangle{rect_draw_bounds.X - int2_child_origin.X,
                                rect_draw_bounds.Y - int2_child_origin.Y,
@@ -325,7 +309,7 @@ bool ScrollPanelWidget::ScrolledToBottom() const {
 }
 
 void ScrollPanelWidget::ScrollToItemInner(Widget& item_widget, bool b_smooth) {
-  // Scroll the item to be visible
+
   std::optional<float> opt_new_offset;
   if (static_cast<float>(item_widget.bounds_widget.Top()) + fp4_current_list_offset_ < 0.0f)
     opt_new_offset =
@@ -543,4 +527,4 @@ bool ScrollPanelWidget::LoadFieldOrProperty(std::string_view str_key,
   return Widget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

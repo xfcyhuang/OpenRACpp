@@ -1,11 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Cnc/Graphics/ClassicTilesetSpecificSpriteSequence.cs @1f594e320 L21-95
-//          (classic_tileset_specific_sprite_sequence.hpp 的实现)
-//          Implementation of classic_tileset_specific_sprite_sequence.hpp.
-// 上游在 Classic 变体里重复了 TilesetSpecific 的解析体(非继承);此处同形
-// 重复,保持与上游文件一一对应。
-// Upstream duplicates TilesetSpecific's parsing body inside the Classic
-// variant (no inheritance); duplicated here in the same shape, keeping the
-// one-to-one file correspondence.
 import std;
 #include "mods/classic_tileset_specific_sprite_sequence.hpp"
 
@@ -108,4 +100,4 @@ ClassicTilesetSpecificSpriteSequence::ParseCombineFilenames(
   return ClassicSpriteSequence::ParseCombineFilenames(str_tile_set, opt_vec_frames, yaml_data);
 }
 
-}  // namespace ora::mods::cnc
+}

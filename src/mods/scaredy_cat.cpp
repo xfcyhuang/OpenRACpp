@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Infantry/ScaredyCat.cs 实现部分
-//          The implementation half.
 #include "mods/scaredy_cat.hpp"
 
 #include "meta/field_loader.hpp"
@@ -31,9 +29,7 @@ ScaredyCatInfoData ScaredyCatInfoData::Parse(
       const std::string_view name = fields[i]->str_name;
       const meta::GenericValue& v = generated->Slot(i);
       if (name == "AvoidTerrainTypes") {
-        // FrozenSet<string>:逗号分隔单串或集合节点(wands 同形)
-        // FrozenSet<string>: a comma-separated single string or a
-        // collection node (the same shape as wands').
+
         if (auto* s = std::get_if<std::string>(&v.val)) {
           std::string str_current;
           for (const char ch : *s + ",") {
@@ -66,10 +62,6 @@ ScaredyCatInfoData ScaredyCatInfoData::Parse(
 
 ScaredyCat::ScaredyCat(ScaredyCatInfoData&& info) : info_{std::move(info)} {}
 
-// ———— [VerifySync] 哈希注册({panicStartedTick};第十二批 G2 补面)————
-// ———— The [VerifySync] hash registration ({panicStartedTick}; the
-//      batch-12 G2 missing face) ————
-
 int ScaredyCatSyncHash(const sim::ISync* s) {
   const auto* cat = static_cast<const ScaredyCat*>(s);
   return sim::sync::CombineSyncHash(0, cat->int4_panic_started_tick);
@@ -83,4 +75,4 @@ const bool b_scaredy_cat_sync_registered = [] {
 [[maybe_unused]] const bool* b_scaredy_cat_sync_registered_anchor =
     &b_scaredy_cat_sync_registered;
 
-}  // namespace ora::mods
+}

@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/SeedsResource.cs 实现部分
-//          The implementation half.
 #include "mods/seeds_resource.hpp"
 
 #include "meta/field_loader.hpp"
@@ -33,8 +31,7 @@ SeedsResource::SeedsResource(ActorInitializer& init,
 }
 
 void SeedsResource::Tick(Actor& self) {
-  // L57-66:首 Tick 即播种(ticks 自 0 起)
-  // L57-66: seeds on the first tick (ticks starts at 0).
+
   if (IsTraitDisabled())
     return;
 
@@ -45,13 +42,7 @@ void SeedsResource::Tick(Actor& self) {
 }
 
 void SeedsResource::Seed(Actor& self) {
-  // L68-80:RandomWalk 的惰性枚举 —— Take(MaxRange) 截断,SkipWhile
-  // 跳过「已是本资源且不可再加」的格,取首格;每步两抽,(0,0) 步抽而不
-  // 产出(RNG 消耗序保真)
-  // L68-80: the RandomWalk lazy enumeration — Take(MaxRange) truncates,
-  // SkipWhile skips the cells that are already this resource and not
-  // addable, the first cell wins; two draws per step, a (0,0) step draws
-  // without yielding (the RNG consumption order preserved verbatim).
+
   if (ptr_resource_layer_ == nullptr)
     return;
 
@@ -90,4 +81,4 @@ void RegisterCommonTraitsBatch12Seeds() {
       });
 }
 
-}  // namespace ora::mods
+}

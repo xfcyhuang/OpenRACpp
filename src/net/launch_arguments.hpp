@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Game/Support/LaunchArguments.cs @1f594e320 L17-67
 #pragma once
 import std;
 
@@ -21,4 +20,4 @@ struct LaunchArguments {
   std::optional<ConnectionTarget> GetConnectEndPoint() const;
 };
 
-}  // namespace ora::net
+}

@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ButtonWidget.cs @1f594e320 L20-298(全文)。
-// 输入三态(Depressed/双击/键重复门)/键激活(HotkeyReference)/Tooltip 容器
-// 懒查/GetTextPosition 三对齐/DrawBackground 静态九宫格。Game.Sound/
-// Game.Renderer.Fonts/Ui.MouseOverWidget → Ui::Instance() 注入承载;
-// ModData.DefaultRules → WidgetArgs "modData"。
-// The whole of ButtonWidget.cs L20-298. The input trio (Depressed /
-// double-click / the key-repeat gate) / key activation (HotkeyReference) /
-// the tooltip container's lazy lookup / GetTextPosition's three alignments /
-// the static nine-slice DrawBackground. Game.Sound and
-// Game.Renderer.Fonts and Ui.MouseOverWidget go through the Ui::Instance()
-// injected carrier; ModData.DefaultRules through WidgetArgs "modData".
 #pragma once
 import std;
 
@@ -41,7 +30,7 @@ class ButtonWidget : public InputWidget {
   }
   std::string_view TypeName() const override { return kWidgetTypeName; }
 
-  std::string str_tooltip_container;  // 空 = C# null | null
+  std::string str_tooltip_container;
   std::string str_tooltip_template = "BUTTON_TOOLTIP";
 
   HotkeyReference key_hotkey;
@@ -63,7 +52,7 @@ class ButtonWidget : public InputWidget {
   core::Color color_contrast_dark{};
   core::Color color_contrast_light{};
   int int4_contrast_radius = 0;
-  std::string str_click_sound;  // 空 = C# null | null
+  std::string str_click_sound;
   std::string str_click_disabled_sound;
   bool b_highlighted = false;
   std::function<std::string()> fn_get_text;
@@ -82,12 +71,12 @@ class ButtonWidget : public InputWidget {
   std::function<std::string()> fn_get_tooltip_desc;
 
   std::function<void()> fn_on_click = [] {};
-  std::function<void()> fn_on_double_click;  // 空 = C# null | null
+  std::function<void()> fn_on_double_click;
   std::function<void(const KeyInput&)> fn_on_key_press = [](const KeyInput&) {};
 
   std::string str_cursor;
 
-  const game::Ruleset* mod_rules = nullptr;  // 非拥有 | non-owning
+  const game::Ruleset* mod_rules = nullptr;
 
   bool YieldMouseFocus(const MouseInput& mi_input) override;
   bool HandleKeyPress(const KeyInput& e_input) override;
@@ -108,8 +97,6 @@ class ButtonWidget : public InputWidget {
   virtual void DrawBackground(Rectangle rect_bounds, bool b_disabled, bool b_pressed,
                               bool b_hover, bool b_highlighted);
 
-  /// DrawBackground 静态双形态(L282-291)。
-  /// DrawBackground's static pair (L282-291).
   static void DrawBackground(std::string_view str_base_name, Rectangle rect_bounds,
                              bool b_disabled, bool b_pressed, bool b_hover,
                              bool b_highlighted);
@@ -123,9 +110,6 @@ class ButtonWidget : public InputWidget {
   TooltipContainerWidget* ResolveTooltipContainer();
   void BindDefaults();
 
-  /// ctor 局部 CachedTransform 的持有化(C# 闭包捕获的等价;clone 重建)
-  /// the ctor-local CachedTransforms held as members (the C# closure-capture
-  /// equivalent; clones rebuild them).
   std::unique_ptr<core::CachedTransform<std::string, std::string>> cache_text_;
   std::unique_ptr<core::CachedTransform<std::string, std::string>> cache_tooltip_text_;
   std::unique_ptr<core::CachedTransform<std::string, std::string>> cache_tooltip_desc_;
@@ -134,4 +118,4 @@ class ButtonWidget : public InputWidget {
   TooltipContainerWidget* ptr_tooltip_container_cached_ = nullptr;
 };
 
-}  // namespace ora::ui
+}

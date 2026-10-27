@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ExponentialSliderWidget.cs @1f594e320 L17-50(全文)。
 import std;
 
 #include "ui/widgets/exponential_slider_widget.hpp"
@@ -11,7 +10,7 @@ namespace {
 
 double Clamp01(double fp8_x) { return std::min(1.0, std::max(0.0, fp8_x)); }
 
-}  // namespace
+}
 
 float ExponentialSliderWidget::ValueFromPx(int int4_x) const {
   const Rectangle rect_rb = RenderBounds();
@@ -49,4 +48,4 @@ bool ExponentialSliderWidget::LoadFieldOrProperty(std::string_view str_key,
   return SliderWidget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

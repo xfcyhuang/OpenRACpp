@@ -1,13 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ImageWidget.cs @1f594e320 L20-98(全文)
-// + SpriteWidget.cs L18-83(全文)。Image = ChromeProvider 图像缓存 + ClickThrough
-// 输入门;Sprite = 调色板/缩放的 WorldRenderer 绘制(缓存三态 + 居中偏移)。
-// Game.Renderer/ChromeProvider/Ui.Root → Ui 注入;WorldRenderer ctor 形参 →
-// WidgetArgs "worldRenderer"。
-// The whole of ImageWidget.cs L20-98 + SpriteWidget.cs L18-83. Image = the
-// ChromeProvider image cache + the ClickThrough input gate; Sprite = the
-// palette/scaled WorldRenderer draw (the cached trio + the centered offset).
-// Game.Renderer/ChromeProvider/Ui.Root through the Ui injection; the
-// WorldRenderer ctor parameter through WidgetArgs "worldRenderer".
 #pragma once
 import std;
 
@@ -88,7 +78,7 @@ class SpriteWidget : public Widget {
   std::function<std::string()> fn_get_palette;
   std::function<gfx::Sprite()> fn_get_sprite;
 
-  gfx::WorldRenderer* ptr_world_renderer = nullptr;  // 非拥有 | non-owning
+  gfx::WorldRenderer* ptr_world_renderer = nullptr;
 
   void Draw() override;
   bool LoadFieldOrProperty(std::string_view str_key, std::string_view str_value) override;
@@ -102,4 +92,4 @@ class SpriteWidget : public Widget {
   core::Vector2 vec_offset_{};
 };
 
-}  // namespace ora::ui
+}

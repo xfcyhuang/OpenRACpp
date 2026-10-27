@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Armor.cs @1f594e320 L17-30 全文
-//          (ArmorType 标签在 hit_shape.hpp —— BitSet 注册面的就近锚)
-//          The whole of Armor.cs L17-30 (the ArmorType tag lives in
-//          hit_shape.hpp — anchored next to the BitSet registration face).
 #pragma once
 import std;
 
@@ -16,16 +12,14 @@ using sim::Actor;
 using sim::ActorInitializer;
 using sim::TraitBase;
 
-/// ArmorInfo 的解析面(L21-25) | The parsed face of ArmorInfo (L21-25).
 struct ArmorInfoData {
-  std::string str_type;  // L22 Type(null 承载为空串;DamageWarhead 的
-                         // ContainsKey 面 = 空串不入表)
+  std::string str_type;
+
   sim::ConditionalTraitData conditional;
 
   static ArmorInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// Armor(L26-30)
 class Armor final : public TraitBase,
                     public sim::ConditionalTraitCore<Armor> {
  public:
@@ -50,14 +44,14 @@ class Armor final : public TraitBase,
 
   const ArmorInfoData& Info() const { return info_; }
 
-  void TraitEnabledHook(Actor& /*self*/) {}
-  void TraitDisabledHook(Actor& /*self*/) {}
-  void TraitResumedHook(Actor& /*self*/) {}
-  void TraitPausedHook(Actor& /*self*/) {}
+  void TraitEnabledHook(Actor& ) {}
+  void TraitDisabledHook(Actor& ) {}
+  void TraitResumedHook(Actor& ) {}
+  void TraitPausedHook(Actor& ) {}
 
  private:
   friend class sim::ConditionalTraitCore<Armor>;
   ArmorInfoData info_;
 };
 
-}  // namespace ora::mods
+}

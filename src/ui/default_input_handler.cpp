@@ -22,4 +22,4 @@ void DefaultInputHandler::OnMouseInput(const MouseInput& input) {
   sim::RunUnsynced(true, ptr_world_, [&] { Ui::Instance().HandleInput(input); });
 }
 
-}  // namespace ora::ui
+}

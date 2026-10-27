@@ -1,8 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/AddFactionSuffixLogic.cs
-//          @1f594e320 L18-74 全文 + SupportPowerBinLogic.cs L16-79 全文 +
-//          OrderButtonsChromeLogic.cs L18-55 全文 +
-//          MenuButtonsChromeLogic.cs L18-124 全文(实现部分;头注见
-//          menu_logics.hpp)。
 #include "mods/menu_logics.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -39,7 +34,7 @@ sim::IOrderGenerator* OrderGeneratorOf(sim::World& world,
   return typeid(*generator) == info_type ? generator : nullptr;
 }
 
-}  // namespace
+}
 
 AddFactionSuffixLogic::AddFactionSuffixLogic(ora::ui::Widget& widget,
                                              sim::World& world) {
@@ -184,7 +179,7 @@ void SetupChromeOrderButton(ora::ui::Widget& w, sim::World& world,
     };
 }
 
-}  // namespace
+}
 
 SellOrderButtonLogic::SellOrderButtonLogic(ora::ui::Widget& widget,
                                            sim::World& world) {
@@ -391,4 +386,4 @@ void RegisterMenuLogics() {
       });
 }
 
-}  // namespace ora::mods
+}

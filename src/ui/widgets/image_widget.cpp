@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ImageWidget.cs + SpriteWidget.cs
-// @1f594e320(image_widget.hpp 的实现)
-// The implementation of image_widget.hpp.
 import std;
 
 #include "ui/widgets/image_widget.hpp"
@@ -206,4 +203,4 @@ const bool kWidgetRegistered_SpriteWidget = [] {
   return true;
 }();
 
-}  // namespace ora::ui
+}

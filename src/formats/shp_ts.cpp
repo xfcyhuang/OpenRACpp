@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/SpriteLoaders/ShpTSLoader.cs @1f594e320 L17-163
-// 实现文件:ShpTSFrame 头解析与三种扫描线格式、IsShpTS 判定循环、
-// ParseFrames 逐句照抄;Stream → SpanReader。
-// Implementation file: the ShpTSFrame header parse with its three
-// scanline formats, the IsShpTS probe loop, and ParseFrames copied
-// statement by statement; Stream → SpanReader.
 #include "formats/shp_ts.hpp"
 
 #include "formats/rle_zeros.hpp"
@@ -13,7 +7,6 @@ namespace ora::fmt {
 
 namespace {
 
-/// ShpTSFrame(L20-102)。
 class ShpTSFrame final : public gfx::ISpriteFrame {
  public:
   ShpTSFrame(SpanReader& stream, int2 int2_frame_size) : int2_frame_size_(int2_frame_size) {
@@ -22,8 +15,6 @@ class ShpTSFrame final : public gfx::ISpriteFrame {
     const auto uint2_width = stream.ReadUInt16();
     const auto uint2_height = stream.ReadUInt16();
 
-    // 宽高取偶避免半整数偏移 | pad the dimensions to an even number to
-    // avoid issues with half-integer offsets
     auto int4_data_width = static_cast<std::int32_t>(uint2_width);
     auto int4_data_height = static_cast<std::int32_t>(uint2_height);
     if (int4_data_width % 2 == 1)
@@ -43,9 +34,6 @@ class ShpTSFrame final : public gfx::ISpriteFrame {
     if (uint4_file_offset_ == 0)
       return;
 
-    // 边解析帧数据边前进(返回前跳回头表位置;上游注释)。
-    // Parse the frame data as we go (but remember to jump back to the
-    // header before returning! — upstream comment).
     const auto int8_start = stream.Position();
     stream.Seek(uint4_file_offset_);
 
@@ -53,16 +41,14 @@ class ShpTSFrame final : public gfx::ISpriteFrame {
                      std::byte{0});
 
     if (uint1_format_ == 3) {
-      // Format 3:RLE-zero 压缩扫描线 | RLE-zero compressed scanlines
+
       for (auto int4_j = 0; int4_j < uint2_height; int4_j++) {
         const auto int4_length = stream.ReadUInt16() - 2;
         rle_zeros::DecodeInto(stream.ReadBytes(int4_length), vec_data_,
                               static_cast<std::size_t>(int4_data_width) * static_cast<std::size_t>(int4_j));
       }
     } else {
-      // Format 2:未压缩长度前缀扫描线;Format 1/0:未压缩整宽行。
-      // Format 2: uncompressed length-prefixed scanlines; Formats 1/0:
-      // an uncompressed full-width row.
+
       const auto int4_length = uint1_format_ == 2 ? stream.ReadUInt16() - 2 : static_cast<std::int32_t>(uint2_width);
       for (auto int4_j = 0; int4_j < uint2_height; int4_j++)
         stream.ReadInto(vec_data_, static_cast<std::size_t>(int4_data_width) * static_cast<std::size_t>(int4_j),
@@ -88,19 +74,17 @@ class ShpTSFrame final : public gfx::ISpriteFrame {
   std::vector<std::byte> vec_data_;
 };
 
-}  // namespace
+}
 
 bool IsShpTS(std::span<const std::byte> vec_file) {
   auto stream = SpanReader{vec_file};
   const auto int8_start = stream.Position();
 
-  // 首 word 为零 | the first word is zero
   if (stream.ReadUInt16() != 0) {
     stream.Seek(int8_start);
     return false;
   }
 
-  // 帧数合理性检查 | sanity-check the image count
   stream.Skip(4);
   const auto uint2_image_count = stream.ReadUInt16();
   if (stream.Position() + 24 * static_cast<std::int64_t>(uint2_image_count) > stream.Length()) {
@@ -108,9 +92,6 @@ bool IsShpTS(std::span<const std::byte> vec_file) {
     return false;
   }
 
-  // 检查图像尺寸与压缩格式标志;部分文件含伪帧,循环直到找到有效帧。
-  // Check the image size and compression type flag; some files define
-  // bogus frames, so loop until we find a valid one.
   stream.Skip(4);
   std::uint16_t uint2_w, uint2_h, uint2_f = 0;
   std::uint8_t uint1_type;
@@ -119,13 +100,8 @@ bool IsShpTS(std::span<const std::byte> vec_file) {
     uint2_h = stream.ReadUInt16();
     uint1_type = stream.ReadUInt8();
 
-    // 零尺寸帧总带非零 type | zero-sized frames always define a non-zero type
     if ((uint2_w == 0 || uint2_h == 0) && uint1_type == 0) {
-      // 上游此路径不复位 stream(逐字照抄;C++ 侧每个判定从文件头独立
-      // 起读,链式影响不可观测 —— COVERAGE 登记)。
-      // Upstream does not restore the stream on this path (copied
-      // verbatim; every C++ probe starts fresh at offset 0, making the
-      // chained effect unobservable — registered in COVERAGE).
+
       return false;
     }
 
@@ -138,7 +114,6 @@ bool IsShpTS(std::span<const std::byte> vec_file) {
 
 namespace {
 
-/// ParseFrames(L142-153)。
 std::vector<std::unique_ptr<gfx::ISpriteFrame>> ParseFrames(std::span<const std::byte> vec_file) {
   auto stream = SpanReader{vec_file};
 
@@ -156,7 +131,7 @@ std::vector<std::unique_ptr<gfx::ISpriteFrame>> ParseFrames(std::span<const std:
   return vec_frames;
 }
 
-}  // namespace
+}
 
 bool TryParseShpTS(std::span<const std::byte> vec_file, std::vector<std::unique_ptr<gfx::ISpriteFrame>>& vec_frames) {
   if (!IsShpTS(vec_file))
@@ -166,4 +141,4 @@ bool TryParseShpTS(std::span<const std::byte> vec_file, std::vector<std::unique_
   return true;
 }
 
-}  // namespace ora::fmt
+}

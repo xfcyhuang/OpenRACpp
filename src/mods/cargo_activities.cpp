@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/RideTransport.cs +
-//          UnloadCargo.cs + Parachute.cs @1f594e320
 #include "mods/cargo_activities.hpp"
 
 #include "game/actor_info.hpp"
@@ -32,7 +30,7 @@ int ParachutableFallRate(sim::Actor& self) {
   return 13;
 }
 
-}  // namespace
+}
 
 RideTransport::RideTransport(sim::Actor& self, const sim::Target& target,
                              std::optional<core::Color> target_line_color)
@@ -252,4 +250,4 @@ void Parachute::OnLastRun(sim::Actor& self) {
     np->OnLanded(self);
 }
 
-}  // namespace ora::mods::activities
+}

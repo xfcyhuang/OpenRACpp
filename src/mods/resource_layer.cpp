@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/ResourceLayer.cs 实现部分
-//          + World/ResourceClaimLayer.cs | The implementation half.
 #include "mods/resource_layer.hpp"
 
 #include "map/cell_region.hpp"
@@ -12,8 +10,6 @@
 #include "sim/world.hpp"
 
 namespace ora::mods {
-
-// ———— ResourceTypeInfoData/ResourceLayerInfoData(L29-98)————
 
 ResourceTypeInfoData ResourceTypeInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -34,15 +30,12 @@ ResourceTypeInfoData ResourceTypeInfoData::Parse(
         if (auto* s = std::get_if<std::string>(&v.val))
           data.str_terrain_type = *s;
       } else if (name == "AllowedTerrainTypes") {
-        // FrozenSet<string>:逗号分隔单串或集合节点
-        // FrozenSet<string>: a comma-separated single string or a
-        // collection node.
+
         if (auto* s = std::get_if<std::string>(&v.val)) {
           std::string str_current;
           for (const char ch : *s + ",") {
             if (ch == ',') {
-              // 首尾空白裁剪(.NET Split + Trim 语义)
-              // Trim the ends (.NET Split + Trim semantics).
+
               const std::size_t begin =
                   str_current.find_first_not_of(' ');
               const std::size_t end =
@@ -84,9 +77,7 @@ ResourceLayerInfoData ResourceLayerInfoData::Parse(
       const std::string_view name = fields[i]->str_name;
       const meta::GenericValue& v = generated->Slot(i);
       if (name == "ResourceTypes") {
-        // LoadResourceTypes(loader 已注册):GenericDict{键 → 记录}
-        // LoadResourceTypes (the loader is registered):
-        // GenericDict{key → record}.
+
         if (auto* dict = std::get_if<meta::GenericDict>(&v.val)) {
           for (const auto& [key, value] : *dict) {
             const std::string* str_key =
@@ -97,8 +88,7 @@ ResourceLayerInfoData ResourceLayerInfoData::Parse(
             if (str_key == nullptr || rec_nested == nullptr ||
                 *rec_nested == nullptr)
               continue;
-            // MakeLoadedRecord 产物:shared 记录实例
-            // MakeLoadedRecord's product: the shared record instance.
+
             data.vec_resource_types.emplace_back(
                 *str_key, ResourceTypeInfoData::Parse(**rec_nested));
           }
@@ -115,7 +105,7 @@ ResourceLayerInfoData ResourceLayerInfoData::Parse(
 
 bool ResourceLayerInfoData::TryGetTerrainType(
     const std::string& resource_type, std::string& terrain_type_out) {
-  // L73-81
+
   const ResourceTypeInfoData* resource_info = FindType(resource_type);
   if (resource_info == nullptr) {
     terrain_type_out.clear();
@@ -128,7 +118,7 @@ bool ResourceLayerInfoData::TryGetTerrainType(
 
 bool ResourceLayerInfoData::TryGetResourceIndex(
     const std::string& resource_type, std::uint8_t& index_out) {
-  // L85-96
+
   const ResourceTypeInfoData* resource_info = FindType(resource_type);
   if (resource_info == nullptr) {
     index_out = 0;
@@ -139,14 +129,12 @@ bool ResourceLayerInfoData::TryGetResourceIndex(
   return true;
 }
 
-// ———— ResourceLayer(L100-301)————
-
 ResourceLayer::ResourceLayer(Actor& self, const ResourceLayerInfoData& info)
     : info_{info},
       world_{self.world()},
       map_{self.world().Map()},
       building_influence_{*self.Trait<BuildingInfluence>()} {
-  // L113-123
+
   ptr_content_ =
       std::make_unique<map::CellLayer<sim::ResourceLayerContents>>(map_);
   for (const auto& [name, type_info] : info_.vec_resource_types) {
@@ -159,8 +147,8 @@ ResourceLayer::ResourceLayer(Actor& self, const ResourceLayerInfoData& info)
 }
 
 void ResourceLayer::WorldLoaded(sim::World& w,
-                                gfx::WorldRenderer* /*wr*/) {
-  // L125-166
+                                gfx::WorldRenderer* ) {
+
   for (const CPos& cell : map_.AllCells()) {
     const map::ResourceTile resource = map_.Resources().Get(cell);
     const auto it_find = map_resource_types_by_index_.find(resource.Type);
@@ -178,8 +166,6 @@ void ResourceLayer::WorldLoaded(sim::World& w,
   if (!info_.b_recalculate_resource_density)
     return;
 
-  // Set initial density based on the number of neighboring resources
-  // (上游注释)
   for (const CPos& cell : map_.AllCells()) {
     const sim::ResourceLayerContents resource = ptr_content_->Get(cell);
     if (resource.str_type.empty())
@@ -198,9 +184,6 @@ void ResourceLayer::WorldLoaded(sim::World& w,
         ++adjacent;
     }
 
-    // We need to have at least one resource in the cell.
-    // HACK: we should not be lerping to 9, as maximum adjacent resources
-    // is 8. HACK: it's too disruptive to fix.(上游注释)
     const int density = std::max(
         int2::Lerp(0, resource_info->uint1_max_density, adjacent, 9), 1);
     ptr_content_->Set(
@@ -214,7 +197,7 @@ void ResourceLayer::WorldLoaded(sim::World& w,
 
 bool ResourceLayer::AllowResourceAt(const std::string& resource_type,
                                     CPos cell) {
-  // L168-181
+
   if (!map_.Contains(cell) || map_.Ramp().Get(cell) != 0)
     return false;
 
@@ -242,7 +225,7 @@ bool ResourceLayer::AllowResourceAt(const std::string& resource_type,
 
 sim::ResourceLayerContents ResourceLayer::CreateResourceCell(
     const std::string& resource_type, CPos cell, int density) {
-  // L183-195
+
   const ResourceTypeInfoData* resource_info = info_.FindType(resource_type);
   if (resource_info == nullptr) {
     map_.CustomTerrainRef().Set(cell, 255);
@@ -262,7 +245,7 @@ sim::ResourceLayerContents ResourceLayer::CreateResourceCell(
 
 bool ResourceLayer::CanAddResource(const std::string& resource_type,
                                    CPos cell, std::uint8_t amount) {
-  // L197-213
+
   if (!map_.Contains(cell))
     return false;
 
@@ -284,7 +267,7 @@ bool ResourceLayer::CanAddResource(const std::string& resource_type,
 
 int ResourceLayer::AddResource(const std::string& resource_type, CPos cell,
                                std::uint8_t amount) {
-  // L215-237
+
   if (!map_.Contains(cell))
     return 0;
 
@@ -315,7 +298,7 @@ int ResourceLayer::AddResource(const std::string& resource_type, CPos cell,
 
 int ResourceLayer::RemoveResource(const std::string& resource_type,
                                   CPos cell, std::uint8_t amount) {
-  // L239-266
+
   if (!map_.Contains(cell))
     return 0;
 
@@ -347,12 +330,10 @@ int ResourceLayer::RemoveResource(const std::string& resource_type,
 }
 
 void ResourceLayer::ClearResources(CPos cell) {
-  // L268-283
+
   if (!map_.Contains(cell))
     return;
 
-  // Don't break other users of CustomTerrain if there are no resources
-  // (上游注释)
   const sim::ResourceLayerContents content = ptr_content_->Get(cell);
   if (content.str_type.empty())
     return;
@@ -366,14 +347,14 @@ void ResourceLayer::ClearResources(CPos cell) {
 }
 
 sim::ResourceLayerContents ResourceLayer::GetResource(CPos cell) {
-  // L285
+
   return map_.Contains(cell) ? ptr_content_->Get(cell)
                              : sim::ResourceLayerContents::Empty();
 }
 
 std::uint8_t ResourceLayer::GetMaxDensity(
     const std::string& resource_type) {
-  // L286-292
+
   const ResourceTypeInfoData* resource_info = info_.FindType(resource_type);
   if (resource_info == nullptr)
     return 0;
@@ -381,34 +362,26 @@ std::uint8_t ResourceLayer::GetMaxDensity(
 }
 
 bool ResourceLayer::IsVisible(CPos cell) {
-  // L298
+
   return !world_.FogObscures(cell);
 }
 
-// ———— ResourceClaimLayer(ResourceClaimLayer.cs L22-73)————
-
 bool ResourceClaimLayer::TryClaimCell(Actor& claimer, CPos cell) {
-  // L30-51
+
   std::vector<Actor*>* vec_claimers = nullptr;
   if (const auto it_find = map_claim_by_cell_.find(cell);
       it_find != map_claim_by_cell_.end()) {
     vec_claimers = &it_find->second;
 
-    // Clean up any stale claims(上游注释;RemoveAll = 移除全部死者)
-    // Clean up any stale claims (upstream's comment; RemoveAll removes
-    // every dead one).
     std::erase_if(*vec_claimers,
                   [](const Actor* a) { return a->IsDead(); });
 
-    // Prevent harvesters from the player or their allies fighting over the
-    // same cell(上游注释)
     for (const Actor* c : *vec_claimers)
       if (c != &claimer &&
           claimer.Owner()->IsAlliedWith(c->Owner()))
         return false;
   }
 
-  // Remove the actor's last claim, if it has one(上游注释)
   if (const auto it_actor = map_claim_by_actor_.find(&claimer);
       it_actor != map_claim_by_actor_.end()) {
     if (const auto it_last = map_claim_by_cell_.find(it_actor->second);
@@ -429,7 +402,7 @@ bool ResourceClaimLayer::TryClaimCell(Actor& claimer, CPos cell) {
 }
 
 bool ResourceClaimLayer::CanClaimCell(Actor& claimer, CPos cell) const {
-  // L53-60
+
   const auto it_find = map_claim_by_cell_.find(cell);
   if (it_find == map_claim_by_cell_.end())
     return true;
@@ -441,7 +414,7 @@ bool ResourceClaimLayer::CanClaimCell(Actor& claimer, CPos cell) const {
 }
 
 void ResourceClaimLayer::RemoveClaim(Actor& claimer) {
-  // L62-72
+
   if (const auto it_actor = map_claim_by_actor_.find(&claimer);
       it_actor != map_claim_by_actor_.end()) {
     if (const auto it_last = map_claim_by_cell_.find(it_actor->second);
@@ -457,4 +430,4 @@ void ResourceClaimLayer::RemoveClaim(Actor& claimer) {
   map_claim_by_actor_.erase(&claimer);
 }
 
-}  // namespace ora::mods
+}

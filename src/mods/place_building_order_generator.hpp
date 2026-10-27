@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Orders/PlaceBuildingOrderGenerator.cs @1f594e320
-//          L24-337 全文
-//          The whole of PlaceBuildingOrderGenerator.cs L24-337.
 #pragma once
 import std;
 
@@ -28,13 +25,9 @@ namespace ora::mods {
 
 class ProductionQueue;
 
-/// PlaceBuildingOrderGenerator(L41-336)
 class PlaceBuildingOrderGenerator final : public sim::IOrderGenerator {
  public:
-  /// VariantWrapper(L45-86;上游 LineBuild/Plug 的 TraitInfo 查询 → 构造期
-  /// 解析值)
-  /// VariantWrapper (L45-86; upstream's LineBuild/Plug TraitInfo lookups →
-  /// construction-time parsed values).
+
   struct VariantWrapper {
     const game::ActorInfo* actor_info = nullptr;
     BuildingInfoData building_info;
@@ -71,22 +64,18 @@ class PlaceBuildingOrderGenerator final : public sim::IOrderGenerator {
   void SelectionChanged(sim::World&,
                         std::span<sim::Actor* const>) override {}
 
-  /// L154-164 | L154-164.
   CPos TopLeft() const;
 
-  /// L312-315(GetCursor 覆写点;子类基)
-  /// L312-315 (the GetCursor override point; the subclass base).
   virtual std::string GetCursorOverride(sim::World& world, CPos cell,
                                         int2 world_pixel,
                                         const MouseInput& mi);
 
  protected:
-  /// L166-225 | L166-225.
+
   virtual std::vector<std::unique_ptr<net::Order>> InnerOrder(
       sim::World& world, CPos cell,
       const MouseInput& mi);
 
-  /// L332-335 | L332-335.
   std::vector<std::unique_ptr<net::Order>> ClearBlockersOrders(CPos top_left);
 
   ProductionQueue* ptr_queue_ = nullptr;
@@ -100,8 +89,8 @@ class PlaceBuildingOrderGenerator final : public sim::IOrderGenerator {
   std::string str_world_default_cursor{"default"};
 
  private:
-  /// L238-246 | L238-246.
+
   bool AcceptsPlug(CPos cell, const PlugInfoData& plug) const;
 };
 
-}  // namespace ora::mods
+}

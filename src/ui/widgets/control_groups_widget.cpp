@@ -28,7 +28,7 @@ void CenterOnActors(gfx::WorldRenderer& world_renderer,
       WPos{vec_sum.X / int4_count, vec_sum.Y / int4_count, vec_sum.Z / int4_count});
 }
 
-}  // namespace
+}
 
 ControlGroupsWidget::ControlGroupsWidget(WidgetArgs& args_args) {
   if (const WidgetArgValue* ptr_value = args_args.TryGet("world"))
@@ -128,4 +128,4 @@ bool ControlGroupsWidget::HandleKeyPress(const KeyInput& e_input) {
   return false;
 }
 
-}  // namespace ora::ui
+}

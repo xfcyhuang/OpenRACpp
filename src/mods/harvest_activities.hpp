@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/HarvestResource.cs @1f594e320
-//          L19-124 全文 + FindAndDeliverResources.cs L19-263 全文(逐语义
-//          重写)
-//          The whole of HarvestResource.cs L19-124 + the whole of
-//          FindAndDeliverResources.cs L19-263 (verbatim-semantics
-//          rewrites).
 #pragma once
 import std;
 
@@ -15,15 +9,14 @@ import std;
 #include "sim/target.hpp"
 
 namespace ora::mods {
-class BodyOrientation;  // body_orientation.hpp(QuantizeFacing 消费面)
-                       // (the QuantizeFacing consumption face).
-}  // namespace ora::mods
+class BodyOrientation;
+
+}
 
 namespace ora::mods::activities {
 
 using mods::Harvester;
 
-/// HarvestResource.cs L20-124
 class HarvestResource final : public sim::Activity {
  public:
   HarvestResource(sim::Actor& self, CPos target_cell);
@@ -46,7 +39,6 @@ class HarvestResource final : public sim::Activity {
   MoveCooldownHelper move_cooldown_helper_;
 };
 
-/// FindAndDeliverResources.cs L21-263
 class FindAndDeliverResources final : public sim::Activity {
  public:
   FindAndDeliverResources(sim::Actor& self,
@@ -58,7 +50,7 @@ class FindAndDeliverResources final : public sim::Activity {
   bool LastSearchFailed() const { return b_last_search_failed_; }
 
  private:
-  /// L156-240:ClosestHarvestablePos | L156-240: ClosestHarvestablePos.
+
   std::optional<CPos> ClosestHarvestablePos(sim::Actor& self);
 
   Harvester* p_harv_;
@@ -75,4 +67,4 @@ class FindAndDeliverResources final : public sim::Activity {
   bool b_last_search_failed_ = false;
 };
 
-}  // namespace ora::mods::activities
+}

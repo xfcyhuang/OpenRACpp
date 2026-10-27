@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/SupportPowersWidget.cs @1f594e320
-//          L24-297 的实现面
-//          The implementation face of L24-297.
 #include "mods/support_powers_widget.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -32,7 +29,7 @@ core::Vector2 Int2ToVector2(int2 v) {
   return core::Vector2{static_cast<float>(v.X), static_cast<float>(v.Y)};
 }
 
-}  // namespace
+}
 
 SupportPowersWidget::SupportPowersWidget(ora::ui::WidgetArgs& args_args) {
   if (const ora::ui::WidgetArgValue* ptr_value = args_args.TryGet("world"))
@@ -390,4 +387,4 @@ void RegisterSupportPowersWidget() {
   (void)b_registered;
 }
 
-}  // namespace ora::mods
+}

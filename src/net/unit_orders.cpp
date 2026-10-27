@@ -1,13 +1,3 @@
-// UPSTREAM: OpenRA.Game/Network/UnitOrders.cs @1f594e320 L48-431(第十六批
-//          客户端接线:ProcessOrder 全分支实现;上游 Game/Settings/
-//          ModData/MapCache/ExternalMods 静态面以注入族承载,见
-//          unit_orders.hpp;ExternalMods 注册表恒空 —— 跨进程 mod 切换
-//          面(ConnectionFailedLogic)随 Phase 6)
-//          The batch-16 client wiring: ProcessOrder's every branch; the
-//          upstream Game/Settings/ModData/MapCache/ExternalMods statics
-//          ride the injection family, see unit_orders.hpp; the
-//          ExternalMods registry stays empty — the cross-process mod
-//          switch (ConnectionFailedLogic) rides Phase 6.
 #include "net/unit_orders.hpp"
 
 #include "map/map_cache.hpp"
@@ -26,17 +16,12 @@ namespace ora::net {
 
 namespace {
 
-// [FluentReference] 常量(L52-66)
-// The [FluentReference] constants (L52-66).
 constexpr std::string_view kJoined = "notification-joined";
 constexpr std::string_view kLeft = "notification-lobby-disconnected";
 constexpr std::string_view kGameStartedKey = "notification-game-has-started";
 constexpr std::string_view kGamePausedKey = "notification-game-paused";
 constexpr std::string_view kGameUnpausedKey = "notification-game-unpaused";
 
-/// KickVoteTarget(L48;进程级承载,Game.JoinInner 的 Clear 复位)
-/// KickVoteTarget (L48; the process-wide carrier, reset by Game.
-/// JoinInner's Clear).
 std::optional<int> opt_kick_vote_target;
 
 std::function<void(OrderManager&, const std::string&)>& StartGameHandler() {
@@ -81,9 +66,6 @@ std::string_view NodeKeyText(const yaml::MiniYamlNode& node) {
   return std::string_view{*node.Key};
 }
 
-/// FindPlayerByClient 扩展(L68-71):ClientIndex 等值且 Playable 的首玩家
-/// The FindPlayerByClient extension (L68-71): the first playable player
-/// with a matching ClientIndex.
 sim::Player* FindPlayerByClient(sim::World& world,
                                 const SessionClient& client) {
   for (auto* p_player : world.Players())
@@ -92,16 +74,12 @@ sim::Player* FindPlayerByClient(sim::World& world,
   return nullptr;
 }
 
-/// OrderNotFromServerOrWorldIsReplay(L73)
-/// OrderNotFromServerOrWorldIsReplay (L73).
 bool OrderNotFromServerOrWorldIsReplay(int int4_client_id,
                                        sim::World* p_world) {
   return int4_client_id != 0 ||
          (p_world != nullptr && p_world->IsReplay());
 }
 
-/// ResolveOrder(L417-424):校验器全过 → Subject 分发
-/// ResolveOrder (L417-424): all validators pass → the Subject dispatch.
 void ResolveOrder(const Order& order, sim::World& world,
                   OrderManager& order_manager, int client_id) {
   if (order.p_subject == nullptr || order.p_subject->IsDead())
@@ -124,12 +102,6 @@ std::optional<int> ParseInt32Text(std::string_view sv) {
   return out;
 }
 
-/// MapGenerationArgs 的按名装载(GenerateMap 分支;FieldLoader.Load 的
-/// 手写面 —— 字段集 Uid/Generator/Tileset/Size/Title/Author/
-/// PreviewVisibility/Options)
-/// The by-name MapGenerationArgs load (the GenerateMap branch; the
-/// hand-written FieldLoader.Load face — the field set Uid/Generator/
-/// Tileset/Size/Title/Author/PreviewVisibility/Options).
 bool LoadMapGenerationArgs(const yaml::MiniYaml& yaml_v,
                            map::MapGenerationArgs& out) {
   for (const auto& node : yaml_v.Nodes) {
@@ -142,8 +114,7 @@ bool LoadMapGenerationArgs(const yaml::MiniYaml& yaml_v,
     } else if (key == "Tileset") {
       out.str_tileset = std::string{text};
     } else if (key == "Size") {
-      // FieldSaver.FormatValue(Size) = "Width,Height" 的回读
-      // Reading back FieldSaver.FormatValue(Size) = "Width,Height".
+
       const auto comma = text.find(',');
       if (comma == std::string_view::npos)
         return false;
@@ -180,10 +151,6 @@ bool LoadMapGenerationArgs(const yaml::MiniYaml& yaml_v,
   return true;
 }
 
-/// FieldLoader.GetValue<FrozenSet<string>> 的等价(逗号分割 + Trim +
-/// 空段剔除;FieldLoader.cs L619-635)
-/// The FieldLoader.GetValue<FrozenSet<string>> equivalent (the comma
-/// split + Trim + the empty-part skip; FieldLoader.cs L619-635).
 std::set<std::string> ParseStringSet(std::string_view str_value) {
   auto set_out = std::set<std::string>{};
   std::size_t pos_start = 0;
@@ -192,7 +159,7 @@ std::set<std::string> ParseStringSet(std::string_view str_value) {
     const auto part = str_value.substr(
         pos_start, comma == std::string_view::npos ? std::string_view::npos
                                                    : comma - pos_start);
-    // part.Trim()(SplitOptions.TrimEntries)
+
     const auto first = part.find_first_not_of(" \t\r\n");
     if (first != std::string_view::npos) {
       const auto last = part.find_last_not_of(" \t\r\n");
@@ -217,7 +184,7 @@ ConnectionQuality QualityFromText(std::string_view sv, bool& b_ok) {
   return ConnectionQuality::Good;
 }
 
-}  // namespace
+}
 
 std::optional<int> KickVoteTarget() { return opt_kick_vote_target; }
 
@@ -260,16 +227,11 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
   auto& tnm = TextNotificationsManager::Instance();
   const std::string& name = order.str_order_string;
 
-  // ———— Message(L68-70;服务器系统消息)————
-  // Message (L68-70; the server's system line).
   if (name == "Message") {
     tnm.AddSystemLine(order.str_target_string.value_or(""));
     return;
   }
 
-  // ———— FluentMessage(L72-89;客户端解析侧的服务器 Fluent 通知)————
-  // FluentMessage (L72-89; the client-side parse of the server's Fluent
-  // notification).
   if (name == "FluentMessage") {
     const auto& str_target = order.str_target_string.value_or("");
     if (str_target.empty())
@@ -289,14 +251,10 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— DisableChatEntry(L91-103)————
   if (name == "DisableChatEntry") {
     if (OrderNotFromServerOrWorldIsReplay(client_id, world))
       return;
 
-    // MaxValue = 永久禁用;其余 = Game.RunTime + 毫秒
-    // MaxValue = disabled until further notice; otherwise Game.RunTime +
-    // milliseconds.
     if (order.uint4_extra_data == std::numeric_limits<std::uint32_t>::max())
       tnm.SetChatDisabledUntil(
           std::numeric_limits<std::int64_t>::max());
@@ -307,7 +265,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— StartKickVote(L105-112)/ EndKickVote(L114-122)————
   if (name == "StartKickVote") {
     if (OrderNotFromServerOrWorldIsReplay(client_id, world))
       return;
@@ -327,21 +284,15 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— Chat(L124-197;普通/队伍/观战三态 + 截断)————
-  // Chat (L124-197; the normal/team/spectator trio + the truncation).
   if (name == "Chat") {
     auto* p_client = order_manager.LobbyInfo().ClientWithIndex(client_id);
     if (p_client == nullptr)
       return;
 
-    // Cut chat messages to the hard limit to avoid exploits(上游注释)
-    // Cut chat messages to the hard limit to avoid exploits.
     auto str_message = order.str_target_string.value_or("");
     if (str_message.size() > static_cast<std::size_t>(kChatMessageMaxLength))
       str_message = str_message.substr(0, kChatMessageMaxLength);
 
-    // ExtraData 0 = 普通聊天;其余 = 队伍聊天(上游注释)
-    // ExtraData 0 = a normal chat order; everything else is team chat.
     if (order.uint4_extra_data == 0) {
       auto* p_player =
           world != nullptr ? FindPlayerByClient(*world, *p_client) : nullptr;
@@ -363,8 +314,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
       return;
     }
 
-    // We are still in the lobby(上游注释)
-    // We are still in the lobby.
     if (world == nullptr) {
       const auto str_prefix =
           order.uint4_extra_data ==
@@ -386,13 +335,10 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
         (world->LocalPlayer() != nullptr &&
          world->LocalPlayer()->PlayerWinState() != sim::WinState::Undefined);
 
-    // ExtraData 给队伍号,uint.MaxValue = 观战频道(上游注释)
-    // ExtraData gives the team number; uint.MaxValue = Spectators.
     if (order.uint4_extra_data ==
             std::numeric_limits<std::uint32_t>::max() &&
         b_local_observer) {
-      // Validate before adding the line(上游注释)
-      // Validate before adding the line.
+
       if (p_client->IsObserver() ||
           (p_player != nullptr &&
            p_player->PlayerWinState() != sim::WinState::Undefined))
@@ -425,12 +371,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— StartGame(L199-209;地图门槛走注入的 StartGameHandler —— 上游
-  //      Game.Disconnect + LoadShellMap 的不可用面在 handler 内 no-op,
-  //      D199 承载)————
-  // StartGame (L199-209; the map gate rides the injected StartGameHandler
-  // — upstream's Game.Disconnect + LoadShellMap on an unusable map no-ops
-  // inside the handler, per D199).
   if (name == "StartGame") {
     if (order.str_target_string.has_value() &&
         !order.str_target_string->empty()) {
@@ -456,7 +396,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— SaveTraitData(L211-216)————
   if (name == "SaveTraitData") {
     const auto vec_data = yaml::MiniYaml::FromString(
         order.str_target_string.value_or(""), order.str_order_string);
@@ -468,7 +407,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— GameSaved(L212-215 计数按上游 L212-215)————
   if (name == "GameSaved") {
     auto* p_world = order_manager.World();
     if (p_world == nullptr || p_world->WorldActor() == nullptr)
@@ -479,7 +417,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— PauseGame(L217-236)————
   if (name == "PauseGame") {
     auto* p_client = order_manager.LobbyInfo().ClientWithIndex(client_id);
     if (p_client == nullptr)
@@ -488,12 +425,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     const bool b_pause =
         order.str_target_string.value_or("") == "Pause";
 
-    // Prevent injected unpause orders from restarting a finished game
-    // (上游注释;上游直读 orderManager.World —— 大厅期不可达,空守卫
-    // 等价)
-    // Prevent injected unpause orders from restarting a finished game
-    // (upstream reads orderManager.World directly — unreachable in the
-    // lobby; the null guard is the equivalent).
     auto* p_om_world = order_manager.World();
     if (p_om_world == nullptr)
       return;
@@ -509,9 +440,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— HandshakeRequest(L239-291;客户端应答 —— ClientJoinFace 注入)————
-  // HandshakeRequest (L239-291; the client's answer — the ClientJoinFace
-  // injection).
   if (name == "HandshakeRequest") {
     const auto& face = JoinFace();
     if (face.str_mod_id.empty())
@@ -522,11 +450,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     if (!request.has_value())
       return;
 
-    // ExternalMods 注册表恒空(跨进程 mod 切换面随 Phase 6)—— 永不走
-    // CurrentServerSettings.ServerExternalMod 分支
-    // The ExternalMods registry stays empty (the cross-process mod switch
-    // rides Phase 6) — the CurrentServerSettings.ServerExternalMod branch
-    // never fires.
     auto info = SessionClient{};
     info.Name = SanitizedPlayerName(face.str_player_name, "Commander");
     info.PreferredColor = face.color_player;
@@ -542,7 +465,7 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     response.Version = face.str_mod_version;
     response.Password = face.str_password;
     response.Fingerprint = face.str_fingerprint;
-    response.OrdersProtocol = 21;  // ProtocolVersion.Orders(server/protocol_version.hpp)
+    response.OrdersProtocol = 21;
 
     if (!request->AuthToken.empty() && !response.Fingerprint.empty() &&
         face.fn_sign)
@@ -556,7 +479,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— ServerError(L293-297)/ AuthenticationError(L299-304)————
   if (name == "ServerError") {
     order_manager.SetServerError(
         std::string{order.str_target_string.value_or("")});
@@ -565,16 +487,13 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
   }
 
   if (name == "AuthenticationError") {
-    // ConnectionFailedLogic 将向用户要密码(上游注释;UI 面 Phase 6)
-    // ConnectionFailedLogic will prompt the user for the password (the
-    // upstream comment; the UI face rides Phase 6).
+
     order_manager.SetServerError(
         std::string{order.str_target_string.value_or("")});
     order_manager.SetAuthenticationFailed(true);
     return;
   }
 
-  // ———— SyncInfo(L306-313)————
   if (name == "SyncInfo") {
     order_manager.LobbyInfo() = Session::Deserialize(
         order.str_target_string.value_or(""), order.str_order_string);
@@ -582,7 +501,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— SyncLobbyClients(L315-329)————
   if (name == "SyncLobbyClients") {
     auto vec_clients = std::vector<SessionClient>{};
     const auto vec_nodes = yaml::MiniYaml::FromString(
@@ -602,7 +520,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— SyncLobbySlots(L331-347)————
   if (name == "SyncLobbySlots") {
     auto vec_slots =
         std::vector<std::pair<std::string, SessionSlot>>{};
@@ -616,9 +533,7 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
       SessionSlot slot{};
       if (!LoadSessionSlot(node.Value, slot))
         continue;
-      // Dictionary.Add:重复键抛上游异常;插入序表按首键去重等价
-      // Dictionary.Add throws on duplicate keys upstream; the
-      // insertion-ordered table's first-key dedup is the equivalent.
+
       const auto str_reference = slot.PlayerReference;
       bool b_duplicate = false;
       for (const auto& [key_existing, slot_existing] : vec_slots)
@@ -633,7 +548,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— SyncLobbyGlobalSettings(L349-362)————
   if (name == "SyncLobbyGlobalSettings") {
     const auto vec_nodes = yaml::MiniYaml::FromString(
         order.str_target_string.value_or(""), order.str_order_string);
@@ -652,7 +566,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— SyncConnectionQuality(L364-381)————
   if (name == "SyncConnectionQuality") {
     const auto vec_nodes = yaml::MiniYaml::FromString(
         order.str_target_string.value_or(""), order.str_order_string);
@@ -676,14 +589,12 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // ———— SyncMapPool(L383-386)————
   if (name == "SyncMapPool") {
     order_manager.SetServerMapPool(
         ParseStringSet(order.str_target_string.value_or("")));
     return;
   }
 
-  // ———— GenerateMap(L388-400)————
   if (name == "GenerateMap") {
     const auto vec_nodes = yaml::MiniYaml::FromString(
         order.str_target_string.value_or(""), order.str_order_string);
@@ -705,7 +616,6 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
     return;
   }
 
-  // default(L401-413)
   if (world == nullptr)
     return;
 
@@ -718,4 +628,4 @@ void ProcessOrder(OrderManager& order_manager, sim::World* world,
   }
 }
 
-}  // namespace ora::net
+}

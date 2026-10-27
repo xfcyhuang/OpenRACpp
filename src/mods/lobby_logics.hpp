@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/TabCompletionLogic.cs
-//          @1f594e320 全文 + OpenRA.Mods.Common/Widgets/Logic/Lobby/
-//          {LatencyTooltipLogic,SpawnSelectorTooltipLogic,KickClientLogic,
-//          KickSpectatorsLogic,MapPreviewLogic,LobbyOptionsLogic,LobbyLogic}
-//          .cs 全文(大厅面板族九件;ChromeLogic 注册锚之外全部以
-//          自由函数 + 状态结构承载)。
-//          The whole of TabCompletionLogic.cs + the Lobby/{LatencyTooltip
-//          Logic,SpawnSelectorTooltipLogic,KickClientLogic,KickSpectators
-//          Logic,MapPreviewLogic,LobbyOptionsLogic,LobbyLogic}.cs family
-//          (nine lobby-panel pieces; everything outside the ChromeLogic
-//          registration anchors rides free functions + state structs).
 #pragma once
 import std;
 
@@ -269,4 +258,4 @@ void DiscordServiceNoop();
 
 void RegisterLobbyLogics();
 
-}  // namespace ora::mods
+}

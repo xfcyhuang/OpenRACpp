@@ -48,7 +48,7 @@ std::int64_t CalculateActorSelectionPriority(const game::ActorInfo& info,
          (pixel_distance << 16);
 }
 
-}  // namespace
+}
 
 int SelectionPriority(const game::ActorInfo& info, Modifiers modifiers) {
   const meta::RecordObject* rec =
@@ -155,4 +155,4 @@ std::vector<Actor*> SubsetWithHighestSelectionPriority(
   return result;
 }
 
-}  // namespace ora::sim
+}

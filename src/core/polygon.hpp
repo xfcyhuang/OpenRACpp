@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/Primitives/Polygon.cs @1f594e320 L18-119(逐语义重写)+
-//          OpenRA.Game/Exts.cs L~458-496(PolygonContains/LinesIntersect/
-//          WindingDirectionTest)
-//          Verbatim-semantics rewrite.
 #pragma once
 import std;
 
@@ -10,16 +6,12 @@ import std;
 
 namespace ora {
 
-/// WindingDirectionTest(Exts.cs 内部辅助) | WindingDirectionTest (the
-/// Exts.cs internal helper).
 inline std::int32_t WindingDirectionTest(int2 v0, int2 v1, int2 p) {
   const std::int32_t v = (v1.X - v0.X) * (p.Y - v0.Y) -
                          (p.X - v0.X) * (v1.Y - v0.Y);
-  return (v > 0) - (v < 0);  // Math.Sign | Math.Sign
+  return (v > 0) - (v < 0);
 }
 
-/// PolygonContains(Exts.cs):绕数包含判定 | PolygonContains (Exts.cs): the
-/// winding-number containment.
 inline bool PolygonContains(std::span<const int2> polygon, int2 p) {
   std::int32_t winding_number = 0;
 
@@ -37,35 +29,27 @@ inline bool PolygonContains(std::span<const int2> polygon, int2 p) {
   return winding_number != 0;
 }
 
-/// LinesIntersect(Exts.cs;非共线假定照抄) | LinesIntersect (Exts.cs; the
-/// non-collinear assumption kept).
 inline bool LinesIntersect(int2 a, int2 b, int2 c, int2 d) {
-  // If line segments AB and CD intersect:
-  //  - the triangles ACD and BCD must have opposite sense (clockwise or
-  //    anticlockwise)
-  //  - the triangles CAB and DAB must have opposite sense (上游注释)
+
   return WindingDirectionTest(c, d, a) != WindingDirectionTest(c, d, b) &&
          WindingDirectionTest(a, b, c) != WindingDirectionTest(a, b, d);
 }
 
-/// Polygon(Polygon.cs L18)
-/// Polygon (Polygon.cs L18).
 struct Polygon {
-  Rectangle BoundingRect{Rectangle::FromLTRB(0, 0, 0, 0)};  // L22
-  std::vector<int2> Vertices{};                             // L23
-  bool is_rectangle_{true};                                 // L24
+  Rectangle BoundingRect{Rectangle::FromLTRB(0, 0, 0, 0)};
+  std::vector<int2> Vertices{};
+  bool is_rectangle_{true};
 
-  /// Polygon.Empty(L20) | Polygon.Empty (L20).
   static Polygon Empty() { return Polygon{Rectangle::FromLTRB(0, 0, 0, 0)}; }
 
-  explicit Polygon(Rectangle bounds)  // L26-31
+  explicit Polygon(Rectangle bounds)
       : BoundingRect{bounds},
         is_rectangle_{true} {
     Vertices = {bounds.TopLeft(), bounds.BottomLeft(), bounds.BottomRight(),
                 bounds.TopRight()};
   }
 
-  explicit Polygon(std::vector<int2> vertices)  // L33-59
+  explicit Polygon(std::vector<int2> vertices)
       : Vertices{std::move(vertices)} {
     if (!Vertices.empty()) {
       std::int32_t left = std::numeric_limits<std::int32_t>::max();
@@ -88,16 +72,13 @@ struct Polygon {
     }
   }
 
-  bool IsEmpty() const { return BoundingRect.IsEmpty(); }  // L61
+  bool IsEmpty() const { return BoundingRect.IsEmpty(); }
 
-  /// Contains(L63-66) | Contains (L63-66).
   bool Contains(int2 xy) const {
     return is_rectangle_ ? BoundingRect.Contains(xy)
                          : ora::PolygonContains(Vertices, xy);
   }
 
-  /// IntersectsWith(L68-109):四易例 + 逐线段硬例 | IntersectsWith (L68-109):
-  /// the four easy cases + the per-segment hard case.
   bool IntersectsWith(Rectangle rect) const {
     const bool intersects_bounding_rect =
         BoundingRect.Left() < rect.Right() && BoundingRect.Right() > rect.Left() &&
@@ -105,30 +86,25 @@ struct Polygon {
     if (is_rectangle_)
       return intersects_bounding_rect;
 
-    // Easy case 1: Rect and bounding box don't intersect(上游注释)
     if (!intersects_bounding_rect)
       return false;
 
-    // Easy case 2: Rect and bounding box intersect in a cross shape(上游注释)
     if ((rect.Left() <= BoundingRect.Left() &&
          rect.Right() >= BoundingRect.Right()) ||
         (rect.Top() <= BoundingRect.Top() &&
          rect.Bottom() >= BoundingRect.Bottom()))
       return true;
 
-    // Easy case 3: Corner of rect is inside the polygon(上游注释)
     if (ora::PolygonContains(Vertices, rect.TopLeft()) ||
         ora::PolygonContains(Vertices, rect.TopRight()) ||
         ora::PolygonContains(Vertices, rect.BottomLeft()) ||
         ora::PolygonContains(Vertices, rect.BottomRight()))
       return true;
 
-    // Easy case 4: Polygon vertex is inside rect(上游注释)
     for (const int2& v : Vertices)
       if (rect.Contains(v))
         return true;
 
-    // Hard case: check intersection of every line segment pair(上游注释)
     const int2 rect_vertices[4] = {rect.TopLeft(), rect.BottomLeft(),
                                    rect.BottomRight(), rect.TopRight()};
 
@@ -142,10 +118,6 @@ struct Polygon {
     return false;
   }
 
-  /// GetHashCode(L111-118):BoundingRect 基 + ((code<<5)+code) 折叠;
-  /// int2.GetHashCode = X ^ Y(int2.cs L~)
-  /// GetHashCode (L111-118): the BoundingRect base + the ((code<<5)+code)
-  /// fold; int2.GetHashCode = X ^ Y.
   std::int32_t Hash() const {
     std::int32_t code = BoundingRect.Hash();
     for (const int2& v : Vertices)
@@ -158,4 +130,4 @@ struct Polygon {
   }
 };
 
-}  // namespace ora
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/CheckboxWidget.cs @1f594e320
-// (checkbox_widget.hpp 的实现)
-// The implementation of checkbox_widget.hpp.
 import std;
 
 #include "ui/widgets/checkbox_widget.hpp"
@@ -24,7 +21,7 @@ gfx::SpriteFont& RequireFont(const std::string& str_font) {
   return *ptr_font;
 }
 
-}  // namespace
+}
 
 CheckboxWidget::CheckboxWidget(WidgetArgs& args_args)
     : ButtonWidget(args_args),
@@ -108,4 +105,4 @@ bool CheckboxWidget::LoadFieldOrProperty(std::string_view str_key, std::string_v
   return ButtonWidget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

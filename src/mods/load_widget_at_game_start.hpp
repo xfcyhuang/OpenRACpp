@@ -55,4 +55,4 @@ class LoadWidgetAtGameStart final : public TraitBase,
 
 void RegisterLoadWidgetAtGameStart();
 
-}  // namespace ora::mods
+}

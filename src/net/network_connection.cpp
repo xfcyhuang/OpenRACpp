@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/Network/Connection.cs @1f594e320 L99-386(实现;头
-//          文件同条目)
-//          The implementation; the header carries the same tag.
 #include "net/network_connection.hpp"
 
 #include "net/byte_io.hpp"
@@ -16,7 +13,7 @@ void SetErrorMessage(std::mutex& mutex, std::string& str_out,
   str_out = std::move(str_message);
 }
 
-}  // namespace
+}
 
 bool NetworkConnection::ConnectCollection::Add(platform::TcpSocket tcp) {
   std::lock_guard lock(mutex);
@@ -145,11 +142,6 @@ void NetworkConnection::ReceiveBody() {
       return;
     }
 
-    // len == 0:上游 NotImplementedException 落入通用失败路径;负长为
-    // 防御(上游 int 截断域不可达)
-    // len == 0: upstream's NotImplementedException falls into the generic
-    // failure path; a negative length is defensive (unreachable in
-    // upstream's int-truncation domain).
     auto vec_buf = std::vector<std::uint8_t>{};
     auto b_bad = int4_len < 0;
     if (!b_bad && int4_len != 0) {
@@ -266,9 +258,7 @@ void NetworkConnection::Receive(OrderManager& order_manager) {
     } else if (OrderIO::TryParseTickScale(packet, fp4_scale)) {
       order_manager.ReceiveTickScale(fp4_scale);
     } else if (OrderIO::TryParsePingRequest(packet, int8_timestamp)) {
-      // 注:在此处理而非读线程 —— 世界 tick 性能差需反映进延迟测量
-      // Note: processed here, not in the reader thread — poor world tick
-      // performance must be reflected in the latency measurement.
+
       SendRaw(OrderIO::SerializePingResponse(
           int8_timestamp,
           static_cast<std::uint8_t>(order_manager.OrderQueueLength())));
@@ -279,11 +269,6 @@ void NetworkConnection::Receive(OrderManager& order_manager) {
             "Received Ack for " + std::to_string(uint1_ack_count) + " > " +
             std::to_string(deque_sent_orders_.size()) + " frames.");
 
-      // Ack 包是占位符:指示处理本地已发送缓冲的首个包及其应用帧 ——
-      // 免把(远大于 5 字节的)包经网络回传自身的优化
-      // The Acknowledgement is a placeholder telling us to process the
-      // first packet of the local sent buffer and its application frame —
-      // the optimization avoiding the (much larger than 5 byte) round-trip.
       auto packet_orders = OrderPacket{};
       if (uint1_ack_count != 1) {
         auto vec_taken = std::vector<OrderPacket>{};
@@ -354,4 +339,4 @@ void NetworkConnection::Dispose() {
     ptr_recorder_->Dispose();
 }
 
-}  // namespace ora::net
+}

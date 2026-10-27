@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/Exts.cs @1f594e320 L485-566 + OpenRA.Game/FieldLoader.cs L146-591
-//          (parse.hpp 的实现;BCL 语义注记见头文件)
-//          Implementation of parse.hpp (BCL semantics documented in the header).
 import std;
 #include "parse.hpp"
 #include "core/cell_pos.hpp"
@@ -11,11 +8,6 @@ namespace ora::meta {
 
 namespace {
 
-/// NumberStyles.Integer 的公共骨架:码点级 Trim → 可选 '+'(from_chars 不吃 '+',
-/// 手动剥)→ from_chars 十进制整串 → 溢出由 from_chars 判定
-/// The common NumberStyles.Integer skeleton: code-point Trim → optional '+'
-/// (from_chars rejects it, so strip manually) → from_chars decimal over the
-/// whole remainder → overflow decided by from_chars.
 template <class T>
   requires(std::integral<T>)
 bool TryParseIntegerNet(std::string_view sv, T& out) {
@@ -25,24 +17,16 @@ bool TryParseIntegerNet(std::string_view sv, T& out) {
     b_negative = sv.front() == '-';
     sv.remove_prefix(1);
   }
-  // 符号后必须至少一位数字 / At least one digit must follow the sign.
+
   if (sv.empty())
     return false;
 
-  // from_chars 对无符号类型不接受 '-',对有符号接受;统一按无符号幅值解析后应用符号
-  // from_chars rejects '-' for unsigned types and accepts it for signed ones;
-  // parse the magnitude as unsigned uniformly, then apply the sign.
   using Mag = std::conditional_t<std::signed_integral<T>, std::uint64_t, T>;
   Mag mag{};
   auto [ptr_end, ec_err] = std::from_chars(sv.data(), sv.data() + sv.size(), mag, 10);
   if (ec_err != std::errc{} || ptr_end != sv.data() + sv.size())
     return false;
 
-  // 幅值/符号落回目标宽度的溢出检查(等价 C# "数值超出范围即 false");
-  // int64 中转覆盖 ≤32 位类型,-fwrapv 回绕兜底 int64 负端
-  // Range check back into the target width (equivalent to C# returning false
-  // on out-of-range values); the int64 intermediate covers widths ≤ 32 bits,
-  // and -fwrapv wraparound covers the int64 negative edge.
   if constexpr (sizeof(T) < 8) {
     std::int64_t int8_mag{static_cast<std::int64_t>(mag)};
     if (b_negative)
@@ -64,7 +48,6 @@ bool TryParseIntegerNet(std::string_view sv, T& out) {
   return true;
 }
 
-/// 大小写不敏感比较 / Case-insensitive compare.
 bool EqualsIgnoreCase(std::string_view sv_a, std::string_view sv_b) {
   if (sv_a.size() != sv_b.size())
     return false;
@@ -77,14 +60,8 @@ bool EqualsIgnoreCase(std::string_view sv_a, std::string_view sv_b) {
   return true;
 }
 
-/// 枚举注册表(名字 → 成员表;RegisterEnum 填充,gen/ 静态初始化)
-/// Enum registry (name → member table; filled by RegisterEnum from the static
-/// initializers of gen/).
 struct EnumTable {
-  // 成员表按值拷贝(调用方可传栈上数组;str_name 的 string_view 指向
-  // 字面量,静态存储安全)
-  // Member tables stored by value (callers may pass stack arrays; the
-  // str_name string_views point at literals and stay statically safe).
+
   std::unordered_map<std::string_view, std::vector<EnumMemberDesc>> map_enums;
 };
 EnumTable& Enums() {
@@ -92,7 +69,7 @@ EnumTable& Enums() {
   return table;
 }
 
-}  // namespace
+}
 
 bool TryParseInt32Invariant(std::string_view sv, std::int32_t& int4_out) {
   return TryParseIntegerNet(sv, int4_out);
@@ -114,8 +91,7 @@ bool TryParseFloatOrPercentInvariant(std::string_view sv, float& fp4_out) {
   std::string_view sv_raw{sv};
   float fp4_mult{1.0f};
   if (sv.find('%') != std::string_view::npos) {
-    // C# Replace("%",""):去掉全部百分号(解析缓存串)
-    // C# Replace("%", ""): strip every percent sign (over a cached string).
+
     static thread_local std::string str_buf;
     str_buf.clear();
     for (const char chr_c : sv)
@@ -135,8 +111,7 @@ bool TryParseFloatOrPercentInvariant(std::string_view sv, float& fp4_out) {
     return false;
 
   float fp4_v{};
-  // chars_format::general = C# NumberStyles.Float 的主体形态
-  // chars_format::general matches the bulk of C# NumberStyles.Float.
+
   auto [ptr_end, ec_err] = std::from_chars(sv_raw.data(), sv_raw.data() + sv_raw.size(), fp4_v);
   if (ec_err != std::errc{} || ptr_end != sv_raw.data() + sv_raw.size())
     return false;
@@ -144,11 +119,6 @@ bool TryParseFloatOrPercentInvariant(std::string_view sv, float& fp4_out) {
   if (b_negative)
     fp4_v = -fp4_v;
 
-  // 非有限值收紧:C# 仅接受字面 "Infinity"/"-Infinity"/"NaN"(区分大小写);
-  // from_chars 的 inf/nan 宽松集在此复核(上游数据不可达,双保险)
-  // Non-finite tightening: C# accepts only the case-sensitive literals
-  // "Infinity"/"-Infinity"/"NaN"; the looser from_chars inf/nan set is
-  // re-validated here (unreachable with upstream data, belt-and-braces).
   if (!std::isfinite(fp4_v)) {
     const std::string_view sv_trimmed = TrimNetWhiteSpace(sv);
     const bool b_ok = sv_trimmed == "Infinity" || sv_trimmed == "-Infinity" || sv_trimmed == "NaN";
@@ -240,8 +210,6 @@ void ClearEnumsForTest() {
 
 namespace {
 
-/// 单个枚举成员/数值解析(Enum.TryParse 名字分支,ignoreCase)
-/// Single member/numeric resolution (the Enum.TryParse name branch, ignoreCase).
 const EnumMemberDesc* FindEnumMember(std::span<const EnumMemberDesc> members, std::string_view sv_name) {
   for (const EnumMemberDesc& member : members)
     if (EqualsIgnoreCase(sv_name, member.str_name))
@@ -249,7 +217,7 @@ const EnumMemberDesc* FindEnumMember(std::span<const EnumMemberDesc> members, st
   return nullptr;
 }
 
-}  // namespace
+}
 
 bool TryParseEnumNet(std::string_view enum_full_name, std::string_view sv, std::int32_t& int4_out) {
   const auto it_find = Enums().map_enums.find(enum_full_name);
@@ -259,9 +227,6 @@ bool TryParseEnumNet(std::string_view enum_full_name, std::string_view sv, std::
 
   sv = TrimNetWhiteSpace(sv);
 
-  // 逗号分隔名字列表 → 按位或(.NET Enum.TryParse 对任意枚举接受该形态)
-  // Comma-separated name list → bitwise OR (.NET Enum.TryParse accepts this
-  // form for any enum type).
   if (sv.find(',') != std::string_view::npos) {
     std::uint32_t uint4_accum{};
     for (const std::string_view sv_part : SplitComma(sv)) {
@@ -274,16 +239,11 @@ bool TryParseEnumNet(std::string_view enum_full_name, std::string_view sv, std::
     return true;
   }
 
-  // 名字(不分大小写)
-  // Name (case-insensitive).
   if (const EnumMemberDesc* member = FindEnumMember(vec_members, sv); member != nullptr) {
     int4_out = member->int4_value;
     return true;
   }
 
-  // 有符号十进制数值(允许未定义成员;Enum.TryParse 数值分支 = 底层整型解析)
-  // Signed decimal numeric (undefined members allowed; the Enum.TryParse
-  // numeric branch parses as the underlying integer).
   std::int32_t int4_numeric{};
   if (TryParseInt32Invariant(sv, int4_numeric)) {
     int4_out = int4_numeric;
@@ -298,10 +258,6 @@ std::string EnumToStringNet(std::string_view enum_full_name, std::int32_t int4_v
   if (it_find == Enums().map_enums.end())
     return std::to_string(int4_value);
 
-  // .NET Enum.ToString(CachedName/ToString):先试整体精确匹配(任意位数的已定义成员,
-  // 声明序首个匹配),再走 flags 分解
-  // .NET Enum.ToString: first an exact whole-value match (any defined member,
-  // first in declaration order), then the flags decomposition.
   const std::vector<EnumMemberDesc>& vec_members = it_find->second;
   for (const EnumMemberDesc& member : vec_members) {
     if (member.int4_value == int4_value)
@@ -311,11 +267,6 @@ std::string EnumToStringNet(std::string_view enum_full_name, std::int32_t int4_v
   if (int4_value == 0)
     return "0";
 
-  // flags 分解(.NET InternalFlagsFormat):按值升序取"单一已定义值"位;剩余位以
-  // 十进制数值输出(.NET Core 3.0+ 语义);名字间 ", "
-  // Flags decomposition (.NET InternalFlagsFormat): single-bit defined values
-  // in ascending order; leftover bits print as a decimal number (.NET Core 3.0+
-  // semantics); names joined with ", ".
   std::vector<const EnumMemberDesc*> vec_sorted;
   for (const EnumMemberDesc& member : vec_members)
     vec_sorted.push_back(&member);
@@ -330,9 +281,7 @@ std::string EnumToStringNet(std::string_view enum_full_name, std::int32_t int4_v
   std::string str_ret;
   for (const EnumMemberDesc* member : vec_sorted) {
     const std::uint32_t uint4_v = static_cast<std::uint32_t>(member->int4_value);
-    // 仅单一位且被 result 包含且尚未处理(与 .NET 逐步 processed 掩码一致)
-    // Only a single bit, contained in the result, not yet processed (matching
-    // the step-by-step processed mask of .NET).
+
     if (uint4_v != 0 && (uint4_v & (uint4_v - 1)) == 0 &&
         (uint4_v & static_cast<std::uint32_t>(int4_value)) == uint4_v &&
         (uint4_v & uint4_processed) == 0) {
@@ -353,4 +302,4 @@ std::string EnumToStringNet(std::string_view enum_full_name, std::int32_t int4_v
   return str_ret;
 }
 
-}  // namespace ora::meta
+}

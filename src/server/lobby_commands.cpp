@@ -1,10 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/ServerTraits/LobbyCommands.cs @1f594e320
-//          L29-1492 + LobbyUtils.cs L289-302(实现体;Dictionary 命令表 →
-//          静态 string_view/function 表,LINQ → 消费时物化)
-//          The implementation body (LobbyCommands.cs + LobbyUtils.cs
-//          L289-302; the Dictionary command table → a static
-//          string_view/function table, LINQ → consumption-time
-//          materialization).
 #include "server/lobby_commands.hpp"
 
 #include <cstdio>
@@ -102,8 +95,6 @@ std::string JoinWith(std::span<const std::string> vec, std::string_view str_sep)
   return str_out;
 }
 
-/// bool.TryParse(空白容忍 + 大小写不敏感)
-/// bool.TryParse (whitespace-tolerant + case-insensitive).
 bool TryParseBool(std::string_view sv, bool& b_out) {
   const auto sz_begin = sv.find_first_not_of(" \t\r\n");
   const auto sz_end = sv.find_last_not_of(" \t\r\n");
@@ -125,8 +116,6 @@ bool TryParseBool(std::string_view sv, bool& b_out) {
   return false;
 }
 
-/// Enum.TryParse<ClientState>(大小写敏感名匹配)
-/// Enum.TryParse<ClientState> (the case-sensitive name match).
 bool TryParseClientState(std::string_view sv, net::ClientState& state_out) {
   if (sv == "NotReady") {
     state_out = net::ClientState::NotReady;
@@ -161,8 +150,6 @@ std::string_view ClientStateName(net::ClientState state) {
   return "";
 }
 
-/// WorldActorInfo.TraitInfos<FactionInfo>() 的可选面汇聚
-/// The selectable gathering of WorldActorInfo.TraitInfos<FactionInfo>().
 std::vector<std::string> SelectableFactionsOf(const map::MapPreview& map) {
   auto vec_out = std::vector<std::string>{};
   const auto ptr_world = map.WorldActorInfo();
@@ -185,7 +172,7 @@ std::int64_t SteadyMs() {
       .count();
 }
 
-}  // namespace
+}
 
 const std::vector<std::pair<std::string_view, LobbyCommands::Handler>>&
 LobbyCommands::CommandHandlers() {
@@ -684,11 +671,6 @@ bool LobbyCommands::Map(Server& server, ServerConnection& conn,
                               str_last_map](const map::MapPreview& map) {
     std::lock_guard lock_inner{server.mutex_lobby};
 
-    // 远程回调晚到时命令者可能已离场 —— 上游引用常青,C++ 以 Index 复
-    // 解析(null 即放弃)
-    // The commander may have left by the time the remote callback runs —
-    // upstream's reference stays evergreen, C++ re-resolves by Index (a
-    // null abandons the change).
     auto* p_commander =
         server.LobbyInfo.ClientWithIndex(int4_commander_index);
     if (p_commander == nullptr)
@@ -1004,8 +986,6 @@ bool LobbyCommands::AssignTeams(Server& server, ServerConnection& conn,
 
 namespace {
 
-/// SingleOrDefault(Conns, GetClient(c)?.Index == id) 的查找面
-/// The SingleOrDefault lookup over Conns by GetClient(c)?.Index == id.
 std::shared_ptr<ServerConnection> FindConnByClientIndex(
     Server& server, int int4_client_id) {
   std::shared_ptr<ServerConnection> ptr_found;
@@ -1020,7 +1000,7 @@ std::shared_ptr<ServerConnection> FindConnByClientIndex(
   return ptr_found;
 }
 
-}  // namespace
+}
 
 bool LobbyCommands::Kick(Server& server, ServerConnection& conn,
                          net::SessionClient* p_client, std::string_view str_s) {
@@ -1063,9 +1043,6 @@ bool LobbyCommands::Kick(Server& server, ServerConnection& conn,
     return true;
   }
 
-  // DropClient 会从 LobbyInfo 移除该 client —— 引用语义的字段先快照
-  // DropClient removes the client from LobbyInfo — snapshot the
-  // reference-semantics fields first.
   const auto str_kick_name = p_kick_client->Name;
   const auto str_kick_ip = p_kick_client->IPAddress;
 
@@ -1632,10 +1609,7 @@ std::string LobbyCommands::ChooseInitialMap(Server& server) {
     return server.Settings.Map;
 
   if (!server.opt_map_pool.has_value()) {
-    // MapCache.ChooseInitialMap(settings.Map, new MersenneTwister()) 的
-    // 注入面;缺省 = 直返(空表回落;D226)
-    // MapCache.ChooseInitialMap's injection face; the default returns the
-    // input as-is (the empty-table fallback; D226).
+
     return server.Deps().fn_choose_initial_map
                ? server.Deps().fn_choose_initial_map(server.Settings.Map)
                : server.Settings.Map;
@@ -1662,9 +1636,7 @@ void LobbyCommands::ServerStarted(Server& server) {
 
   const auto str_uid = ChooseInitialMap(server);
   if (str_uid.empty()) {
-    // 上游 throw InvalidOperationException("Unable to resolve a valid
-    // initial map")的 no-throw 承载(D226)
-    // The no-throw carrier of upstream's throw (D226).
+
     server.ServerLog("Unable to resolve a valid initial map");
     return;
   }
@@ -1859,4 +1831,4 @@ bool LobbyCommands::InsufficientEnabledSpawnPoints(
                               .size()) < int4_non_observers;
 }
 
-}  // namespace ora::server
+}

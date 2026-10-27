@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/VideoPlayerWidget.cs @1f594e320
-//          L22-313 全文(VQA/WSA 过场播放器:逐帧 BGRA 上传 + 扫描线
-//          overlay + 音频时钟驱动 + ESC 跳过)
-//          The whole of VideoPlayerWidget.cs L22-313 (the VQA/WSA cutscene
-//          player: per-frame BGRA upload, the scan-line overlay, the
-//          audio-clock drive, ESC skipping).
 #pragma once
 import std;
 
@@ -91,4 +85,4 @@ class VideoPlayerWidget final : public ora::ui::Widget {
 
 void RegisterVideoPlayerWidget();
 
-}  // namespace ora::mods
+}

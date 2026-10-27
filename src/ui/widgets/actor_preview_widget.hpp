@@ -48,4 +48,4 @@ class ActorPreviewWidget : public Widget {
   std::vector<gfx::RenderItem> vec_renderables_;
 };
 
-}  // namespace ora::ui
+}

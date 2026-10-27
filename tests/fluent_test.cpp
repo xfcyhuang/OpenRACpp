@@ -1,12 +1,3 @@
-// UPSTREAM: OpenRA.Game/FluentProvider.cs + FluentBundle.cs @1f594e320
-// (Phase 6 第一批验收:golden_fluent 对拍门 + 单元面)。
-// 重放器与 golden_gen FluentGoldenMode 同一行扫描/同一探针表;微用例集
-// 逐字节同文嵌入。oracle = Linguini 0.8.1(上游 FluentBundle 的依赖)。
-// The Phase 6 batch-one acceptance: the golden_fluent differential gate +
-// the unit faces. The replayer shares the same line scan/probe table with
-// golden_gen's FluentGoldenMode; the micro-case set is embedded
-// byte-identically. The oracle = Linguini 0.8.1 (the upstream FluentBundle
-// dependency).
 import std;
 
 #include "fluent/fluent_bundle.hpp"
@@ -58,7 +49,7 @@ std::optional<std::size_t> MatchMessageDef(std::string_view sv_line) {
   while (uint_j < sv_line.size() && (sv_line[uint_j] == ' ' || sv_line[uint_j] == '\t'))
     ++uint_j;
   if (uint_j < sv_line.size() && sv_line[uint_j] == '=')
-    return uint_i;  // 标识符终点 = 键长 | the identifier end = the key length
+    return uint_i;
   return std::nullopt;
 }
 
@@ -84,7 +75,7 @@ std::optional<std::size_t> MatchAttributeDef(std::string_view sv_line) {
   while (uint_j < sv_line.size() && (sv_line[uint_j] == ' ' || sv_line[uint_j] == '\t'))
     ++uint_j;
   if (uint_j < sv_line.size() && sv_line[uint_j] == '=')
-    return uint_i - uint_start;  // 属性名长 | the attribute-name length
+    return uint_i - uint_start;
   return std::nullopt;
 }
 
@@ -483,7 +474,7 @@ int RunGolden(const std::string& str_golden_path,
 std::string EncodeBase64(std::string_view sv_text);
 
 void RunUnits() {
-  // 复数类别(en CLDR)/ plural categories (the en CLDR).
+
   Check(PluralCategory(1, "en") == "one", "plural 1 = one");
   Check(PluralCategory(0, "en") == "other", "plural 0 = other");
   Check(PluralCategory(2, "en") == "other", "plural 2 = other");
@@ -496,7 +487,6 @@ void RunUnits() {
   Check(FormatNumber(0) == "0", "format 0");
   Check(FormatNumber(1234567) == "1234567", "format 1234567");
 
-  // Provider:mod 优先 → map → 键回落/ provider: mod first → map → key.
   FluentProvider& provider = FluentProvider::Instance();
   provider.ResetForTest();
   Check(provider.GetMessage("missing-key") == "missing-key",
@@ -526,9 +516,6 @@ void RunUnits() {
   provider.ResetForTest();
 }
 
-/// 测试侧 base64 编码(map 级 FluentMessageDefinitions 的 base64 子节点)
-/// The test-side base64 encoding (the map-level FluentMessageDefinitions'
-/// base64 child node).
 std::string EncodeBase64(std::string_view sv_text) {
   constexpr std::string_view kDigits =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -564,7 +551,7 @@ std::string EncodeBase64(std::string_view sv_text) {
   return str_out;
 }
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
   if (argc < 3) {

@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/RenderSprites.cs @1f594e320(第八批
-//          mods trait 的注册表装配:RenderSprites/WithSpriteBody/
-//          WithFacingSpriteBody/WithInfantryBody/WithSpriteTurret/
-//          WithMakeAnimation/WithMakeOverlay + ProximityCapturable 族;
-//          与 RegisterCommonTraits 同形 —— Info 名 → 工厂 → WorldArena)
-//          The batch-8 mods-trait registry assembly: RenderSprites/
-//          WithSpriteBody/WithFacingSpriteBody/WithInfantryBody/
-//          WithSpriteTurret/WithMakeAnimation/WithMakeOverlay + the
-//          ProximityCapturable family; the same shape as
-//          RegisterCommonTraits — the Info name → factory → WorldArena.
-
 #include "core/wdist.hpp"
 #include "meta/generic_record.hpp"
 #include "mods/proximity_capturable.hpp"
@@ -117,7 +106,7 @@ void RegisterCommonTraitsBatch8() {
          WorldArena& arena) -> TraitBase* {
         ProximityCapturableBaseInfoData data_base =
             ProximityCapturableBaseInfoData::Parse(rec_info);
-        WDist dist_range = WDist::FromCells(5);  // ProximityCapturableInfo L21
+        WDist dist_range = WDist::FromCells(5);
         if (const auto* gv = sim::RecordFieldValue(rec_info, "Range"))
           if (const auto* tuple = std::get_if<meta::GenericTuple>(&gv->val))
             if (tuple->uint1_count >= 1)
@@ -127,4 +116,4 @@ void RegisterCommonTraitsBatch8() {
       });
 }
 
-}  // namespace ora::mods
+}

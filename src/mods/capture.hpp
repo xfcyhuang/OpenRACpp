@@ -1,34 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/CaptureManager.cs @1f594e320
-//          L21-293 全文 + Capturable.cs L15-50 全文 + Captures.cs L15-173
-//          全文 + GivesCashOnCapture.cs L14-62 全文 +
-//          Activities/Enter.cs L11-163 全文 + Activities/CaptureActor.cs
-//          L11-135 全文
-//          The whole of CaptureManager.cs L21-293 + Capturable.cs L15-50 +
-//          Captures.cs L15-173 + GivesCashOnCapture.cs L14-62 +
-//          Activities/Enter.cs L11-163 + Activities/CaptureActor.cs
-//          L11-135.
-//
-// 机制对照 / Mechanism mapping:
-//  - CaptureProgressBar/CapturableProgressBar/CapturableProgressBlink =
-//    ICaptureProgressWatcher 的 UI 面(Phase 6);TransformOnCapture 依赖
-//    Transform 活动系统(未移植)—— 两族随宿主批
-//    CaptureProgressBar/CapturableProgressBar/CapturableProgressBlink are
-//    ICaptureProgressWatcher's UI faces (Phase 6); TransformOnCapture
-//    depends on the unported Transform system — both families ride their
-//    host batches.
-//  - Captures 的 CaptureOrderTargeter/voice/cursor/TargetLines = 输入批
-//    面(Phase 6);ResolveOrder 的 CaptureActor 活动链全量
-//    Captures' CaptureOrderTargeter/voice/cursor/TargetLines are the
-//    input-batch faces (Phase 6); ResolveOrder's CaptureActor activity
-//    chain is kept in full.
-//  - GivesCashOnCapture 的 FloatingText 面省略(Phase 6);ChangeCash 记账
-//    全量
-//    GivesCashOnCapture's FloatingText face is omitted (Phase 6); the
-//    ChangeCash bookkeeping is kept in full.
-//  - Enter 的 TargetLineNodes = Phase 6;MoveCooldownHelper/让行/入内
-//    状态机全量
-//    Enter's TargetLineNodes ride Phase 6; the MoveCooldownHelper/yield/
-//    enter state machine is kept in full.
 #pragma once
 import std;
 
@@ -50,17 +19,14 @@ class Capturable;
 class Captures;
 class Mobile;
 
-/// CaptureManagerInfo(L39-53)的解析面
-/// The parsed face of CaptureManagerInfo (L39-53).
 struct CaptureManagerInfoData {
-  std::string str_capturing_condition;    // L46
-  std::string str_being_captured_condition;  // L49
-  bool b_prevents_auto_target = true;     // L52
+  std::string str_capturing_condition;
+  std::string str_being_captured_condition;
+  bool b_prevents_auto_target = true;
 
   static CaptureManagerInfoData Parse(const meta::RecordObject& rec);
 };
 
-/// CaptureManager(L58-293)
 class CaptureManager final : public sim::TraitBase,
                              public sim::INotifyCreated,
                              public sim::INotifyCapture,
@@ -75,55 +41,37 @@ class CaptureManager final : public sim::TraitBase,
   CaptureManager(sim::ActorInitializer& init, CaptureManagerInfoData info);
   ~CaptureManager() override;
 
-  void Created(sim::Actor& self) override;                     // L107-118
-  void OnCapture(sim::Actor& self, sim::Actor& captor,         // L158-162
+  void Created(sim::Actor& self) override;
+  void OnCapture(sim::Actor& self, sim::Actor& captor,
                  sim::Player& old_owner, sim::Player& new_owner,
                  const core::BitSet<sim::CaptureType>& capture_types) override;
-  void Tick(sim::Actor& self) override;                        // L251-264
-  bool DisableEnemyAutoTarget(sim::Actor& self,                // L266-268
+  void Tick(sim::Actor& self) override;
+  bool DisableEnemyAutoTarget(sim::Actor& self,
                               sim::Actor& attacker) override;
 
-  /// L120-121:RefreshCapturable(Capturable 使能钩)
-  /// L120-121: RefreshCapturable (the Capturable enable hook).
   void RefreshCapturable();
 
-  /// L123-124:RefreshCaptures(Captures 使能钩)
-  /// L123-124: RefreshCaptures (the Captures enable hook).
   void RefreshCaptures();
 
-  /// L126-147:CanTarget(CaptureManager)
   bool CanTarget(const CaptureManager& target);
 
-  /// L149-157:CanTarget(FrozenActor)—— FrozenActorInfo 无条件缓存的
-  /// 上游语义(Capturable 恒启用假设)
-  /// L149-157: CanTarget (FrozenActor) — upstream's condition-less
-  /// FrozenActorInfo semantics (the all-Capturable-enabled assumption).
   bool CanTargetFrozen(const sim::FrozenActor& target);
 
-  /// L170-188:ValidCapturesWithLowestSabotageThreshold(SabotageThreshold
-  /// 升序 → CaptureDelay 升序的稳定择优)
-  /// L170-188: ValidCapturesWithLowestSabotageThreshold (the
-  /// SabotageThreshold-ascending then CaptureDelay-ascending stable pick).
   class Captures* ValidCapturesWithLowestSabotageThreshold(
       const CaptureManager& target);
 
-  /// L198-249:StartCapture(CaptureActor 的进入前闸)
-  /// L198-249: StartCapture (CaptureActor's pre-enter gate).
   bool StartCapture(CaptureManager& target_manager,
                     Captures*& captures_out);
 
-  /// L213+ 的 Captures 友面(延迟 token)。
-  void CancelCapture(sim::Actor* target, CaptureManager* target_manager);  // L213-249
+  void CancelCapture(sim::Actor* target, CaptureManager* target_manager);
 
-  bool BeingCaptured = false;  // L101(帧末复位面)
+  bool BeingCaptured = false;
 
   sim::Actor* Self() const { return ptr_self_; }
   const CaptureManagerInfoData& InfoData() const { return info_; }
 
  private:
-  /// L126-147:CanTarget(Player, captureTypes)(关系三向判)
-  /// L126-147: CanTarget (Player, captureTypes) (the three-way
-  /// relationship test).
+
   bool CanTargetInternal(const sim::Player& target,
                          const core::BitSet<sim::CaptureType>& capture_types);
 
@@ -140,7 +88,6 @@ class CaptureManager final : public sim::TraitBase,
   std::vector<Capturable*> vec_enabled_capturable_;
   std::vector<Captures*> vec_enabled_captures_;
 
-  // 一次捕获进行中的状态 | the in-progress capture state.
   sim::Actor* ptr_current_target_ = nullptr;
   CaptureManager* ptr_current_target_manager_ = nullptr;
   int int4_current_target_delay_ = 0;
@@ -152,17 +99,14 @@ class CaptureManager final : public sim::TraitBase,
   std::vector<sim::Actor*> vec_current_captors_;
 };
 
-/// CapturableInfo(L19-35)的解析面
-/// The parsed face of CapturableInfo (L19-35).
 struct CapturableInfoData {
-  core::BitSet<sim::CaptureType> bitset_types;  // L24
-  bool b_cancel_activity = false;          // L27
+  core::BitSet<sim::CaptureType> bitset_types;
+  bool b_cancel_activity = false;
   sim::ConditionalTraitData conditional;
 
   static CapturableInfoData Parse(const meta::RecordObject& rec);
 };
 
-/// Capturable(L38-50)
 class Capturable final : public sim::TraitBase,
                          public sim::IObservesVariables,
                          public sim::INotifyCreated,
@@ -183,7 +127,7 @@ class Capturable final : public sim::TraitBase,
   std::vector<sim::VariableObserver> GetVariableObservers() override {
     return CollectObservers();
   }
-  void OnCapture(sim::Actor& self, sim::Actor& captor,  // L44-47
+  void OnCapture(sim::Actor& self, sim::Actor& captor,
                  sim::Player& old_owner, sim::Player& new_owner,
                  const core::BitSet<sim::CaptureType>& capture_types) override;
 
@@ -191,34 +135,31 @@ class Capturable final : public sim::TraitBase,
 
  private:
   friend class sim::ConditionalTraitCore<Capturable>;
-  void TraitEnabledHook(sim::Actor& self);   // L49
-  void TraitDisabledHook(sim::Actor& self);  // L49
+  void TraitEnabledHook(sim::Actor& self);
+  void TraitDisabledHook(sim::Actor& self);
 
   CapturableInfoData info_;
   CaptureManager* ptr_capture_manager_ = nullptr;
 };
 
-/// CapturesInfo(L20-77)的解析面
-/// The parsed face of CapturesInfo (L20-77).
 struct CapturesInfoData {
-  core::BitSet<sim::CaptureType> bitset_capture_types;  // L24
-  int int4_sabotage_threshold = 0;                 // L28
-  int int4_sabotage_hp_removal = 50;               // L32
-  core::BitSet<sim::DamageType> bitset_sabotage_damage_types;  // L35
-  int int4_capture_delay = 0;                      // L39
-  bool b_consumed_by_capture = true;               // L42
-  int int4_player_experience = 0;                  // L46
-  sim::PlayerRelationship valid_relationships =    // L49
+  core::BitSet<sim::CaptureType> bitset_capture_types;
+  int int4_sabotage_threshold = 0;
+  int int4_sabotage_hp_removal = 50;
+  core::BitSet<sim::DamageType> bitset_sabotage_damage_types;
+  int int4_capture_delay = 0;
+  bool b_consumed_by_capture = true;
+  int int4_player_experience = 0;
+  sim::PlayerRelationship valid_relationships =
       sim::PlayerRelationship::Neutral | sim::PlayerRelationship::Enemy;
-  sim::PlayerRelationship player_experience_relationships =  // L52
+  sim::PlayerRelationship player_experience_relationships =
       sim::PlayerRelationship::Enemy;
-  core::Color color_target_line;                   // L71
+  core::Color color_target_line;
   sim::ConditionalTraitData conditional;
 
   static CapturesInfoData Parse(const meta::RecordObject& rec);
 };
 
-/// Captures(L80-173)
 class Captures final : public sim::TraitBase,
                        public sim::IObservesVariables,
                        public sim::INotifyCreated,
@@ -239,7 +180,7 @@ class Captures final : public sim::TraitBase,
   std::vector<sim::VariableObserver> GetVariableObservers() override {
     return CollectObservers();
   }
-  void ResolveOrder(sim::Actor& self,  // L143-151
+  void ResolveOrder(sim::Actor& self,
                     const net::Order& order) override;
 
   const CapturesInfoData& InfoData() const { return info_; }
@@ -247,25 +188,22 @@ class Captures final : public sim::TraitBase,
 
  private:
   friend class sim::ConditionalTraitCore<Captures>;
-  void TraitEnabledHook(sim::Actor& self);   // L153
-  void TraitDisabledHook(sim::Actor& self);  // L154
+  void TraitEnabledHook(sim::Actor& self);
+  void TraitDisabledHook(sim::Actor& self);
 
   CapturesInfoData info_;
   CaptureManager* ptr_capture_manager_ = nullptr;
 };
 
-/// GivesCashOnCaptureInfo(L16-30)的解析面
-/// The parsed face of GivesCashOnCaptureInfo (L16-30).
 struct GivesCashOnCaptureInfoData {
-  int int4_amount = 0;                          // L19
-  bool b_show_ticks = true;                     // L22
-  core::BitSet<sim::CaptureType> bitset_capture_types;  // L25
-  int int4_display_duration = 30;               // L28
+  int int4_amount = 0;
+  bool b_show_ticks = true;
+  core::BitSet<sim::CaptureType> bitset_capture_types;
+  int int4_display_duration = 30;
 
   static GivesCashOnCaptureInfoData Parse(const meta::RecordObject& rec);
 };
 
-/// GivesCashOnCapture(L32-62)
 class GivesCashOnCapture final : public sim::TraitBase,
                                  public sim::IObservesVariables,
                                  public sim::INotifyCreated,
@@ -288,7 +226,7 @@ class GivesCashOnCapture final : public sim::TraitBase,
   std::vector<sim::VariableObserver> GetVariableObservers() override {
     return CollectObservers();
   }
-  void OnCapture(sim::Actor& self, sim::Actor& captor,  // L40-58
+  void OnCapture(sim::Actor& self, sim::Actor& captor,
                  sim::Player& old_owner, sim::Player& new_owner,
                  const core::BitSet<sim::CaptureType>& capture_types) override;
 
@@ -297,29 +235,24 @@ class GivesCashOnCapture final : public sim::TraitBase,
   GivesCashOnCaptureInfoData info_;
 };
 
-/// Enter.cs L16:EnterBehaviour
 enum class EnterBehaviour : std::int32_t {
   Exit = 0,
   Suicide = 1,
   Dispose = 2,
 };
 
-/// Enter(Enter.cs L19-163;抽象活动基类 —— 接近/等待/进入/离场四态)
-/// Enter (Enter.cs L19-163; the abstract activity base — the
-/// approach/wait/enter/exit four states).
 class Enter : public sim::Activity {
  public:
-  /// targetLineColor 的可选面 | the optional targetLineColor face.
+
   Enter(sim::Actor& self, const sim::Target& target,
         std::optional<core::Color> target_line_color);
 
   ~Enter() override;
 
-  bool Tick(sim::Actor& self) override;  // L52-158
+  bool Tick(sim::Actor& self) override;
 
  protected:
-  /// L44:TickInner(子类状态更新面)
-  /// L44: TickInner (the subclass state-update face).
+
   virtual void TickInner(sim::Actor& self, const sim::Target& target,
                          bool b_target_is_dead_or_hidden_actor) {
     (void)self;
@@ -327,15 +260,12 @@ class Enter : public sim::Activity {
     (void)b_target_is_dead_or_hidden_actor;
   }
 
-  /// L51:TryStartEnter(false = 等待)
-  /// L51: TryStartEnter (false = wait).
   virtual bool TryStartEnter(sim::Actor& self, sim::Actor& target_actor) {
     (void)self;
     (void)target_actor;
     return true;
   }
 
-  /// L57:OnEnterComplete
   virtual void OnEnterComplete(sim::Actor& self, sim::Actor& target_actor) {
     (void)self;
     (void)target_actor;
@@ -345,11 +275,8 @@ class Enter : public sim::Activity {
   enum class EnterState { Approaching, Entering, Exiting, Finished };
 
   sim::IMove* ptr_move_ = nullptr;
-  Mobile* ptr_mobile_ = nullptr;  // MoveToTarget 具体面(上游 IMove 的
-                                   // Mobile 实现;Enter 族仅 Mobile 挂载)
-                                   // the MoveToTarget concrete face
-                                   // (upstream's IMove implementor; the
-                                   // Enter family mounts on Mobile only).
+  Mobile* ptr_mobile_ = nullptr;
+
   std::optional<core::Color> opt_target_line_color_;
   activities::MoveCooldownHelper move_cooldown_helper_;
   sim::Target target_;
@@ -358,27 +285,24 @@ class Enter : public sim::Activity {
   EnterState state_last_ = EnterState::Approaching;
 };
 
-/// CaptureActor(CaptureActor.cs L17-135)
 class CaptureActor final : public Enter {
  public:
   CaptureActor(sim::Actor& self, const sim::Target& target,
                std::optional<core::Color> target_line_color);
 
  protected:
-  void TickInner(sim::Actor& self, const sim::Target& target,  // L34-46
+  void TickInner(sim::Actor& self, const sim::Target& target,
                  bool b_target_is_dead_or_hidden_actor) override;
-  bool TryStartEnter(sim::Actor& self,                         // L48-78
+  bool TryStartEnter(sim::Actor& self,
                      sim::Actor& target_actor) override;
-  void OnEnterComplete(sim::Actor& self,                       // L80-104
+  void OnEnterComplete(sim::Actor& self,
                        sim::Actor& target_actor) override;
-  void OnLastRun(sim::Actor& self) override;                   // L106-110
-  void OnActorDispose(sim::Actor& self) override;              // L112-116
-  void Cancel(sim::Actor& self, bool keep_queue = false) override;  // L118-123
+  void OnLastRun(sim::Actor& self) override;
+  void OnActorDispose(sim::Actor& self) override;
+  void Cancel(sim::Actor& self, bool keep_queue = false) override;
 
  private:
-  /// L125-133:DoCapture(帧末任务:破坏/换主/通知/经验/消耗)
-  /// L125-133: DoCapture (the frame-end task: sabotage/owner change/
-  /// notifications/experience/consumption).
+
   void DoCapture(sim::Actor& self, Captures& captures);
   void CancelCapture() {
     ptr_manager_->CancelCapture(ptr_enter_actor_, ptr_enter_capture_manager_);
@@ -389,4 +313,4 @@ class CaptureActor final : public Enter {
   CaptureManager* ptr_enter_capture_manager_ = nullptr;
 };
 
-}  // namespace ora::mods
+}

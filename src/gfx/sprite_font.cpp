@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteFont.cs @1f594e320(sprite_font.hpp 的
-// 实现)
-// The implementation of sprite_font.hpp.
 import std;
 
 #include "gfx/sprite_font.hpp"
@@ -18,7 +15,7 @@ core::Vector3 TintOf(core::Color color_c) {
 
 constexpr int TruncToInt(float fp4_v) { return static_cast<int>(fp4_v); }
 
-}  // namespace
+}
 
 SpriteFont::SpriteFont(std::string str_name, std::span<const std::uint8_t> vec_data,
                        std::unique_ptr<IFaceFont> ptr_font, int int4_size, int int4_ascender,
@@ -36,10 +33,6 @@ SpriteFont::SpriteFont(std::string str_name, std::span<const std::uint8_t> vec_d
   if (builder_sheet_.CurrentChannel() != TextureChannel::RGBA)
     throw std::runtime_error("The sheet builder must create BGRA sheets. (Parameter 'builder')");
 
-  // 上游 size <= 24 的预缓存 + `glyphs[n] == null` 抛(Cache 恒物化,不可达;
-  // 此处仅预物化)
-  // upstream's size <= 24 precache + its `glyphs[n] == null` throw (the Cache
-  // always materializes; unreachable — here it only pre-materializes)
   if (int4_size <= 24)
     for (char32_t cp_n = 0x20; cp_n < 0x7f; cp_n++)
       (void)GlyphFor(cp_n);
@@ -127,11 +120,6 @@ void SpriteFont::DrawText(std::string_view str_text, core::Vector2 vec_location,
   core::Vector2 vec_offset{0.0f, static_cast<float>(int4_size_)};
   const core::Vector3 vec_tint = TintOf(color_c);
 
-  // transform = Matrix3x2.CreateRotation(-angle) * CreateTranslation(location)
-  // (行向量形态:x' = x·cosA + y·sinA + t.X;y' = -x·sinA + y·cosA + t.Y)
-  // transform = Matrix3x2.CreateRotation(-angle) *
-  // CreateTranslation(location) (row-vector form: x' = x·cosA + y·sinA + t.X;
-  // y' = -x·sinA + y·cosA + t.Y)
   const float fp4_c = std::cos(fp4_angle);
   const float fp4_s = std::sin(fp4_angle);
   const auto transform = [&](core::Vector2 vec_p) {
@@ -349,19 +337,14 @@ std::vector<float> SpriteFont::CreateCircularWeightMap(int int4_r) {
       const int int4_di = int4_i - int4_r;
       const int int4_dj = int4_j - int4_r;
 
-      // 与圆无交 | no intersection with the circle
       if (int4_di * int4_di + int4_dj * int4_dj > (int4_r + 1) * (int4_r + 1))
         continue;
 
-      // 全含于圆 | fully contained within the circle
       if (int4_di * int4_di + int4_dj * int4_dj < (int4_r - 1) * (int4_r - 1)) {
         vec_elem[static_cast<std::size_t>(int4_j) * int4_stride + int4_i] = 1.0f;
         continue;
       }
 
-      // 5×5 子网格近似亚像素交(Math.Sign(0) = 0,非 copysign)
-      // the 5x5-grid sub-pixel approximation (Math.Sign(0) = 0, not
-      // copysign)
       const auto sign_net = [](int int4_v) { return (int4_v > 0) - (int4_v < 0); };
       for (int int4_jj = 0; int4_jj < 5; int4_jj++) {
         for (int int4_ii = 0; int4_ii < 5; int4_ii++) {
@@ -441,4 +424,4 @@ Sprite SpriteFont::CreateContrastGlyph(char32_t cp_char, int int4_radius) {
   return sprite_s;
 }
 
-}  // namespace ora::gfx
+}

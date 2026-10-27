@@ -1,12 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/AddFactionSuffixLogic.cs
-//          @1f594e320 L18-74 全文 +
-//          OpenRA.Mods.Common/Widgets/Logic/Ingame/SupportPowerBinLogic.cs
-//          @1f594e320 L16-79 全文 +
-//          OpenRA.Mods.Common/Widgets/Logic/Ingame/OrderButtonsChromeLogic.cs
-//          @1f594e320 L18-55 全文 +
-//          OpenRA.Mods.Common/Widgets/Logic/Ingame/MenuButtonsChromeLogic.cs
-//          @1f594e320 L18-124 全文 +
-//          GameInfoLogic.cs L21(IngameInfoPanel 枚举)。
 #pragma once
 import std;
 

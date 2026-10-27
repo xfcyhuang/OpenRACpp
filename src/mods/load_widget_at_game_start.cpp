@@ -102,4 +102,4 @@ void RegisterLoadWidgetAtGameStart() {
       });
 }
 
-}  // namespace ora::mods
+}

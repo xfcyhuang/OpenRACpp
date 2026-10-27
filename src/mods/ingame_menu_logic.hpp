@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/IngameMenuLogic.cs
-//          @1f594e320 L23-647 全文。
 #pragma once
 import std;
 
@@ -72,4 +70,4 @@ class IngameMenuLogic final : public ora::ui::ChromeLogic {
 
 void RegisterIngameMenuLogic();
 
-}  // namespace ora::mods
+}

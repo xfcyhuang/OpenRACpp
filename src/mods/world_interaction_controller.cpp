@@ -288,4 +288,4 @@ void RegisterWorldInteractionControllerWidget() {
   (void)b_registered;
 }
 
-}  // namespace ora::mods
+}

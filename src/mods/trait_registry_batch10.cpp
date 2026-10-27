@@ -1,12 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits 第十批 mods trait 注册表装配
-//          (PlaceBuilding/LineBuild/Plug/Pluggable/PrimaryBuilding/
-//          BulkProductionQueue/ProductionIconOverlayManager/
-//          WithProductionIconOverlay/FootprintPlaceBuildingPreview/
-//          Replacement/Replaceable/PlaceBuildingVariants;Info 名 → 工厂 →
-//          WorldArena)
-//          The batch-10 registry assembly (Info name → factory →
-//          WorldArena).
-
 #include "meta/generic_record.hpp"
 #include "mods/bulk_production_queue.hpp"
 #include "mods/footprint_place_building_preview.hpp"
@@ -30,7 +21,7 @@ std::string InstanceNameOf(const sim::ActorInitializer& init,
   return std::string{init.Self().Info()->InstanceNameOf(&rec_info)};
 }
 
-}  // namespace
+}
 
 void RegisterCommonTraitsBatch10() {
   auto& registry = sim::TraitRegistry::Instance();
@@ -137,4 +128,4 @@ void RegisterCommonTraitsBatch10() {
       });
 }
 
-}  // namespace ora::mods
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/HueSliderWidget.cs @1f594e320
-// (hue_slider_widget.hpp 的实现)
-// The implementation of hue_slider_widget.hpp.
 import std;
 
 #include "ui/widgets/hue_slider_widget.hpp"
@@ -66,4 +63,4 @@ void HueSliderWidget::Removed() {
   SliderWidget::Removed();
 }
 
-}  // namespace ora::ui
+}

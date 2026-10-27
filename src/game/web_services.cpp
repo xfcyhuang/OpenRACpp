@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/WebServices.cs @1f594e320 L15-60 +
-// OpenRA.Game/Support/HttpQueryBuilder.cs L16-59(实现半;契约半见头文件)
-// The implementation half (the contract half is in the header).
 #include "game/web_services.hpp"
 
 #include "net/http_sync.hpp"
@@ -43,8 +40,7 @@ std::string BuildHttpQuery(
 }
 
 void WebServices::CheckModVersion() {
-  // HttpQueryBuilder(VersionCheck){protocol,engine,mod,version}(L42-49)
-  // HttpQueryBuilder(VersionCheck){protocol,engine,mod,version} (L42-49).
+
   const std::string str_query_url =
       BuildHttpQuery(VersionCheck,
                      {{"protocol", "1"},
@@ -52,11 +48,6 @@ void WebServices::CheckModVersion() {
                       {"mod", str_mod_id_},
                       {"version", str_mod_version_}});
 
-  // Task.Run(L51-59):后台 GET;result 的三态 switch(其余 = Latest);
-  // Game.RunAfterTick 把赋值搬主循环 —— sink 注入缺省 = 立即置。
-  // Task.Run (L51-59): the background GET; result's three-state switch
-  // (anything else = Latest); Game.RunAfterTick moves the assignment onto
-  // the main loop — the injected sink defaults to immediate assignment.
   std::thread{[this, str_query_url]() mutable {
     const net::HttpResult result_get = net::HttpGetSync(str_query_url);
     if (!result_get.b_ok)
@@ -80,4 +71,4 @@ void WebServices::CheckModVersion() {
   }}.detach();
 }
 
-}  // namespace ora::game
+}

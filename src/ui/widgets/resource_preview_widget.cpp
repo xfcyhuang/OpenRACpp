@@ -92,4 +92,4 @@ void ResourcePreviewWidget::Draw() {
     gfx::RenderRenderable(item, *ptr_world_renderer_);
 }
 
-}  // namespace ora::ui
+}

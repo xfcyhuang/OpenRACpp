@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/MainMenuLogic.cs @1f594e320
-//          L25-566 全文(实现部分)。
 #include "mods/main_menu_logic.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -30,7 +28,7 @@ std::string Fluent1(std::string_view str_key, const std::string& str_arg_name,
   return fluent::FluentProvider::Instance().GetMessage(str_key, vec_args);
 }
 
-}  // namespace
+}
 
 bool MainMenuLogic::b_fetched_news_ = false;
 MainMenuLogic::MenuPanel MainMenuLogic::kind_last_game_state_ =
@@ -671,4 +669,4 @@ void RegisterMainMenuLogic() {
       });
 }
 
-}  // namespace ora::mods
+}

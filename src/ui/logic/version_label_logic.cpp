@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/VersionLabelLogic.cs @1f594e320 L17-25(全文)。
 import std;
 
 #include "ui/logic/version_label_logic.hpp"
@@ -16,4 +15,4 @@ VersionLabelLogic::VersionLabelLogic(WidgetArgs& args_args) {
   ptr_widget->fn_get_text = [str_version] { return str_version; };
 }
 
-}  // namespace ora::ui
+}

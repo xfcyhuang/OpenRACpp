@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/SliderWidget.cs @1f594e320
-// (slider_widget.hpp 的实现)
-// The implementation of slider_widget.hpp.
 import std;
 
 #include "ui/widgets/slider_widget.hpp"
@@ -53,10 +50,7 @@ bool SliderWidget::HandleMouseInput(const MouseInput& mi_input) {
 
     case MouseInputEvent::Down:
       b_is_moving_ = true;
-      // TODO: handle snapping to ticks properly again(上游注释)| the
-      // upstream comment.
-      // TODO: handle nudge via clicking outside the thumb(上游注释)| the
-      // upstream comment.
+
       UpdateValue(ValueFromPx(mi_input.Location.X - RenderBounds().Left()));
       break;
 
@@ -147,7 +141,6 @@ void SliderWidget::Draw() {
                              rect_rb.Y + (rect_rb.Height - int4_track_height) / 2,
                              int4_track_width + 2, int4_track_height};
 
-  // Tickmarks(刻度条)| Tickmarks.
   gfx::ChromeProvider* ptr_chrome = ChromeProviderOrNull();
   const gfx::Sprite sprite_tick =
       ptr_chrome != nullptr ? ptr_chrome->GetImage("slider", "tick") : gfx::Sprite{};
@@ -161,14 +154,12 @@ void SliderWidget::Draw() {
     DrawSprite(sprite_tick, vec_tick_pos);
   }
 
-  // Track(轨道)| Track.
   DrawPanel(str_track, rect_track);
 
-  // Thumb(滑块)| Thumb.
   const bool b_thumb_hover = Ui::Instance().MouseOverWidget() == this &&
                              rect_thumb.Contains(gfx::Viewport::int2_last_mouse_pos);
   ButtonWidget::DrawBackground(str_thumb, rect_thumb, fn_is_disabled(), b_is_moving_,
                                b_thumb_hover, false);
 }
 
-}  // namespace ora::ui
+}

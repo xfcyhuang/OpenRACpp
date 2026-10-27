@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Air/AttackAircraft.cs +
-//          AttackBomber.cs @1f594e320 + Activities/Air/FlyAttack.cs
 #pragma once
 import std;
 
@@ -164,6 +162,6 @@ class StrafeAttackRun final : public sim::Activity {
   sim::Target target_;
 };
 
-}  // namespace activities
+}
 
-}  // namespace ora::mods
+}

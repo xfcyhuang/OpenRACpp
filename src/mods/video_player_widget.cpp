@@ -1,8 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/VideoPlayerWidget.cs @1f594e320
-//          L22-313 的实现面
-//          The implementation face of L22-313.
 #include "mods/video_player_widget.hpp"
-
 
 #include "formats/video.hpp"
 #include "gfx/gfx_util.hpp"
@@ -32,7 +28,7 @@ std::int64_t ElapsedMsOf(
              .count();
 }
 
-}  // namespace
+}
 
 VideoPlayerWidget::VideoPlayerWidget(ora::ui::WidgetArgs&) {
   ptr_shared_cached_name_ = std::make_shared<std::string>();
@@ -161,9 +157,6 @@ void VideoPlayerWidget::Play(std::shared_ptr<ora::fmt::IVideo> sp_video) {
   ptr_video_sheet_ = std::make_unique<gfx::Sheet>(
       gfx::SheetType::BGRA, int2{int4_texture_width_, int4_texture_height_});
 
-  // 无头路径(Utility/测试)无纹理面:仅保留几何与帧数据面
-  // The headless path (Utility/tests) has no texture face: only the
-  // geometry and frame-data faces stay.
   if (ui::Ui::Instance().RendererDeps() != nullptr) {
     ptr_video_sheet_->GetTexture().SetScaleFilter(
         gfx::TextureScaleFilter::Linear);
@@ -398,4 +391,4 @@ void RegisterVideoPlayerWidget() {
   (void)b_registered;
 }
 
-}  // namespace ora::mods
+}

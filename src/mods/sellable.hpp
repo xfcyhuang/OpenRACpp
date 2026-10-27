@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/CustomSellValue.cs @1f594e320
-//          L18-38 全文 + OpenRA.Mods.Common/Traits/Sellable.cs @1f594e320
-//          L21-122 全文 + OpenRA.Mods.Common/Activities/Sell.cs @1f594e320
-//          L19-58 全文。
 #pragma once
 import std;
 

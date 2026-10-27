@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/FootprintPlaceBuildingPreview.cs
-//          @1f594e320 L21-135 全文(引擎 SpriteRenderable → 自有 custom
-//          renderable 承载:IOrderGenerator 的 IRenderable* 出参域)
-//          The whole of FootprintPlaceBuildingPreview.cs L21-135 (the
-//          engine SpriteRenderable → an own custom renderable: the
-//          IRenderable* out domain of IOrderGenerator).
 #pragma once
 import std;
 
@@ -53,8 +47,6 @@ constexpr bool IncludesCellType(PlaceBuildingCellType v, PlaceBuildingCellType f
   return (static_cast<std::uint8_t>(v) & static_cast<std::uint8_t>(flag)) != 0;
 }
 
-/// FootprintPlaceBuildingPreview(L46;空运行时类)
-/// FootprintPlaceBuildingPreview (L46; the empty runtime class).
 class FootprintPlaceBuildingPreviewRuntime final : public sim::TraitBase {
  public:
   static constexpr gen::TypeId kTypeId =
@@ -67,22 +59,15 @@ class FootprintPlaceBuildingPreviewRuntime final : public sim::TraitBase {
   }
 };
 
-/// IPlaceBuildingPreviewGeneratorInfo(Orders/PlaceBuildingOrderGenerator.cs
-/// L27-31;记录接口面 —— 实现者 FootprintPlaceBuildingPreviewInfo)
-/// IPlaceBuildingPreviewGeneratorInfo (PlaceBuildingOrderGenerator.cs
-/// L27-31; the record interface — implementer FootprintPlaceBuilding-
-/// PreviewInfo).
 struct FootprintPlaceBuildingPreviewInfoData {
-  std::string str_palette{"terrain"};  // L27(TileSet.TerrainPaletteInternalName)
-  float fp4_footprint_alpha = 1.0f;    // L30
-  float fp4_line_build_footprint_alpha = 1.0f;  // L33
+  std::string str_palette{"terrain"};
+  float fp4_footprint_alpha = 1.0f;
+  float fp4_line_build_footprint_alpha = 1.0f;
 
   static FootprintPlaceBuildingPreviewInfoData Parse(
       const meta::RecordObject& rec_info);
 };
 
-/// IPlaceBuildingPreview(L33-39)
-/// IPlaceBuildingPreview (L33-39).
 class IPlaceBuildingPreview {
  public:
   virtual ~IPlaceBuildingPreview() = default;
@@ -95,12 +80,6 @@ class IPlaceBuildingPreview {
       gfx::WorldRenderer& wr, CPos top_left) = 0;
 };
 
-/// 单格 footprint 瓦(FootprintPlaceBuildingPreviewPreview 的
-/// RenderFootprint yield 项;上游 SpriteRenderable(z=-511, IgnoreWorldTint)
-/// 的 custom 承载)
-/// One footprint tile (a RenderFootprint yield item of
-/// FootprintPlaceBuildingPreviewPreview; the custom carrier of upstream's
-/// SpriteRenderable(z=-511, IgnoreWorldTint)).
 class FootprintCellRenderable final : public gfx::IRenderable,
                                       public gfx::IFinalizedRenderable {
  public:
@@ -140,8 +119,6 @@ class FootprintCellRenderable final : public gfx::IRenderable,
   float fp4_alpha_ = 1.0f;
 };
 
-/// FootprintPlaceBuildingPreviewPreview(L48-135)
-/// FootprintPlaceBuildingPreviewPreview (L48-135).
 class FootprintPlaceBuildingPreviewPreview final : public IPlaceBuildingPreview {
  public:
   FootprintPlaceBuildingPreviewPreview(
@@ -173,22 +150,13 @@ class FootprintPlaceBuildingPreviewPreview final : public IPlaceBuildingPreview 
   std::vector<gfx::IRenderable*> vec_renderable_ptrs_;
 };
 
-/// 上游 BuildingInfo 的 IPlaceBuildingDecorationInfo.RenderAnnotations
-/// (Building.cs L257-263:RequiresBaseProvider 时 BaseProvider 的
-/// RangeCircleRenderables;BaseProvider trait 未移植 = 空集的等价域)
-/// Upstream BuildingInfo's IPlaceBuildingDecorationInfo.RenderAnnotations
-/// (Building.cs L257-263: BaseProvider's RangeCircleRenderables when
-/// RequiresBaseProvider; the BaseProvider trait unported = the empty-set
-/// equivalent domain).
 inline std::vector<gfx::IRenderable*> BuildingPlaceBuildingDecorationAnnotations(
     const BuildingInfoData&) {
   return {};
 }
 
-/// FootprintPlaceBuildingPreviewInfo 的工厂面(CreatePreview L35-43)
-/// FootprintPlaceBuildingPreviewInfo's factory face (CreatePreview L35-43).
 std::unique_ptr<IPlaceBuildingPreview> CreateFootprintPlaceBuildingPreview(
     gfx::WorldRenderer& wr, const game::ActorInfo& ai,
     const FootprintPlaceBuildingPreviewInfoData& info);
 
-}  // namespace ora::mods
+}

@@ -32,7 +32,7 @@ bool ClassInSelectionClasses(const std::string& str_class,
   return false;
 }
 
-}  // namespace
+}
 
 std::vector<sim::Actor*> SelectActorsByOwnerAndSelectionClass(
     std::span<sim::Actor* const> vec_actors, std::span<sim::Player* const> vec_owners,
@@ -137,4 +137,4 @@ std::vector<sim::Player*> GetPlayersToIncludeInSelection(sim::World& world) {
   return {const_cast<sim::Player*>(viewer)};
 }
 
-}  // namespace ora::ui
+}

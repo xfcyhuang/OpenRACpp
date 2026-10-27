@@ -1,12 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ColorBlockWidget.cs @1f594e320 L18-80(全文)
-// + GradientColorBlockWidget.cs L18-57(全文)。ColorBlock 的输入三态
-// (Down 持焦/Up 让焦触发)与 ClickSound 通知;Gradient 的四角色 FillRect。
-// ModData.DefaultRules → WidgetArgs "modData";Game.Sound → Ui 注入。
-// The whole of ColorBlockWidget.cs L18-80 + GradientColorBlockWidget.cs
-// L18-57. ColorBlock's input trio (Down taking focus / Up yielding focus to
-// fire) with the ClickSound notification; Gradient's four-color FillRect.
-// ModData.DefaultRules through WidgetArgs "modData"; Game.Sound through the
-// Ui injection.
 #pragma once
 import std;
 
@@ -36,7 +27,7 @@ class ColorBlockWidget : public Widget {
   std::function<core::Color()> fn_get_color;
   std::function<void(const MouseInput&)> fn_on_mouse_down = [](const MouseInput&) {};
   std::function<void(const MouseInput&)> fn_on_mouse_up = [](const MouseInput&) {};
-  std::string str_click_sound;  // 空 = C# null | null
+  std::string str_click_sound;
 
   const game::Ruleset* mod_rules = nullptr;
 
@@ -72,4 +63,4 @@ class GradientColorBlockWidget : public Widget {
   bool LoadFieldOrProperty(std::string_view str_key, std::string_view str_value) override;
 };
 
-}  // namespace ora::ui
+}

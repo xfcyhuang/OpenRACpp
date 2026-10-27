@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/RideTransport.cs +
-//          UnloadCargo.cs + Parachute.cs @1f594e320
 #pragma once
 import std;
 
@@ -82,6 +80,6 @@ class Parachute final : public sim::Activity {
   int int4_ground_level_ = 0;
 };
 
-}  // namespace ora::mods::activities
+}
 
-}  // namespace ora::mods
+}

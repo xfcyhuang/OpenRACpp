@@ -1,15 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithSpriteTurret.cs @1f594e320
-//          L21-144 全文
-//          The whole of WithSpriteTurret.cs L21-144.
-//
-// 机制对照 / Mechanism mapping:
-//  - RenderPreviewSprites(IActorPreview 面)随 Phase 6 预览装配
-//    RenderPreviewSprites (the IActorPreview face) rides Phase 6's preview
-//    assembly.
-//  - TurretOffset 的 recoil 常量折叠:WVec(new WDist(-recoilDist), Zero,
-//    Zero).Rotate(WorldOrientation) —— 运算逐字
-//    TurretOffset's recoil arithmetic kept verbatim (WVec(new
-//    WDist(-recoilDist), Zero, Zero).Rotate(WorldOrientation)).
 #pragma once
 import std;
 
@@ -27,20 +15,17 @@ class Turreted;
 class BodyOrientation;
 class Armament;
 
-/// WithSpriteTurretInfo 的解析面(L22-42)
-/// The parsed face of WithSpriteTurretInfo (L22-42).
 struct WithSpriteTurretInfoData {
   sim::ConditionalTraitData conditional;
-  std::string str_sequence = "turret";  // L27
-  std::string str_palette;              // L30
-  bool b_is_player_palette = false;     // L33
-  std::string str_turret = "primary";   // L36
-  bool b_recoils = true;                // L39
+  std::string str_sequence = "turret";
+  std::string str_palette;
+  bool b_is_player_palette = false;
+  std::string str_turret = "primary";
+  bool b_recoils = true;
 
   static WithSpriteTurretInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// WithSpriteTurret(L75-143)
 class WithSpriteTurret : public TraitBase,
                          public sim::ConditionalTraitCore<WithSpriteTurret>,
                          public sim::IObservesVariables,
@@ -70,11 +55,8 @@ class WithSpriteTurret : public TraitBase,
 
   const WithSpriteTurretInfoData& Info() const { return info_; }
 
-  /// TurretOffset(L103-113;虚钩)
-  /// TurretOffset (L103-113; a virtual hook).
   virtual WVec TurretOffset(Actor& self);
 
-  /// NormalizeSequence(L115-118)
   std::string NormalizeSequence(Actor& self, std::string_view str_sequence);
 
   void DamageStateChanged(Actor& self, const sim::AttackInfo& e) override;
@@ -91,8 +73,7 @@ class WithSpriteTurret : public TraitBase,
   gfx::Animation& DefaultAnimation() { return *up_default_animation_; }
 
  protected:
-  /// DamageStateChanged 虚钩(L120-124)
-  /// The DamageStateChanged virtual hook (L120-124).
+
   virtual void DamageStateChangedInner(Actor& self);
 
   WithSpriteTurretInfoData info_;
@@ -103,4 +84,4 @@ class WithSpriteTurret : public TraitBase,
   std::optional<gfx::AnimationWithOffset> awo_default_;
 };
 
-}  // namespace ora::mods
+}

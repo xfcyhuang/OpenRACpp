@@ -1,8 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpTDLoader.cs @1f594e320 L17-99
-// 实现文件:TmpTDFrame / IsTmpTD / ParseFrames 逐句照抄;Stream →
-// SpanReader。
-// Implementation file: TmpTDFrame / IsTmpTD / ParseFrames copied
-// statement by statement; Stream → SpanReader.
 #include "formats/tmp_td.hpp"
 
 #include "formats/span_reader.hpp"
@@ -11,11 +6,9 @@ namespace ora::fmt {
 
 namespace {
 
-/// TmpTDFrame(L20-40)。
 class TmpTDFrame final : public gfx::ISpriteFrame {
  public:
-  /// data 为空 = 上游 null(空 tile)。
-  /// An empty data span = upstream's null (an empty tile).
+
   TmpTDFrame(std::span<const std::byte> vec_data, int2 int2_tile_size) : int2_frame_size_(int2_tile_size) {
     if (!vec_data.empty())
       int2_size_ = int2_tile_size;
@@ -36,7 +29,7 @@ class TmpTDFrame final : public gfx::ISpriteFrame {
   std::vector<std::byte> vec_data_;
 };
 
-}  // namespace
+}
 
 bool IsTmpTD(std::span<const std::byte> vec_file) {
   auto stream = SpanReader{vec_file};
@@ -52,7 +45,6 @@ bool IsTmpTD(std::span<const std::byte> vec_file) {
 
 namespace {
 
-/// ParseFrames(L63-88)。
 std::vector<std::unique_ptr<gfx::ISpriteFrame>> ParseFrames(std::span<const std::byte> vec_file) {
   auto stream = SpanReader{vec_file};
   const auto uint2_width = stream.ReadUInt16();
@@ -81,7 +73,7 @@ std::vector<std::unique_ptr<gfx::ISpriteFrame>> ParseFrames(std::span<const std:
   return vec_tiles;
 }
 
-}  // namespace
+}
 
 bool TryParseTmpTD(std::span<const std::byte> vec_file, std::vector<std::unique_ptr<gfx::ISpriteFrame>>& vec_frames) {
   if (!IsTmpTD(vec_file))
@@ -91,4 +83,4 @@ bool TryParseTmpTD(std::span<const std::byte> vec_file, std::vector<std::unique_
   return true;
 }
 
-}  // namespace ora::fmt
+}

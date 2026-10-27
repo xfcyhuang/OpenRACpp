@@ -1,16 +1,5 @@
-// UPSTREAM: Phase 5 第四批验收:Shroud/FrozenActorLayer/AttackBase 族/
-//          AutoTarget/弹丸(Bullet/InstantHit)/战头(SpreadDamage)
-//          (真 ra 全链:迷雾可见性 → 攻击活动 → 落弹 → 减血至死亡 +
-//          AutoTarget 空闲扫描)
-//          The Phase 5 batch-4 acceptance: Shroud/FrozenActorLayer/the
-//          AttackBase family/AutoTarget/the projectiles
-//          (Bullet/InstantHit)/the warhead (SpreadDamage) (the real ra
-//          full chain: fog visibility → the attack activity → impact →
-//          HP drain to death + the AutoTarget idle scan).
 import std;
-// upstream-root 实参与黄金数据无涉;gtest 不引入(工程门禁:裸断言链)
-// (the upstream-root argument touches no golden data; no gtest — the
-// project gate's bare assertion chain).
+
 #include "game/game.hpp"
 
 #include "render_sequences_fixture.hpp"
@@ -37,7 +26,7 @@ import std;
 #include "sim/sync_hash.hpp"
 #include "sim/target.hpp"
 #include "sim/world.hpp"
-#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
+#include <cstdio>
 
 namespace {
 std::string_view TestMapFilter() {
@@ -46,8 +35,7 @@ std::string_view TestMapFilter() {
     return std::string_view{str_env};
   return "Siberian-Pass";
 }
-}  // namespace
-
+}
 
 namespace ora::gen {
 void RegisterGeneratedAll();
@@ -70,7 +58,6 @@ void Check(bool ok, std::string_view what) {
   }
 }
 
-// ———— 真 ra 全链 ————
 void TestRealRaAttackChain(const char* str_upstream_root) {
   using namespace ora;
   game::InstalledMods mods_installed{std::string{str_upstream_root} + "/mods"};
@@ -113,16 +100,11 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
 
   mods::InstallCommonSyncEffectHasher(*world);
 
-  // 两个战斗玩家;不足时取首个非战斗员并强设敌对掩码
-  // Two combatants; with fewer, take the first non-combatant and force the
-  // enemy masks.
   std::vector<sim::Player*> vec_combatants;
   for (sim::Player* p : world->Players())
     if (!p->NonCombatant())
       vec_combatants.push_back(p);
-  // 两个不同玩家(地图玩家不足时回落 Players() 的前两个 —— 测试装配面)
-  // Two distinct players (falling back to Players()' first two when the
-  // map carries fewer combatants — the test assembly face).
+
   while (vec_combatants.size() < 2) {
     std::size_t index = vec_combatants.size();
     if (index >= world->Players().size())
@@ -142,7 +124,6 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
   Check(player_a->RelationshipWith(player_b) == sim::PlayerRelationship::Enemy,
         "A sees B as enemy (forced mask)");
 
-  // ———— Shroud 接线:^Player 的 Shroud/FrozenActorLayer trait————
   sim::Shroud* shroud_a = player_a->GetShroud();
   Check(shroud_a != nullptr, "player A Shroud resolved (^Player rules)");
   sim::FrozenActorLayer* frozen_layer = player_a->GetFrozenActorLayer();
@@ -155,17 +136,11 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
   Check(!shroud_a->ExploreMapEnabled(),
         "explored-map disabled by default");
 
-  // ———— e1 构造(攻方)————
   const map::Map& map = world->Map();
   const Rectangle bounds = map.Bounds();
   CPos spawn{bounds.Left() + bounds.Width / 2,
              bounds.Top() + bounds.Height / 2};
 
-  // 先取可站立格(LocationInit 的 ctor 期定位 —— 上游真实生成路径,
-  // HitShape 的构造期物化因此拿到正确中心)
-  // Pick a stayable cell first (the ctor-time LocationInit — upstream's
-  // real spawn path, so HitShape's construction-time materialization sees
-  // the right center).
   sim::TypeDictionary inits_probe;
   inits_probe.Add(new sim::OwnerInit(player_a));
   sim::Actor* probe = world->CreateActor("e1", inits_probe);
@@ -181,16 +156,13 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
   Check(attacker->IsInWorld(), "attacker in world");
   Check(attacker->Location() == spawn, "attacker spawned at LocationInit");
 
-  // AttackFrontal/AutoTarget/HitShape/Armor trait 面
   mods::AttackFrontal* frontal = attacker->Trait<mods::AttackFrontal>();
   Check(frontal != nullptr, "e1 AttackFrontal resolved");
   CheckEq(frontal->Info().angle_facing_tolerance.Angle, 0,
           "FacingTolerance 0 (^Soldier)");
   mods::AutoTarget* auto_target = attacker->Trait<mods::AutoTarget>();
   Check(auto_target != nullptr, "e1 AutoTarget resolved");
-  // 非机器人且 playable → Defend;否则 AttackAnything(上游 InitialStanceAI)
-  // Non-bot and playable → Defend; otherwise AttackAnything (upstream's
-  // InitialStanceAI).
+
   const mods::UnitStance stance_expected =
       player_a->IsBot() || !player_a->Playable()
           ? mods::UnitStance::AttackAnything
@@ -206,8 +178,6 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
             "None",
         "e1 armor type None");
 
-  // HitShape 行为面:TargetablePositions 物化(默认 TargetableOffsets =
-  // [Zero] → 中心位)
   CheckEq(attacker->EnabledTargetablePositions().size(), std::size_t{1},
           "one enabled targetable position (HitShape)");
   CheckEq(attacker->GetTargetablePositions().size(), std::size_t{1},
@@ -216,11 +186,10 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
             attacker->CenterPosition(),
         "default HitShape position == center");
 
-  // ———— Shroud 可见性(^Infantry RevealsShroud 4c0)————
   CPos far_cell = spawn + CVec{12, 0};
   if (!map.Contains(far_cell))
     far_cell = spawn + CVec{-12, 0};
-  world->Tick();  // Shroud::Tick 解析 touched 格
+  world->Tick();
   Check(shroud_a->IsVisible(attacker->Location()),
         "own cell visible (RevealsShroud source added)");
   Check(shroud_a->IsExplored(attacker->Location()),
@@ -230,7 +199,6 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
   const int revealed_before = shroud_a->RevealedCells();
   Check(revealed_before > 0, "RevealedCells > 0 under fog");
 
-  // Disabled 面:全图可见
   shroud_a->SetDisabled(true);
   world->Tick();
   Check(shroud_a->IsVisible(far_cell), "disabled shroud sees all");
@@ -238,7 +206,6 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
   world->Tick();
   Check(!shroud_a->IsVisible(far_cell), "re-enabled hides far cell again");
 
-  // ———— 守方 e1(b 玩家;两格外,面内)————
   CPos defender_cell =
       attacker_mobile->NearestMoveableCell(spawn + CVec{2, 0}, 0, 4);
   defender_cell =
@@ -248,20 +215,14 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
   inits_b.Add(new sim::LocationInit(defender_cell));
   sim::Actor* defender = world->CreateActor("e1", inits_b);
 
-  // 守方 HoldFire:单向杀伤链(否则互相反击,攻方先死)
-  // The defender holds fire: a one-way kill chain (otherwise both sides
-  // retaliate and the attacker dies first).
   defender->Trait<mods::AutoTarget>()->SetStance(
       *defender, mods::UnitStance::HoldFire);
   sim::IHealth* defender_health = defender->Trait<sim::IHealth>();
   const int hp0 = defender_health->HP();
   CheckEq(hp0, 5000, "defender e1 HP 5000");
 
-  // ———— AutoTarget 空闲扫描(stance Defend → TickIdle 扫描)————
   Check(attacker->IsIdle(), "attacker idle before scan");
-  // 空闲扫描按 nextScanTime 节流(3..8 tick)—— 数 tick 内应排入攻击活动
-  // The idle scan is throttled by nextScanTime (3..8 ticks) — the attack
-  // activity queues within a handful of ticks.
+
   {
     int scan_ticks = 0;
     while (attacker->IsIdle() && scan_ticks < 12) {
@@ -274,11 +235,6 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
   Check(auto_target->Aggressor != nullptr || !attacker->IsIdle(),
         "scan produced engagement");
 
-  // ———— 攻击全链 → 落弹(InstantHit)→ SpreadDamage → HP 下降 → 死亡 ————
-  // M1Carbine:^LightMG Damage 1000 × Versus(None 150)% = 1500/发;
-  // HP 5000 → 第 4 发致死(装填 20 tick)
-  // M1Carbine: ^LightMG Damage 1000 × Versus(None 150)% = 1500 per hit;
-  // HP 5000 → the fourth shot kills (a 20-tick reload).
   int ticks = 0;
   int hp_midpoint = hp0;
   bool saw_damage = false;
@@ -298,7 +254,6 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
   Check(defender->IsDead(), "defender killed within tick budget");
   std::println("attack: killed in {} ticks (HP {} → dead)", ticks, hp0);
 
-  // ———— FrozenActorLayer 基本面(Add/Tick/FromID/InCircle)————
   struct DummyFrozenCreator final : sim::ICreatesFrozenActors {
     void OnVisibilityChanged(sim::FrozenActor&) override {}
   } dummy_creator;
@@ -329,13 +284,11 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
   Check(frozen_layer->FrozenHash != frozen_hash_before,
         "FrozenHash advances per tick");
   frozen->Invalidate();
-  frozen_layer->Tick(*player_a->PlayerActor());  // Visible == false &&
-      // Actor dead → 移除路径(此处 Actor 存活 → 保留)
+  frozen_layer->Tick(*player_a->PlayerActor());
+
   Check(frozen_layer->FromID(freeze_target->ActorID()) == frozen,
         "live backing actor keeps the frozen entry");
 
-  // ———— Bullet 全链(120mm:Speed 682 / Bullet / SpreadDamage 6000×
-  //      Versus(None 30)% = 1800)————
   const game::WeaponInfo* weapon_cannon = nullptr;
   for (const auto& [name, weapon] :
        const_cast<sim::World&>(*world).Map().Rules().Weapons())
@@ -379,7 +332,6 @@ void TestRealRaAttackChain(const char* str_upstream_root) {
     std::println("bullet: impact after {} ticks", bullet_ticks);
   }
 
-  // ———— SyncHash 面:新 [VerifySync] trait 已注册 ————
   Check(!attacker->SyncHashes().empty(),
         "attacker carries [VerifySync] trait hashes");
 }
@@ -396,9 +348,6 @@ int main(int argc, char** argv) {
   ora::sim::RegisterWorldTraits();
   ora::mods::RegisterCommonTraits();
 
-  // qboi facings 解析钩子:测试接线 8(同 move_test;渲染批换接真序列表)
-  // The qboi facings-resolution hook: the test wires 8 (move_test's
-  // device; the render batch swaps in the real sequence table).
   ora::mods::SetBodyOrientationFacingsResolver(
       [](const ora::game::ActorInfo&, const std::string&) { return 8; });
 

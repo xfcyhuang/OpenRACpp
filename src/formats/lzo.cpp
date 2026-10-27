@@ -1,22 +1,9 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/LZOCompression.cs @1f594e320 L49-291
-// 实现文件:LZO1xDecompress 逐控制流照抄(标签 first_literal_run/
-// match/match_done/eof_found 与 gtFirstLiteralRun/gtMatchDone 布尔保留);
-// unsafe 指针 → uint8_t*;未对齐 32/16 位读写 → memcpy。
-// Implementation file: LZO1xDecompress copied control flow for control
-// flow (the first_literal_run/match/match_done/eof_found labels and the
-// gtFirstLiteralRun/gtMatchDone booleans kept); unsafe pointers →
-// uint8_t*; unaligned 32/16-bit accesses → memcpy.
 #include "formats/lzo.hpp"
 
 namespace ora::fmt::lzo {
 
 namespace {
 
-// 未对齐读(上游 *(uint*)p / *(ushort*)p;按小端字节序位拼 —— memcpy 在
-// 本工程固定小端目标上与位拼逐字节等价,且无别名/对齐 UB)。
-// Unaligned reads (upstream's *(uint*)p / *(ushort*)p; little-endian byte
-// assembly — byte-for-byte equal to memcpy on this fixed little-endian
-// target, without aliasing/alignment UB).
 inline std::uint32_t ReadU32(const std::uint8_t* ptr_p) {
   return static_cast<std::uint32_t>(ptr_p[0]) | (static_cast<std::uint32_t>(ptr_p[1]) << 8) |
          (static_cast<std::uint32_t>(ptr_p[2]) << 16) | (static_cast<std::uint32_t>(ptr_p[3]) << 24);
@@ -33,9 +20,6 @@ inline std::uint16_t ReadU16(const std::uint8_t* ptr_p) {
   return static_cast<std::uint16_t>(static_cast<std::uint16_t>(ptr_p[0]) | (static_cast<std::uint16_t>(ptr_p[1]) << 8));
 }
 
-/// L271-274(MatchNext:字面量尾拷贝后预读下一控制字节)。
-/// L271-274 (MatchNext: copies the literal tail, then pre-reads the next
-/// control byte).
 void MatchNext(std::uint8_t*& op_ref, const std::uint8_t*& ip_ref, std::uint32_t& t_ref) {
   do {
     *op_ref++ = *ip_ref++;
@@ -43,8 +27,6 @@ void MatchNext(std::uint8_t*& op_ref, const std::uint8_t*& ip_ref, std::uint32_t
   t_ref = *ip_ref++;
 }
 
-/// L276-279(CopyMatch)。
-/// L276-279 (CopyMatch).
 void CopyMatch(std::uint8_t*& op_ref, const std::uint8_t*& m_pos_ref, std::uint32_t& t_ref) {
   *op_ref++ = *m_pos_ref++;
   *op_ref++ = *m_pos_ref++;
@@ -53,9 +35,6 @@ void CopyMatch(std::uint8_t*& op_ref, const std::uint8_t*& m_pos_ref, std::uint3
   } while (--t_ref > 0);
 }
 
-/// L51-279。指针与 t 的推进次序逐句对照 C# 版。
-/// L51-279. Pointer and t advancement ordered statement by statement
-/// against the C# version.
 int LZO1xDecompress(const std::uint8_t* ptr_in, std::uint32_t uint4_in_len, std::uint8_t* ptr_out,
                     std::uint32_t& uint4_out_len) {
   std::uint8_t* op;
@@ -208,7 +187,7 @@ int LZO1xDecompress(const std::uint8_t* ptr_in, std::uint32_t uint4_in_len, std:
             *op++ = *mPos++;
           } while (--t > 0);
       } else {
-        // copy_match:
+
         *op++ = *mPos++;
         *op++ = *mPos++;
         do {
@@ -221,7 +200,6 @@ int LZO1xDecompress(const std::uint8_t* ptr_in, std::uint32_t uint4_in_len, std:
       if (t == 0)
         break;
 
-      // match_next:
       *op++ = *ip++;
       if (t > 1) {
         *op++ = *ip++;
@@ -239,7 +217,7 @@ eof_found:
   return ip == ip_end ? 0 : (ip < ip_end ? (-8) : (-4));
 }
 
-}  // namespace
+}
 
 std::int32_t DecodeInto(std::span<const std::byte> vec_src, std::size_t st_src_offset, std::size_t st_src_length,
                         std::span<std::byte> vec_dest, std::size_t st_dest_offset, std::uint32_t& uint4_dest_length) {
@@ -248,4 +226,4 @@ std::int32_t DecodeInto(std::span<const std::byte> vec_src, std::size_t st_src_o
                          reinterpret_cast<std::uint8_t*>(vec_dest.data()) + st_dest_offset, uint4_dest_length);
 }
 
-}  // namespace ora::fmt::lzo
+}

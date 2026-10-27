@@ -1,24 +1,3 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @1f594e320(24 个 [FieldLoader.LoadUsing]
-//          加载器的逐语义移植,schema_dumper --scan 清单;各 loader 的源文件
-//          行号在对应函数注记):
-//          The verbatim-semantics port of all 24 [FieldLoader.LoadUsing]
-//          loaders (the schema_dumper --scan list):
-//  - Locomotor.cs LoadSpeeds ×4(Locomotor/Subterranean/Jumpjet;10000/speed
-//    整除、PathingCost 覆盖、speed≤0 跳过)
-//  - Building.cs LoadFootprint ×3(Building/EnergyWall/D2kBuilding)
-//  - ResourceLayer.cs LoadResourceTypes ×8(各 ResourceTypeInfo 记录)
-//  - SmudgeLayer.cs LoadInitialSmudges(逐项 try-catch 吞错)
-//  - HitShape.cs LoadShape(缺省 CircleShape;异常包 "HitShape {shape}: ")
-//  - SupportPowerBotModule.cs LoadDecisions
-//  - MapGeneratorBase.cs LoadOptions/LoadFluentReferences ×10(4 类选项;
-//    Fluent = Label + MultiChoice 的 Choice Labels)
-//  - WeaponInfo.cs LoadProjectile/LoadWarheads(手写类路径,void* 注册表)
-//
-// 值袋承载 / Value-bag carriers:
-//  - TerrainInfo/(ResourceTypeInfo/SupportPowerDecision/IHitShape/Option)等
-//    嵌套记录 → GenericValue 的 rec 槽(GeneratedRecord + gen/ 描述表)
-//  - 元组型载荷(TerrainInfo.Cost/Speed、MapSmudge.Type/Depth)→ GenericTuple /
-//    字符串+int 混合 → 专用槽序(见各 loader 注释;dump 协议同步约定)
 import std;
 #include "game/game_records.hpp"
 #include "meta/field_loader.hpp"
@@ -32,15 +11,8 @@ namespace ora::game {
 
 namespace {
 
-/// 便捷:构造一条 GeneratedRecord(按全名查描述表;未注册 = 生成器缺口,abort)
-/// Convenience: build a GeneratedRecord (descriptor lookup by full name; an
-/// unregistered name is a generator gap and aborts).
 std::shared_ptr<meta::GeneratedRecord> MakeRecord(std::string_view str_full_name) {
-  // 全名键双重寻址(嵌套同名类如两族 ResourceTypeInfo:简单名键会被
-  // FullName 序的后者覆盖,工厂必须走全名)
-  // Full-name dual addressing (nested same-named classes like the two
-  // ResourceTypeInfo families: the simple-name key is overwritten by the
-  // FullName-ordered later entry, so factories must go by full name).
+
   const meta::RecordDesc* desc = meta::TypeRegistry::FindType(str_full_name);
   auto rec = meta::TypeRegistry::CreateObject(str_full_name);
   if (desc == nullptr || rec == nullptr)
@@ -49,8 +21,6 @@ std::shared_ptr<meta::GeneratedRecord> MakeRecord(std::string_view str_full_name
       static_cast<meta::GeneratedRecord*>(rec.release()));
 }
 
-/// 默认值表尺寸(与 CollectFields 展开)对齐检查后返回记录
-/// Return the record with its defaults verified against CollectFields.
 std::shared_ptr<meta::GeneratedRecord> MakeLoadedRecord(std::string_view str_full_name,
                                                         const yaml::MiniYaml& yaml_node) {
   auto rec = MakeRecord(str_full_name);
@@ -58,17 +28,13 @@ std::shared_ptr<meta::GeneratedRecord> MakeLoadedRecord(std::string_view str_ful
   return rec;
 }
 
-/// 节点键视图 / node-key view.
 std::string_view KeyOf(const yaml::MiniYamlNode& node) {
   return node.Key != nullptr ? std::string_view{*node.Key} : std::string_view{};
 }
 
-/// 节点值文本视图 / node-value text view.
 std::string_view ValueTextOf(const yaml::MiniYaml& yaml_v) {
   return yaml_v.Value != nullptr ? std::string_view{*yaml_v.Value} : std::string_view{};
 }
-
-// ———— LoadSpeeds(Locomotor.cs)/LoadSpeeds (Locomotor.cs) ————
 
 void RegisterLoadSpeeds(std::string_view str_composite) {
   meta::RegisterGeneratedLoader(
@@ -83,9 +49,6 @@ void RegisterLoadSpeeds(std::string_view str_composite) {
           if (int4_speed <= 0)
             continue;
 
-          // pathingCost 覆盖或 10000/speed(int 整除,-fwrapv 下与 C# unchecked 一致)
-          // The PathingCost override or 10000/speed (integer division,
-          // wrapping identically to C# unchecked under -fwrapv).
           std::int16_t int2_cost{};
           if (const yaml::MiniYamlNode* node_cost =
                   node_terrain.Value.NodeWithKeyOrDefault("PathingCost")) {
@@ -95,9 +58,6 @@ void RegisterLoadSpeeds(std::string_view str_composite) {
             int2_cost = static_cast<std::int16_t>(10000 / int4_speed);
           }
 
-          // TerrainInfo(speed, cost)→ 元组槽(约定:arr_ints[0]=speed,[1]=cost)
-          // TerrainInfo(speed, cost) → tuple slot (convention:
-          // arr_ints[0]=speed, [1]=cost).
           map_ret.emplace_back(
               meta::GenericValue::Of(std::string{KeyOf(node_terrain)}),
               meta::GenericValue::Of(meta::GenericTuple{
@@ -108,11 +68,6 @@ void RegisterLoadSpeeds(std::string_view str_composite) {
       });
 }
 
-// ———— LoadFootprint(Building.cs)————
-
-/// FootprintCellType 枚举(Building.cs L22-29):char 码点即值
-/// The FootprintCellType enum (Building.cs L22-29): the char code is the
-/// value.
 constexpr bool IsFootprintCellDefined(std::int32_t int4_code) {
   return int4_code == '_' || int4_code == '=' || int4_code == 'x' ||
          int4_code == 'X' || int4_code == '+';
@@ -122,19 +77,16 @@ void RegisterLoadFootprint(std::string_view str_composite) {
   meta::RegisterGeneratedLoader(
       str_composite,
       [](meta::GenericValue& val_slot, const yaml::MiniYaml& yaml_trait) {
-        // 缺省 footprint = ['x'](L155)
-        // The default footprint = ['x'] (L155).
+
         std::vector<std::int32_t> vec_chars{'x'};
         if (const yaml::MiniYamlNode* node_fp =
                 yaml_trait.NodeWithKeyOrDefault("Footprint")) {
           vec_chars.clear();
           for (const char ch : ValueTextOf(node_fp->Value))
             if (!std::isspace(static_cast<unsigned char>(ch)))
-              vec_chars.push_back(static_cast<std::int32_t>(ch) & 0xFF);  // char 码点(char code point)
+              vec_chars.push_back(static_cast<std::int32_t>(ch) & 0xFF);
         }
 
-        // 缺省 dimensions = (1,1)(L158)
-        // The default dimensions = (1,1) (L158).
         std::int32_t int4_dimX{1}, int4_dimY{1};
         if (const yaml::MiniYamlNode* node_dims =
                 yaml_trait.NodeWithKeyOrDefault("Dimensions")) {
@@ -143,7 +95,7 @@ void RegisterLoadFootprint(std::string_view str_composite) {
           if (vec_parts.size() == 2 &&
               meta::TryParseInt32Invariant(vec_parts[0], int4_dimX) &&
               meta::TryParseInt32Invariant(vec_parts[1], int4_dimY)) {
-            // ok / ok
+
           } else {
             int4_dimX = 1;
             int4_dimY = 1;
@@ -181,11 +133,6 @@ void RegisterLoadFootprint(std::string_view str_composite) {
       });
 }
 
-// ———— LoadResourceTypes(ResourceLayer.cs 等同族)————
-
-/// 同族结构:ResourceTypes 节点 → {键 → <记录全名> 实例}
-/// One shape for the family: the ResourceTypes node → {key → instances of
-/// <record full name>}.
 void RegisterLoadResourceTypes(std::string_view str_composite,
                                std::string_view str_record_name) {
   meta::RegisterGeneratedLoader(
@@ -205,8 +152,6 @@ void RegisterLoadResourceTypes(std::string_view str_composite,
       });
 }
 
-// ———— LoadInitialSmudges(SmudgeLayer.cs)————
-
 void RegisterLoadInitialSmudges(std::string_view str_composite) {
   meta::RegisterGeneratedLoader(
       str_composite,
@@ -225,13 +170,7 @@ void RegisterLoadInitialSmudges(std::string_view str_composite) {
                 continue;
               const std::int32_t int4_depth =
                   meta::GetInt32Value("depth", vec_parts[1]);
-              // MapSmudge { Type, Depth } → 键 → 混合槽(约定:
-              // dict 值 = GenericDict{{"Type",str},{"Depth",int}} 的退化 —— 直接
-              // 用元组不可承载字符串,采用 rec 槽不可行(结构体非生成集核心),
-              // 以 dict{Type→str, Depth→int} 承载)
-              // MapSmudge { Type, Depth } → a dict{Type→str, Depth→int} slot
-              // (tuples cannot carry strings and the struct is outside the
-              // generated core).
+
               meta::GenericDict map_smudge;
               map_smudge.emplace_back(meta::GenericValue::Of(std::string{"Type"}),
                                       meta::GenericValue::Of(std::string{vec_parts[0]}));
@@ -244,16 +183,13 @@ void RegisterLoadInitialSmudges(std::string_view str_composite) {
                       .arr_floats = {}, .uint1_count = 3}),
                   meta::GenericValue::Of(std::move(map_smudge)));
             } catch (...) {
-              // 上游逐项 catch{} 吞错(L93-107)
-              // Upstream swallows per-item failures (catch{}, L93-107).
+
             }
           }
         }
         val_slot = meta::GenericValue::Of(std::move(map_ret));
       });
 }
-
-// ———— LoadShape(HitShape.cs)————
 
 void RegisterLoadShape(std::string_view str_composite) {
   meta::RegisterGeneratedLoader(
@@ -275,19 +211,12 @@ void RegisterLoadShape(std::string_view str_composite) {
                 std::format("HitShape {}: {}", str_shape, e_except.what()));
           }
         } else {
-          // 缺省 CircleShape(L154-155)
-          // The CircleShape default (L154-155).
+
           val_slot = meta::GenericValue::Of(MakeRecord("OpenRA.Mods.Common.HitShapes.CircleShape"));
         }
-        // ret.Initialize()(L157):形状参数缓存(半径平方等运行时值,非 yaml 面;
-        // dump 不含 —— 登记偏离,Phase 5 随行为面落地)
-        // ret.Initialize() (L157): runtime shape caches (squared radii and
-        // friends, outside the yaml surface; excluded from dumps — a
-        // registered deviation landing with the Phase 5 behaviour surface).
+
       });
 }
-
-// ———— LoadDecisions(SupportPowerBotModule.cs)————
 
 void RegisterLoadDecisions(std::string_view str_composite) {
   meta::RegisterGeneratedLoader(
@@ -305,11 +234,6 @@ void RegisterLoadDecisions(std::string_view str_composite) {
       });
 }
 
-// ———— LoadOptions / LoadFluentReferences(MapGeneratorBase.cs)————
-
-/// LoadOptions(L25-46):Options 节点 → "Kind@id" 键 → 4 类选项
-/// LoadOptions (L25-46): the Options node → "Kind@id" keys → the four
-/// option kinds.
 std::vector<meta::GenericValue> LoadOptionsImpl(const yaml::MiniYaml& yaml_trait) {
   std::vector<meta::GenericValue> vec_ret;
   const yaml::MiniYamlNode* node_options =
@@ -321,7 +245,7 @@ std::vector<meta::GenericValue> LoadOptionsImpl(const yaml::MiniYaml& yaml_trait
     const std::string_view sv_key = KeyOf(node);
     const std::size_t int4_at = sv_key.find('@');
     if (int4_at == std::string_view::npos)
-      continue;  // Split('@') 长度 ≠ 2 → 跳过(L33-34)
+      continue;
     const std::string_view sv_kind = sv_key.substr(0, int4_at);
 
     std::string_view sv_record;
@@ -337,19 +261,12 @@ std::vector<meta::GenericValue> LoadOptionsImpl(const yaml::MiniYaml& yaml_trait
     else
       continue;
 
-    // 构造 (id, yaml):Id 为 [FieldLoader.Ignore](不进描述表/dump);
-    // FieldLoader.Load(this, yaml) 即完整语义
-    // The (id, yaml) construction: Id is [FieldLoader.Ignore] (absent from
-    // descriptors/dumps); FieldLoader.Load(this, yaml) is the whole story.
     vec_ret.push_back(
         meta::GenericValue::Of(MakeLoadedRecord(sv_record, node.Value)));
   }
   return vec_ret;
 }
 
-/// GetFluentReferences:基类 Label;MultiChoice 覆写追加 Choices Labels
-/// GetFluentReferences: the base Label; the MultiChoice override appends the
-/// Choice Labels.
 void AppendFluentReferences(const meta::GeneratedRecord& rec_option,
                             std::vector<std::string>& vec_out) {
   const meta::RecordDesc& desc = rec_option.record_desc();
@@ -361,9 +278,6 @@ void AppendFluentReferences(const meta::GeneratedRecord& rec_option,
       vec_out.push_back(std::get<std::string>(vec_values[int4_i].val));
   }
 
-  // MultiChoice 的覆写(L154-165):Choices 值(LoadUsing 字典)的 Label
-  // The MultiChoice override (L154-165): the Labels of the Choices values
-  // (a LoadUsing dictionary).
   if (desc.str_name == "MapGeneratorMultiChoiceOption") {
     for (std::size_t int4_i{}; int4_i < vec_fields.size(); int4_i++) {
       if (vec_fields[int4_i]->str_name != "Choices")
@@ -413,41 +327,26 @@ void RegisterMapGeneratorLoaders(std::string_view str_type_name) {
       });
 }
 
-}  // namespace
-
-// ———— 总注册入口 / the aggregate registration entry ————
+}
 
 void RegisterGameLoaders() {
-  // LoadSpeeds ×4(Locomotor/Subterranean/Jumpjet;同 TerrainInfo 结构)
-  // LoadSpeeds ×4 (same TerrainInfo shape).
+
   RegisterLoadSpeeds("LocomotorInfo.LoadSpeeds");
   RegisterLoadSpeeds("SubterraneanLocomotorInfo.LoadSpeeds");
   RegisterLoadSpeeds("JumpjetLocomotorInfo.LoadSpeeds");
 
-  // LoadFootprint ×3
   RegisterLoadFootprint("BuildingInfo.LoadFootprint");
   RegisterLoadFootprint("EnergyWallInfo.LoadFootprint");
   RegisterLoadFootprint("D2kBuildingInfo.LoadFootprint");
 
-  // LoadResourceTypes:三个自有 loader(ResourceLayer/EditorResourceLayer/
-  // ResourceRenderer);TS/D2k 各 Info 全部继承基类 loader,无自有注册
-  // LoadResourceTypes: three own loaders (ResourceLayer/EditorResourceLayer/
-  // ResourceRenderer); the TS/D2k Infos all inherit the base loaders.
   RegisterLoadResourceTypes("ResourceLayerInfo.LoadResourceTypes",
                             "OpenRA.Mods.Common.Traits.ResourceLayerInfo+ResourceTypeInfo");
-  // EditorResourceLayer.cs L28-38("Copied from ResourceLayerInfo"):
-  // 构造的是 ResourceLayerInfo.ResourceTypeInfo
-  // EditorResourceLayer.cs L28-38 ("Copied from ResourceLayerInfo"):
-  // constructs ResourceLayerInfo.ResourceTypeInfo.
+
   RegisterLoadResourceTypes("EditorResourceLayerInfo.LoadResourceTypes",
                             "OpenRA.Mods.Common.Traits.ResourceLayerInfo+ResourceTypeInfo");
   RegisterLoadResourceTypes("ResourceRendererInfo.LoadResourceTypes",
                             "OpenRA.Mods.Common.Traits.ResourceRendererInfo+ResourceTypeInfo");
 
-  // SupportPowerDecision.LoadConsiderations(SupportPowerDecision.cs L62-69:
-  // "Consideration@…" 节点 → Consideration 记录数组)
-  // SupportPowerDecision.LoadConsiderations (SupportPowerDecision.cs L62-69:
-  // the "Consideration@…" nodes → an array of Consideration records).
   meta::RegisterGeneratedLoader(
       "SupportPowerDecision.LoadConsiderations",
       [](meta::GenericValue& val_slot, const yaml::MiniYaml& yaml_trait) {
@@ -466,15 +365,10 @@ void RegisterGameLoaders() {
         val_slot = meta::GenericValue::Of(std::move(vec_ret));
       });
 
-  // LoadInitialSmudges / LoadShape / LoadDecisions
   RegisterLoadInitialSmudges("SmudgeLayerInfo.LoadInitialSmudges");
   RegisterLoadShape("HitShapeInfo.LoadShape");
   RegisterLoadDecisions("SupportPowerBotModuleInfo.LoadDecisions");
 
-  // MapGeneratorMultiChoiceOption.LoadChoices(MapGeneratorOptions.cs L109-121:
-  // "Choice@id" 键 → MapGeneratorDropdownChoice 记录字典)
-  // MapGeneratorMultiChoiceOption.LoadChoices (MapGeneratorOptions.cs L109-121:
-  // the "Choice@id" keys → the MapGeneratorDropdownChoice record dict).
   meta::RegisterGeneratedLoader(
       "MapGeneratorMultiChoiceOption.LoadChoices",
       [](meta::GenericValue& val_slot, const yaml::MiniYaml& yaml_trait) {
@@ -493,11 +387,6 @@ void RegisterGameLoaders() {
         val_slot = meta::GenericValue::Of(std::move(map_ret));
       });
 
-  // MapGeneratorDropdownChoice.LoadParameters(L95-102:Parameters 节点数组;
-  // 值袋以 WriteToString 规范化文本承载 —— dump 协议两侧同源)
-  // MapGeneratorDropdownChoice.LoadParameters (L95-102: the Parameters node
-  // array; carried in the bag as WriteToString-normalized text — the dump
-  // protocol derives both sides from the same source).
   meta::RegisterGeneratedLoader(
       "MapGeneratorDropdownChoice.LoadParameters",
       [](meta::GenericValue& val_slot, const yaml::MiniYaml& yaml_trait) {
@@ -510,16 +399,8 @@ void RegisterGameLoaders() {
         }
       });
 
-  // MapGenerator 族(声明类 MapGeneratorBaseInfo:Classic/TS/D2k/Clear 均继承,
-  // 复合名经 FlattenHierarchy 归一到声明类)
-  // The MapGenerator family (declaring class MapGeneratorBaseInfo: Classic/
-  // TS/D2k/Clear all inherit; composite names normalize to the declaring
-  // class via FlattenHierarchy).
   RegisterMapGeneratorLoaders("MapGeneratorBaseInfo");
 
-  // ———— WeaponInfo 的两个手写类 loader(void* 注册表;WeaponInfo.cs L147-175)————
-  // The two hand-written WeaponInfo loaders (the void* registry; WeaponInfo.cs
-  // L147-175).
   meta::RegisterLoader(
       "OpenRA.GameRules.WeaponInfo.LoadProjectile",
       [](void* p_field, const yaml::MiniYaml& yaml_trait) {
@@ -527,7 +408,7 @@ void RegisterGameLoaders() {
         const yaml::MiniYamlNode* node_proj =
             yaml_trait.NodeWithKeyOrDefault("Projectile");
         if (node_proj == nullptr)
-          return;  // proj == null → null(L150-152)
+          return;
         const std::string str_name{ValueTextOf(node_proj->Value)};
         auto rec = meta::TypeRegistry::CreateObject(std::format("{}Info", str_name));
         if (rec == nullptr)
@@ -549,9 +430,7 @@ void RegisterGameLoaders() {
           const std::string str_name{ValueTextOf(node.Value)};
           auto rec = meta::TypeRegistry::CreateObject(std::format("{}Warhead", str_name));
           if (rec == nullptr) {
-            // 上游 ret==null → continue(linter 路径;运行时数据不触发)
-            // Upstream ret==null → continue (the linter path; runtime data
-            // never triggers it).
+
             continue;
           }
           meta::Load(rec.get(), node.Value);
@@ -560,4 +439,4 @@ void RegisterGameLoaders() {
       });
 }
 
-}  // namespace ora::game
+}

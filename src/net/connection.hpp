@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Game/Network/Connection.cs @1f594e320 L24-97(IConnection +
-//          EchoConnection 逐语义重写;NetworkConnection 随 Phase 7 网络批;
-//          IsReplay/ReplayTickCount = 上游 `is ReplayConnection` 类型判与
-//          TickCount 取值的虚面 —— World.IsReplay 与 OrderManager
-//          .SuggestedTimestep 的消费点,第十一批随 ReplayConnection 全文化)
-//          IConnection + EchoConnection, verbatim-semantics; Network
-//          Connection rides the Phase 7 network batch; IsReplay/
-//          ReplayTickCount are the virtual face of upstream's `is
-//          ReplayConnection` test + TickCount read (consumed by
-//          World.IsReplay and OrderManager.SuggestedTimestep, wired with
-//          batch 11's full ReplayConnection).
 #pragma once
 import std;
 
@@ -20,7 +9,6 @@ class OrderManager;
 
 enum class ConnectionState { PreConnecting, NotConnected, Connecting, Connected };
 
-/// IConnection(Connection.cs L32-40)
 class IConnection {
  public:
   virtual ~IConnection() = default;
@@ -37,9 +25,6 @@ class IConnection {
   virtual int ReplayTickCount() const { return -1; }
 };
 
-/// EchoConnection(Connection.cs L42-97):单机回环 —— 本地客户端即服务器
-/// EchoConnection (Connection.cs L42-97): the single-player loopback — the
-/// local client is the server.
 class EchoConnection final : public IConnection {
  public:
   static constexpr int kLocalClientId = 1;
@@ -47,8 +32,7 @@ class EchoConnection final : public IConnection {
   int LocalClientId() override { return kLocalClientId; }
 
   void StartGame() override {
-    // Inject an empty frame to fill the gap we are making by projecting
-    // forward orders
+
     queue_orders_.emplace(0, OrderPacket{});
   }
 
@@ -78,4 +62,4 @@ class EchoConnection final : public IConnection {
   bool b_disposed_ = false;
 };
 
-}  // namespace ora::net
+}

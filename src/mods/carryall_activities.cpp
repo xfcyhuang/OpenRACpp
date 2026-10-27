@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/PickupUnit.cs + DeliverUnit.cs +
-//          AutoCarryall.cs 的 FerryUnit 嵌套活动 @1f594e320
 #include "mods/carryall_activities.hpp"
 
 #include "mods/actor_exts.hpp"
@@ -12,8 +10,6 @@
 #include "sim/world.hpp"
 
 namespace ora::mods::activities {
-
-// ———— FerryUnit(AutoCarryall.cs L152-199)————
 
 FerryUnit::FerryUnit(sim::Actor& self, sim::Actor* cargo)
     : p_cargo_{cargo} {
@@ -46,8 +42,6 @@ bool FerryUnit::Tick(sim::Actor& self) {
 
   return true;
 }
-
-// ———— PickupUnit(L20-181)————
 
 PickupUnit::PickupUnit(sim::Actor& self, sim::Actor* cargo, int delay,
                        std::optional<core::Color> target_line_color)
@@ -186,8 +180,6 @@ void PickupUnit::AttachUnit::OnFirstRun(sim::Actor& self) {
       });
 }
 
-// ———— DeliverUnit(L20-112)————
-
 DeliverUnit::DeliverUnit(sim::Actor& self, WDist deliver_range,
                          std::optional<core::Color> target_line_color)
     : DeliverUnit{self, sim::Target{}, deliver_range, target_line_color} {
@@ -259,4 +251,4 @@ void DeliverUnit::ReleaseUnit::OnFirstRun(sim::Actor& self) {
       });
 }
 
-}  // namespace ora::mods::activities
+}

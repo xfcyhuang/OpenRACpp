@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Game/ModData.cs @1f594e320 L29-233(Phase 2 最小集)+
-//          OpenRA.Mods.Common/FileSystem/{Default,ContentInstallerFileSystem}Loader.cs
-//          (FileSystem 节点的挂载语义)
-//          The Phase 2 minimal ModData + the mount semantics of the
-//          FileSystem-section loaders.
-//
-// Phase 2 范围裁剪(其余成员随各阶段落地)/ Phase 2 scope (the remaining
-// members land with their phases):WidgetLoader/MapCache/各格式 Loader/
-// Hotkeys/Cursors/Fluent/LoadScreen/GlobalModData 属 Phase 4-6。
-// WidgetLoader/MapCache/format loaders/Hotkeys/Cursors/Fluent/LoadScreen/
-// GlobalModData belong to Phases 4-6.
 #pragma once
 import std;
 
@@ -28,46 +17,25 @@ import std;
 
 namespace ora::game {
 
-/// InstalledMods 的最小集:mods/ 下每个含 mod.yaml 的子目录(上游
-/// InstalledMods 的发现逻辑含 SupportsMapsFrom/依赖链,Phase 6 随主菜单;
-/// Phase 2 直接目录枚举,发现序 = 目录名排序)
-/// The minimal InstalledMods: every mods/ subdirectory carrying a mod.yaml
-// (upstream discovery handles SupportsMapsFrom/dependency chains with the
-// Phase 6 main menu; Phase 2 enumerates directories directly, in name
-// order).
 class InstalledMods final {
  public:
-  /// str_mods_root:上游仓库的 mods/ 目录绝对路径
-  /// str_mods_root: absolute path of the upstream mods/ directory.
+
   explicit InstalledMods(std::string str_mods_root);
 
-  /// Game.Mods[id] 的等价:mod id → 已解析 Manifest(构造时全量解析)
-  /// The Game.Mods[id] equivalent: mod id → parsed Manifest (all parsed at
-  /// construction).
   const Manifest* Find(std::string_view str_id) const;
 
-  /// '$mod' 挂载解析器安装到 FileSystem(ModData 构造器 L61-64 的
-  /// ObjectCreator/installedMods 接线等价)
-  /// Installs the '$mod' mount resolver onto a FileSystem (the
-  /// ObjectCreator/installedMods wiring equivalent of the ModData ctor
-  /// L61-64).
   void InstallResolver(fs::FileSystem& fileSystem) const;
 
  private:
   std::string str_modsRoot_;
   std::vector<std::pair<std::string, std::unique_ptr<Manifest>>> vec_mods_;
-  std::vector<std::unique_ptr<fs::Folder>> vec_packages_;  // mod 目录包(Manifest.Package 的所有权)
-                                                           // mod directory packages (the
-                                                           // ownership of Manifest.Package).
+  std::vector<std::unique_ptr<fs::Folder>> vec_packages_;
+
 };
 
-/// ModData 的 Phase 2 最小集 + Phase 5 第一批全局数据面(ModData.cs L29)
-/// The Phase 2 minimal ModData + the batch-16 global-data face (ModData.cs
-/// L29).
 class ModData final {
  public:
-  /// str_engine_dir:'^EngineDir' 展开值(上游仓库根)
-  /// str_engine_dir: the '^EngineDir' expansion (the upstream repo root).
+
   ModData(const Manifest& manifest_source, const InstalledMods& installedMods,
           std::string str_engine_dir);
 
@@ -75,64 +43,22 @@ class ModData final {
   fs::FileSystem& ModFiles() { return fs_modFiles_; }
   Ruleset& DefaultRules();
 
-  /// InitializeLoaders(ModData.cs L162-171)的 Fluent 面:FluentProvider.
-  /// Initialize(Manifest, fileSystem)。ChromeMetrics/ChromeProvider/Ui/
-  /// Sound.Initialize 随 Phase 6 各自批次接入。上游 `fileSystem is Map`
-  /// 类型判 → 显式 map 定义节点参数(Map 住 ora_map,ora_game 不可见;
-  /// map 装载路径由调用方传 Map::FluentMessageDefinitions;偏离登记见
-  /// COVERAGE)
-  /// The Fluent face of InitializeLoaders (ModData.cs L162-171):
-  /// FluentProvider.Initialize(Manifest, fileSystem). The
-  /// ChromeMetrics/ChromeProvider/Ui/Sound.Initialize calls arrive with
-  /// their Phase 6 batches. Upstream's `fileSystem is Map` type test
-  /// becomes the explicit map-definitions parameter (Map lives in ora_map,
-  /// invisible from ora_game; the map-loading path passes
-  /// Map::FluentMessageDefinitions; see the COVERAGE registry).
   void InitializeLoaders(const fluent::FileOpenFn& fn_open,
                          const yaml::MiniYaml* ptr_map_fluent_definitions = nullptr);
 
-  /// GetOrCreate<MapGrid>()(ModData.cs L221-231):mod.yaml 的 "Grid" 节点
-  /// 优先,缺省 = 默认构造(上游 ObjectCreator.CreateBasic 等价)
-  /// GetOrCreate<MapGrid>() (ModData.cs L221-231): the mod.yaml "Grid" node
-  /// wins; the default-constructed form is the lazy fallback (the
-  /// ObjectCreator.CreateBasic equivalent).
   map::MapGrid& GetOrCreateMapGrid();
 
-  /// DefaultTerrainInfo(ModData.cs L114-131):manifest.TileSets 逐文件经
-  /// TerrainFormat 加载器解析,以 t.Id 为键缓存(懒初始化)
-  /// DefaultTerrainInfo (ModData.cs L114-131): each manifest.TileSets file
-  /// parses through the TerrainFormat loader, cached by t.Id (lazy).
   const map::ITerrainInfo& GetTerrainInfo(std::string_view str_id);
 
-  /// DefaultTerrainInfo 全表(ColorPickerLogic 的 SelectMany 消费面;同懒初始化)
-  /// The whole DefaultTerrainInfo table (ColorPickerLogic's SelectMany
-  /// consumer; the same lazy initialization).
   const std::vector<std::pair<std::string, std::unique_ptr<map::ITerrainInfo>>>&
   TerrainInfos();
 
-  /// GetOrCreate<GameSpeeds>()(mod.yaml 的 "GameSpeeds" 节点;缺省 = 空表)
-  /// GetOrCreate<GameSpeeds>() (the mod.yaml "GameSpeeds" node; the lazy
-  /// default is an empty table).
   GameSpeeds& GetOrCreateGameSpeeds();
 
-  /// GetOrCreate<ModCredits>()(mod.yaml 的 "ModCredits" 节点;缺省 = 上游
-  /// 三字面默认)。const 返回:上游 CreditsLogic 只读消费。
-  /// GetOrCreate<ModCredits>() (the mod.yaml "ModCredits" node; the lazy
-  /// default is upstream's three literals). const return: upstream's
-  /// CreditsLogic consumes it read-only.
   const ModCredits& GetOrCreateModCredits();
 
-  /// ctor 注入的 '^EngineDir' 展开值(CreditsLogic 的 EngineCreditsFile
-  /// ResolvePath 消费)。
-  /// The injected '^EngineDir' expansion of the ctor (consumed by
-  /// CreditsLogic's EngineCreditsFile ResolvePath).
   const std::string& EngineDir() const { return str_engine_dir_; }
 
-  /// GetOrCreate<Fonts>()(mod.yaml 的 "Fonts" 节点 → Fonts::Load;缺省 =
-  /// 空表)。Renderer.InitializeFonts 的 FontList 来源。
-  /// GetOrCreate<Fonts>() (the mod.yaml "Fonts" node → Fonts::Load; the
-  /// lazy default is the empty table). The FontList source of
-  /// Renderer.InitializeFonts.
   Fonts& GetOrCreateFonts();
 
   ui::HotkeyManager& Hotkeys();
@@ -143,16 +69,16 @@ class ModData final {
  private:
   std::unique_ptr<Manifest> manifest_;
   fs::FileSystem fs_modFiles_;
-  std::unique_ptr<Ruleset> ruleset_default_;  // Lazy<Ruleset> 的等价 / the Lazy<Ruleset> equivalent.
-  std::unique_ptr<map::MapGrid> grid_;             // GetOrCreate<MapGrid> 面 | the GetOrCreate<MapGrid> face.
-  std::unique_ptr<GameSpeeds> game_speeds_;   // GetOrCreate<GameSpeeds> 面 | the GetOrCreate face.
-  std::unique_ptr<Fonts> fonts_;              // GetOrCreate<Fonts> 面 | the GetOrCreate face.
-  std::optional<ModCredits> opt_mod_credits_;  // GetOrCreate<ModCredits> 面 | the GetOrCreate face.
+  std::unique_ptr<Ruleset> ruleset_default_;
+  std::unique_ptr<map::MapGrid> grid_;
+  std::unique_ptr<GameSpeeds> game_speeds_;
+  std::unique_ptr<Fonts> fonts_;
+  std::optional<ModCredits> opt_mod_credits_;
   std::string str_engine_dir_;
   std::unique_ptr<ui::HotkeyManager> hotkeys_;
   std::unique_ptr<PlayerDatabase> player_database_;
   std::vector<std::pair<std::string, std::unique_ptr<map::ITerrainInfo>>>
-      vec_terrain_info_;  // DefaultTerrainInfo 懒缓存 | the lazy cache.
+      vec_terrain_info_;
 };
 
-}  // namespace ora::game
+}

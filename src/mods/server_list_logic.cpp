@@ -53,7 +53,7 @@ std::string Msg1(std::string_view str_key, std::string_view str_arg_name,
           {std::string{str_arg_name}, std::move(val_value)}});
 }
 
-}  // namespace
+}
 
 ServerListLogic::ServerListLogic(
     ora::ui::Widget& widget, game::ModData& mod_data,
@@ -1318,4 +1318,4 @@ void RegisterServerListLogics() {
       });
 }
 
-}  // namespace ora::mods
+}

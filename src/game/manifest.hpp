@@ -1,22 +1,3 @@
-// UPSTREAM: OpenRA.Game/Manifest.cs @1f594e320 L21-206(逐语义重写)
-//          Full statement-by-statement rewrite of upstream Manifest.cs.
-//
-// 机制对照 / Mechanism mapping:
-//  - Include 展开(L98-111):倒序就地替换为文件内容
-//    The Include expansion (L98-111): in-place replacement by file contents
-//    in reverse order.
-//  - Merge + ToDictionary(L114):继承覆盖合并后的节点字典
-//    Merge + ToDictionary (L114): the node dictionary after inheritance
-//    merging.
-//  - ModMetadata(RendererConstants)经 FieldLoader 加载(手写类 + ORA_FIELD
-//    描述表;ModMetadata.cs L21-38 / L40-48)
-//    ModMetadata (RendererConstants) loads through FieldLoader (hand-written
-//    classes + ORA_FIELD descriptor tables).
-//  - 持有性:Manifest 拥有整个 MiniYaml 节点树(视图在其存活期内稳定;
-//    上游 string 池化等价物 = 节点树内 const std::string*)
-//    Ownership: the Manifest owns the whole MiniYaml tree (views stay valid
-//    for its lifetime; the upstream pooled strings = the in-tree
-//    const std::string*).
 #pragma once
 import std;
 
@@ -27,15 +8,13 @@ import std;
 
 namespace ora::game {
 
-/// ModMetadata(Manifest.cs L21-38;FieldLoader 按 yaml 键加载)
-/// ModMetadata (Manifest.cs L21-38; loaded by FieldLoader per yaml keys).
 class ModMetadata final : public meta::RecordObject {
  public:
-  std::string str_title{};        // Title(FluentReference,Phase 6 翻译)
+  std::string str_title{};
   std::string str_version{};
   std::string str_website{};
   std::string str_webIcon32{};
-  std::string str_windowTitle{};  // 可选 / optional
+  std::string str_windowTitle{};
   bool b_hidden{false};
 
   const meta::RecordDesc& record_desc() const override;
@@ -43,7 +22,6 @@ class ModMetadata final : public meta::RecordObject {
   static constexpr std::string_view kTypeName = "OpenRA.ModMetadata";
 };
 
-/// RendererConstants(Manifest.cs L40-48)
 class RendererConstants final : public meta::RecordObject {
  public:
   std::int32_t int4_fontSheetSize{512};
@@ -58,12 +36,9 @@ class RendererConstants final : public meta::RecordObject {
   static constexpr std::string_view kTypeName = "OpenRA.RendererConstants";
 };
 
-/// Manifest(Manifest.cs L51-206):mod.yaml 的解析产物
-/// Manifest (Manifest.cs L51-206): the parsed product of mod.yaml.
 class Manifest final {
  public:
-  /// modId + mod 包(包不归 Manifest 所有;mod.yaml 从包读出)
-  /// modId + the mod package (not owned; mod.yaml is read out of it).
+
   Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package);
 
   const std::string& Id() const { return str_id_; }
@@ -74,8 +49,6 @@ class Manifest final {
     return rec_rendererConstants_;
   }
 
-  // YamlList 产物(节点 Key 拷贝;Manifest.cs L190-196)/ YamlList products
-  // (node-key copies; Manifest.cs L190-196).
   const std::vector<std::string>& Rules() const { return vec_rules_; }
   const std::vector<std::string>& Sequences() const { return vec_sequences_; }
   const std::vector<std::string>& ModelSequences() const { return vec_modelSequences_; }
@@ -88,9 +61,6 @@ class Manifest final {
   const std::vector<std::string>& Music() const { return vec_music_; }
   const std::vector<std::string>& FluentMessages() const { return vec_fluentMessages_; }
 
-  /// FluentCulture(Manifest.cs L77):缺省 "en"(上游无 yaml 装载面)
-  /// FluentCulture (Manifest.cs L77): defaults to "en" (upstream has no
-  /// yaml-loading face for it).
   const std::string& FluentCulture() const { return str_fluentCulture_; }
   const std::vector<std::string>& TileSets() const { return vec_tileSets_; }
   const std::vector<std::string>& ChromeMetrics() const { return vec_chromeMetrics_; }
@@ -98,77 +68,36 @@ class Manifest final {
   const std::vector<std::string>& Hotkeys() const { return vec_hotkeys_; }
   const std::vector<std::string>& Missions() const { return vec_missions_; }
 
-  /// FileSystem 节点(必需;缺省抛 invalid-data 语义异常)
-  /// The FileSystem node (required; a missing one raises the
-  /// invalid-data-semantics exception).
   const yaml::MiniYaml& FileSystemNode() const { return *yaml_fileSystem_; }
-  /// FileSystem 加载器名(节点 Value)
-  /// The FileSystem loader name (the node Value).
+
   const std::string& FileSystemLoaderName() const { return str_fileSystemLoader_; }
 
-  /// 合并树按键取节点(缺 = null;GetOrCreate<MapGrid> 等全局模块面)
-  /// Fetches a merged-tree node by key (null when missing; the global-module
-  /// face of GetOrCreate<MapGrid> etc.).
   const yaml::MiniYaml* MergedNode(std::string_view key) const {
     if (const yaml::MiniYamlNode* n = yaml_merged_.NodeWithKeyOrDefault(key))
       return &n->Value;
     return nullptr;
   }
 
-  /// GlobalModData(L80-89+L186):保留名之外的合并树节点(AssetBrowser 等
-  /// IGlobalModData 装载面;缺/保留名 = null)
-  /// GlobalModData (L80-89 + L186): the merged-tree node outside the
-  /// reserved module names (the IGlobalModData loading face of AssetBrowser
-  /// etc.; a missing/reserved key = null).
   const yaml::MiniYaml* GlobalModDataNode(std::string_view key) const;
 
-  /// PackageFormats(L159-161):包格式加载器名列表(标量 = 单元素;
-  /// mod.yaml 事实形态)。消费方:ModData → IPackageLoader 集(Mix 等)。
-  /// PackageFormats (L159-161): the package-format loader names (a scalar
-  /// is a one-element list — the de-facto mod.yaml shape). Consumer: ModData
-  /// → the IPackageLoader set (Mix, ...).
   const std::vector<std::string>& PackageFormats() const { return vec_packageFormats_; }
 
-  /// SoundFormats(L162-164):声音格式加载器名(逗号分隔串;空 = 空)。
-  /// 消费方:声音格式链(Aud→Wav→Voc→Ogg→Mp3…)。
-  /// SoundFormats (L162-164): the sound-format loader names (a
-  /// comma-separated string; empty when absent). Consumer: the sound-format
-  /// chain (Aud→Wav→Voc→Ogg→Mp3...).
   const std::vector<std::string>& SoundFormats() const { return vec_soundFormats_; }
 
-  /// SpriteFormats(L165-167):精灵格式加载器名(逗号分隔串;空 = 空)。
-  /// 消费方:SpriteCache/FrameCache 的加载器链(ShpTD/PngSheet/…)。
-  /// SpriteFormats (L165-167): the sprite-format loader names (a
-  /// comma-separated string; empty when absent). Consumer: the loader chain
-  /// of SpriteCache/FrameCache (ShpTD/PngSheet/...).
   const std::vector<std::string>& SpriteFormats() const { return vec_spriteFormats_; }
 
-  /// SpriteSequenceFormat(L171-172):序列加载器名(单标量)。消费方:
-  /// MakeSequenceLoader(Default/Classic/TilesetSpecific/D2k…)。
-  /// SpriteSequenceFormat (L171-172): the sequence-loader name (a single
-  /// scalar). Consumer: MakeSequenceLoader (Default/Classic/
-  /// TilesetSpecific/D2k...).
   const std::string& SpriteSequenceFormat() const { return str_spriteSequenceFormat_; }
 
-  /// TerrainFormat(L74;单标量)。消费方:ModData 的地形加载器名分派。
-  /// TerrainFormat (L74; a single scalar). Consumer: the ModData terrain
-  /// loader name dispatch.
   const std::string& TerrainFormat() const { return str_terrainFormat_; }
 
-  /// MapCompatibility(L147-151):[Id] + SupportsMapsFrom 展开列表。
-  /// MapCompatibility (L147-151): [Id] + the SupportsMapsFrom expansions.
   const std::vector<std::string>& MapCompatibility() const {
     return vec_mapCompatibility_;
   }
 
-  /// MapFolders(my.Value 字典;L119 + L198-204)
-  /// MapFolders (the my.Value dictionary; L119 + L198-204).
   const std::vector<std::pair<std::string, std::string>>& MapFolders() const {
     return vec_mapFolders_;
   }
 
-  /// DefaultOrderGenerator(Manifest.cs L153-154)| DefaultOrderGenerator
-  /// (Manifest.cs L153-154).
   const std::string& DefaultOrderGenerator() const {
     return str_defaultOrderGenerator_;
   }
@@ -176,9 +105,9 @@ class Manifest final {
  private:
   std::string str_id_;
   fs::IReadOnlyPackage* pkg_package_;
-  yaml::StringPool pool_stringPool_;           // 整树的字符串池 / the pool of the whole tree
-  std::vector<yaml::MiniYamlNode> vec_nodes_;  // Include 展开后的原始节点 / raw nodes after Include expansion
-  yaml::MiniYaml yaml_merged_{};               // Merge([nodes]) 的树 / the Merge([nodes]) tree
+  yaml::StringPool pool_stringPool_;
+  std::vector<yaml::MiniYamlNode> vec_nodes_;
+  yaml::MiniYaml yaml_merged_{};
 
   ModMetadata rec_metadata_;
   RendererConstants rec_rendererConstants_{};
@@ -200,4 +129,4 @@ class Manifest final {
   std::string str_fluentCulture_{"en"};
 };
 
-}  // namespace ora::game
+}

@@ -71,7 +71,7 @@ std::string FormatBookmarkIndex(std::int32_t int4_index) {
   return str_suffix;
 }
 
-}  // namespace
+}
 
 ViewportControllerWidget::ViewportControllerWidget(ora::ui::WidgetArgs& args_args) {
   if (const ora::ui::WidgetArgValue* ptr_value = args_args.TryGet("modData"))
@@ -643,4 +643,4 @@ void RegisterViewportControllerWidget() {
   (void)b_registered;
 }
 
-}  // namespace ora::mods
+}

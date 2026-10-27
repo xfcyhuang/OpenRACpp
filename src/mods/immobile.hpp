@@ -1,11 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Immobile.cs @1f594e320 L21-76 全文
-//          (第十二批 G2 黄金对拍补面:mpspawn 等编辑器摆位 actor 的
-//          ISync 条目 {TopLeft, CenterPosition} 缺失平移 SyncHash 的 n
-//          计数)
-//          The whole of Immobile.cs L21-76 (the batch-12 G2 golden
-//          differential's missing face: editor-placement actors like
-//          mpspawn lacked their ISync entries {TopLeft, CenterPosition},
-//          shifting the SyncHash n counter).
 #pragma once
 import std;
 
@@ -24,16 +16,12 @@ using sim::Actor;
 using sim::ActorInitializer;
 using sim::TraitBase;
 
-/// ImmobileInfo 的解析面(L21-35)
-/// The parsed face of ImmobileInfo (L21-35).
 struct ImmobileInfoData {
-  bool b_occupies_space = true;  // L26
+  bool b_occupies_space = true;
 
   static ImmobileInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// Immobile(L38-76):不可移动体的占位/同步面
-/// Immobile (L38-76): the immovable body's occupancy/sync face.
 class Immobile final : public TraitBase,
                        public sim::IOccupySpace,
                        public sim::ISync,
@@ -46,11 +34,9 @@ class Immobile final : public TraitBase,
                        sim::IOccupySpace, sim::ISync,
                        sim::INotifyAddedToWorld, sim::INotifyRemovedFromWorld)
 
-  /// L50-51:[VerifySync] {TopLeft, CenterPosition}
   CPos TopLeft() const override { return pos_top_left_; }
   WPos CenterPosition() const override { return pos_center_; }
 
-  /// L53:OccupiedCells
   std::vector<std::pair<CPos, sim::SubCell>> OccupiedCells()
       const override {
     return vec_occupied_;
@@ -66,4 +52,4 @@ class Immobile final : public TraitBase,
   ImmobileInfoData info_;
 };
 
-}  // namespace ora::mods
+}

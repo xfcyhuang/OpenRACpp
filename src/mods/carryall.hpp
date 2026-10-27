@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Carryall.cs + Carryable.cs +
-//          AutoCarryall.cs + AutoCarryable.cs + CarryableHarvester.cs @1f594e320
 #pragma once
 import std;
 
@@ -43,7 +41,6 @@ struct CarryableInfoData {
   static CarryableInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// Carryable.cs L57-58:State(Free/Reserved/Locked)
 enum class CarryableState { Free, Reserved, Locked };
 
 class Carryable : public TraitBase,
@@ -161,7 +158,6 @@ struct CarryallInfoData {
   static CarryallInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// Carryall.cs L91-96:CarryallState
 enum class CarryallState { Idle, Reserved, Carrying };
 
 class Carryall : public TraitBase,
@@ -347,11 +343,6 @@ struct CarryableHarvesterInfoData {
   static CarryableHarvesterInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// 上游两接口的 MovementCancelled(Actor) 同签名同转发体,C++ 单覆写
-/// 同时满足两基类(语义等价:两处都是 foreach transports)
-/// Upstream's two interfaces declare MovementCancelled(Actor) with the
-/// same signature and body; a single C++ override satisfies both bases
-/// (equivalent: both loop the transports).
 class CarryableHarvester final : public TraitBase,
                                  public sim::INotifyCreated,
                                  public sim::INotifyHarvestAction,
@@ -378,4 +369,4 @@ class CarryableHarvester final : public TraitBase,
   std::vector<sim::ICallForTransport*> vec_transports_;
 };
 
-}  // namespace ora::mods
+}

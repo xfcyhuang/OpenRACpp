@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/ActorExts.cs @1f594e320 L21-83(逐语义重写;
-//          AppearsHostileTo 已随第四批落地;ClosestCell 随消费批)+ WorldUtils.cs L26-45
-//          的 ClosestToIgnoringPath 位置面
-//          Verbatim-semantics rewrite (AppearsHostileTo/ClosestCell land
-//          with their consumers) + the ClosestToIgnoringPath position face
-//          of WorldUtils.cs L26-45.
 #pragma once
 import std;
 
@@ -14,7 +8,6 @@ import std;
 
 namespace ora::mods {
 
-/// ActorExts.cs L21-33:IsAtGroundLevel
 inline bool IsAtGroundLevel(sim::Actor& self) {
   if (self.OccupiesSpace() == nullptr)
     return false;
@@ -30,25 +23,12 @@ inline bool IsAtGroundLevel(sim::Actor& self) {
   return map.DistanceAboveTerrain(self.CenterPosition()).Length == 0;
 }
 
-/// ActorExts.cs L35-44:AppearsFriendlyTo(EffectiveOwner 伪装面:上游
-/// Disguised 分支 —— 伪装 trait 未移植,IEffectiveOwner 缓存恒空,落
-/// stance==Ally 真值;COVERAGE 登记)
-/// ActorExts.cs L35-44: AppearsFriendlyTo (the EffectiveOwner disguise
-/// face: upstream's Disguised branch — the disguise traits are unported,
-/// the IEffectiveOwner cache stays empty, so the stance==Ally truth lands;
-/// registered in COVERAGE).
 inline bool AppearsFriendlyTo(sim::Actor& self, sim::Actor& to_actor) {
   const sim::PlayerRelationship stance =
       to_actor.Owner()->RelationshipWith(self.Owner());
   return stance == sim::PlayerRelationship::Ally;
 }
 
-/// ActorExts.cs L46-55:AppearsHostileTo(EffectiveOwner 伪装面同
-/// AppearsFriendlyTo 的空集等价;IgnoresDisguise trait 未移植 ——
-/// COVERAGE 登记)
-/// ActorExts.cs L46-55: AppearsHostileTo (the EffectiveOwner disguise
-/// face keeps the same empty-set equivalence as AppearsFriendlyTo; the
-/// IgnoresDisguise trait is unported — registered in COVERAGE).
 inline bool AppearsHostileTo(sim::Actor& self, sim::Actor& to_actor) {
   const sim::PlayerRelationship stance =
       to_actor.Owner()->RelationshipWith(self.Owner());
@@ -63,10 +43,6 @@ inline bool AppearsHostileTo(sim::Actor& self, sim::Actor& to_actor) {
   return stance == sim::PlayerRelationship::Enemy;
 }
 
-/// ActorExts.cs L61-75:NotifyBlocker(position)—— GetActorsAt 全员
-/// INotifyBlockingMove 回调
-/// ActorExts.cs L61-75: NotifyBlocker(position) — the INotifyBlockingMove
-/// callbacks over everyone GetActorsAt returns.
 inline void NotifyBlocker(sim::Actor& self, CPos position) {
   for (sim::Actor* blocker :
        self.world().ActorMapFace()->GetActorsAt(position))
@@ -85,10 +61,6 @@ inline void NotifyBlocker(sim::Actor& self,
         move_blocked->OnNotifyBlockingMove(*blocker, self);
 }
 
-/// WorldUtils.cs L35-45:ClosestToIgnoringPath(IEnumerable<WPos>, WPos)
-/// (MinBy 的水平距离平方;平局取首)
-/// WorldUtils.cs L35-45: ClosestToIgnoringPath(IEnumerable<WPos>, WPos)
-/// (MinBy on horizontal distance squared; first wins on ties).
 inline WPos ClosestToIgnoringPath(const std::vector<WPos>& vec_positions,
                                   const WPos& position) {
   const WPos* best = nullptr;
@@ -103,19 +75,9 @@ inline WPos ClosestToIgnoringPath(const std::vector<WPos>& vec_positions,
     }
   }
 
-  // 上游空集抛 MinBy 的 InvalidOperationException("Sequence contains no
-  // elements")—— 消费面(Target.Positions 恒非空)不可达;空集即未定义
-  // Upstream's empty set throws MinBy's InvalidOperationException
-  // ("Sequence contains no elements") — unreachable at the consumption
-  // face (Target.Positions is never empty); an empty set is undefined.
   return *best;
 }
 
-
-/// ActorExts.cs L78-80:ClosestCell(MinByOrDefault(LengthSquared);空集 =
-/// CPos.Zero —— MinByOrDefault 的缺省值语义)
-/// ActorExts.cs L78-80: ClosestCell (MinByOrDefault of LengthSquared; the
-/// empty set = CPos.Zero — MinByOrDefault's default-value semantics).
 inline CPos ClosestCell(sim::Actor& self, std::span<const CPos> vec_cells) {
   const CPos* best = nullptr;
   std::int64_t best_length = 0;
@@ -131,10 +93,6 @@ inline CPos ClosestCell(sim::Actor& self, std::span<const CPos> vec_cells) {
   return best != nullptr ? *best : CPos{};
 }
 
-/// Exts.cs L30-36:OwnerColor(EffectiveOwner 伪装分支:RenderPlayer 非
-/// 空且 Disguised 时取伪装主色)
-/// Exts.cs L30-36: OwnerColor (the EffectiveOwner disguise branch: the
-/// disguised owner's color when RenderPlayer is non-null).
 inline core::Color OwnerColor(sim::Actor& self) {
   if (self.EffectiveOwner() != nullptr && self.EffectiveOwner()->Disguised() &&
       self.world().RenderPlayer() != nullptr)
@@ -142,4 +100,4 @@ inline core::Color OwnerColor(sim::Actor& self) {
   return self.Owner()->Color();
 }
 
-}  // namespace ora::mods
+}

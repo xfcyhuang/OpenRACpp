@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Game/GameSpeed.cs @1f594e320(game_speed.hpp 的实现)
-//          The implementation of game_speed.hpp.
 import std;
 
 #include "game/game_speed.hpp"
@@ -17,7 +15,7 @@ std::string_view ValueOf(const yaml::MiniYamlNode& node) {
 }
 
 GameSpeed LoadGameSpeed(const yaml::MiniYaml& y) {
-  // FieldLoader.Load<GameSpeed>(y):Name/Timestep/OrderLatency 全 Required
+
   GameSpeed speed;
   const yaml::MiniYamlNode* name_node = y.NodeWithKeyOrDefault("Name");
   const yaml::MiniYamlNode* timestep_node = y.NodeWithKeyOrDefault("Timestep");
@@ -41,18 +39,16 @@ GameSpeed LoadGameSpeed(const yaml::MiniYaml& y) {
   return speed;
 }
 
-}  // namespace
+}
 
 GameSpeeds::GameSpeeds(const yaml::MiniYaml& y) {
-  // [FieldLoader.Require] DefaultSpeed(L33)先行;缺字段 MissingFieldsException
+
   if (const yaml::MiniYamlNode* node = y.NodeWithKeyOrDefault("DefaultSpeed")) {
     DefaultSpeed = std::string{ValueOf(*node)};
   } else {
     throw meta::MissingFieldsException({"DefaultSpeed"});
   }
 
-  // LoadSpeeds(L39-60):Speeds 节点缺失 → YamlException 同文本;逐项
-  // try/catch 包装(单缺失/多缺失头面)
   const yaml::MiniYamlNode* speeds_node = y.NodeWithKeyOrDefault("Speeds");
   if (speeds_node == nullptr)
     throw yaml::YamlException("Error parsing GameSpeeds: Missing Speeds node!");
@@ -60,9 +56,7 @@ GameSpeeds::GameSpeeds(const yaml::MiniYaml& y) {
   for (const yaml::MiniYamlNode& node : speeds_node->Value.Nodes) {
     try {
       GameSpeed speed = LoadGameSpeed(node.Value);
-      // 字典键 = yaml 节点键(ret.Add(node.Key, ...),L50)—— 非 Name 字段
-      // The dictionary key = the yaml node key (ret.Add(node.Key, ...), L50)
-      // — not the Name field.
+
       const std::string str_key =
           node.Key != nullptr ? std::string{*node.Key} : std::string{};
       if (Find(str_key) != nullptr)
@@ -71,7 +65,7 @@ GameSpeeds::GameSpeeds(const yaml::MiniYaml& y) {
             str_key);
       Speeds.emplace_back(str_key, std::move(speed));
     } catch (meta::MissingFieldsException& e) {
-      // L52-56:单/多缺失头部 | L52-56: the single/multiple-missing header.
+
       const std::string_view label =
           e.Missing().size() > 1 ? "Required properties missing"
                                  : "Required property missing";
@@ -91,4 +85,4 @@ const GameSpeed* GameSpeeds::Find(std::string_view str_name) const {
   return nullptr;
 }
 
-}  // namespace ora::game
+}

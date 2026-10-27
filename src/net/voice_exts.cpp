@@ -28,7 +28,7 @@ bool PlayVoiceForOrder(const net::Order& o) {
   return false;
 }
 
-}  // namespace
+}
 
 void PlayVoiceForOrders(
     std::span<const std::unique_ptr<net::Order>> vec_orders) {
@@ -46,4 +46,4 @@ void PlayVoiceForOrders(
   }
 }
 
-}  // namespace ora
+}

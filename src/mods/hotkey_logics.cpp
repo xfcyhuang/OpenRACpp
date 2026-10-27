@@ -28,7 +28,7 @@ ui::HotkeyReference NamedKeyOrInvalid(
   return ui::HotkeyReference{};
 }
 
-}  // namespace
+}
 
 SingleHotkeyBaseLogic::SingleHotkeyBaseLogic(
     ora::ui::Widget& widget_root, game::ModData& mod_data,
@@ -212,4 +212,4 @@ void RegisterHotkeyLogics() {
       });
 }
 
-}  // namespace ora::mods
+}

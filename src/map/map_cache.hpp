@@ -132,12 +132,9 @@ class MapPreview final {
   int PlayerCount() const;
   Size MapSize() const;
   bool HideSpawnPreviews() const;
-  /// 上游 GridType 属性(InnerData 直读)
-  /// Upstream's GridType property (a direct InnerData read).
+
   std::optional<MapGridType> GridType() const;
-  /// 上游 L256-257 的下载进度对(Install 的进度回调写)
-  /// Upstream's L256-257 download-progress pair (written by Install's
-  /// progress callback).
+
   long long DownloadBytes() const;
   int DownloadPercentage() const;
   const fmt::Png* Preview() const;
@@ -169,11 +166,7 @@ class MapPreview final {
   void Generate();
 
   void BeginRemoteSearch();
-  /// node_yaml == nullptr = 上游 CompleteRemoteSearch(null)(查无此图:
-  /// 状态 Unavailable + fn_parse_metadata 照跑 = fail 回调面)
-  /// node_yaml == nullptr = upstream's CompleteRemoteSearch(null) (the map
-  /// is unknown: status Unavailable + fn_parse_metadata still runs = the
-  /// fail-callback face).
+
   void CompleteRemoteSearch(
       const yaml::MiniYamlNode* node_yaml,
       const std::function<void(MapPreview&)>& fn_parse_metadata = nullptr);
@@ -199,13 +192,6 @@ class MapPreview final {
                      std::optional<MapGridType> grid_type,
                      const std::vector<std::vector<yaml::MiniYamlNode>>* vec_mod_data_rules);
 
-  /// 上游 SetCustomRules(modData, fileSystem, …) 的 fileSystem 面:bundle
-  /// 文件打开经注入(null = 远程搜索路径的无包形态 —— 文件全数打开失败,
-  /// 仅 base64 文本生效)
-  /// Upstream SetCustomRules(modData, fileSystem, …)'s fileSystem face:
-  /// the bundle's file opening arrives by injection (null = the remote
-  /// search path's packageless form — every file open fails, only the
-  /// base64 text applies).
   void SetCustomRules(
       const std::vector<std::pair<std::string_view, const yaml::MiniYaml*>>& yaml,
       const std::vector<std::vector<yaml::MiniYamlNode>>* vec_mod_data_rules,
@@ -214,9 +200,6 @@ class MapPreview final {
 
   std::shared_ptr<const InnerData> Snapshot() const;
 
-  /// 上游对 innerData.Status 的就地赋值(clone+swap 承载)
-  /// Upstream's in-place innerData.Status assignment (carried by
-  /// clone+swap).
   void SetStatus(MapStatus kind_status);
 
   game::ModData* ptr_mod_data_ = nullptr;
@@ -252,12 +235,6 @@ class MapCache final {
 
   static MapPreview& UnknownMap();
 
-  /// LoadMaps()(L84-124);filter_contains 非空时仅装载包名含该子串的地图
-  /// (逐图处理面不变;测试/嵌入侧的提速面 —— 上游无此参,登记 D209)
-  /// LoadMaps() (L84-124); a non-empty filter_contains loads only the maps
-  /// whose package name contains the substring (the per-map processing is
-  /// unchanged; a test/embedding-side speedup face — upstream has no such
-  /// parameter, registered as D209).
   void LoadMaps(game::ModData& mod_data,
                 std::string_view str_filter_contains = {});
   void UpdateMaps();
@@ -290,15 +267,6 @@ class MapCache final {
 
   void CacheMinimap(MapPreview& preview);
 
-  /// QueryRemoteMapDetails(L223-260):Unavailable 态的 uid 去重后批查(
-  /// 每批 50),GET {repository}/hash/{uids}/yaml,逐节点 CompleteRemoteSearch;
-  /// 批尾仍 Searching 的 = 查无此图(CompleteRemoteSearch(null) → fail 回调)
-  /// —— 后台线程承载(上游 Task.Run)。
-  /// QueryRemoteMapDetails (L223-260): the Unavailable-status uids,
-  /// deduplicated then batched (50 per batch), GET {repository}/hash/
-  /// {uids}/yaml with CompleteRemoteSearch per node; those still Searching
-  /// at the batch tail = unknown maps (CompleteRemoteSearch(null) → the
-  /// fail callback) — carried on a background thread (upstream's Task.Run).
   void QueryRemoteMapDetails(
       const std::string& str_repository_url,
       const std::vector<std::string>& vec_uids,
@@ -306,8 +274,6 @@ class MapCache final {
           nullptr,
       const std::function<void(MapPreview&)>& fn_map_query_failed = nullptr);
 
-  /// Game.Settings.Game.AllowDownloading(缺省 true)
-  /// Game.Settings.Game.AllowDownloading (defaulting to true).
   void SetAllowDownloadingFn(std::function<bool()> fn) {
     fn_allow_downloading_ = std::move(fn);
   }
@@ -315,9 +281,6 @@ class MapCache final {
     return fn_allow_downloading_ ? fn_allow_downloading_() : true;
   }
 
-  /// 上游 Log.Write("debug", …) 的注入面(缺省丢弃 —— 日志副作用面)
-  /// The injected face of upstream's Log.Write("debug", …) (defaulting to
-  /// discard — a logging side-effect face).
   void SetDebugLogFn(std::function<void(std::string_view)> fn) {
     fn_debug_log_ = std::move(fn);
   }
@@ -347,11 +310,6 @@ class MapCache final {
   std::deque<std::pair<std::string, std::unique_ptr<MapPreview>>>
       vec_previews_;
 
-  /// At() 的并发面(QueryRemoteMapDetails 的后台线程 vs 主线程装载);
-  /// deque 节点稳 —— emplace_back 不失效已发引用
-  /// At()'s concurrency face (QueryRemoteMapDetails's background thread
-  /// vs the main-thread loading); deque nodes are stable — emplace_back
-  /// never invalidates a handed-out reference.
   mutable std::mutex mtx_previews_;
 
   std::vector<std::unique_ptr<fs::IReadOnlyPackage>> vec_owned_packages_;
@@ -374,4 +332,4 @@ class MapCache final {
   std::function<void(std::string_view)> fn_debug_log_;
 };
 
-}  // namespace ora::map
+}

@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/RepairableBuilding.cs
-//          @1f594e320 L22-208 全文(实现部分)。
 #include "mods/repairable_building.hpp"
 
 #include "mods/actor_exts.hpp"
@@ -35,7 +33,7 @@ std::optional<std::string_view> FieldString(const meta::RecordObject& rec,
   return sim::RecordFieldString(rec, str_name);
 }
 
-}  // namespace
+}
 
 RepairableBuildingInfoData RepairableBuildingInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -226,4 +224,4 @@ const bool b_repairable_building_sync_registered = [] {
 [[maybe_unused]] const bool* b_repairable_building_sync_registered_anchor =
     &b_repairable_building_sync_registered;
 
-}  // namespace ora::mods
+}

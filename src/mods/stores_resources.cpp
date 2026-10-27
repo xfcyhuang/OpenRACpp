@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/StoresResources.cs 实现部分
-//          + StoresPlayerResources.cs | The implementation half.
 #include "mods/stores_resources.hpp"
 
 #include "meta/field_loader.hpp"
@@ -10,8 +8,6 @@
 #include "sim/world.hpp"
 
 namespace ora::mods {
-
-// ———— StoresResourcesInfoData/StoresResources(L18-106)————
 
 StoresResourcesInfoData StoresResourcesInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -42,17 +38,16 @@ StoresResourcesInfoData StoresResourcesInfoData::Parse(
   return data;
 }
 
-StoresResources::StoresResources(ActorInitializer& /*init*/,
+StoresResources::StoresResources(ActorInitializer& ,
                                  const StoresResourcesInfoData& info)
     : info_{info} {
-  // L56-64
+
   for (const std::string& r : info_.vec_resources)
     vec_contents_.emplace_back(r, 0);
 }
 
 int StoresResources::ContentHash() const {
-  // L39-50(哈希取值域;调用侧 CombineSyncHash)
-  // L39-50 (the value domain; the caller CombineSyncHash's it).
+
   int value = 0;
   for (const auto& [key, count] : vec_contents_)
     value += count << static_cast<int>(key.size());
@@ -61,7 +56,7 @@ int StoresResources::ContentHash() const {
 }
 
 bool StoresResources::HasType(const std::string& resource_type) {
-  // L66-69
+
   return std::find(info_.vec_resources.begin(), info_.vec_resources.end(),
                    resource_type) != info_.vec_resources.end();
 }
@@ -83,7 +78,7 @@ const int* StoresResources::Bucket(
 
 int StoresResources::AddResource(const std::string& resource_type,
                                  int value) {
-  // L71-87
+
   if (!HasType(resource_type))
     return value;
 
@@ -101,7 +96,7 @@ int StoresResources::AddResource(const std::string& resource_type,
 
 int StoresResources::RemoveResource(const std::string& resource_type,
                                     int value) {
-  // L89-106
+
   if (!HasType(resource_type))
     return value;
 
@@ -117,8 +112,6 @@ int StoresResources::RemoveResource(const std::string& resource_type,
   int4_contents_sum_ -= value;
   return 0;
 }
-
-// ———— StoresPlayerResourcesInfoData/StoresPlayerResources(L14-66)————
 
 StoresPlayerResourcesInfoData StoresPlayerResourcesInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -141,12 +134,12 @@ StoresPlayerResourcesInfoData StoresPlayerResourcesInfoData::Parse(
 StoresPlayerResources::StoresPlayerResources(
     ActorInitializer& init, const StoresPlayerResourcesInfoData& info)
     : info_{info} {
-  // L33-37
+
   p_player_ = init.Self().Owner()->PlayerActor()->Trait<PlayerResources>();
 }
 
 int StoresPlayerResources::Stored() const {
-  // L30
+
   return p_player_->ResourceCapacity == 0
              ? 0
              : static_cast<int>(static_cast<long long>(info_.int4_capacity) *
@@ -154,18 +147,18 @@ int StoresPlayerResources::Stored() const {
                                 p_player_->ResourceCapacity);
 }
 
-void StoresPlayerResources::OnOwnerChanged(Actor& /*self*/,
-                                           Player& /*old_owner*/,
+void StoresPlayerResources::OnOwnerChanged(Actor& ,
+                                           Player& ,
                                            Player& new_owner) {
-  // L39-42
+
   p_player_ = new_owner.PlayerActor()->Trait<PlayerResources>();
 }
 
 void StoresPlayerResources::OnCapture(
-    Actor& /*self*/, Actor& /*captor*/, Player& old_owner,
+    Actor& , Actor& , Player& old_owner,
     Player& new_owner, const core::BitSet<sim::CaptureType>&
-        /*capture_types*/) {
-  // L44-49
+        ) {
+
   const int resources = Stored();
   old_owner.PlayerActor()->Trait<PlayerResources>()->GiveResources(
       resources);
@@ -173,27 +166,21 @@ void StoresPlayerResources::OnCapture(
       resources);
 }
 
-void StoresPlayerResources::Killed(Actor& /*self*/,
-                                   const sim::AttackInfo& /*e*/) {
-  // L51-55
-  // Lose the stored resources.(上游注释)
+void StoresPlayerResources::Killed(Actor& ,
+                                   const sim::AttackInfo& ) {
+
   p_player_->TakeResources(Stored());
 }
 
-void StoresPlayerResources::AddedToWorld(Actor& /*self*/) {
-  // L57-60
+void StoresPlayerResources::AddedToWorld(Actor& ) {
+
   p_player_->AddStorageCapacity(info_.int4_capacity);
 }
 
-void StoresPlayerResources::RemovedFromWorld(Actor& /*self*/) {
-  // L62-65
+void StoresPlayerResources::RemovedFromWorld(Actor& ) {
+
   p_player_->RemoveStorageCapacity(info_.int4_capacity);
 }
-
-// ———— [VerifySync] 哈希注册(gen/sync_gen.cpp:StoresResources
-//      {ContentHash})————
-// ———— The [VerifySync] hash registration (gen/sync_gen.cpp:
-//      StoresResources {ContentHash}) ————
 
 namespace {
 
@@ -211,6 +198,6 @@ const bool b_stores_resources_sync_registered = [] {
 [[maybe_unused]] const bool* b_stores_resources_sync_registered_anchor =
     &b_stores_resources_sync_registered;
 
-}  // namespace
+}
 
-}  // namespace ora::mods
+}

@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Immobile.cs 实现部分
-//          The implementation half.
 #include "mods/immobile.hpp"
 
 #include "map/map.hpp"
@@ -37,11 +35,6 @@ void Immobile::RemovedFromWorld(Actor& self) {
   self.world().RemoveFromMaps(&self, this);
 }
 
-// ———— [VerifySync] 哈希注册({TopLeft, CenterPosition};第十二批 G2
-//      补面)————
-// ———— The [VerifySync] hash registration ({TopLeft, CenterPosition};
-//      the batch-12 G2 missing face) ————
-
 int ImmobileSyncHash(const sim::ISync* s) {
   const auto* immobile = static_cast<const Immobile*>(s);
   return sim::sync::CombineSyncHash(
@@ -59,4 +52,4 @@ const bool b_immobile_sync_registered = [] {
 [[maybe_unused]] const bool* b_immobile_sync_registered_anchor =
     &b_immobile_sync_registered;
 
-}  // namespace ora::mods
+}

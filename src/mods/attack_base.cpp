@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Attack/AttackBase.cs 实现部分
-//          + AttackFrontal.cs | The implementation half.
 #include "mods/attack_base.hpp"
 
 #include "meta/field_loader.hpp"
@@ -18,8 +16,6 @@
 #include "yaml/mini_yaml.hpp"
 
 namespace ora::mods {
-
-// ———— AttackBaseInfoData::Parse(L25-71)————
 
 AttackBaseInfoData AttackBaseInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -78,8 +74,6 @@ AttackBaseInfoData AttackBaseInfoData::Parse(
 
   data.conditional = sim::ConditionalTraitData::Parse(rec_info);
 
-  // RulesetLoaded(L62-68)的 FacingTolerance 校验 —— 工厂时点
-  // RulesetLoaded's (L62-68) FacingTolerance validation — at factory time.
   if (data.angle_facing_tolerance.Angle > 512)
     throw yaml::YamlException(
         "Facing tolerance must be in range of [0, 512], 512 covers 360 "
@@ -87,8 +81,6 @@ AttackBaseInfoData AttackBaseInfoData::Parse(
 
   return data;
 }
-
-// ———— AttackBaseCore(L73-525)————
 
 template <class Derived>
 AttackBaseCore<Derived>::AttackBaseCore(Actor& self,
@@ -99,15 +91,12 @@ AttackBaseCore<Derived>::AttackBaseCore(Actor& self,
 
 template <class Derived>
 void AttackBaseCore<Derived>::CoreAttackBaseCreated(Actor& self) {
-  // L98-107
+
   facing_ = self.TraitOrDefault<sim::IFacing>();
   positionable_ =
       dynamic_cast<sim::IPositionable*>(self.OccupiesSpace());
   vec_notify_aiming_ = self.TraitsImplementing<sim::INotifyAiming>();
 
-  // L126-132:InitializeGetArmaments(过滤物化 —— 上游闭包的 ToArray 同值)
-  // L126-132: InitializeGetArmaments (the filtered materialization — the
-  // same value as upstream's closure's ToArray).
   vec_armaments_.clear();
   for (Armament* a : self.TraitsImplementing<Armament>())
     if (std::find(info_.vec_armaments.begin(), info_.vec_armaments.end(),
@@ -117,7 +106,7 @@ void AttackBaseCore<Derived>::CoreAttackBaseCreated(Actor& self) {
 
 template <class Derived>
 void AttackBaseCore<Derived>::Tick(Actor& self) {
-  // L109-124(protected Tick 的 ITick 面)
+
   if (!b_was_aiming_ && b_is_aiming)
     for (auto* n : vec_notify_aiming_)
       n->StartedAiming(self, static_cast<TraitBase*>(static_cast<Derived*>(
@@ -134,7 +123,7 @@ template <class Derived>
 bool AttackBaseCore<Derived>::TargetInFiringArc(Actor& self,
                                                 const sim::Target& target,
                                                 WAngle facing_tolerance) {
-  // L134-147
+
   if (facing_ == nullptr)
     return true;
 
@@ -152,7 +141,7 @@ bool AttackBaseCore<Derived>::TargetInFiringArc(Actor& self,
 template <class Derived>
 bool AttackBaseCore<Derived>::CanAttack(Actor& self,
                                         const sim::Target& target) {
-  // L149-165
+
   if (!self.IsInWorld() ||
       sim::ConditionalTraitCore<Derived>::IsTraitDisabled() ||
       sim::ConditionalTraitCore<Derived>::IsTraitPaused())
@@ -164,8 +153,6 @@ bool AttackBaseCore<Derived>::CanAttack(Actor& self,
   if (!HasAnyValidWeapons(target, false, true))
     return false;
 
-  // PERF: Mobile implements IPositionable, so we can use 'as' to save a
-  // trait look-up here.(上游注释)
   if (auto* mobile = dynamic_cast<Mobile*>(positionable_);
       mobile != nullptr && !mobile->CanInteractWithGroundLayer(&self))
     return false;
@@ -176,7 +163,7 @@ bool AttackBaseCore<Derived>::CanAttack(Actor& self,
 template <class Derived>
 void AttackBaseCore<Derived>::DoAttack(Actor& self,
                                        const sim::Target& target) {
-  // L167-174
+
   if (!CanAttack(self, target))
     return;
 
@@ -186,7 +173,7 @@ void AttackBaseCore<Derived>::DoAttack(Actor& self,
 
 template <class Derived>
 std::vector<sim::IOrderTargeter*> AttackBaseCore<Derived>::Orders() {
-  // L176-188
+
   std::vector<sim::IOrderTargeter*> vec_out;
   if (sim::ConditionalTraitCore<Derived>::IsTraitDisabled())
     return vec_out;
@@ -194,11 +181,6 @@ std::vector<sim::IOrderTargeter*> AttackBaseCore<Derived>::Orders() {
   if (vec_armaments_.empty())
     return vec_out;
 
-  // 上游每次枚举 new AttackOrderTargeter(this, 6)(OrderID 的 ForceAttack
-  // 改名不跨枚举泄漏)—— 每调用重建实例
-  // Upstream constructs a new AttackOrderTargeter(this, 6) per enumeration
-  // (the ForceAttack OrderID rename never leaks across enumerations) — a
-  // fresh instance per call.
   vec_order_targeters_.clear();
   vec_order_targeters_.push_back(
       std::make_unique<AttackOrderTargeter>(*this, 6));
@@ -210,7 +192,7 @@ template <class Derived>
 std::unique_ptr<net::Order> AttackBaseCore<Derived>::IssueOrder(
     Actor& self, sim::IOrderTargeter* order, const sim::Target& target,
     bool queued) {
-  // L190-196
+
   if (dynamic_cast<AttackOrderTargeter*>(order) != nullptr)
     return std::make_unique<net::Order>(order->OrderID(), &self, target,
                                         queued);
@@ -221,7 +203,7 @@ std::unique_ptr<net::Order> AttackBaseCore<Derived>::IssueOrder(
 template <class Derived>
 void AttackBaseCore<Derived>::ResolveOrder(Actor& self,
                                            const net::Order& order) {
-  // L198-211
+
   const bool b_force_attack =
       order.str_order_string == "ForceAttack";
   if (b_force_attack || order.str_order_string == "Attack") {
@@ -238,7 +220,7 @@ void AttackBaseCore<Derived>::ResolveOrder(Actor& self,
 
 template <class Derived>
 void AttackBaseCore<Derived>::OnStopOrder(Actor& self) {
-  // L214-223
+
   if (self.CurrentActivity() == nullptr)
     return;
 
@@ -257,8 +239,8 @@ void AttackBaseCore<Derived>::OnStopOrder(Actor& self) {
 
 template <class Derived>
 std::string AttackBaseCore<Derived>::VoicePhraseForOrder(
-    Actor& /*self*/, const net::Order& order) {
-  // L225-228
+    Actor& , const net::Order& order) {
+
   return order.str_order_string == "Attack" ||
                  order.str_order_string == "ForceAttack"
              ? info_.str_voice
@@ -269,7 +251,7 @@ template <class Derived>
 bool AttackBaseCore<Derived>::HasAnyValidWeapons(
     const sim::Target& t, bool check_for_center_targeting_weapons,
     bool reloading_is_invalid) {
-  // L233-251
+
   if (sim::ConditionalTraitCore<Derived>::IsTraitDisabled())
     return false;
 
@@ -280,7 +262,6 @@ bool AttackBaseCore<Derived>::HasAnyValidWeapons(
            nullptr, sim::BlockedByActor::None)))
     return false;
 
-  // PERF: Avoid LINQ.(上游注释)
   for (Armament* armament : vec_armaments_) {
     const bool b_check_is_valid =
         check_for_center_targeting_weapons
@@ -301,13 +282,10 @@ bool AttackBaseCore<Derived>::HasAnyValidWeapons(
 template <class Derived>
 WPos AttackBaseCore<Derived>::GetTargetPosition(
     const WPos& pos, const sim::Target& target) {
-  // L253-256
+
   if (HasAnyValidWeapons(target, true))
     return target.CenterPosition();
 
-  // Positions.ClosestToIgnoringPath(pos) = MinBy 距离(WorldUtils L64-67)
-  // Positions.ClosestToIgnoringPath(pos) = the MinBy distance
-  // (WorldUtils L64-67).
   const std::vector<WPos>& positions = target.Positions();
   const WPos* closest = nullptr;
   std::int64_t best = 0;
@@ -323,11 +301,10 @@ WPos AttackBaseCore<Derived>::GetTargetPosition(
 
 template <class Derived>
 WDist AttackBaseCore<Derived>::GetMinimumRange() {
-  // L258-279
+
   if (sim::ConditionalTraitCore<Derived>::IsTraitDisabled())
     return WDist{0};
 
-  // PERF: Avoid LINQ.(上游注释)
   auto min = WDist::MaxValue();
   for (Armament* armament : vec_armaments_) {
     if (armament->IsTraitDisabled())
@@ -346,11 +323,10 @@ WDist AttackBaseCore<Derived>::GetMinimumRange() {
 
 template <class Derived>
 WDist AttackBaseCore<Derived>::GetMaximumRange() {
-  // L281-302
+
   if (sim::ConditionalTraitCore<Derived>::IsTraitDisabled())
     return WDist{0};
 
-  // PERF: Avoid LINQ.(上游注释)
   auto max = WDist{0};
   for (Armament* armament : vec_armaments_) {
     if (armament->IsTraitDisabled())
@@ -370,11 +346,10 @@ WDist AttackBaseCore<Derived>::GetMaximumRange() {
 template <class Derived>
 WDist AttackBaseCore<Derived>::GetMinimumRangeVersusTarget(
     const sim::Target& target) {
-  // L304-328
+
   if (sim::ConditionalTraitCore<Derived>::IsTraitDisabled())
     return WDist{0};
 
-  // PERF: Avoid LINQ.(上游注释)
   auto min = WDist::MaxValue();
   for (Armament* armament : vec_armaments_) {
     if (armament->IsTraitDisabled())
@@ -398,18 +373,14 @@ WDist AttackBaseCore<Derived>::GetMinimumRangeVersusTarget(
 template <class Derived>
 WDist AttackBaseCore<Derived>::GetMaximumRangeVersusTarget(
     const sim::Target& target) {
-  // L330-362
+
   if (sim::ConditionalTraitCore<Derived>::IsTraitDisabled())
     return WDist{0};
 
   auto max = WDist{0};
 
-  // We want actors to use only weapons with ammo for this, except when ALL
-  // weapons are out of ammo, then we use the paused, valid weapon with
-  // highest range.(上游注释)
   auto max_fallback = WDist{0};
 
-  // PERF: Avoid LINQ.(上游注释)
   for (Armament* armament : vec_armaments_) {
     if (armament->IsTraitDisabled())
       continue;
@@ -435,18 +406,13 @@ WDist AttackBaseCore<Derived>::GetMaximumRangeVersusTarget(
 template <class Derived>
 std::vector<Armament*> AttackBaseCore<Derived>::ChooseArmamentsForTarget(
     const sim::Target& t, bool force_attack) {
-  // L365-385
-  // If force-fire is not used, and the target requires force-firing or the
-  // target is terrain or invalid, no armaments can be used(上游注释)
+
   if (!force_attack &&
       ((t.Type() == sim::TargetType::Terrain &&
         !info_.b_target_terrain_without_force_fire) ||
        t.Type() == sim::TargetType::Invalid || t.RequiresForceFire()))
     return {};
 
-  // Get target's owner; in case of terrain or invalid target there will be
-  // no problems with owner == null since forceFire will have to be true in
-  // this part of the method(上游注释)
   sim::Player* owner = nullptr;
   if (t.Type() == sim::TargetType::FrozenActor)
     owner = t.FrozenActorPtr->Owner();
@@ -474,7 +440,7 @@ void AttackBaseCore<Derived>::AttackTarget(
     const sim::Target& target, AttackSource source, bool queued,
     bool allow_move, bool force_attack,
     std::optional<core::Color> target_line_color) {
-  // L387-398
+
   if (sim::ConditionalTraitCore<Derived>::IsTraitDisabled())
     return;
 
@@ -493,7 +459,7 @@ void AttackBaseCore<Derived>::AttackTarget(
 template <class Derived>
 bool AttackBaseCore<Derived>::IsReachableTarget(const sim::Target& target,
                                                 bool allow_move) {
-  // L402-406
+
   return HasAnyValidWeapons(target) &&
          (target.IsInRange(p_self_->CenterPosition(),
                            GetMaximumRangeVersusTarget(target)) ||
@@ -504,8 +470,7 @@ bool AttackBaseCore<Derived>::IsReachableTarget(const sim::Target& target,
 
 template <class Derived>
 sim::PlayerRelationship AttackBaseCore<Derived>::UnforcedAttackTargetStances() {
-  // L408-417
-  // PERF: Avoid LINQ.(上游注释)
+
   auto stances = sim::PlayerRelationship::None;
   for (Armament* armament : vec_armaments_)
     if (!armament->IsTraitDisabled())
@@ -517,13 +482,11 @@ sim::PlayerRelationship AttackBaseCore<Derived>::UnforcedAttackTargetStances() {
   return stances;
 }
 
-// ———— AttackOrderTargeter(L419-524)————
-
 template <class Derived>
 bool AttackBaseCore<Derived>::AttackOrderTargeter::CanTarget(
     Actor& self, const sim::Target& target, sim::TargetModifiers& modifiers,
     std::string& cursor) {
-  // L509-521
+
   switch (target.Type()) {
     case sim::TargetType::Actor:
     case sim::TargetType::FrozenActor:
@@ -541,7 +504,7 @@ template <class Derived>
 bool AttackBaseCore<Derived>::AttackOrderTargeter::CanTargetActor(
     Actor& self, const sim::Target& target, sim::TargetModifiers& modifiers,
     std::string& cursor) {
-  // L434-476
+
   b_is_queued_ =
       sim::HasModifier(modifiers, sim::TargetModifiers::ForceQueue);
 
@@ -552,7 +515,6 @@ bool AttackBaseCore<Derived>::AttackOrderTargeter::CanTargetActor(
       sim::HasModifier(modifiers, sim::TargetModifiers::ForceAttack))
     return false;
 
-  // Disguised actors are revealed by the attack cursor(上游 HACK 注释)
   if (target.Type() == sim::TargetType::Actor &&
       target.ActorPtr->EffectiveOwner() != nullptr &&
       target.ActorPtr->EffectiveOwner()->Disguised() &&
@@ -563,13 +525,6 @@ bool AttackBaseCore<Derived>::AttackOrderTargeter::CanTargetActor(
   const bool b_force_attack =
       sim::HasModifier(modifiers, sim::TargetModifiers::ForceAttack);
 
-  // Use valid armament with highest range out of those that have ammo
-  // If all are out of ammo, just use valid armament with highest range
-  // (上游注释;OrderBy(IsTraitPaused).ThenByDescending(MaxRange) 稳定序 →
-  // 单遍择优,首见平键胜)
-  // (the upstream comments; OrderBy(IsTraitPaused).
-  // ThenByDescending(MaxRange)'s stable order → the single-pass pick with
-  // the first-seen winning ties).
   Armament* a = nullptr;
   bool a_paused = false;
   WDist a_range{0};
@@ -616,15 +571,13 @@ template <class Derived>
 bool AttackBaseCore<Derived>::AttackOrderTargeter::CanTargetLocation(
     Actor& self, CPos location, sim::TargetModifiers modifiers,
     std::string& cursor) {
-  // L478-507
+
   if (!self.world().Map().Contains(location))
     return false;
 
   b_is_queued_ =
       sim::HasModifier(modifiers, sim::TargetModifiers::ForceQueue);
 
-  // Targeting the terrain is only possible with force-attack modifier or
-  // when TargetTerrainWithoutForceFire is set(上游注释)
   if (sim::HasModifier(modifiers, sim::TargetModifiers::ForceMove) ||
       !(ab_.info_.b_target_terrain_without_force_fire ||
         sim::HasModifier(modifiers, sim::TargetModifiers::ForceAttack)))
@@ -632,8 +585,6 @@ bool AttackBaseCore<Derived>::AttackOrderTargeter::CanTargetLocation(
 
   const sim::Target target = sim::Target::FromCell(self.world(), location);
 
-  // 同 CanTargetActor 的单遍择优
-  // The same single-pass pick as CanTargetActor.
   Armament* a = nullptr;
   bool a_paused = false;
   WDist a_range{0};
@@ -662,8 +613,6 @@ bool AttackBaseCore<Derived>::AttackOrderTargeter::CanTargetLocation(
   return true;
 }
 
-// ———— AttackFrontal(L18-48)————
-
 AttackFrontal::AttackFrontal(ActorInitializer& init,
                              AttackBaseInfoData&& info)
     : AttackBaseCore<AttackFrontal>(init.Self(), info) {}
@@ -674,7 +623,7 @@ void AttackFrontal::Created(Actor& self) {
 }
 
 bool AttackFrontal::CanAttack(Actor& self, const sim::Target& target) {
-  // L34-40
+
   if (!AttackBaseCore<AttackFrontal>::CanAttack(self, target))
     return false;
 
@@ -682,26 +631,18 @@ bool AttackFrontal::CanAttack(Actor& self, const sim::Target& target) {
 }
 
 sim::Activity* AttackFrontal::GetAttackActivity(
-    Actor& self, AttackSource /*source*/, const sim::Target& new_target,
+    Actor& self, AttackSource , const sim::Target& new_target,
     bool allow_move, bool force_attack,
     std::optional<core::Color> target_line_color) {
-  // L42-46
+
   return activities::NewActivity<activities::Attack>(
       self, new_target, allow_move, force_attack, target_line_color);
 }
 
-// 模板显式实例化(AttackTurreted 经 AttackFollow 继承 —— 实例化点在
-// 本 TU:模板体定义于此)
-// The explicit template instantiations (AttackTurreted inherits through
-// AttackFollow — the instantiation point sits in this TU: the template
-// bodies are defined here).
 template class AttackBaseCore<AttackFrontal>;
 
 template class AttackBaseCore<AttackBomber>;
 
-// ———— [VerifySync] 哈希注册(gen/sync_gen.cpp:AttackFrontal {IsAiming})————
-// ———— The [VerifySync] hash registration (gen/sync_gen.cpp:
-//      AttackFrontal {IsAiming}) ————
 int AttackFrontalSyncHash(const sim::ISync* s) {
   const auto* frontal = static_cast<const AttackFrontal*>(s);
   return sim::sync::CombineSyncHash(0,
@@ -716,12 +657,7 @@ const bool b_attack_frontal_sync_registered = [] {
 [[maybe_unused]] const bool* b_attack_frontal_sync_registered_anchor =
     &b_attack_frontal_sync_registered;
 
-}  // namespace ora::mods
+}
 
-// AttackFollow 的显式实例化(attack_follow.hpp 引入完整类;实例化点在
-// 本 TU —— 模板体定义于此)
-// AttackFollow's explicit instantiation (attack_follow.hpp pulls in the
-// complete class; the instantiation point sits in this TU — the template
-// bodies are defined here).
 #include "mods/attack_follow.hpp"
 template class ora::mods::AttackBaseCore<ora::mods::AttackFollow>;

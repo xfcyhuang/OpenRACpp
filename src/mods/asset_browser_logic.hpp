@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/AssetBrowser.cs @1f594e320 L16-22(IGlobal
-//          ModData 的四扩展名表;mod.yaml "AssetBrowser" 节点装载)+
-//          OpenRA.Mods.Common/Widgets/Logic/AssetBrowserLogic.cs L26-770
-//          全文(源包下拉/五类型过滤/帧滑条与播放三键/sprite-voxel-
-//          audio-video 四装载路径/调色板下拉/静音对)。
-//          AssetBrowser.cs L16-22 (the IGlobalModData four-extension table;
-//          the mod.yaml "AssetBrowser" node load) + the whole of
-//          AssetBrowserLogic.cs L26-770 (the source-package dropdown / the
-//          five type filters / the frame slider and the play trio / the
-//          sprite-voxel-audio-video load paths / the palette dropdown / the
-//          mute pair).
 #pragma once
 import std;
 
@@ -41,10 +30,6 @@ class TextFieldWidget;
 
 namespace ora::mods {
 
-/// AssetBrowser.cs L16-22(Manifest.GlobalModData["AssetBrowser"] 的装载
-/// 产物)
-/// AssetBrowser.cs L16-22 (the loaded product of
-/// Manifest.GlobalModData["AssetBrowser"]).
 struct AssetBrowserData {
   std::vector<std::string> vec_sprite_extensions;
   std::vector<std::string> vec_model_extensions;
@@ -158,4 +143,4 @@ class AssetBrowserLogic final : public ora::ui::ChromeLogic {
 
 void RegisterAssetBrowserLogic();
 
-}  // namespace ora::mods
+}

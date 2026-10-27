@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/RGBASpriteWidget.cs @1f594e320 L19-39(全文)。
 import std;
 
 #include "ui/widgets/rgba_sprite_widget.hpp"
@@ -13,4 +12,4 @@ void RGBASpriteWidget::Draw() {
     DrawSprite(sprite_drawn, RenderOrigin().ToVector2());
 }
 
-}  // namespace ora::ui
+}

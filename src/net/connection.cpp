@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/Network/Connection.cs @1f594e320 L73-96(EchoConnection
-//          .Receive)
-//          EchoConnection.Receive.
 #include "net/connection.hpp"
 
 #include "net/order_manager.hpp"
@@ -13,14 +10,10 @@ void EchoConnection::Receive(OrderManager& order_manager) {
     queue_immediate_orders_.pop();
     order_manager.ReceiveImmediateOrders(kLocalClientId, i);
 
-    // An immediate order may trigger a chain of actions that disposes the
-    // OrderManager and connection. Bail out to avoid potential problems
-    // from acting on disposed objects.
     if (b_disposed_)
       break;
   }
 
-  // Project orders forward to the next frame
   while (!queue_orders_.empty()) {
     auto o = std::move(queue_orders_.front());
     queue_orders_.pop();
@@ -35,4 +28,4 @@ void EchoConnection::Receive(OrderManager& order_manager) {
   }
 }
 
-}  // namespace ora::net
+}

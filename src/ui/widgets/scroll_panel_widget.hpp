@@ -1,22 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ScrollPanelWidget.cs @1f594e320 L20-528
-// (核心面;Bind/Unbind 的 IObservableCollection 绑定族随其消费批 ——
-// ObservableCollection 基建未移植,偏离登记)+ ListLayout.cs L15-47(全文)
-// + GridLayout.cs L18-48(全文)。
-// 平滑滚动(target/current 双 offset + SmoothScrollSpeed·dt/40 的衰减)与
-// 滚轮/箭头/拖拽三输入面;九段 thumb 几何与三档 ScrollBar;DrawOuter 的
-// scissor 裁剪子绘制。Game.RunTime/Settings.UIScrollSpeed/Sound/Renderer.
-// EnableScissor/Viewport.LastMousePos/Ui.ResetTooltips → Ui::Instance() 注入
-// 承载;Layout = ILayout 接口(ListLayout/GridLayout)。
-// The core of ScrollPanelWidget.cs L20-528 (the Bind/Unbind
-// IObservableCollection family awaits its consumer batch — the
-// ObservableCollection infrastructure is unported; registered) + the whole of
-// ListLayout.cs L15-47 + GridLayout.cs L18-48. The smooth scrolling (the
-// target/current offset pair + the SmoothScrollSpeed·dt/40 decay) and the
-// wheel/arrow/drag input trio; the nine-part thumb geometry and the three
-// ScrollBar tiers; DrawOuter's scissor-clipped child draw.
-// Game.RunTime/Settings.UIScrollSpeed/Sound/Renderer.EnableScissor/
-// Viewport.LastMousePos/Ui.ResetTooltips go through the Ui::Instance()
-// injected carrier; Layout = the ILayout interface (ListLayout/GridLayout).
 #pragma once
 import std;
 
@@ -34,8 +15,6 @@ namespace ora::ui {
 
 class ScrollPanelWidget;
 
-/// ILayout(ScrollPanelWidget.cs L25-29)。
-/// ILayout (ScrollPanelWidget.cs L25-29).
 class ILayout {
  public:
   virtual ~ILayout() = default;
@@ -46,8 +25,6 @@ class ILayout {
   ILayout() = default;
 };
 
-/// ListLayout(ListLayout.cs L18-47)。
-/// ListLayout (ListLayout.cs L18-47).
 class ListLayout final : public ILayout {
  public:
   explicit ListLayout(ScrollPanelWidget& widget_panel) : ptr_widget_(&widget_panel) {}
@@ -59,8 +36,6 @@ class ListLayout final : public ILayout {
   ScrollPanelWidget* ptr_widget_;
 };
 
-/// GridLayout(GridLayout.cs L19-48)。
-/// GridLayout (GridLayout.cs L19-48).
 class GridLayout final : public ILayout {
  public:
   explicit GridLayout(ScrollPanelWidget& widget_panel) : ptr_widget_(&widget_panel) {}
@@ -73,8 +48,6 @@ class GridLayout final : public ILayout {
   int2 int2_pos{};
 };
 
-/// ScrollPanelAlign/ScrollBar(ScrollPanelWidget.cs L31-44)。
-/// ScrollPanelAlign/ScrollBar (ScrollPanelWidget.cs L31-44).
 enum class ScrollPanelAlign { Bottom, Top };
 enum class ScrollBar { Left, Right, Hidden };
 
@@ -132,9 +105,6 @@ class ScrollPanelWidget : public Widget {
   bool HandleMouseInput(const MouseInput& mi_input) override;
   bool LoadFieldOrProperty(std::string_view str_key, std::string_view str_value) override;
 
-  /// thumb/按钮态的测试可见面(protected 上游字段的公开读取)。
-  /// The test-visible face of the thumb/button states (public reads of
-  /// upstream's protected fields).
   Rectangle ThumbRect() const { return rect_thumb_; }
   bool UpPressed() const { return b_up_pressed_; }
   bool DownPressed() const { return b_down_pressed_; }
@@ -171,4 +141,4 @@ class ScrollPanelWidget : public Widget {
   StatefulImageCache cache_down_arrow_;
 };
 
-}  // namespace ora::ui
+}

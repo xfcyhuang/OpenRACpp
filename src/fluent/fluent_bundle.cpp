@@ -1,20 +1,8 @@
-// UPSTREAM: OpenRA.Game/FluentBundle.cs L87-201 @1f594e320 —— 求值承载
-// (Linguini.Bundle.TryGetAttrMessage 的等价面;选择子 = 精确数字键 →
-// CLDR 类别 → 缺省变体;未解析变量按 Fluent 规范回退为其源文本
-// "{ $name }"并计错误)。
-// The evaluation carrier of OpenRA.Game/FluentBundle.cs L87-201 (the
-// equivalent face of Linguini.Bundle.TryGetAttrMessage; a selector = the
-// exact numeric key, then the CLDR category, then the default variant; an
-// unresolved variable falls back to its source text "{ $name }" per the
-// Fluent spec and counts as an error).
 #include "fluent/fluent_bundle.hpp"
 
 namespace ora::fluent {
 namespace {
 
-/// CLDR en 基数规则:one ⇔ i%10==1 && i%100!=11(整数面;其余 → other)
-/// The CLDR en cardinal rule: one ⇔ i%10==1 && i%100!=11 (the integer
-/// face; everything else → other).
 constexpr std::string_view kCategoryOne = "one";
 constexpr std::string_view kCategoryOther = "other";
 
@@ -37,7 +25,7 @@ bool ParseNumericKey(std::string_view str_key, std::int64_t& out_value) {
   return true;
 }
 
-}  // namespace
+}
 
 std::string_view PluralCategory(std::int64_t int8_value,
                                 std::string_view str_culture) {
@@ -94,9 +82,7 @@ void FluentBundle::AddResourceText(std::string_view str_text) {
 }
 
 void FluentBundle::IngestResource(FluentResource&& resource_parsed) {
-  // AddResourceOverriding:同键原位覆盖,否则追加(消息与术语两表)
-  // AddResourceOverriding: a same-key in-place overwrite, else appended
-  // (the message and term tables both).
+
   for (auto& [str_id, message_entry] : resource_parsed.vec_messages) {
     bool b_overridden = false;
     for (auto& [str_existing, message_existing] : vec_messages_)
@@ -171,9 +157,7 @@ bool FluentBundle::EvaluatePattern(
           break;
         }
       if (!b_found) {
-        // 未解析变量回退为其源文本(无空格形;Linguini 0.8.1 实测)
-        // the unresolved variable falls back to its source text (the
-        // spaceless form; the measured Linguini 0.8.1 face).
+
         out_value.append("{$");
         out_value.append(placeable_elem.str_name);
         out_value.append("}");
@@ -198,9 +182,6 @@ bool FluentBundle::EvaluatePattern(
       continue;
     }
 
-    // 选择子:取变量值 → 精确数字键 → CLDR 类别 → 缺省
-    // the selector: fetch the variable value → the exact numeric key →
-    // the CLDR category → the default.
     const FluentValue* ptr_selector_value = nullptr;
     for (const auto& [str_name, val_arg] : vec_args)
       if (str_name == placeable_elem.str_name) {
@@ -238,9 +219,7 @@ bool FluentBundle::EvaluatePattern(
           }
       }
     } else {
-      // 缺选择子值 → 默认变体(错误记账;Linguini 0.8.1 实测)
-      // a missing selector value → the default variant (the error kept;
-      // the measured Linguini 0.8.1 face).
+
       vec_errors.push_back("fluent: unresolved selector variable $" +
                            placeable_elem.str_name);
     }
@@ -297,9 +276,6 @@ bool FluentBundle::TryGetMessage(
       return false;
   }
 
-  // 上游 catch(Exception) 面:求值错误吞并为 false + 日志
-  // the upstream catch(Exception) face: eval errors swallow into false +
-  // the log.
   std::vector<std::pair<std::string, FluentValue>> vec_args_local(
       vec_args.begin(), vec_args.end());
   std::string str_result;
@@ -323,4 +299,4 @@ std::string FluentBundle::GetMessage(
   return str_message;
 }
 
-}  // namespace ora::fluent
+}

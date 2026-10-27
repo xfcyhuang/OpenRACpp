@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/WsaVideo.cs @1f594e320(全文)+
-// WsaLoader.cs:逐句照抄。帧体 = LCW 解压 + XOR delta;LoadFrame 每帧
-// 的 new byte[] 以成员 vector 每帧重置零代替(上游中间帧恒新零数组,
-// 字节面等价;仅复用存储)。flags≠1 的 paletteBytes null → NRE 等价抛
-// (仅坏数据可达)。
-// [UPSTREAM continued] WsaVideo.cs in full plus WsaLoader.cs, copied
-// statement by statement. A frame's body = the LCW decompression + the XOR
-// delta; LoadFrame's per-frame new byte[]s become member vectors reset to
-// zero each frame (upstream's intermediate is always a fresh zeroed array —
-// byte-equal, only the storage reused). A flags≠1 null paletteBytes becomes
-// the NRE's equivalent throw (malformed data only).
 #include "formats/wsa_video.hpp"
 
 #include "formats/lcw.hpp"
@@ -33,20 +22,18 @@ bool IsWsa(std::span<const std::byte> vec_file) {
   auto reader = SpanReader{vec_file};
 
   const auto uint2_frames = reader.ReadUInt16();
-  if (uint2_frames <= 1)  // TODO: find a better way to differentiate .shp icons
+  if (uint2_frames <= 1)
     return false;
 
-  reader.ReadUInt16();  // x
-  reader.ReadUInt16();  // y
+  reader.ReadUInt16();
+  reader.ReadUInt16();
   const auto uint2_width = reader.ReadUInt16();
   const auto uint2_height = reader.ReadUInt16();
 
-  // ushort 域上恒假(上游怪癖照抄)。| Always false over the ushort domain
-  // (the upstream quirk kept).
   if (static_cast<int>(uint2_width) <= 0 || static_cast<int>(uint2_height) <= 0)
     return false;
 
-  reader.ReadUInt16();  // delta (+37)
+  reader.ReadUInt16();
 
   const auto uint2_flags = reader.ReadUInt16();
 
@@ -55,7 +42,7 @@ bool IsWsa(std::span<const std::byte> vec_file) {
     uint4_offset = reader.ReadUInt32();
 
   if (uint2_flags == 1) {
-    reader.ReadBytes(768);  // palette
+    reader.ReadBytes(768);
     for (auto& uint4_offset : vec_offsets)
       uint4_offset += 768;
   }
@@ -68,13 +55,13 @@ WsaVideo::WsaVideo(std::span<const std::byte> vec_file, bool b_use_frame_padding
 
   uint2_frame_count_ = reader.ReadUInt16();
 
-  reader.ReadUInt16();  // x
-  reader.ReadUInt16();  // y
+  reader.ReadUInt16();
+  reader.ReadUInt16();
 
   uint2_width_ = reader.ReadUInt16();
   uint2_height_ = reader.ReadUInt16();
 
-  reader.ReadUInt16();  // delta (+37)
+  reader.ReadUInt16();
   const auto uint2_flags = reader.ReadUInt16();
 
   vec_frame_offsets_.resize(static_cast<std::size_t>(uint2_frame_count_) + 2);
@@ -88,7 +75,6 @@ WsaVideo::WsaVideo(std::span<const std::byte> vec_file, bool b_use_frame_padding
       auto uint1_g = static_cast<std::uint8_t>(reader.ReadUInt8() << 2);
       auto uint1_b = static_cast<std::uint8_t>(reader.ReadUInt8() << 2);
 
-      // Replicate high bits into the (currently zero) low bits.
       uint1_r |= static_cast<std::uint8_t>(uint1_r >> 6);
       uint1_g |= static_cast<std::uint8_t>(uint1_g >> 6);
       uint1_b |= static_cast<std::uint8_t>(uint1_b >> 6);
@@ -142,16 +128,11 @@ void WsaVideo::LoadFrame() {
 
   const auto vec_raw_data = reader.ReadBytes(static_cast<std::int32_t>(uint4_data_length));
 
-  // 上游每帧 new byte[](新零);成员 vector 每帧重置零等价。
-  // Upstream news a zeroed array per frame; the member vector reset to
-  // zero each frame is equivalent.
   auto vec_intermediate = std::vector<std::byte>{};
   vec_intermediate.assign(static_cast<std::size_t>(uint2_width_) * uint2_height_, std::byte{0});
 
-  // Format80 decompression
   lcw::DecodeInto(vec_raw_data, vec_intermediate);
 
-  // and Format40 decompression
   vec_current_indices_.assign(static_cast<std::size_t>(uint2_width_) * uint2_height_, std::byte{0});
   if (!b_has_previous_)
     std::ranges::fill(vec_current_indices_, std::byte{0});
@@ -161,9 +142,7 @@ void WsaVideo::LoadFrame() {
   xor_delta::DecodeInto(vec_intermediate, vec_current_indices_, 0);
 
   if (vec_palette_bytes_.empty()) [[unlikely]]
-    // flags≠1:上游 paletteBytes 为 null,展开即 NRE(仅坏数据可达)。
-    // flags≠1: paletteBytes is null upstream and the expansion NREs
-    // immediately (malformed data only).
+
     throw std::runtime_error("System.NullReferenceException: Object reference not set to an instance of an object.");
 
   auto st_c = std::size_t{0};
@@ -177,9 +156,8 @@ void WsaVideo::LoadFrame() {
       vec_current_frame_data_[int4_position++] = vec_palette_bytes_[uint4_color_index * 4 + 3];
     }
 
-    // Recalculate the position in the byte array to the start of the next pixel row just in case there is padding in the frame.
     int4_position = (int4_y + 1) * uint2_total_frame_width_ * 4;
   }
 }
 
-}  // namespace ora::fmt
+}

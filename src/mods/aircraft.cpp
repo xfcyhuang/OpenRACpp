@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Air/Aircraft.cs @1f594e320 的实现面
 #include "mods/aircraft.hpp"
 
 #include "game/actor_info.hpp"
@@ -104,7 +103,7 @@ int ClampInt(int value, int lo, int hi) {
   return value < lo ? lo : (value > hi ? hi : value);
 }
 
-}  // namespace
+}
 
 AircraftInfoData AircraftInfoData::Parse(const meta::RecordObject& rec_info) {
   AircraftInfoData data;
@@ -1241,4 +1240,4 @@ bool Aircraft::AircraftMoveOrderTargeter::CanTarget(
   return true;
 }
 
-}  // namespace ora::mods
+}

@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/MusicPlaylist.cs @1f594e320
-//          L22-254 全文。
 #include "mods/music_playlist.hpp"
 
 #include "game/ruleset.hpp"
@@ -94,7 +92,7 @@ bool MusicPlaylist::IsBackgroundMusicMuted() const {
 }
 
 void MusicPlaylist::PostWorldLoaded(sim::World& world,
-                                    gfx::WorldRenderer* /*wr*/) {
+                                    gfx::WorldRenderer* ) {
   if (ptr_sound_ != nullptr)
     ptr_sound_->SetDisableWorldSounds(info_.b_disable_world_sounds);
 
@@ -102,7 +100,7 @@ void MusicPlaylist::PostWorldLoaded(sim::World& world,
     PlayInternal();
 }
 
-void MusicPlaylist::GameLoaded(sim::World& /*world*/) { PlayInternal(); }
+void MusicPlaylist::GameLoaded(sim::World& ) { PlayInternal(); }
 
 void MusicPlaylist::GameOver(sim::World& world) {
   const sim::Player* ptr_local = world.LocalPlayer();
@@ -216,7 +214,7 @@ void MusicPlaylist::Stop() {
   }
 }
 
-void MusicPlaylist::Disposing(Actor& /*self*/) {
+void MusicPlaylist::Disposing(Actor& ) {
   if (ptr_current_song_ != nullptr && ptr_sound_ != nullptr)
     ptr_sound_->StopMusic();
 
@@ -224,4 +222,4 @@ void MusicPlaylist::Disposing(Actor& /*self*/) {
     ptr_sound_->SetDisableWorldSounds(false);
 }
 
-}  // namespace ora::mods
+}

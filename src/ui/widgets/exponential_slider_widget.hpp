@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ExponentialSliderWidget.cs @1f594e320 L17-50(全文)。
 #pragma once
 import std;
 
@@ -34,4 +33,4 @@ class ExponentialSliderWidget : public SliderWidget {
   int PxFromValue(float fp4_x) const override;
 };
 
-}  // namespace ora::ui
+}

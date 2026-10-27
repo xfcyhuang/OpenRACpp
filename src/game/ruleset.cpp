@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/GameRules/Ruleset.cs @1f594e320(ruleset.hpp 的实现;
-//          MergeOrDefault/SystemActors 补齐逐语义,见 hpp 头注)
-//          Implementation of ruleset.hpp — MergeOrDefault and the
-//          SystemActors backfill verbatim; see the hpp header notes.
 import std;
 #include "game/ruleset.hpp"
 #include "game/mod_data.hpp"
@@ -14,8 +10,6 @@ namespace ora::game {
 
 namespace {
 
-/// 键小写化(k.Key.ToLowerInvariant)
-/// Lower-case the key (k.Key.ToLowerInvariant).
 std::string ToLowerInvariant(std::string_view sv) {
   std::string str_ret{sv};
   std::ranges::transform(str_ret, str_ret.begin(),
@@ -23,11 +17,6 @@ std::string ToLowerInvariant(std::string_view sv) {
   return str_ret;
 }
 
-/// MergeOrDefault 的公共骨架(Ruleset.cs L98-116):manifest 文件序列加载 +
-/// '^' 抽象项过滤 + 小写键字典(重复键保留首个 —— 上游仅 debug 日志)
-/// The MergeOrDefault skeleton (Ruleset.cs L98-116): manifest-file-sequence
-/// loading + the '^' abstract filter + a lower-cased key dictionary
-/// (first-wins duplicates — upstream only logs them in debug).
 template <class TValue, class TMake>
 std::vector<std::pair<std::string, TValue>> MergeOrDefault(
     yaml::StringPool& pool, fs::FileSystem& fileSystem,
@@ -45,13 +34,13 @@ std::vector<std::pair<std::string, TValue>> MergeOrDefault(
     std::string str_key = ToLowerInvariant(sv_key);
     if (std::any_of(vec_ret.begin(), vec_ret.end(),
                     [&](const auto& pair_k) { return pair_k.first == str_key; }))
-      continue;  // 重复键保留首个(上游 debug 日志面)/ first wins.
+      continue;
     vec_ret.emplace_back(std::move(str_key), fn_make(node, sv_key));
   }
   return vec_ret;
 }
 
-}  // namespace
+}
 
 Ruleset::Ruleset(
     std::vector<std::pair<std::string, std::unique_ptr<ActorInfo>>> vec_actors,
@@ -68,9 +57,7 @@ Ruleset::Ruleset(
       vec_music_{std::move(vec_music)},
       vec_modelSequences_{std::move(vec_modelSequences)},
       terrain_info_{terrain_info} {
-  // ActorInfoDictionary 构造器(L28-35):SystemActors 缺失项补空 ActorInfo
-  // The ActorInfoDictionary ctor (L28-35): backfill missing SystemActors
-  // with empty ActorInfos.
+
   for (const std::string_view sv_system : kSystemActors) {
     const bool b_present = std::any_of(
         vec_actors_.begin(), vec_actors_.end(),
@@ -80,9 +67,6 @@ Ruleset::Ruleset(
                                std::make_unique<ActorInfo>(std::string{sv_system}));
   }
 
-  // IRulesetLoaded 回调(Ruleset.cs L50-93):见 ruleset.hpp 偏离注记
-  // The IRulesetLoaded callbacks (Ruleset.cs L50-93): see the deviation note
-  // in ruleset.hpp.
 }
 
 const ActorInfo* Ruleset::FindActor(std::string_view str_key) const {
@@ -111,9 +95,7 @@ std::unique_ptr<Ruleset> Ruleset::LoadDefaults(ModData& mod_data) {
   auto vec_actors = MergeOrDefault<std::unique_ptr<ActorInfo>>(
       pool_rules, fileSystem, manifest.Rules(), true,
       [](const yaml::MiniYamlNode& node, std::string_view sv_key) {
-        // 小写键同时是 ActorInfo.name(上游 k.Key.ToLowerInvariant 二用)
-        // The lower-cased key doubles as ActorInfo.name (upstream feeds
-        // k.Key.ToLowerInvariant to both).
+
         return std::make_unique<ActorInfo>(ToLowerInvariant(sv_key), node.Value);
       });
   auto vec_weapons = MergeOrDefault<std::unique_ptr<WeaponInfo>>(
@@ -148,13 +130,7 @@ std::unique_ptr<Ruleset> Ruleset::LoadDefaults(ModData& mod_data) {
 
 std::unique_ptr<Ruleset> Ruleset::LoadDefaultsForTileSet(
     ModData& mod_data, std::string_view str_tile_set) {
-  // Ruleset.cs L167-173:默认规则(actor/weapon 等全部复用引用)+ 指定
-  // tileset 的地形 —— C++ unique_ptr 所有权下以"借用视图"承载:除
-  // TerrainInfo 外全部转发到默认规则集(与上游共享引用等价)
-  // Ruleset.cs L167-173: the default rules (every table reused by
-  // reference) + the named tileset's terrain — under C++ unique_ptr
-  // ownership this rides a "borrowing view": everything but TerrainInfo
-  // forwards to the default ruleset (the shared-reference equivalent).
+
   auto rs = std::make_unique<Ruleset>();
   const Ruleset* dr = &mod_data.DefaultRules();
   rs->borrowed_actors_ = dr;
@@ -174,28 +150,16 @@ std::unique_ptr<Ruleset> Ruleset::Load(
     const yaml::MiniYaml* map_weapons, const yaml::MiniYaml* map_voices,
     const yaml::MiniYaml* map_notifications, const yaml::MiniYaml* map_music,
     const yaml::MiniYaml* map_model_sequences) {
-  // Ruleset.cs L175-226 + MergeOrDefault(L98-116):
-  //  - additional == null 且 defaults 非空 → 直接复用默认规则字典(上游引用
-  //    共享;C++ 承载 = 按表借用视图)
-  //  - additional 非 null → MiniYaml.Load(fileSystem, files, additional)
-  //    (additional.Value 的逗号文件列表追加入 files,单池合并),过滤 '^'
-  //    抽象项后小写键建表
-  //  MergeOrDefault semantics: a null additional reuses the default
-  //  dictionary (per-table borrowed views here); a non-null additional goes
-  //  through MiniYaml.Load (its Value's comma file list appends to files,
-  //  one pool through the merge), the '^' abstracts filtered, keys
-  //  lower-cased.
+
   const Manifest& manifest = mod_data.ManifestRef();
   Ruleset& dr = mod_data.DefaultRules();
   yaml::StringPool pool;
 
-  // MiniYaml.Load(fs, files, additional, pool) 的 map 面等价(manifest 文件
-  // 经 map_files 打开 —— 地图内 yaml 可达)
   const auto mini_yaml_load = [&](const std::vector<std::string>& files,
                                   const yaml::MiniYaml* additional) {
     std::vector<std::string> all_files{files.begin(), files.end()};
     if (additional != nullptr && additional->Value != nullptr) {
-      // FieldLoader.GetValue<string[]>:逗号分割、Trim、去空段
+
       for (const std::string_view part : meta::SplitCommaTrimmed(
                std::string_view{*additional->Value})) {
         if (!part.empty())
@@ -223,7 +187,7 @@ std::unique_ptr<Ruleset> Ruleset::Load(
       const std::string_view sv_key =
           node.Key != nullptr ? std::string_view{*node.Key} : std::string_view{};
       if (!sv_key.empty() && sv_key.front() == ActorInfo::kAbstractActorPrefix)
-        continue;  // filterNode(L110-112)
+        continue;
       std::string key = ToLowerInvariant(sv_key);
       if (std::any_of(out.begin(), out.end(),
                       [&](const auto& p) { return p.first == key; }))
@@ -294,10 +258,7 @@ std::unique_ptr<Ruleset> Ruleset::Load(
   };
 
   auto rs = std::make_unique<Ruleset>();
-  // 按表双态:additional 空 → 借用默认表(上游 defaults 引用共享的等价);
-  // 非空 → 全量建表
-  // Per-table dual state: a null additional borrows the default table (the
-  // defaults-reference-sharing equivalent); otherwise a full build.
+
   if (map_rules != nullptr)
     rs->vec_actors_ = merge_actors(map_rules);
   else
@@ -400,4 +361,4 @@ bool Ruleset::DefinesUnsafeCustomRules(
   return false;
 }
 
-}  // namespace ora::game
+}

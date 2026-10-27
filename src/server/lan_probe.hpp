@@ -36,4 +36,4 @@ class LanProbe final {
   std::map<std::string, Location> map_locations_;
 };
 
-}  // namespace ora::server
+}

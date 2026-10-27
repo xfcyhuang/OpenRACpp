@@ -1,8 +1,3 @@
-// UPSTREAM: OpenRA.Game/Network/ReplayRecorder.cs @1f594e320 L19-118 +
-//           OpenRA.Game/FileFormats/ReplayMetadata.cs L17-108 +
-//           OpenRA.Game/Network/ReplayConnection.cs L19-135(实现部分)
-//           The implementation halves (the header note lives in
-//           replay_recorder.hpp).
 #include "net/replay_recorder.hpp"
 
 #include <cstdio>
@@ -15,18 +10,11 @@ namespace ora::net {
 
 namespace {
 
-/// WriteLengthPrefixedString(UTF8, 1024*100 上限)的写侧等价
-/// The write-side equivalent of WriteLengthPrefixedString (UTF8, the
-/// 1024*100 cap).
 void WriteLengthPrefixedString(ByteWriter& writer,
                                std::string_view sv_data) {
   writer.Write(sv_data);
 }
 
-/// Write 的 dataLength 语义(L58-66):载荷长度(前缀串整体 —— 含 7-bit
-/// 前缀字节)
-/// Write's dataLength semantics (L58-66): the payload length (the whole
-/// prefixed string — the 7-bit prefix bytes included).
 std::int32_t LengthPrefixedSize(std::string_view sv_data) {
   std::size_t sz_prefix = 0;
   std::uint64_t v = sv_data.size();
@@ -38,19 +26,17 @@ std::int32_t LengthPrefixedSize(std::string_view sv_data) {
   return static_cast<std::int32_t>(sz_prefix + sv_data.size());
 }
 
-}  // namespace
-
-// ———— ReplayMetadata ————
+}
 
 void ReplayMetadata::Write(std::vector<std::uint8_t>& vec_out) const {
-  // L51-67
+
   ByteWriter writer;
   writer.Write(static_cast<std::int32_t>(kMetaStartMarker));
   writer.Write(static_cast<std::int32_t>(kMetaVersion));
 
   std::int32_t int4_data_length = 0;
   {
-    // 大厅信息数据 | the lobby-info data.
+
     WriteLengthPrefixedString(writer, str_game_info_data_);
     int4_data_length = LengthPrefixedSize(str_game_info_data_);
   }
@@ -63,9 +49,7 @@ void ReplayMetadata::Write(std::vector<std::uint8_t>& vec_out) const {
 
 std::unique_ptr<ReplayMetadata> ReplayMetadata::Read(
     const std::vector<std::uint8_t>& vec_bytes) {
-  // L79-106:尾扫;短文件/无标记/损坏 → nullptr
-  // L79-106: the tail scan; short files/missing markers/corruption →
-  // nullptr.
+
   try {
     if (vec_bytes.size() < 20)
       return nullptr;
@@ -76,9 +60,6 @@ std::unique_ptr<ReplayMetadata> ReplayMetadata::Read(
     if (tail.ReadInt32() != kMetaEndMarker)
       return nullptr;
 
-    // 回退(end 标记 + 长度存储 + 数据 + 版本 + start 标记)
-    // Step back (the end marker + the length storage + the data + the
-    // version + the start marker).
     const std::int64_t int8_back =
         4 + 4 + static_cast<std::int64_t>(int4_data_length) + 4 + 4;
     if (static_cast<std::int64_t>(vec_bytes.size()) < int8_back)
@@ -97,7 +78,6 @@ std::unique_ptr<ReplayMetadata> ReplayMetadata::Read(
                                std::to_string(int4_version) +
                                " is not supported");
 
-    // 100K 上限(损坏文件的保险)| the 100K cap (corruption safeguard).
     if (reader.Remaining() < 0 ||
         static_cast<std::uint64_t>(reader.Remaining()) > 1024 * 100)
       return nullptr;
@@ -149,13 +129,11 @@ std::unique_ptr<ReplayMetadata> ReplayMetadata::ReadFile(
   return up_metadata;
 }
 
-// ———— ReplayRecorder ————
-
 ReplayRecorder::ReplayRecorder(ChooseFilename fn_choose_filename)
     : fn_choose_filename_{std::move(fn_choose_filename)} {}
 
 bool ReplayRecorder::IsGameStart(const std::vector<std::uint8_t>& vec_data) {
-  // L29-34
+
   int int4_frame = 0;
   OrderPacket packet_orders;
   if (!OrderIO::TryParseOrderPacket(vec_data, int4_frame, packet_orders))
@@ -173,15 +151,7 @@ bool ReplayRecorder::IsGameStart(const std::vector<std::uint8_t>& vec_data) {
 
 void ReplayRecorder::StartSavingReplay(
     const std::vector<std::uint8_t>& vec_initial) {
-  // L44-72:文件名冲突重试域由 chooseFilename 回调承载(引擎装配面)。
-  // 上游 file.Write(initialContent) 把 preStart 缓冲落盘 —— 内存盘的
-  // preStart 内容已在位,该写为幂等 no-op(vec_initial 即 vec_bytes_
-  // 自身,追加即自拷贝)
-  // L44-72: the filename-conflict retry domain rides the chooseFilename
-  // callback (the engine assembly). Upstream's file.Write(initialContent)
-  // flushes the pre-start buffer to disk — the in-memory sink already
-  // holds the pre-start bytes, so the write is an idempotent no-op
-  // (vec_initial IS vec_bytes_; appending would self-copy).
+
   if (fn_choose_filename_)
     str_filename_ = fn_choose_filename_();
   (void)vec_initial;
@@ -189,7 +159,7 @@ void ReplayRecorder::StartSavingReplay(
 
 void ReplayRecorder::Receive(int client_id,
                              const std::vector<std::uint8_t>& vec_data) {
-  // L74-90
+
   if (b_disposed_)
     return;
 
@@ -208,7 +178,7 @@ void ReplayRecorder::Receive(int client_id,
 
 void ReplayRecorder::ReceiveFrame(int client_id, int frame,
                                   const std::vector<std::uint8_t>& vec_data) {
-  // L92-98
+
   std::vector<std::uint8_t> vec_packet;
   ByteWriter writer;
   writer.Write(frame);
@@ -218,7 +188,7 @@ void ReplayRecorder::ReceiveFrame(int client_id, int frame,
 }
 
 void ReplayRecorder::Dispose() {
-  // L101-117
+
   if (b_disposed_)
     return;
   b_disposed_ = true;
@@ -226,8 +196,6 @@ void ReplayRecorder::Dispose() {
   if (Metadata != nullptr)
     Metadata->Write(vec_bytes_);
 }
-
-// ———— ReplayConnection ————
 
 namespace {
 
@@ -252,7 +220,7 @@ std::optional<int> ExtractFinalGameTick(const std::string& str_game_info) {
   return out;
 }
 
-}  // namespace
+}
 
 ReplayConnection::ReplayConnection(
     std::vector<std::uint8_t> vec_replay_bytes, int int4_order_latency)
@@ -275,9 +243,6 @@ ReplayConnection::ReplayConnection(
     sz_body_end_ = vec_replay_bytes_.size();
   }
 
-  // Parse replay data into a struct that can be fed to the game in chunks
-  // to avoid issues with all immediate orders being resolved on the first
-  // tick. (上游注释 / upstream comment)
   std::vector<std::pair<int, std::vector<std::uint8_t>>> vec_packets;
   std::size_t pos = 0;
   while (pos < sz_body_end_) {
@@ -396,4 +361,4 @@ void ReplayConnection::Receive(OrderManager& order_manager) {
   }
 }
 
-}  // namespace ora::net
+}

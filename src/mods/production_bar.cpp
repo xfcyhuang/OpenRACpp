@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/ProductionBar.cs @1f594e320
-//          L18-105
 #include "mods/production_bar.hpp"
 #include "sim/trait_registry.hpp"
 #include "sim/world.hpp"
@@ -31,8 +29,7 @@ void ProductionBar::Created(Actor& self) {
 }
 
 void ProductionBar::FindQueue(Actor& self) {
-  // 每个条必须绑到恰一个队列 —— 含禁用队列
-  // Each bar must bind to exactly one queue — disabled ones included.
+
   ptr_queue_ = nullptr;
   for (ProductionQueue* queue :
        self.TraitsImplementing<ProductionQueue>())
@@ -74,9 +71,7 @@ void ProductionBar::Tick(Actor& self) {
 }
 
 float ProductionBar::GetValue() {
-  // 仅同盟可见;RenderPlayer 为 null 时按观战 = Ally → 可见(上游同)
-  // Allies only; a null RenderPlayer counts as spectating = Ally →
-  // visible (as upstream).
+
   if (IsTraitDisabled() ||
       !ptr_self_->Owner()->IsAlliedWith(ptr_self_->world().RenderPlayer()))
     return 0;
@@ -91,4 +86,4 @@ void ProductionBar::OnOwnerChanged(Actor& self, sim::Player& old_owner,
   FindQueue(self);
 }
 
-}  // namespace ora::mods
+}

@@ -15,7 +15,7 @@ class LabelWidget;
 class PasswordFieldWidget;
 class ScrollPanelWidget;
 class TextFieldWidget;
-}  // namespace ora::ui
+}
 
 namespace ora::mods {
 
@@ -244,4 +244,4 @@ class HotkeysSettingsLogic final : public ora::ui::ChromeLogic {
 
 void RegisterSettingsLogics();
 
-}  // namespace ora::mods
+}

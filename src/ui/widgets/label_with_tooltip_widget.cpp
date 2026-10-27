@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWithTooltipWidget.cs @1f594e320
-// (label_with_tooltip_widget.hpp 的实现)
-// The implementation of label_with_tooltip_widget.hpp.
 import std;
 
 #include "ui/widgets/label_with_tooltip_widget.hpp"
@@ -39,9 +36,7 @@ void LabelWithTooltipWidget::MouseEntered() {
 }
 
 void LabelWithTooltipWidget::MouseExited() {
-  // Only try to remove the tooltip if we know it has been created
-  // This avoids a crash if the widget (and the container it refers to) are
-  // being removed(上游注释)| the upstream comment.
+
   if (!str_tooltip_container.empty() && b_tooltip_container_created_)
     ptr_tooltip_container_->RemoveTooltip();
 }
@@ -60,4 +55,4 @@ bool LabelWithTooltipWidget::LoadFieldOrProperty(std::string_view str_key,
   return LabelWidget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

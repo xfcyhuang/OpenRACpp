@@ -50,4 +50,4 @@ class TerrainTemplatePreviewWidget : public Widget {
   int2 int2_ideal_preview_size_{0, 0};
 };
 
-}  // namespace ora::ui
+}

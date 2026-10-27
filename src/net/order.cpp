@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Game/Network/Order.cs @1f594e320(实现部分:逐字节序列化)
-//          The implementation half of Order.cs (byte-exact serialization).
 #include "net/order.hpp"
 
 #include <cstdio>
@@ -10,14 +8,12 @@ namespace ora::net {
 
 namespace {
 
-/// Order.cs L261-265
 std::uint32_t UIntFromActor(const sim::Actor* a) {
   if (a == nullptr)
     return std::numeric_limits<std::uint32_t>::max();
   return a->ActorID();
 }
 
-/// Order.cs L267-277
 bool TryGetActorFromUInt(sim::World* world, std::uint32_t a_id,
                          sim::Actor*& ret) {
   if (a_id == std::numeric_limits<std::uint32_t>::max()) {
@@ -29,7 +25,6 @@ bool TryGetActorFromUInt(sim::World* world, std::uint32_t a_id,
   return ret != nullptr;
 }
 
-/// Order.cs L254-259
 bool HasRemainingBytes(ByteReader& r, int count, int item_size) {
   const auto remaining_bytes = r.Remaining();
   return count >= 0 &&
@@ -37,27 +32,20 @@ bool HasRemainingBytes(ByteReader& r, int count, int item_size) {
          count <= remaining_bytes / item_size;
 }
 
-/// Order.cs L248-252
 bool TryReadActorCount(ByteReader& r, int& count) {
   count = r.ReadInt32();
   return HasRemainingBytes(r, count, sizeof(std::uint32_t));
 }
 
-/// 上游 unknown order 的 Log.Write("debug", ...) 面(日志通道 Phase 5;
-/// stderr 兜底)
 void LogDebugUnknownOrder(std::uint8_t type) {
   std::fprintf(stderr, "Received unknown order with type %d\n",
                static_cast<int>(type));
 }
 
-}  // namespace
-
-// ———— 构造族(Order.cs L81-93 主构造 / L333-343 公开重载)————
-// ———— The constructor family (the L81-93 master / the L333-343 public
-//      overloads) ————
+}
 
 sim::Player* Order::Player() const {
-  // L76:Subject?.Owner
+
   return p_subject != nullptr ? p_subject->Owner() : nullptr;
 }
 
@@ -85,9 +73,6 @@ Order::Order(std::string str_order, sim::Actor* subject,
   visual_feedback_target = target_visual_feedback;
 }
 
-// ———— 命名构造(Order.cs L281-327)————
-// ———— The named constructors (Order.cs L281-327) ————
-
 Order Order::Chat(std::string_view text, std::uint32_t team_number) {
   Order o{"Chat", nullptr, false};
   o.b_is_immediate = true;
@@ -114,7 +99,7 @@ Order Order::FromTargetString(std::string_view order,
 }
 
 Order Order::FromGroupedOrder(const Order& grouped, sim::Actor* subject) {
-  // L296-307(VisualFeedbackTarget 不带 —— 上游同名行为)
+
   Order o{grouped.str_order_string, subject, grouped.target,
           grouped.b_queued, grouped.vec_extra_actors};
   o.str_target_string = grouped.str_target_string;
@@ -154,9 +139,6 @@ Order Order::CancelProduction(sim::Actor* subject, std::string_view item,
   return o;
 }
 
-// ———— Deserialize(Order.cs L95-246)————
-// ———— Deserialize (Order.cs L95-246) ————
-
 std::unique_ptr<Order> Order::Deserialize(sim::World* world, ByteReader& r) {
   try {
     const auto first_byte = r.ReadByte();
@@ -192,8 +174,7 @@ std::unique_ptr<Order> Order::Deserialize(sim::World* world, ByteReader& r) {
             }
 
             case sim::TargetType::FrozenActor: {
-              // FrozenActorLayer(Shroud 链,Phase 5):上游在层缺失时保持
-              // Invalid —— 读序保留,物化面未接线
+
               const auto player_actor_id = r.ReadUInt32();
               const auto frozen_actor_id = r.ReadUInt32();
               (void)player_actor_id;
@@ -322,21 +303,16 @@ std::unique_ptr<Order> Order::Deserialize(sim::World* world, ByteReader& r) {
       }
 
       default: {
-        // Changing the Handshake order format will break cross-version
-        // switching — unknown types are dropped (上游 Log + null)
+
         LogDebugUnknownOrder(static_cast<std::uint8_t>(type));
         return nullptr;
       }
     }
   } catch (const std::exception&) {
-    // HACK: this can hopefully go away in the future(上游注释)——
-    // 异常吞并返回 null;TextNotificationsManager 提示 Phase 6 接线
+
     return nullptr;
   }
 }
-
-// ———— Serialize(Order.cs L345-487)————
-// ———— Serialize (Order.cs L345-487) ————
 
 std::vector<std::uint8_t> Order::Serialize() const {
   ByteWriter w;
@@ -346,8 +322,7 @@ std::vector<std::uint8_t> Order::Serialize() const {
 
   switch (type) {
     case OrderType::Handshake: {
-      // Changing the Handshake order format will break cross-version
-      // switching. Don't do this unless you really have to!
+
       w.Write(str_target_string.value_or(""));
 
       break;
@@ -395,8 +370,7 @@ std::vector<std::uint8_t> Order::Serialize() const {
             w.Write(target_state.generation);
             break;
           case sim::TargetType::FrozenActor:
-            // FrozenActor 面(Shroud 链,Phase 5);序列化侧对象未接线时
-            // 不可达 —— 上游同点位直读 Viewer/FrozenActor
+
             throw std::runtime_error("Cannot serialize FrozenActor target");
           case sim::TargetType::Terrain:
             if (HasField(flags, OrderFields::TargetIsCell)) {
@@ -407,8 +381,6 @@ std::vector<std::uint8_t> Order::Serialize() const {
               w.Write(target_state.pos.Y);
               w.Write(target_state.pos.Z);
 
-              // Don't send extra data over the network that will be
-              // restored by the Target ctor
               const auto* positions = target_state.terrain_positions;
               const auto terrain_positions =
                   positions != nullptr ? positions->size() : std::size_t{0};
@@ -465,4 +437,4 @@ std::vector<std::uint8_t> Order::Serialize() const {
   return w.TakeBytes();
 }
 
-}  // namespace ora::net
+}

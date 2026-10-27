@@ -1,12 +1,3 @@
-// UPSTREAM: OpenRA.Mods.D2k/PackageLoaders/D2kSoundResources.cs @1f594e320
-//          L20-94(全文逐语义)
-// d2k 声音资源包(.rs):u32 头长界定目录区,条目 = ASCIIZ 名 + u32 偏移 +
-// u32 长度;内容按文件绝对偏移切取。OpenPackage 上游即 "Not implemented"
-// (返回 null)。
-// The d2k sound-resources package (.rs): a u32 header length bounds the
-// directory area; entries = an ASCIIZ name + u32 offset + u32 length, with
-// content sliced at absolute file offsets. OpenPackage is upstream's
-// "Not implemented" (returns null).
 #pragma once
 import std;
 
@@ -14,7 +5,6 @@ import std;
 
 namespace ora::fs {
 
-/// D2kSoundResources(D2kSoundResources.cs L22-80 嵌套类)。
 class D2kSoundResources final : public IReadOnlyPackage {
  public:
   D2kSoundResources(std::vector<char> vec_bytes, std::string str_filename);
@@ -41,9 +31,6 @@ class D2kSoundResources final : public IReadOnlyPackage {
   std::unordered_map<std::string, Entry> map_index_;
 };
 
-/// D2kSoundResourcesLoader(D2kSoundResources.cs L20):".rs" 后缀嗅探。
-/// D2kSoundResourcesLoader (D2kSoundResources.cs L20): the ".rs" suffix
-/// sniff.
 class D2kSoundResourcesLoader final : public IPackageLoader {
  public:
   bool TryParsePackage(std::span<const char> vec_bytes, const std::string& str_filename,
@@ -51,4 +38,4 @@ class D2kSoundResourcesLoader final : public IPackageLoader {
                        std::unique_ptr<IReadOnlyPackage>& package) override;
 };
 
-}  // namespace ora::fs
+}

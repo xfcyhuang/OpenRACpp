@@ -1,18 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithMakeAnimation.cs @1f594e320
-//          L20-203 全文 + WithMakeOverlay.cs L17-64 全文
-//          The whole of WithMakeAnimation.cs L20-203 + WithMakeOverlay.cs
-//          L17-64.
-//
-// 机制对照 / Mechanism mapping:
-//  - PlayCustomAnimation 的 onComplete 闭包族 → std::function(帧末任务闭包
-//    体逐字;token 的 grant/revoke 配对保真)
-//    PlayCustomAnimation's onComplete closures → std::function (the
-//    frame-end closure bodies verbatim; the token grant/revoke pairing
-//    kept).
-//  - FirstEnabledConditionalTraitOrDefault(Exts.cs)→ 首个未禁用元素的内联
-//    扫描
-//    FirstEnabledConditionalTraitOrDefault (Exts.cs) → the inline scan for
-//    the first enabled element.
 #pragma once
 import std;
 
@@ -24,20 +9,16 @@ import std;
 
 namespace ora::mods {
 
-class WithMakeOverlay;  // 前向(vec_overlays_ 成员)| forward (the
-                        // vec_overlays_ member).
+class WithMakeOverlay;
 
-/// WithMakeAnimationInfo 的解析面(L21-35)
-/// The parsed face of WithMakeAnimationInfo (L21-35).
 struct WithMakeAnimationInfoData {
-  std::string str_sequence = "make";  // L24
-  std::string str_condition;          // L28
-  std::vector<std::string> vec_body_names{"body"};  // L31
+  std::string str_sequence = "make";
+  std::string str_condition;
+  std::vector<std::string> vec_body_names{"body"};
 
   static WithMakeAnimationInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// WithMakeAnimation(L37-202)
 class WithMakeAnimation final : public TraitBase,
                                 public sim::INotifyCreated,
                                 public sim::INotifyDeployTriggered {
@@ -51,8 +32,6 @@ class WithMakeAnimation final : public TraitBase,
 
   void Created(Actor& self) override;
 
-  /// Forward(L61-85)/Reverse 双形态(L87-111/L113-130)
-  /// Forward (L61-85) / the two Reverse forms (L87-111/L113-130).
   void Forward(Actor& self, std::function<void()> fn_on_complete);
   void Reverse(Actor& self, std::function<void()> fn_on_complete);
   void Reverse(Actor& self, sim::Activity* ptr_activity, bool b_queued = true);
@@ -63,9 +42,7 @@ class WithMakeAnimation final : public TraitBase,
   const WithMakeAnimationInfoData& Info() const { return info_; }
 
  private:
-  /// wsbs 的首个启用条件 trait(FirstEnabledConditionalTraitOrDefault)
-  /// The wsbs' first enabled conditional trait
-  /// (FirstEnabledConditionalTraitOrDefault).
+
   WithSpriteBody* FirstEnabledBody() const;
 
   WithMakeAnimationInfoData info_;
@@ -73,12 +50,11 @@ class WithMakeAnimation final : public TraitBase,
   bool b_skip_make_animation_ = false;
   std::vector<WithMakeOverlay*> vec_overlays_;
   int int4_token_ = Actor::InvalidConditionToken;
-  bool b_deploy_notified_ = false;    // L135/138 的闭包闩锁(上游局部变量
-                                      // 的闭包提升等价)
-  bool b_undeploy_notified_ = false;  // 同上 | same (L171/174).
+  bool b_deploy_notified_ = false;
+
+  bool b_undeploy_notified_ = false;
 };
 
-/// WithMakeOverlay(WithMakeOverlay.cs L35-64)
 class WithMakeOverlay final : public TraitBase {
  public:
   WithMakeOverlay(Actor& self, std::string str_sequence,
@@ -103,4 +79,4 @@ class WithMakeOverlay final : public TraitBase {
   bool b_visible_ = false;
 };
 
-}  // namespace ora::mods
+}

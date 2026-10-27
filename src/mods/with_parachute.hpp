@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithParachute.cs @1f594e320
 #pragma once
 import std;
 
@@ -86,4 +85,4 @@ class WithParachute final : public TraitBase,
   bool b_render_prolonged_ = false;
 };
 
-}  // namespace ora::mods
+}

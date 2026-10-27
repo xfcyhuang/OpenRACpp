@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/DockHost.cs 实现部分
-//          The implementation half.
 #include "mods/dock_host.hpp"
 
 #include "meta/field_loader.hpp"
@@ -11,8 +9,6 @@
 #include "sim/world.hpp"
 
 namespace ora::mods {
-
-// ———— DockHostInfoData(L21-49)————
 
 DockHostInfoData DockHostInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -26,8 +22,7 @@ DockHostInfoData DockHostInfoData::Parse(
       const std::string_view name = fields[i]->str_name;
       const meta::GenericValue& v = generated->Slot(i);
       if (name == "Type") {
-        // BitSet<DockType>:原始位或字符串列表
-        // BitSet<DockType>: raw bits or a string list.
+
         if (auto* n = std::get_if<std::int64_t>(&v.val)) {
           data.bitset_type =
               core::BitSet<sim::DockType>::FromRawBits(
@@ -91,8 +86,6 @@ DockHostInfoData DockHostInfoData::Parse(
   return data;
 }
 
-// ———— DockHost(L50-184)————
-
 DockHost::DockHost(ActorInitializer& init, const DockHostInfoData& info)
     : sim::ConditionalTraitCore<DockHost>(info.conditional), info_{info} {
   p_self_ = &init.Self();
@@ -102,10 +95,10 @@ void DockHost::Created(Actor& self) {
   CoreCreated(self);
 }
 
-bool DockHost::IsDockingPossible(Actor& /*client_actor*/,
+bool DockHost::IsDockingPossible(Actor& ,
                                  sim::IDockClient* client,
                                  bool ignore_reservations) {
-  // L77-80
+
   return !IsTraitDisabled() &&
          (ignore_reservations || CanBeReserved() ||
           std::find(vec_reserved_dock_clients_.begin(),
@@ -115,7 +108,7 @@ bool DockHost::IsDockingPossible(Actor& /*client_actor*/,
 }
 
 bool DockHost::Reserve(Actor& self, DockClientManager* client) {
-  // L82-92
+
   if (CanBeReserved() &&
       std::find(vec_reserved_dock_clients_.begin(),
                 vec_reserved_dock_clients_.end(),
@@ -129,13 +122,13 @@ bool DockHost::Reserve(Actor& self, DockClientManager* client) {
 }
 
 void DockHost::UnreserveAll() {
-  // L94-98
+
   while (!vec_reserved_dock_clients_.empty())
     Unreserve(vec_reserved_dock_clients_[0]);
 }
 
 void DockHost::Unreserve(DockClientManager* client) {
-  // L100-104
+
   const auto it_remove = std::find(vec_reserved_dock_clients_.begin(),
                                    vec_reserved_dock_clients_.end(),
                                    client);
@@ -145,23 +138,22 @@ void DockHost::Unreserve(DockClientManager* client) {
   }
 }
 
-void DockHost::OnDockStarted(Actor& /*self*/, Actor& client_actor,
+void DockHost::OnDockStarted(Actor& , Actor& client_actor,
                              DockClientManager* client) {
-  // L106-110
+
   p_docked_client_actor_ = &client_actor;
   p_docked_client_ = client;
 }
 
-void DockHost::OnDockCompleted(Actor& /*self*/, Actor& /*client_actor*/,
-                               DockClientManager* /*client*/) {
-  // L112-116
+void DockHost::OnDockCompleted(Actor& , Actor& ,
+                               DockClientManager* ) {
+
   p_docked_client_actor_ = nullptr;
   p_docked_client_ = nullptr;
 }
 
 void DockHost::Tick(Actor& self) {
-  // L118-128
-  // Client was killed during docking.(上游注释)
+
   if (p_docked_client_actor_ != nullptr &&
       (p_docked_client_actor_->IsDead() ||
        !p_docked_client_actor_->IsInWorld()))
@@ -169,15 +161,12 @@ void DockHost::Tick(Actor& self) {
 }
 
 bool DockHost::QueueMoveActivity(
-    sim::Activity* move_to_dock_activity, Actor& /*self*/,
-    Actor& client_actor, DockClientManager* /*client*/,
+    sim::Activity* move_to_dock_activity, Actor& ,
+    Actor& client_actor, DockClientManager* ,
     activities::MoveCooldownHelper& move_cooldown_helper) {
-  // L130-146
+
   sim::IMove* move = client_actor.Trait<sim::IMove>();
 
-  // Make sure the actor is at dock, at correct facing, and aircraft are
-  // landed. Mobile cannot freely move in WPos, so when we calculate close
-  // enough we convert to CPos.(上游注释)
   const bool b_wrong_cell =
       dynamic_cast<Mobile*>(move) != nullptr
           ? client_actor.Location() !=
@@ -199,9 +188,9 @@ bool DockHost::QueueMoveActivity(
 }
 
 void DockHost::QueueDockActivity(sim::Activity* move_to_dock_activity,
-                                 Actor& /*self*/, Actor& client_actor,
+                                 Actor& , Actor& client_actor,
                                  DockClientManager* client) {
-  // L148-159
+
   move_to_dock_activity->QueueChild(
       activities::NewActivity<activities::GenericDockSequence>(
           client_actor, *client, *p_self_, *this, info_.int4_dock_wait,
@@ -209,58 +198,47 @@ void DockHost::QueueDockActivity(sim::Activity* move_to_dock_activity,
           info_.int4_drag_length));
 }
 
-void DockHost::OnOwnerChanged(Actor& /*self*/, Player& /*old_owner*/,
-                              Player& /*new_owner*/) {
-  // L163
+void DockHost::OnOwnerChanged(Actor& , Player& ,
+                              Player& ) {
+
   UnreserveAll();
 }
 
-void DockHost::OnCapture(Actor& self, Actor& /*captor*/,
-                         Player& /*old_owner*/, Player& new_owner,
+void DockHost::OnCapture(Actor& self, Actor& ,
+                         Player& , Player& new_owner,
                          const core::BitSet<sim::CaptureType>&
-                             /*capture_types*/) {
-  // L165-175
-  // Steal any docked unit too.(上游注释)
+                             ) {
+
   if (p_docked_client_actor_ != nullptr &&
       !p_docked_client_actor_->IsDead() &&
       p_docked_client_actor_->IsInWorld()) {
     p_docked_client_actor_->ChangeOwner(&new_owner);
 
-    // On capture OnOwnerChanged event is called first, so we need to
-    // re-reserve.(上游注释)
     p_docked_client_->ReserveHost(&self, this);
   }
 }
 
-void DockHost::Selling(Actor& /*self*/) {
-  // L177
+void DockHost::Selling(Actor& ) {
+
   b_prevent_dock = true;
 }
 
-void DockHost::Sold(Actor& /*self*/) {
-  // L179
+void DockHost::Sold(Actor& ) {
+
   UnreserveAll();
 }
 
-void DockHost::Killed(Actor& /*self*/, const sim::AttackInfo& /*e*/) {
-  // L181
+void DockHost::Killed(Actor& , const sim::AttackInfo& ) {
+
   UnreserveAll();
 }
 
-void DockHost::Disposing(Actor& /*self*/) {
-  // L183
+void DockHost::Disposing(Actor& ) {
+
   b_prevent_dock = true;
   UnreserveAll();
 }
 
-// ———— [VerifySync] 哈希注册(gen/sync_gen.cpp:DockHost
-//      {preventDock, dockedClientActor})————
-// ———— The [VerifySync] hash registration (gen/sync_gen.cpp: DockHost
-//      {preventDock, dockedClientActor}) ————
-
-// 类内 friend 声明的定义位(ora::mods 域;匿名域 = 异体)
-// The definition site of the in-class friend declaration (the ora::mods
-// domain; an anonymous domain would be a distinct entity).
 int DockHostSyncHashImpl(const sim::ISync* s) {
   const auto* host = static_cast<const DockHost*>(s);
   int hash = sim::sync::CombineSyncHash(
@@ -279,6 +257,6 @@ const bool b_dock_host_sync_registered = [] {
 [[maybe_unused]] const bool* b_dock_host_sync_registered_anchor =
     &b_dock_host_sync_registered;
 
-}  // namespace
+}
 
-}  // namespace ora::mods
+}

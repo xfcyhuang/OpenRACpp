@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ClientTooltipRegionWidget.cs @1f594e320 L20-76(全文)。
 #pragma once
 import std;
 
@@ -44,12 +43,12 @@ class ClientTooltipRegionWidget : public Widget {
  private:
   TooltipContainerWidget& TooltipContainerValue();
 
-  net::OrderManager* ptr_order_manager_ = nullptr;      // 非拥有 | non-owning
-  gfx::WorldRenderer* ptr_world_renderer_ = nullptr;    // 非拥有 | non-owning
-  net::SessionClient* ptr_client_ = nullptr;            // 非拥有 | non-owning
+  net::OrderManager* ptr_order_manager_ = nullptr;
+  gfx::WorldRenderer* ptr_world_renderer_ = nullptr;
+  net::SessionClient* ptr_client_ = nullptr;
 
   bool b_tooltip_container_created_ = false;
   TooltipContainerWidget* ptr_tooltip_container_ = nullptr;
 };
 
-}  // namespace ora::ui
+}

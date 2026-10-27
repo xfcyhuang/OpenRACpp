@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Health.cs @1f594e320(实现部分)
-//          The implementation half of Health.cs.
 import std;
 
 #include "mods/health.hpp"
@@ -12,7 +10,6 @@ import std;
 
 namespace ora::mods {
 
-// ———— HealthInfoData(值袋槽位 → 运行时 Info)————
 HealthInfoData HealthInfoData::Parse(const meta::RecordObject& rec_info) {
   HealthInfoData data;
   if (auto v = sim::RecordFieldInt(rec_info, "HP"))
@@ -26,10 +23,6 @@ HealthInfoData HealthInfoData::Parse(const meta::RecordObject& rec_info) {
 
 namespace {
 
-/// Health 的 [VerifySync] 哈希(gen/sync_gen.cpp 成员表:{HP};Sync.cs 的
-/// GenerateHashFunc 组合协议 = 0 XOR hash 成员)
-/// Health's [VerifySync] hash (the gen/sync_gen.cpp member table {HP}; the
-/// GenerateHashFunc combination protocol = 0 XOR the member hash).
 int HealthSyncHash(const sim::ISync* s) {
   const auto* health = static_cast<const Health*>(s);
   return sim::sync::CombineSyncHash(0, health->HP());
@@ -41,26 +34,22 @@ const bool b_registered_sync_hash = [] {
   return true;
 }();
 
-}  // namespace
+}
 
-// ———— ctor(L65-76)————
 Health::Health(ActorInitializer& init, const HealthInfoData& info)
     : info_{info} {
-  // MaxHP = HP = info.HP > 0 ? info.HP : 1(L68)| (L68).
+
   max_hp_ = info.hp > 0 ? info.hp : 1;
   hp_ = max_hp_;
 
-  // Cast to long to avoid overflow when multiplying by the health(上游
-  // 注释)| (upstream comment)
   auto* health_init = init.GetOrDefault<HealthInit>();
   if (health_init != nullptr)
     hp_ = static_cast<int>(static_cast<std::int64_t>(health_init->Value()) *
                            max_hp_ / 100);
 
-  display_hp_ = hp_;  // L75
+  display_hp_ = hp_;
 }
 
-// ———— DamageState(L85-106)————
 sim::DamageState Health::DamageState() const {
   if (hp_ == max_hp_)
     return sim::DamageState::Undamaged;
@@ -83,7 +72,6 @@ sim::DamageState Health::DamageState() const {
   return sim::DamageState::Light;
 }
 
-// ———— INotifyCreated.Created(L108-117)————
 void Health::Created(Actor& self) {
   vec_notify_damage_state_changed_ =
       self.TraitsImplementing<INotifyDamageStateChanged>();
@@ -98,7 +86,6 @@ void Health::Created(Actor& self) {
       self.Owner()->PlayerActor()->TraitsImplementing<INotifyKilled>();
 }
 
-// ———— INotifyOwnerChanged.OnOwnerChanged(L119-124)————
 void Health::OnOwnerChanged(Actor&, Player& old_owner, Player& new_owner) {
   (void)old_owner;
   vec_notify_damage_player_ =
@@ -109,7 +96,6 @@ void Health::OnOwnerChanged(Actor&, Player& old_owner, Player& new_owner) {
       new_owner.PlayerActor()->TraitsImplementing<INotifyKilled>();
 }
 
-// ———— Resurrect(L126-156)————
 void Health::Resurrect(Actor& self, Actor* repairer) {
   if (!IsDead())
     return;
@@ -141,10 +127,9 @@ void Health::Resurrect(Actor& self, Actor* repairer) {
   }
 }
 
-// ———— InflictDamage(L158-226)————
 void Health::InflictDamage(Actor& self, Actor* attacker, const Damage& damage,
                            bool ignore_modifiers) {
-  // Overkill! Don't count extra hits as more kills!(上游注释)
+
   if (IsDead())
     return;
 
@@ -152,13 +137,8 @@ void Health::InflictDamage(Actor& self, Actor* attacker, const Damage& damage,
 
   Damage effective_damage = damage;
 
-  // Apply any damage modifiers(上游注释段;手内联 decimal → OPT-A1 面)
-  // Apply any damage modifiers (upstream; the hand-inlined decimal → the
-  // OPT-A1 face).
   if (!ignore_modifiers && damage.Value > 0) {
-    // OPT-A9:修正值收集于栈上定长缓冲(span 直传,零分配)
-    // OPT-A9: the modifier values collect in a stack fixed buffer (span
-    // passed, zero allocation).
+
     std::int32_t modifiers[16];
     std::size_t count = 0;
     for (auto* dm : vec_damage_modifiers_) {
@@ -178,7 +158,6 @@ void Health::InflictDamage(Actor& self, Actor* attacker, const Damage& damage,
                               damage.DamageTypes};
   }
 
-  // (HP - damage.Value).Clamp(0, MaxHP)(L189)| (L189).
   hp_ = std::clamp(hp_ - effective_damage.Value, 0, max_hp_);
 
   sim::AttackInfo ai;
@@ -216,13 +195,11 @@ void Health::InflictDamage(Actor& self, Actor* attacker, const Damage& damage,
   }
 }
 
-// ———— Kill(L228-231)————
 void Health::Kill(Actor& self, Actor* attacker,
                   const core::BitSet<sim::DamageType>& damage_types) {
   InflictDamage(self, attacker, Damage{max_hp_, damage_types}, true);
 }
 
-// ———— ITick.Tick(L233-239)————
 void Health::Tick(Actor&) {
   if (hp_ >= display_hp_)
     display_hp_ = hp_;
@@ -230,4 +207,4 @@ void Health::Tick(Actor&) {
     display_hp_ = (2 * display_hp_ + hp_) / 3;
 }
 
-}  // namespace ora::mods
+}

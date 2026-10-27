@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/MusicPlaylist.cs @1f594e320
-//          (注册装配)。
 #include "meta/generic_record.hpp"
 #include "mods/music_playlist.hpp"
 #include "sim/actor.hpp"
@@ -23,4 +21,4 @@ void RegisterCommonTraitsBatch18() {
       });
 }
 
-}  // namespace ora::mods
+}

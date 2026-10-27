@@ -290,4 +290,4 @@ void LineGraphWidget::Draw() {
               1.0f, color_white);
 }
 
-}  // namespace ora::ui
+}

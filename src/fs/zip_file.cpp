@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Game/FileSystem/ZipFile.cs @1f594e320 L20-261(只读路径逐语义重写)
 #include "fs/zip_file.hpp"
 
 #include <miniz.h>
@@ -9,8 +8,6 @@ namespace ora::fs {
 
 namespace {
 
-/// ZipFolder(ZipFile.cs L163-211):zip 内"子目录"视图
-/// ZipFolder (ZipFile.cs L163-211): the "subdirectory" view inside a zip.
 class ZipFolder final : public IReadOnlyPackage {
  public:
   ZipFolder(const ReadOnlyZipFile* parent, std::string path) : parent_{parent} {
@@ -22,8 +19,7 @@ class ZipFolder final : public IReadOnlyPackage {
   const std::string& Name() const override { return str_name_; }
 
   std::optional<std::vector<char>> GetStream(const std::string& filename) const override {
-    // zip 内部以 '/' 为分隔符
-    // Zips use '/' as the path separator.
+
     return parent_->GetStream(str_name_ + "/" + filename);
   }
 
@@ -33,8 +29,7 @@ class ZipFolder final : public IReadOnlyPackage {
       if (entry.rfind(str_name_, 0) == 0 && entry != str_name_) {
         const std::string_view filename =
             std::string_view{entry}.substr(str_name_.size() + 1);
-        // 仅直接子级(split('/') 非空段数 == 1)
-        // Direct children only (exactly one non-empty '/'-separated segment).
+
         std::size_t dirLevels = 0;
         for (const auto part : std::views::split(filename, '/'))
           if (!part.empty())
@@ -60,7 +55,7 @@ class ZipFolder final : public IReadOnlyPackage {
   std::string str_name_;
 };
 
-}  // namespace
+}
 
 void DestroyZipReader(void* ptr_reader) {
   auto* reader = static_cast<mz_zip_archive*>(ptr_reader);
@@ -79,8 +74,7 @@ ReadOnlyZipFile::ReadOnlyZipFile(std::vector<char> bytes, std::string filename)
 }
 
 std::vector<std::string> ReadOnlyZipFile::Contents() const {
-  // 仅文件条目(目录占位条目被过滤,上游 L57-59)
-  // File entries only (directory placeholders filtered out, upstream L57-59).
+
   auto* reader = static_cast<mz_zip_archive*>(up_reader_.get());
   std::vector<std::string> names;
   const mz_uint count = mz_zip_reader_get_num_files(reader);
@@ -91,7 +85,7 @@ std::vector<std::string> ReadOnlyZipFile::Contents() const {
     const mz_uint len = mz_zip_reader_get_filename(reader, i, nullptr, 0);
     buf.resize(len);
     mz_zip_reader_get_filename(reader, i, buf.data(), len);
-    names.emplace_back(buf.data());  // 去 NUL 终止
+    names.emplace_back(buf.data());
   }
   return names;
 }
@@ -120,8 +114,7 @@ bool ReadOnlyZipFile::Contains(const std::string& filename) const {
 
 std::unique_ptr<IReadOnlyPackage> ReadOnlyZipFile::OpenPackage(const std::string& filename,
                                                                FileSystem& context) const {
-  // 目录条目在索引中带尾部 '/'(上游 L76)
-  // Directories are stored with a trailing '/' in the index (upstream L76).
+
   auto* reader = static_cast<mz_zip_archive*>(up_reader_.get());
   mz_int64 index = mz_zip_reader_locate_file(reader, filename.c_str(), nullptr,
                                              MZ_ZIP_FLAG_CASE_SENSITIVE);
@@ -135,8 +128,6 @@ std::unique_ptr<IReadOnlyPackage> ReadOnlyZipFile::OpenPackage(const std::string
   if (mz_zip_reader_is_file_a_directory(reader, static_cast<mz_uint>(index)))
     return std::make_unique<ZipFolder>(this, filename);
 
-  // 其余包类型按常规加载(嵌套 zip / mix)
-  // Other package types load normally (nested zip / mix).
   const std::optional<std::vector<char>> bytes = GetStream(filename);
   if (!bytes.has_value())
     return nullptr;
@@ -150,8 +141,7 @@ std::unique_ptr<IReadOnlyPackage> ReadOnlyZipFile::OpenPackage(const std::string
 bool ZipFileLoader::TryParsePackage(std::span<const char> bytes, const std::string& filename,
                                     [[maybe_unused]] FileSystem& context,
                                     std::unique_ptr<IReadOnlyPackage>& package) {
-  // 本地文件头签名 0x04034b50("PK\x03\x04" 小端)
-  // Local-file-header signature 0x04034b50 ("PK\x03\x04", little-endian).
+
   constexpr std::uint32_t kZipSignature = 0x04034b50;
   if (bytes.size() < 4) {
     package.reset();
@@ -169,4 +159,4 @@ bool ZipFileLoader::TryParsePackage(std::span<const char> bytes, const std::stri
   return true;
 }
 
-}  // namespace ora::fs
+}

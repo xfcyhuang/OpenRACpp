@@ -1,12 +1,9 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/Blowfish.cs @1f594e320 L14-409(全文逐语义)
 #include "formats/blowfish.hpp"
 
 namespace ora::fmt {
 
 namespace {
 
-// lookupMfromP(Blowfish.cs L133-140,逐值照搬)
-// lookupMfromP (Blowfish.cs L133-140, copied value for value).
 constexpr std::array<std::uint32_t, 18> kInitialP = {
     0x243f6a88, 0x85a308d3, 0x13198a2e, 0x03707344,
     0xa4093822, 0x299f31d0, 0x082efa98, 0xec4e6c89,
@@ -14,9 +11,6 @@ constexpr std::array<std::uint32_t, 18> kInitialP = {
     0xc0ac29b7, 0xc97c50dd, 0x3f84d5b5, 0xb5470917,
     0x9216d5d9, 0x8979fb1b};
 
-// lookupMfromS 初值(Blowfish.cs L142-408,4×256 逐值照搬)
-// The initial lookupMfromS (Blowfish.cs L142-408, all 4×256 values copied
-// value for value).
 constexpr std::array<std::array<std::uint32_t, 256>, 4> kInitialS = {{
     {{
         0xd1310ba6, 0x98dfb5ac, 0x2ffd72db, 0xd01adfb7,
@@ -284,17 +278,12 @@ constexpr std::array<std::array<std::uint32_t, 256>, 4> kInitialS = {{
     }},
 }};
 
-}  // namespace
+}
 
 Blowfish::Blowfish(std::span<const std::byte> vec_key) {
   arr_p_ = kInitialP;
   arr_s_ = kInitialS;
 
-  // 密钥异或进 P 盒(L18-27):j 对 key.Length 循环取字节,四字节拼小端序
-  // XOR。KeySchedule 的 a<<24|b<<16|c<<8|d 组装照抄。
-  // XOR the key into the P array (L18-27): j indexes cyclically over
-  // key.Length, four bytes assembled little-endian and XORed. The
-  // a<<24|b<<16|c<<8|d assembly is copied verbatim.
   const auto byte_of = [&vec_key](std::size_t st_j) -> std::uint32_t {
     return static_cast<std::uint32_t>(
         std::to_integer<unsigned char>(vec_key[st_j % vec_key.size()]));
@@ -309,16 +298,12 @@ Blowfish::Blowfish(std::span<const std::byte> vec_key) {
 
   std::uint32_t uint4_l = 0, uint4_r = 0;
 
-  // P 盒再生成(L29-35):i 每轮推进两次。
-  // Regenerate the P array (L29-35): i advances twice per round.
   for (std::size_t st_i = 0; st_i < 18;) {
     EncryptBlock(uint4_l, uint4_r);
     arr_p_[st_i++] = uint4_l;
     arr_p_[st_i++] = uint4_r;
   }
 
-  // S 盒再生成(L37-43):每盒 256 项成对推进。
-  // Regenerate the S boxes (L37-43): 256 entries filled in pairs.
   for (std::size_t st_i = 0; st_i < 4; ++st_i)
     for (std::size_t st_j = 0; st_j < 256;) {
       EncryptBlock(uint4_l, uint4_r);
@@ -328,10 +313,7 @@ Blowfish::Blowfish(std::span<const std::byte> vec_key) {
 }
 
 std::vector<std::uint32_t> Blowfish::Encrypt(std::span<const std::uint32_t> vec_data) const {
-  // RunCipher(L51-69):size = len/2,逐块 SwapBytes 装卸;奇数尾元素忽略
-  // (上游同)。
-  // RunCipher (L51-69): size = len/2, blocks loaded/stored through
-  // SwapBytes; a trailing odd element is ignored (as upstream).
+
   std::vector<std::uint32_t> vec_result(vec_data.size());
   for (std::size_t st_block = 0; st_block < vec_data.size() / 2; st_block++) {
     const std::size_t st_i = st_block * 2;
@@ -358,9 +340,7 @@ std::vector<std::uint32_t> Blowfish::Decrypt(std::span<const std::uint32_t> vec_
 }
 
 void Blowfish::EncryptBlock(std::uint32_t& uint4_a, std::uint32_t& uint4_b) const {
-  // L71-89:x 交错标志决定 Round 的参数序(奇偶轮互换方向)。
-  // L71-89: the x flag alternates the Round argument order (the Feistel
-  // direction swaps each round).
+
   std::uint32_t uint4_temp_a = uint4_a, uint4_temp_b = uint4_b;
   uint4_temp_a ^= arr_p_[0];
 
@@ -379,8 +359,7 @@ void Blowfish::EncryptBlock(std::uint32_t& uint4_a, std::uint32_t& uint4_b) cons
 }
 
 void Blowfish::DecryptBlock(std::uint32_t& uint4_a, std::uint32_t& uint4_b) const {
-  // L91-109:Encrypt 的镜像(P[17] 起、i 降序)。
-  // L91-109: Encrypt's mirror (starting at P[17], i descending).
+
   std::uint32_t uint4_temp_a = uint4_a, uint4_temp_b = uint4_b;
   uint4_temp_a ^= arr_p_[17];
 
@@ -411,4 +390,4 @@ void Blowfish::Round(std::uint32_t& uint4_a, std::uint32_t uint4_b, int int4_n) 
   uint4_a ^= ConvertBFtoF(uint4_b) ^ arr_p_[static_cast<std::size_t>(int4_n)];
 }
 
-}  // namespace ora::fmt
+}

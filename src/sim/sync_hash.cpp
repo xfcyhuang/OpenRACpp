@@ -1,23 +1,19 @@
-// UPSTREAM: OpenRA.Game/Sync.cs @1f594e320(实现部分:注册表 + AssertUnsynced)
-//          The implementation half of Sync.cs (registries +
-//          AssertUnsynced).
 #include "sim/sync_hash.hpp"
 
 namespace ora::sim {
 
 namespace {
-/// [VerifySync] 成员表注册(gen/sync_gen.cpp;键 = C# 类型全名)
+
 std::map<std::string_view, std::span<const SyncMemberDesc>>& SyncMembers() {
   static std::map<std::string_view, std::span<const SyncMemberDesc>> registry;
   return registry;
 }
 
-/// ISync 类型 → 哈希函数注册(Phase 5 手写类接线;键 = C# 类型全名)
 std::map<std::string_view, SyncHashFn>& SyncHashFunctions() {
   static std::map<std::string_view, SyncHashFn> registry;
   return registry;
 }
-}  // namespace
+}
 
 void RegisterSyncMembers(std::string_view str_type_full_name,
                          std::span<const SyncMemberDesc> members) {
@@ -57,9 +53,9 @@ int UnsyncCountForTest() { return g_unsync_count; }
 int& UnsyncCountRef() { return g_unsync_count; }
 
 void AssertUnsynced(std::string_view message) {
-  // Sync.cs L206-210
+
   if (g_unsync_count == 0)
     throw std::runtime_error(std::string(message));
 }
 
-}  // namespace ora::sim
+}

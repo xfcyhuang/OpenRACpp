@@ -18,7 +18,7 @@ std::tuple<std::string, std::string, std::string, std::string, int> BadgeCacheKe
           badge.opt_icon3x.value_or(""), int4_density};
 }
 
-}  // namespace
+}
 
 PlayerDatabase& PlayerDatabase::Instance() {
   static PlayerDatabase instance_player_database;
@@ -124,4 +124,4 @@ gfx::Sprite PlayerDatabase::GetIcon(const PlayerBadge& badge) {
   return sprite_icon;
 }
 
-}  // namespace ora::ui
+}

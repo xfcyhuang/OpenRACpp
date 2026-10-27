@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWithTooltipWidget.cs @1f594e320
-// L20-64(全文)。Tooltip 容器的 Lazy 解析(Ui.Root.Get<TooltipContainer
-// Widget>)挂 MouseEntered/MouseExited 对;MouseExited 仅在容器已物化时才
-// RemoveTooltip(上游 IsValueCreated 门,防 widget 与容器同批移除的崩溃)。
-// C# Lazy → 指针 + 物化标志。
-// The whole of LabelWithTooltipWidget.cs L20-64. The tooltip container's
-// Lazy resolution (Ui.Root.Get<TooltipContainerWidget>) hangs on the
-// MouseEntered/MouseExited pair; MouseExited removes the tooltip only when
-// the container has materialized (upstream's IsValueCreated gate, guarding
-// the widget-and-container-removed-together crash). C#'s Lazy becomes a
-// pointer + a materialized flag.
 #pragma once
 import std;
 
@@ -33,8 +22,8 @@ class LabelWithTooltipWidget : public LabelWidget {
   }
   std::string_view TypeName() const override { return kWidgetTypeName; }
 
-  std::string str_tooltip_template;  // 空 = C# null | null
-  std::string str_tooltip_container;  // 空 = C# null | null
+  std::string str_tooltip_template;
+  std::string str_tooltip_container;
 
   std::function<std::string()> fn_get_tooltip_text = [] { return std::string{}; };
 
@@ -45,13 +34,11 @@ class LabelWithTooltipWidget : public LabelWidget {
                            std::string_view str_value) override;
 
  protected:
-  /// Exts.Lazy(() => Ui.Root.Get<TooltipContainerWidget>(…))的物化面
-  /// Exts.Lazy(() => Ui.Root.Get<TooltipContainerWidget>(…))'s
-  /// materialization face.
+
   TooltipContainerWidget& TooltipContainerValue();
 
   bool b_tooltip_container_created_ = false;
   TooltipContainerWidget* ptr_tooltip_container_ = nullptr;
 };
 
-}  // namespace ora::ui
+}

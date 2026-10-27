@@ -1,8 +1,3 @@
-// UPSTREAM: OpenRA.Game/FileSystem/FileSystem.cs @1f594e320 L20-303(逐语义重写)
-// 全文件仅经 file_system.hpp 的 import std; 引入标准库(工程门禁:
-// 禁止 #include <标准头>)。
-// All standard-library entities come via import std; in file_system.hpp
-// (project gate: no #include <std headers>).
 #include "fs/file_system.hpp"
 
 #include "fs/folder.hpp"
@@ -14,23 +9,20 @@ namespace {
 
 namespace stdfs = std::filesystem;
 
-// 尾部查找:列表中最后一个满足谓词的元素(上游 LINQ LastOrDefault)
-// Tail search: the last element satisfying pred (upstream LINQ LastOrDefault).
 template <typename T, typename Pred>
-T LastOrDefault(const std::vector<T>& items, Pred pred) {  // T 为指针类型;未命中返回 nullptr
-                                                       // T is a pointer type; nullptr on miss.
+T LastOrDefault(const std::vector<T>& items, Pred pred) {
+
   for (auto it = items.rbegin(); it != items.rend(); ++it)
     if (pred(*it))
       return *it;
   return nullptr;
 }
 
-}  // namespace
+}
 
 FileSystem::FileSystem(std::vector<std::unique_ptr<IPackageLoader>> packageLoaders)
     : vec_packageLoaders_{std::move(packageLoaders)} {
-  // zip 加载器内建追加(FileSystem.cs L47-49)
-  // The zip loader is appended built-in (FileSystem.cs L47-49).
+
   vec_packageLoaders_.push_back(std::make_unique<ZipFileLoader>());
 }
 
@@ -53,11 +45,7 @@ bool FileSystem::TryParsePackage(std::span<const char> bytes, const std::string&
 }
 
 std::unique_ptr<IReadOnlyPackage> FileSystem::OpenPackage(const std::string& filename) {
-  // 裸目录最常见,优先尝试(FileSystem.cs L64-67;ResolvePath 经可安装
-  // 解析器,Game 层注入 '^EngineDir' 等前缀语义)
-  // Raw directories are the most common case, try them first (FileSystem.cs
-  // L64-67; ResolvePath goes through the installable resolver carrying the
-  // '^EngineDir' etc. prefixes injected by the Game layer).
+
   const std::string resolvedPath =
       fn_pathResolver_ ? fn_pathResolver_(filename) : filename;
   const bool hasExplicitSplit = resolvedPath.find('|') != std::string::npos;
@@ -65,16 +53,11 @@ std::unique_ptr<IReadOnlyPackage> FileSystem::OpenPackage(const std::string& fil
   if (!hasExplicitSplit && stdfs::is_directory(stdfs::path{resolvedPath}, ec))
     return std::make_unique<Folder>(resolvedPath);
 
-  // 其他包的子路径需特殊处理
-  // Children of another package need special handling.
   IReadOnlyPackage* parent = nullptr;
   std::string subPath;
   if (TryGetPackageContaining(filename, parent, subPath))
     return parent->OpenPackage(subPath, *this);
 
-  // 正常打开:经挂载索引读入内容并按签名嗅探;Open 找不到时抛异常
-  // Normal open: read through the mount index and sniff by signature; a
-  // missing file makes Open throw.
   const std::vector<char> bytes = Open(filename);
   std::unique_ptr<IReadOnlyPackage> package;
   if (TryParsePackage(bytes, filename, package))
@@ -84,18 +67,13 @@ std::unique_ptr<IReadOnlyPackage> FileSystem::OpenPackage(const std::string& fil
 }
 
 void FileSystem::Mount(const std::string& name, const std::string& explicitName) {
-  // '~' 前缀 = 可选挂载,任何失败静默吞掉(FileSystem.cs L85-88/L112-114)
-  // The '~' prefix marks an optional mount; any failure is silently
-  // swallowed (FileSystem.cs L85-88/L112-114).
+
   const bool optional = !name.empty() && name[0] == '~';
   const std::string realName = optional ? name.substr(1) : name;
 
   try {
     if (!realName.empty() && realName[0] == '$') {
-      // '$mod' 引用挂载(FileSystem.cs L93-102):借 InstalledMods 的
-      // Manifest.Package,不转移所有权
-      // The '$mod' reference mount (FileSystem.cs L93-102): borrows the
-      // Manifest.Package of InstalledMods without transferring ownership.
+
       const std::string str_mod = realName.substr(1);
       if (!fn_modResolver_)
         throw std::runtime_error{std::format(
@@ -122,9 +100,7 @@ void FileSystem::Mount(const std::string& name, const std::string& explicitName)
 }
 
 void FileSystem::MountBorrowed(IReadOnlyPackage* package, const std::string& explicitName) {
-  // '$mod' 挂载:仅登记引用(不进 vec_owned_;Unmount 计数归零时也不释放)
-  // The '$mod' mount: registers the reference only (never enters
-  // vec_owned_; Unmount never frees it at zero count either).
+
   const bool alreadyMounted =
       std::find(vec_mounted_.begin(), vec_mounted_.end(), package) != vec_mounted_.end();
   if (!alreadyMounted) {
@@ -134,9 +110,7 @@ void FileSystem::MountBorrowed(IReadOnlyPackage* package, const std::string& exp
     for (const std::string& fn : package->Contents())
       map_fileIndex_[fn].push_back(package);
   } else {
-    // 已挂载:计数 +1 语义(索引中提升优先级,与 Mount(unique_ptr) 一致)
-    // Already mounted: +1 count semantics (priority bump in the index,
-    // identical to Mount(unique_ptr)).
+
     vec_mounted_.push_back(package);
     for (const std::string& fn : package->Contents()) {
       auto& list = map_fileIndex_[fn];
@@ -152,11 +126,7 @@ void FileSystem::Mount(std::unique_ptr<IReadOnlyPackage> package,
   const bool alreadyMounted =
       std::find(vec_mounted_.begin(), vec_mounted_.end(), raw) != vec_mounted_.end();
   if (alreadyMounted) {
-    // 已挂载:计数 +1 并提升文件加载优先级(索引中移到列表尾,
-    // FileSystem.cs L119-129);调用方保留所有权(mod 包不受控,Phase 2)
-    // Already mounted: bump the count and the loading priority (move to the
-    // tail of each index list, FileSystem.cs L119-129); the caller keeps
-    // ownership (mod packages are not owned by us, Phase 2).
+
     package.release();
     for (const std::string& fn : raw->Contents()) {
       auto& list = map_fileIndex_[fn];
@@ -167,8 +137,6 @@ void FileSystem::Mount(std::unique_ptr<IReadOnlyPackage> package,
     return;
   }
 
-  // 首次挂载:接管所有权并登记索引
-  // First mount: take ownership and register in the index.
   vec_owned_.push_back(std::move(package));
   vec_mounted_.push_back(raw);
 
@@ -188,18 +156,10 @@ bool FileSystem::Unmount(const IReadOnlyPackage* package) {
       std::count(vec_mounted_.begin(), vec_mounted_.end(), package));
   vec_mounted_.erase(slot);
   if (mountCount > 1)
-    return true;  // 仅减计数,索引优先级不回落(上游 L166 只减计数)
-                  // Count decremented only; index priority does not fall back
-                  // (upstream L166 only decrements).
+    return true;
 
-  // 最后一次引用:从索引移除、清理显式挂载、释放所有权
-  // Last reference: drop from the index, clear explicit mounts, release
-  // ownership.
   for (auto& [fn, list] : map_fileIndex_)
     list.erase(std::remove(list.begin(), list.end(), package), list.end());
-  // 注:上游 fileIndex 保留空列表(Exists 仍按"曾有键"为真),此处对齐
-  // NB: upstream keeps the empty lists in fileIndex (Exists stays true for a
-  // once-mounted name); we match that.
 
   for (auto it = map_explicitMounts_.begin(); it != map_explicitMounts_.end();)
     it = it->second == package ? map_explicitMounts_.erase(it) : std::next(it);
@@ -209,9 +169,7 @@ bool FileSystem::Unmount(const IReadOnlyPackage* package) {
 }
 
 void FileSystem::UnmountAll() {
-  // 上游对所有非 mod 包 Dispose 后全清(FileSystem.cs L171-182)
-  // Upstream disposes every non-mod package, then clears everything
-  // (FileSystem.cs L171-182).
+
   vec_owned_.clear();
   vec_mounted_.clear();
   map_explicitMounts_.clear();
@@ -262,8 +220,6 @@ bool FileSystem::TryGetPackageContaining(const std::string& path, IReadOnlyPacka
     }
   }
 
-  // Cache 索引语义:缺失键产生空列表,不视为错误
-  // Cache index semantics: a missing key yields an empty list, not an error.
   const auto it = map_fileIndex_.find(path);
   package = nullptr;
   if (it != map_fileIndex_.end())
@@ -274,8 +230,7 @@ bool FileSystem::TryGetPackageContaining(const std::string& path, IReadOnlyPacka
 }
 
 std::optional<std::vector<char>> FileSystem::GetFromCache(const std::string& filename) const {
-  // fileIndex[filename].LastOrDefault(x => x.Contains(filename)) → GetStream
-  // (FileSystem.cs L193-199)
+
   const auto it = map_fileIndex_.find(filename);
   if (it == map_fileIndex_.end())
     return std::nullopt;
@@ -287,8 +242,7 @@ std::optional<std::vector<char>> FileSystem::GetFromCache(const std::string& fil
 }
 
 bool FileSystem::TryOpen(const std::string& filename, std::vector<char>& bytes) const {
-  // 显式前缀("pkg|file")优先
-  // The explicit prefix ("pkg|file") goes first.
+
   const std::size_t explicitSplit = filename.find('|');
   if (explicitSplit != std::string::npos && explicitSplit > 0) {
     const auto it = map_explicitMounts_.find(filename.substr(0, explicitSplit));
@@ -306,17 +260,9 @@ bool FileSystem::TryOpen(const std::string& filename, std::vector<char>& bytes) 
     return true;
   }
 
-  // 文件应在显式包中(但没找到)——不再按文件名回退(文件名含非法 '|';
-  // 上游 TODO 注释保留语义)
-  // The file should live in an explicit package (but wasn't found there) —
-  // do not fall back to the plain filename (it contains the invalid '|';
-  // upstream TODO comment kept).
   if (explicitSplit != std::string::npos)
     return false;
 
-  // 逐包询问(fallback,上游 TODO 后清理时可移除)
-  // Ask each package in mount order (fallback; removable once the upstream
-  // TODO cleanups land).
   IReadOnlyPackage* package =
       LastOrDefault(vec_mounted_, [&](IReadOnlyPackage* p) { return p->Contains(filename); });
   if (package != nullptr) {
@@ -338,15 +284,11 @@ bool FileSystem::Exists(const std::string& filename) const {
       return true;
   }
 
-  // 上游语义:索引中存在键即存在(不复查包的 Contains)
-  // Upstream semantics: presence of the index key (no re-check of Contains).
   return map_fileIndex_.contains(filename);
 }
 
 std::string FileSystem::ResolveCaseInsensitivePath(const std::string& path) {
-  // 逐级在真实目录项中找忽略大小写匹配(过滤 "." 段;相对路径无根 → 空)
-  // Resolve segment by segment against real entries, case-insensitively
-  // (filtering "." segments; a rootless relative path yields empty).
+
   const stdfs::path p{path};
   stdfs::path resolved = p.root_path();
   if (resolved.empty())
@@ -375,4 +317,4 @@ std::string FileSystem::ResolveCaseInsensitivePath(const std::string& path) {
   return resolved.generic_string();
 }
 
-}  // namespace ora::fs
+}

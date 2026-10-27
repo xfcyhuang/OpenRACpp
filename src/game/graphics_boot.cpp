@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Game/Renderer.cs L88-122 + Game.cs L827-829/L901-904
-//          (graphics_boot.hpp 的实现)。
 import std;
 
 #include "game/graphics_boot.hpp"
@@ -16,7 +14,7 @@ std::optional<std::size_t> CachedSlot(const SettingsModule* ptr_module,
   return opt_cache;
 }
 
-}  // namespace
+}
 
 int2 GetGraphicsResolution(int int4_mode, int2 int2_fullscreen_size,
                            int2 int2_windowed_size) {
@@ -138,4 +136,4 @@ GraphicsFramerateFace GraphicsFramerateFromSettings(const Settings& settings) {
   return face_result;
 }
 
-}  // namespace ora::game
+}

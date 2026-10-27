@@ -1,8 +1,3 @@
-// UPSTREAM: OpenRA.Game/GameInformation.cs @1f594e320 L71-121(双节 yaml
-//          序列化全文;FieldLoader/FieldSaver → 按名手写表)
-//          GameInformation.cs L71-121 (the whole two-node yaml
-//          serialization; FieldLoader/FieldSaver → the by-name hand-written
-//          tables).
 import std;
 
 #include "server/game_information.hpp"
@@ -141,7 +136,7 @@ std::optional<GameInformationPlayer> DeserializePlayer(
   return p;
 }
 
-}  // namespace
+}
 
 GameDateTime GameDateTime::UtcNow() {
   const auto now = std::chrono::system_clock::now();
@@ -297,4 +292,4 @@ std::optional<GameInformation> GameInformation::Deserialize(
   return info;
 }
 
-}  // namespace ora::server
+}

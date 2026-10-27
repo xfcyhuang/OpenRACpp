@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWidget.cs @1f594e320(label_widget.hpp
-// 的实现)
-// The implementation of label_widget.hpp.
 import std;
 
 #include "ui/widgets/label_widget.hpp"
@@ -192,4 +189,4 @@ void LabelWidget::DrawInner(const std::string& str_text, gfx::SpriteFont& font_t
     font_text.DrawText(str_text, vec_pos, color_c);
 }
 
-}  // namespace ora::ui
+}

@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.D2k/PackageLoaders/D2kSoundResources.cs @1f594e320
-//          L20-94(全文逐语义)
 #include "fs/d2k_sound_resources.hpp"
 
 #include "formats/span_reader.hpp"
@@ -12,11 +10,7 @@ D2kSoundResources::D2kSoundResources(std::vector<char> vec_bytes, std::string st
 
   const auto uint4_header_length = reader.ReadUInt32();
   while (reader.Position() < static_cast<std::int64_t>(uint4_header_length) + 4) {
-    // ReadASCIIZ + 偏移/长度对(L42-45);Dictionary.Add 的重键抛 = 上游
-    // ArgumentException 等价(仅坏数据可达)。
-    // ReadASCIIZ + the offset/length pair (L42-45); Dictionary.Add's
-    // duplicate-key throw = the upstream ArgumentException equivalent
-    // (reachable only on malformed data).
+
     auto str_name = std::string{};
     while (const auto uint1_c = reader.ReadUInt8())
       str_name.push_back(static_cast<char>(uint1_c));
@@ -41,9 +35,6 @@ std::optional<std::vector<char>> D2kSoundResources::GetStream(
   if (it == map_index_.end())
     return std::nullopt;
 
-  // SegmentStream.CreateWithoutOwningStream(s, offset, length):绝对偏移。
-  // SegmentStream.CreateWithoutOwningStream(s, offset, length): the
-  // absolute offset.
   const auto& entry = it->second;
   if (static_cast<std::int64_t>(entry.uint4_offset) + entry.uint4_length >
       static_cast<std::int64_t>(vec_bytes_.size()))
@@ -58,8 +49,7 @@ bool D2kSoundResources::Contains(const std::string& str_filename) const {
 
 std::unique_ptr<IReadOnlyPackage> D2kSoundResources::OpenPackage(
     [[maybe_unused]] const std::string& str_filename, [[maybe_unused]] FileSystem& context) const {
-  // Not implemented(上游 L65-69 同)
-  // Not implemented (as upstream L65-69).
+
   return nullptr;
 }
 
@@ -79,4 +69,4 @@ bool D2kSoundResourcesLoader::TryParsePackage(std::span<const char> vec_bytes,
   return true;
 }
 
-}  // namespace ora::fs
+}

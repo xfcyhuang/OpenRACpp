@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Cargo.cs + ParaDrop.cs @1f594e320
 #pragma once
 import std;
 
@@ -205,4 +204,4 @@ class ParaDrop final : public TraitBase,
   bool b_check_for_suitable_cell_ = false;
 };
 
-}  // namespace ora::mods
+}

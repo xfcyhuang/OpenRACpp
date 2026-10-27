@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlaceBuilding.cs @1f594e320
-//          (实现部分)+ Traits/Buildings/PlaceBuildingVariants.cs +
-//          Traits/Replacement.cs + Traits/Replaceable.cs
-//          The implementation halves.
 #include "mods/place_building.hpp"
 
 #include "game/actor_info.hpp"
@@ -366,4 +362,4 @@ Replaceable::Replaceable(sim::ActorInitializer& init, ReplaceableInfoData info)
   static_cast<void>(init);
 }
 
-}  // namespace ora::mods
+}

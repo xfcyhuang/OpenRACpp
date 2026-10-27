@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Game/Map/ActorInitializer.cs @1f594e320 L223-262(OwnerInit)
-//          The OwnerInit half of ActorInitializer.cs.
 #include "sim/actor_init.hpp"
 
 #include "sim/world.hpp"
@@ -16,8 +14,7 @@ OwnerInit::OwnerInit(std::string str_internal_name)
       str_internal_name_(std::move(str_internal_name)) {}
 
 Player* OwnerInit::Value(World& world) const {
-  // L239-241:显式 Player 优先;否则按 InternalName 取首个(未命中抛 ——
-  // 上游 First() 的 InvalidOperationException 等价)
+
   if (p_value_ != nullptr)
     return p_value_;
   for (auto* p : world.Players())
@@ -26,8 +23,6 @@ Player* OwnerInit::Value(World& world) const {
   throw std::runtime_error("No player found with internal name '" +
                            str_internal_name_ + "'.");
 }
-
-
 
 InitRegistry& InitRegistry::Instance() {
   static InitRegistry instance;
@@ -46,8 +41,6 @@ ActorInit* InitRegistry::CreateOrThrow(
     if (name == str_init_name)
       return factory(yaml_value, str_instance_name);
 
-  // InvalidDataException 文本逐字(ActorReference.cs L56)
-  // InvalidDataException's text verbatim (ActorReference.cs L56).
   throw std::runtime_error("Unknown initializer type '" + str_init_name +
                            "Init'");
 }
@@ -59,4 +52,4 @@ bool InitRegistry::Contains(std::string_view str_init_name) const {
   return false;
 }
 
-}  // namespace ora::sim
+}

@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/Sound/Sound.cs @1f594e320 L22-34 + OpenRA.Game/
-//          ObjectCreator.cs @1f594e320 L149-156 + 五个 AudioLoaders
-//          (sound_loader.hpp 的实现)
-//          Implementation of sound_loader.hpp.
 import std;
 #include "sound/sound_loader.hpp"
 
@@ -15,9 +11,6 @@ namespace ora::sound {
 
 namespace {
 
-/// 各格式 Info → SoundFormatInfo 的同构转发(字段名一致)。
-/// The isomorphic forwarding of each format's Info → SoundFormatInfo (the
-/// field names match).
 template <class Info>
 bool ForwardParse(bool (*fn_try)(std::span<const std::byte>, Info&, std::vector<std::byte>&),
                   std::span<const std::byte> vec_file, SoundFormatInfo& info_out,
@@ -39,8 +32,7 @@ bool TryParseAudForward(std::span<const std::byte> vec_file, SoundFormatInfo& in
 
 bool TryParseWavForward(std::span<const std::byte> vec_file, SoundFormatInfo& info_out,
                         std::vector<std::byte>& vec_pcm) {
-  // WavInfo.Channels 为 int16(上游 short),单列直转
-  // WavInfo.Channels is an int16 (upstream's short); forwarded directly.
+
   fmt::WavInfo info_concrete{};
   if (!fmt::TryParseWav(vec_file, info_concrete, vec_pcm))
     return false;
@@ -66,7 +58,7 @@ bool TryParseMp3Forward(std::span<const std::byte> vec_file, SoundFormatInfo& in
   return ForwardParse(&fmt::TryParseMp3, vec_file, info_out, vec_pcm);
 }
 
-}  // namespace
+}
 
 std::vector<SoundLoaderFn> MakeSoundLoaders(const std::vector<std::string>& vec_format_names) {
   std::vector<SoundLoaderFn> vec_loaders;
@@ -91,4 +83,4 @@ std::vector<SoundLoaderFn> MakeSoundLoaders(const std::vector<std::string>& vec_
   return vec_loaders;
 }
 
-}  // namespace ora::sound
+}

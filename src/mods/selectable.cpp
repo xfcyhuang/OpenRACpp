@@ -1,21 +1,13 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Selectable.cs @1f594e320 L15-55 +
-//          Interactable.cs L15-105(逐语句重写;机制对照见 selectable.hpp
-//          头注)
-//          Statement-by-statement; the mechanism mapping lives in
-//          selectable.hpp's header note.
 #include "game/actor_info.hpp"
 #include "gfx/world_renderer.hpp"
 #include "mods/selectable.hpp"
 #include "sim/trait_registry.hpp"
 #include "sim/world.hpp"
 
-
 namespace ora::mods {
 
 namespace {
 
-/// ImmutableArray<WDist>/ImmutableArray<int2> 的数组槽读取
-/// The array-slot reads of ImmutableArray<WDist>/ImmutableArray<int2>.
 std::vector<WDist> ParseWDistArray(const meta::RecordObject& rec,
                                    std::string_view str_name) {
   std::vector<WDist> out;
@@ -56,7 +48,7 @@ std::vector<int2> ParseInt2Array(const meta::RecordObject& rec,
   return out;
 }
 
-}  // namespace
+}
 
 InteractableInfoData InteractableInfoData::Parse(
     const meta::RecordObject& rec) {
@@ -85,8 +77,7 @@ SelectableInfoData SelectableInfoData::Parse(
 
 Selectable::Selectable(sim::Actor& self, SelectableInfoData info)
     : Interactable{info.interactable}, info_{std::move(info)} {
-  // L43-51:selectionClass = 空 Class ? actor 名 : Class
-  // L43-51: selectionClass = empty Class ? the actor name : Class.
+
   str_selection_class_ = info_.str_class.empty()
                              ? self.Info()->Name()
                              : info_.str_class;
@@ -94,9 +85,7 @@ Selectable::Selectable(sim::Actor& self, SelectableInfoData info)
 
 Interactable::Interactable(InteractableInfoData info)
     : info_{std::move(info)} {
-  // L46-52:polygon 包围盒居中偏移(-width/2, -height/2)
-  // L46-52: the polygon bounding rect's centering offset (-width/2,
-  // -height/2).
+
   if (!info_.vec_polygon.empty()) {
     int2 lo = info_.vec_polygon.front();
     int2 hi = info_.vec_polygon.front();
@@ -132,7 +121,7 @@ std::vector<int2> Interactable::PolygonBounds(sim::Actor& self,
   const std::int32_t int4_tile_scale = wr.TileScale();
   for (std::size_t i = 0; i < info_.vec_polygon.size(); ++i) {
     const int2 vertex = info_.vec_polygon[i] + int2_polygon_center_offset_;
-    // C# 整除向零截断 | C# integer division truncates towards zero.
+
     const int2 offset{
         vertex.X * tile_size.X / int4_tile_scale,
         vertex.Y * tile_size.Y / int4_tile_scale};
@@ -178,4 +167,4 @@ Rectangle Interactable::DecorationBounds(sim::Actor& self,
       .BoundingRect;
 }
 
-}  // namespace ora::mods
+}

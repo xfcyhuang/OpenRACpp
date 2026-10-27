@@ -1,29 +1,15 @@
-// UPSTREAM: OpenRA.Game/Support/HttpClientFactory.cs @1f594e320 +
-// OpenRA.Game/HttpExtension.cs L18-49 @1f594e320(实现半;契约半见头文件)
-// GET 的分块读复刻 ReadAsStreamWithProgress 的 8192 缓冲;Content-
-// Disposition 的 filename 解析 = .NET ContentDisposition.FileName 的
-// 去引号参数值(参数名大小写不敏感;值两端的成对引号剥除)。
-// The implementation half (the contract half is in the header). The GET's
-// chunked read reproduces ReadAsStreamWithProgress's 8192 buffer; the
-// Content-Disposition filename parse = .NET ContentDisposition.FileName's
-// unquoted parameter value (a case-insensitive parameter name; a paired
-// quoting around the value is stripped).
 #include "net/http_sync.hpp"
 
-// boost 头在 clang 下的 pragma-attribute/nested-anon 告警面(第三方;
-// 告警抑制只包 boost 的 include 区)
-// The boost headers' pragma-attribute/nested-anon warning face under clang
-// (third party; the suppression wraps only the boost include region).
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wpragma-clang-attribute"
 #pragma clang diagnostic ignored "-Wnested-anon-types"
 #endif
-#include <boost/asio/io_context.hpp>  // beast 承载的局部 io_context(白名单头)| the local io_context riding beast (a whitelisted header)
-#include <boost/asio/ip/tcp.hpp>      // 同上 | same as above
-#include <boost/beast/core.hpp>       // 同上 | same as above
-#include <boost/beast/http.hpp>       // HttpClient 的消费点直调(白名单头)| the HttpClient by the direct call (a whitelisted header)
-#include <boost/url.hpp>              // endpoint 的 URI 解析(白名单头)| the endpoint's URI parse (a whitelisted header)
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/url.hpp>
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif
@@ -32,11 +18,6 @@ namespace ora::net {
 
 namespace {
 
-/// .NET ContentDisposition.FileName:filename 参数值(参数名大小写不敏
-/// 感;两端的成对引号剥除;参数缺 = 空串)
-/// .NET ContentDisposition.FileName: the filename parameter's value (a
-/// case-insensitive parameter name; a paired quoting at either end
-/// stripped; an absent parameter = an empty string).
 std::string ParseContentDispositionFilename(std::string_view sv_header) {
   constexpr std::string_view kParam = "filename=";
   for (std::size_t pos = 0; pos + kParam.size() <= sv_header.size();
@@ -101,7 +82,7 @@ ParsedUrl ParseHttpUrl(const std::string& str_url) {
   return out;
 }
 
-}  // namespace
+}
 
 HttpResult HttpGetSync(const std::string& str_url,
                        const HttpProgressFn& fn_progress) {
@@ -149,18 +130,6 @@ HttpResult HttpGetSync(const std::string& str_url,
   if (!sv_disposition.empty())
     result.str_filename = ParseContentDispositionFilename(sv_disposition);
 
-  // ReadAsStreamWithProgress:L18-49 —— total = Content-Length ?? -1;
-  // canReportProgress = total > 0;结尾恒一次 (total, totalRead, 100)。
-  // 进度粒度偏离登记:整体以 http::read 读全(头段已消费的 parser 续
-  // 读),逐块回调承载为读全后的单次 (total, size, 100) —— 上游逐块的
-  // UI 消费随 Phase 6;bytes/百分比终值面与上游一致。
-  // ReadAsStreamWithProgress: L18-49 — total = Content-Length ?? -1;
-  // canReportProgress = total > 0; the final (total, totalRead, 100)
-  // always fires once. Progress-granularity deviation registered: the
-  // message is read whole by http::read (the parser with its header
-  // already consumed continues), and the per-chunk callbacks are carried
-  // as a single post-read (total, size, 100) — the per-chunk UI consumers
-  // ride Phase 6; the bytes/percentage end-value faces match upstream.
   const auto opt_length = parser.content_length();
   const long long int8_total =
       opt_length.has_value()
@@ -229,4 +198,4 @@ bool HttpPostSync(const std::string& str_url, const std::string& str_body,
   return true;
 }
 
-}  // namespace ora::net
+}

@@ -10,4 +10,4 @@ namespace ora {
 void PlayVoiceForOrders(
     std::span<const std::unique_ptr<net::Order>> vec_orders);
 
-}  // namespace ora
+}

@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWithHighlightWidget.cs @1f594e320 L20-86(全文)。
 #pragma once
 import std;
 
@@ -46,4 +45,4 @@ class LabelWithHighlightWidget : public LabelWidget {
   core::CachedTransform<std::string, std::vector<LabelHighlightComponent>> cache_components_;
 };
 
-}  // namespace ora::ui
+}

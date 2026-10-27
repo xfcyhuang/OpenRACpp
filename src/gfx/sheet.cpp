@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/Graphics/Sheet.cs @1f594e320 L19-196 +
-//           OpenRA.Game/Graphics/SheetBuilder.cs @1f594e320 L34-175(实现)
-// Implementations of Sheet/SheetBuilder (headers in sheet.hpp carry the
-// full UPSTREAM anchors and deviation notes).
 #include "gfx/sheet.hpp"
 
 #include <cassert>
@@ -9,8 +5,6 @@
 #include "gfx/gfx_util.hpp"
 
 namespace ora::gfx {
-
-// ———— Sheet ————
 
 Sheet::Sheet(SheetType kind_type, int2 int2_size, RenderThread* ptr_render)
     : ptr_render_{ptr_render}, int2_size_{int2_size}, kind_type_{kind_type} {}
@@ -27,11 +21,7 @@ Sheet::Sheet(SheetType kind_type, Texture& texture_external)
 
 Sheet::Sheet(SheetType kind_type, std::span<const std::byte> vec_png_bytes, RenderThread* ptr_render)
     : ptr_render_{ptr_render}, kind_type_{kind_type} {
-  // Sheet(Stream)(L57-66):Png 解码 → 全幅 data → FastCopyIntoSprite →
-  // ReleaseBuffer。上游注释照抄(仅 ChromeProvider 的 BGRA 面使用)。
-  // Sheet(Stream) (L57-66): Png decode → the full-extent data →
-  // FastCopyIntoSprite → ReleaseBuffer. Upstream comment kept (only
-  // ChromeProvider's BGRA face uses it).
+
   const fmt::Png png_loading{vec_png_bytes};
   int2_size_ = int2{png_loading.Width(), png_loading.Height()};
   opt_data_ = std::vector<std::byte>(4 * static_cast<std::size_t>(int2_size_.X) *
@@ -49,18 +39,17 @@ std::span<std::byte> Sheet::GetData() {
 
 Texture& Sheet::GetTexture() {
   if (ptr_texture_external_ != nullptr)
-    return *ptr_texture_external_;  // 非拥有形态:无惰性建/无脏上传 | the non-owning form: no lazy create, no dirty upload
+    return *ptr_texture_external_;
 
   if (!opt_texture_.has_value()) {
-    assert(ptr_render_ != nullptr);  // 纯数据模式无 GPU 侧 | no GPU side in the data-only mode
+    assert(ptr_render_ != nullptr);
     opt_texture_.emplace(*ptr_render_);
     b_dirty_ = true;
   }
 
   if (opt_data_.has_value() && b_dirty_) {
     const auto& vec_data = *opt_data_;
-    // If size of texture does not match the sheet size, the texture needs
-    // to be initialized. (Sheet.cs L74-79)
+
     if (rect_dirty_region_.has_value() && opt_texture_->Width() == int2_size_.X &&
         opt_texture_->Height() == int2_size_.Y &&
         (rect_dirty_region_->Width != int2_size_.X || rect_dirty_region_->Height != int2_size_.Y)) {
@@ -73,7 +62,7 @@ Texture& Sheet::GetTexture() {
     rect_dirty_region_.reset();
     b_dirty_ = false;
     if (b_release_buffer_on_commit_)
-      opt_data_.reset();  // 上游 data = null | upstream's data = null
+      opt_data_.reset();
   }
 
   return *opt_texture_;
@@ -84,7 +73,7 @@ void Sheet::CreateBuffer() {
     return;
 
   if (opt_texture_.has_value())
-    opt_data_ = opt_texture_->GetData();  // GPU 读回(Sheet.cs L130)| read back (Sheet.cs L130)
+    opt_data_ = opt_texture_->GetData();
   else if (ptr_texture_external_ != nullptr)
     opt_data_ = ptr_texture_external_->GetData();
   else
@@ -115,9 +104,6 @@ void Sheet::ReleaseBuffer() {
   b_dirty_ = true;
   b_release_buffer_on_commit_ = true;
 
-  // Commit data from the buffer to the texture, allowing the buffer to be
-  // released and reclaimed by GC. (Sheet.cs L164-166;上游判 Game.Renderer)
-  // (Sheet.cs L164-166; upstream tests Game.Renderer)
   if (ptr_render_ != nullptr)
     GetTexture();
 }
@@ -126,26 +112,13 @@ bool Sheet::ReleaseBufferAndTryTransferTo(Sheet& sheet_destination) {
   if (!(int2_size_ == sheet_destination.int2_size_))
     throw std::invalid_argument("Destination sheet does not have the same size");
 
-  // 上游先取局部 buffer 引用再 ReleaseBuffer(引用语义);上传后本方 data
-  // 置空、局部引用仍活。此处记录"曾有数据"即可 —— 上游转移出去的内容在
-  // Array.Clear 后同为全零(见函数头注记:重新分配 = 行为等价)。
-  // Upstream grabs the local buffer reference before ReleaseBuffer
-  // (reference semantics); after the commit its own data goes null while
-  // the local reference stays alive. Recording "had data" suffices here —
-  // the transferred content is all-zero after Array.Clear either way (see
-  // the header note: re-allocation is behavior-equivalent).
   const bool b_had_data = opt_data_.has_value();
 
   ReleaseBuffer();
 
-  // We aren't committing data to the GPU, so let's not delete our data.
-  // (Sheet.cs L177-179;上游判 Game.Renderer == null)
-  // (Sheet.cs L177-179; upstream tests Game.Renderer == null)
   if (ptr_render_ == nullptr)
     return false;
 
-  // Only transfer if the destination has no data that would be lost by
-  // overwriting. (Sheet.cs L181-189)
   if (b_had_data && !sheet_destination.opt_data_.has_value() && !sheet_destination.opt_texture_.has_value()) {
     sheet_destination.opt_data_ =
         std::vector<std::byte>(static_cast<std::size_t>(4) * int2_size_.X * int2_size_.Y, std::byte{0});
@@ -155,8 +128,6 @@ bool Sheet::ReleaseBufferAndTryTransferTo(Sheet& sheet_destination) {
 
   return false;
 }
-
-// ———— SheetBuilder ————
 
 std::unique_ptr<Sheet> SheetBuilder::AllocateSheet(SheetType kind_type, std::int32_t int4_sheet_size,
                                                    RenderThread* ptr_render) {
@@ -168,8 +139,6 @@ SheetType SheetBuilder::FrameTypeToSheetType(SpriteFrameType kind_frame_type) {
     case SpriteFrameType::Indexed8:
       return SheetType::Indexed;
 
-    // Util.FastCopyIntoChannel will automatically convert these to BGRA
-    // (SheetBuilder.cs L59-64 上注释)
     case SpriteFrameType::Bgra32:
     case SpriteFrameType::Bgr24:
     case SpriteFrameType::Rgba32:
@@ -197,7 +166,6 @@ Sprite SheetBuilder::Add(std::span<const std::byte> vec_src, SpriteFrameType kin
     ptr_current_ = vec_sheets_.back().get();
   }
 
-  // Don't bother allocating empty sprites (SheetBuilder.cs L94-96)
   if (int2_size.X == 0 || int2_size.Y == 0)
     return Sprite(*ptr_current_, Rectangle::Empty(), 0.0f, v_sprite_offset, kind_current_channel_,
                   BlendMode::Alpha);
@@ -239,9 +207,6 @@ Sprite SheetBuilder::Allocate(int2 int2_image_size, float float_z_ramp, core::Ve
       auto sheet_new = fn_allocate_sheet_();
       ptr_current_ = sheet_new.get();
 
-      // Reuse the backing buffer between sheets where possible.
-      // This avoids allocating additional buffers which the GC must clean
-      // up. (SheetBuilder.cs L147-149)
       ptr_previous->ReleaseBufferAndTryTransferTo(*ptr_current_);
 
       vec_sheets_.push_back(std::move(sheet_new));
@@ -263,4 +228,4 @@ Sprite SheetBuilder::Allocate(int2 int2_image_size, float float_z_ramp, core::Ve
   return sprite_rect;
 }
 
-}  // namespace ora::gfx
+}

@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Air/Aircraft.cs @1f594e320 L26-1381
 #pragma once
 import std;
 
@@ -398,4 +397,4 @@ class Aircraft final : public TraitBase,
   std::vector<std::unique_ptr<sim::IOrderTargeter>> vec_enter_targeters_;
 };
 
-}  // namespace ora::mods
+}

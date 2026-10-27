@@ -1,18 +1,9 @@
-// UPSTREAM: OpenRA.Game/FileSystem/{FileSystem,Folder,ZipFile}.cs @7d57605
-// 文件系统测试:挂载顺序=覆盖优先级、'|' 显式挂载、Folder 读写、zip 只读
-// (miniz,含子目录视图与嵌套 zip)、MiniYaml::Load 端到端。
-// Filesystem tests: mount order as override priority, the '|' explicit mount,
-// Folder read/write, read-only zip via miniz (with the subfolder view and
-// nested zips), and MiniYaml::Load end to end.
-// import std; 门禁:<miniz.h> 为白名单第三方头,其余标准库经 mini_yaml.hpp。
-// import std; gate: <miniz.h> is the whitelisted third-party header; every
-// other standard-library entity comes via mini_yaml.hpp.
 #include <miniz.h>
 
 #include "fs/file_system.hpp"
 #include "fs/folder.hpp"
 #include "yaml/mini_yaml.hpp"
-#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
+#include <cstdio>
 
 namespace {
 
@@ -46,8 +37,6 @@ void CheckEq(const std::string& name, const std::string& actual, const std::stri
 
 std::string Str(std::span<const char> v) { return {v.begin(), v.end()}; }
 
-// 临时工作目录(测试自建自清)
-// Temp working directory (created and cleaned up by the test itself).
 std::filesystem::path MakeTempDir(const std::string& tag) {
   const auto dir = std::filesystem::temp_directory_path() /
                    ("oracpp_fs_test_" + tag + "_" +
@@ -61,8 +50,6 @@ void WriteText(const std::filesystem::path& p, std::string_view text) {
   std::filesystem::create_directories(p.parent_path());
   std::ofstream{p, std::ios::binary | std::ios::trunc} << text;
 }
-
-// ———— Folder:Contents / GetStream / Contains / Update / Delete ————
 
 void TestFolder() {
   const auto dir = MakeTempDir("folder");
@@ -91,8 +78,6 @@ void TestFolder() {
   std::filesystem::remove_all(dir);
 }
 
-// ———— 挂载顺序 = 覆盖优先级(FileSystem.cs L193-199 语义)————
-
 void TestMountOrder() {
   const auto base = MakeTempDir("base");
   const auto over = MakeTempDir("over");
@@ -110,12 +95,9 @@ void TestMountOrder() {
                           !fs.Exists("missing.yaml"),
             "Exists 语义");
 
-  // 卸载覆盖包后回落到基础包
-  // After unmounting the override, lookup falls back to the base package.
   CheckEq("挂载数", std::to_string(fs.MountedPackageNames().size()), "2");
   CheckTrue("Unmount(unknown)=false", !fs.Unmount(nullptr), "未挂载指针应返回 false");
-  // 找到覆盖包指针再卸载
-  // Locate the override package pointer, then unmount it.
+
   IReadOnlyPackage* overPkg = nullptr;
   std::string sub;
   CheckTrue("TryGetPackageContaining", fs.TryGetPackageContaining("a.yaml", overPkg, sub),
@@ -128,8 +110,6 @@ void TestMountOrder() {
   std::filesystem::remove_all(base);
   std::filesystem::remove_all(over);
 }
-
-// ———— '|' 显式挂载(FileSystem.cs L209-222/L224-241)————
 
 void TestExplicitMount() {
   const auto base = MakeTempDir("ebase");
@@ -156,8 +136,6 @@ void TestExplicitMount() {
   std::filesystem::remove_all(over);
 }
 
-// ———— zip:只读包 + 子目录视图 + 嵌套 zip(ZipFile.cs)————
-
 std::vector<char> MakeZip(const std::vector<std::pair<std::string, std::string>>& entries,
                           bool addDirPlaceholder = false) {
   mz_zip_archive zip{};
@@ -177,12 +155,11 @@ std::vector<char> MakeZip(const std::vector<std::pair<std::string, std::string>>
 }
 
 void TestZip() {
-  // 内嵌 zip:独立小档案
-  // Nested zip: a small standalone archive.
+
   const std::vector<char> inner = MakeZip({{"inner.txt", "INNER"}});
   const std::vector<char> outer = MakeZip(
       {{"rules.yaml", "Z"}, {"sub/inner.txt", "SUBTXT"}, {"nested.zip", {inner.begin(), inner.end()}}},
-      /*addDirPlaceholder=*/true);
+      true);
 
   const auto root = MakeTempDir("ziproot");
   const auto zipPath = root / "pack.zip";
@@ -191,11 +168,6 @@ void TestZip() {
     f.write(outer.data(), static_cast<std::streamsize>(outer.size()));
   }
 
-  // 挂载链:先目录后 zip(zip 经 Folder 的 fallback 打开);zip 以显式名
-  // "pack" 挂载,子路径经 "pack|..." 访问(上游 '|' 语义,FileSystem.cs L209)
-  // Mount chain: the directory first, then the zip (opened through the Folder
-  // fallback); the zip is mounted under the explicit name "pack", so children
-  // resolve via "pack|..." (upstream '|' semantics, FileSystem.cs L209).
   FileSystem fs;
   fs.Mount(root.generic_string());
   fs.Mount("pack.zip", "pack");
@@ -204,8 +176,6 @@ void TestZip() {
   CheckEq("zip:子目录文件", Str(fs.Open("sub/inner.txt")), "SUBTXT");
   CheckTrue("zip:Exists", fs.Exists("rules.yaml") && !fs.Exists("nope.txt"), "Exists");
 
-  // 子目录视图(ZipFolder)
-  // The subfolder view (ZipFolder).
   auto subPkg = fs.OpenPackage("pack|sub");
   CheckTrue("ZipFolder 打开", subPkg != nullptr, "sub 应可作为包打开");
   if (subPkg != nullptr) {
@@ -217,8 +187,6 @@ void TestZip() {
             "SUBTXT");
   }
 
-  // 嵌套 zip(经内容嗅探再解析一层)
-  // Nested zip (sniffed and parsed one more level).
   auto nested = fs.OpenPackage("pack|nested.zip");
   CheckTrue("嵌套 zip 打开", nested != nullptr, "nested.zip 应解析为包");
   if (nested != nullptr) {
@@ -231,8 +199,6 @@ void TestZip() {
   std::filesystem::remove_all(root);
 }
 
-// ———— MiniYaml::Load(MiniYaml.cs L684-698)————
-
 void TestYamlLoad() {
   const auto root = MakeTempDir("yamlload");
   WriteText(root / "base.yaml", "^Base:\n\tKey: value\n");
@@ -243,8 +209,7 @@ void TestYamlLoad() {
   fs.Mount(root.generic_string());
 
   StringPool pool;
-  // mapRules.Value 附加文件列表(FieldLoader.ParseArray 语义:逗号+trim+去空)
-  // mapRules.Value adds files (FieldLoader.ParseArray semantics).
+
   const MiniYaml mapRules{pool.Intern("extra.yaml,  ,, extra.yaml"),
                           std::vector<MiniYamlNode>{}};
 
@@ -256,7 +221,7 @@ void TestYamlLoad() {
   std::filesystem::remove_all(root);
 }
 
-}  // namespace
+}
 
 int main() {
   setvbuf(stdout, nullptr, _IONBF, 0);

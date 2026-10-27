@@ -56,4 +56,4 @@ void MouseAttachmentWidget::Reset() {
   str_palette_.clear();
 }
 
-}  // namespace ora::ui
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/PrimaryBuilding.cs @1f594e320
-//          (实现部分)
-//          The implementation half.
 #include "mods/primary_building.hpp"
 
 #include "game/actor_info.hpp"
@@ -126,4 +123,4 @@ void PrimaryBuilding::TraitDisabledHook(sim::Actor& self) {
     SetPrimaryProducer(self, !b_is_primary_);
 }
 
-}  // namespace ora::mods
+}

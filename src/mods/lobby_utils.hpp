@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Lobby/LobbyUtils.cs
-//          @1f594e320 全文(SetupProfileWidget 先于本批承载;本批补齐
-//          其余:下拉族/出生点选择/Setup* widget 族/延迟色面)
-//          The whole file (SetupProfileWidget landed before this batch;
-//          this batch completes the rest: the dropdown family / spawn
-//          selection / the Setup* widget family / the latency colors).
 #pragma once
 import std;
 
@@ -26,7 +20,7 @@ class OrderManager;
 struct SessionClient;
 struct SessionSlot;
 struct Session;
-}  // namespace ora::net
+}
 namespace ora::map {
 class MapPreview;
 }
@@ -38,15 +32,15 @@ class ImageWidget;
 class LabelWidget;
 class MapPreviewWidget;
 class TextFieldWidget;
-}  // namespace ora::ui
+}
 
 namespace ora::mods {
 
 struct LobbyFaction {
   bool Selectable = true;
   std::string Name;
-  std::string Description;  // 空 = C# null | empty = C# null
-  std::string Side;         // 同上 | ditto
+  std::string Description;
+  std::string Side;
 };
 
 void ShowSlotDropDown(ora::ui::DropDownButtonWidget& dropdown,
@@ -206,4 +200,4 @@ void HideReadyWidgets(ora::ui::Widget& parent);
 
 void HideChildWidget(ora::ui::Widget& parent, std::string_view str_widget_id);
 
-}  // namespace ora::mods
+}

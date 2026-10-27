@@ -15,7 +15,7 @@ std::string NormalizeSep(std::string str_path) {
   return str_path;
 }
 
-}  // namespace
+}
 
 MapDirectoryTracker::MapDirectoryTracker(
     const fs::IReadOnlyPackage* ptr_package, MapClassification classification)
@@ -164,4 +164,4 @@ void MapDirectoryTracker::UpdateMaps(MapCache& mapcache) {
   vec_action_queue_.clear();
 }
 
-}  // namespace ora::map
+}

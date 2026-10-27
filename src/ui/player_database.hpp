@@ -40,4 +40,4 @@ class PlayerDatabase {
       map_icon_cache_;
 };
 
-}  // namespace ora::ui
+}

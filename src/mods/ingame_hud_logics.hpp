@@ -1,17 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/ 的 HUD 第一组
-//          @1f594e320:
-//          IngameRadarDisplayLogic.cs L18-52 全文 /
-//          ClassicProductionLogic.cs L13-186 全文 /
-//          ProductionTabsLogic.cs L13-97 全文 /
-//          IngameCashCounterLogic.cs L14-86 全文 /
-//          IngamePowerCounterLogic.cs L14-55 全文 /
-//          IngameSiloBarLogic.cs L14-49 全文 /
-//          GameTimerLogic.cs L14-95 全文。
-//          The HUD group one under Ingame/ @1f594e320: the whole of
-//          IngameRadarDisplayLogic.cs L18-52 / ClassicProductionLogic.cs
-//          L13-186 / ProductionTabsLogic.cs L13-97 / IngameCashCounterLogic.cs
-//          L14-86 / IngamePowerCounterLogic.cs L14-55 / IngameSiloBarLogic.cs
-//          L14-49 / GameTimerLogic.cs L14-95.
 #pragma once
 import std;
 
@@ -43,8 +29,6 @@ class PlayerResources;
 class PowerManager;
 class DeveloperMode;
 
-/// IngameRadarDisplayLogic.cs L18-52
-/// IngameRadarDisplayLogic.cs L18-52.
 class IngameRadarDisplayLogic : public ora::ui::ChromeLogic {
  public:
   IngameRadarDisplayLogic(ora::ui::Widget& widget, sim::World& world);
@@ -55,8 +39,6 @@ class IngameRadarDisplayLogic : public ora::ui::ChromeLogic {
   core::Color color_block_{};
 };
 
-/// ClassicProductionLogic.cs L13-186
-/// ClassicProductionLogic.cs L13-186.
 class ClassicProductionLogic : public ora::ui::ChromeLogic {
  public:
   ClassicProductionLogic(ora::ui::Widget& widget, sim::World& world);
@@ -75,8 +57,6 @@ class ClassicProductionLogic : public ora::ui::ChromeLogic {
   ora::ui::Widget* ptr_background_bottom_ = nullptr;
 };
 
-/// ProductionTabsLogic.cs L13-97
-/// ProductionTabsLogic.cs L13-97.
 class ProductionTabsLogic : public ora::ui::ChromeLogic {
  public:
   ProductionTabsLogic(ora::ui::Widget& widget, sim::World& world);
@@ -92,8 +72,6 @@ class ProductionTabsLogic : public ora::ui::ChromeLogic {
   std::uint64_t uint8_removed_token_ = 0;
 };
 
-/// IngameCashCounterLogic.cs L14-86
-/// IngameCashCounterLogic.cs L14-86.
 class IngameCashCounterLogic : public ora::ui::ChromeLogic {
  public:
   IngameCashCounterLogic(ora::ui::Widget& widget, sim::World& world);
@@ -114,22 +92,16 @@ class IngameCashCounterLogic : public ora::ui::ChromeLogic {
   std::string str_silo_usage_tooltip_;
 };
 
-/// IngamePowerCounterLogic.cs L14-55
-/// IngamePowerCounterLogic.cs L14-55.
 class IngamePowerCounterLogic : public ora::ui::ChromeLogic {
  public:
   IngamePowerCounterLogic(ora::ui::Widget& widget, sim::World& world);
 };
 
-/// IngameSiloBarLogic.cs L14-49
-/// IngameSiloBarLogic.cs L14-49.
 class IngameSiloBarLogic : public ora::ui::ChromeLogic {
  public:
   IngameSiloBarLogic(ora::ui::Widget& widget, sim::World& world);
 };
 
-/// GameTimerLogic.cs L14-95
-/// GameTimerLogic.cs L14-95.
 class GameTimerLogic : public ora::ui::ChromeLogic {
  public:
   GameTimerLogic(ora::ui::Widget& widget, net::OrderManager& order_manager,
@@ -138,4 +110,4 @@ class GameTimerLogic : public ora::ui::ChromeLogic {
 
 void RegisterIngameHudLogics();
 
-}  // namespace ora::mods
+}

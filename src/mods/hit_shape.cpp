@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/HitShape.cs 实现部分
-//          The implementation half.
 #include "mods/hit_shape.hpp"
 
 #include "meta/field_loader.hpp"
@@ -8,8 +6,6 @@
 #include "sim/world.hpp"
 
 namespace ora::mods {
-
-// ———— HitShapeInfoData::Parse(L25-70 的字段面)————
 
 HitShapeInfoData HitShapeInfoData::Parse(const meta::RecordObject& rec_info) {
   HitShapeInfoData data;
@@ -37,17 +33,13 @@ HitShapeInfoData HitShapeInfoData::Parse(const meta::RecordObject& rec_info) {
                        static_cast<int>(tuple->arr_ints[2])});
         }
       } else if (name == "ArmorTypes") {
-        // BitSet 原始位(gen dump 协议)
-        // The BitSet raw bits (the gen dump protocol).
+
         if (auto* n = std::get_if<std::int64_t>(&v.val))
           data.bitset_armor_types =
               core::BitSet<ArmorType>::FromRawBits(
                   static_cast<std::uint64_t>(*n));
       } else if (name == "Type") {
-        // LoadShape 的嵌套记录产物(loaders.cpp 已物化;缺省 =
-        // CircleShape 记录)
-        // LoadShape's nested-record product (materialized by loaders.cpp;
-        // the default = the CircleShape record).
+
         if (auto* rec = std::get_if<std::shared_ptr<meta::RecordObject>>(
                 &v.val)) {
           if (*rec != nullptr)
@@ -57,9 +49,6 @@ HitShapeInfoData HitShapeInfoData::Parse(const meta::RecordObject& rec_info) {
     }
   }
 
-  // LoadShape 缺省 CircleShape(L154-155;空槽 = 上游 shapeNode == null)
-  // LoadShape's CircleShape default (L154-155; an empty slot = upstream's
-  // shapeNode == null).
   if (data.ptr_type == nullptr)
     data.ptr_type = std::make_unique<CircleShape>();
 
@@ -67,37 +56,25 @@ HitShapeInfoData HitShapeInfoData::Parse(const meta::RecordObject& rec_info) {
   return data;
 }
 
-// ———— HitShape(L72-177)————
-
 HitShape::HitShape(ActorInitializer& init, HitShapeInfoData&& info)
     : sim::ConditionalTraitCore<HitShape>(info.conditional),
       info_{std::move(info)} {
-  // L86-90:orientation = self.Trait<BodyOrientation>()
+
   coords_ = init.Self().Trait<BodyOrientation>();
 }
 
 void HitShape::Created(Actor& self) {
-  // L92-98(turret 面:Turreted 未移植 → TraitsImplementing<Turreted>() 空
-  // 集,FirstOrDefault == null —— 上游等价分支;COVERAGE 登记)
-  // L92-98 (the turret face: Turreted unported → the
-  // TraitsImplementing<Turreted>() empty set gives FirstOrDefault == null —
-  // upstream's equivalent branch; registered in COVERAGE).
+
   targetable_cells_ = self.TraitOrDefault<sim::ITargetableCells>();
 
-  // ConditionalTrait.Created
   CoreCreated(self);
 }
 
 std::vector<WPos> HitShape::TargetablePositions(Actor& self) {
-  // L100-122
+
   if (IsTraitDisabled())
     return {};
 
-  // Check for changes in inputs that affect the result of the
-  // TargetablePositions method.(上游注释;缓存键 = 简化三字段,见头注)
-  // Check for changes in inputs that affect the result of the
-  // TargetablePositions method. (the upstream comment; the cache key =
-  // the simplified three fields, see the header).
   CacheKey new_cache_input;
   if (info_.b_use_targetable_cells_offsets && targetable_cells_ != nullptr) {
     new_cache_input.b_has_cells = true;
@@ -120,7 +97,7 @@ std::vector<WPos> HitShape::TargetablePositions(Actor& self) {
 }
 
 std::vector<WPos> HitShape::MaterializeTargetablePositions(Actor& self) {
-  // L124-135
+
   std::vector<WPos> vec_out;
   if (info_.b_use_targetable_cells_offsets && targetable_cells_ != nullptr)
     for (const auto& [cell, sub] : targetable_cells_->TargetableCells())
@@ -134,18 +111,16 @@ std::vector<WPos> HitShape::MaterializeTargetablePositions(Actor& self) {
 }
 
 WVec HitShape::CalculateTargetableOffset(Actor& self, const WVec& offset) {
-  // L137-149(turret 面空集 → 体朝向单段)
-  // L137-149 (the turret-less face → the single body-orientation leg).
+
   const WRot quantized_body_orientation =
       coords_->QuantizeOrientation(self.Orientation());
   return coords_->LocalToWorld(offset.Rotate(quantized_body_orientation));
 }
 
 WDist HitShape::DistanceFromEdge(Actor& self, const WPos& pos) {
-  // L151-156(turret == null → 体原点/体朝向)
-  // L151-156 (turret == null → the body origin/orientation).
+
   return info_.ptr_type->DistanceFromEdge(pos, self.CenterPosition(),
                                           self.Orientation());
 }
 
-}  // namespace ora::mods
+}

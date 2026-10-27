@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/RGBASpriteWidget.cs @1f594e320 L19-39(全文)。
 #pragma once
 import std;
 
@@ -27,4 +26,4 @@ class RGBASpriteWidget : public Widget {
   void Draw() override;
 };
 
-}  // namespace ora::ui
+}

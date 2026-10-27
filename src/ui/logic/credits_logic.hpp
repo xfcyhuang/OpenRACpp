@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/CreditsLogic.cs @1f594e320 L18-97(全文)。
-// 形态适配:上游 Game.Renderer.Fonts 的局部 font 变量在 ctor 中未被消费,
-// 不复刻;DefaultFileSystem(引擎级挂载面)以 ModFiles 代偿(登记 COVERAGE)。
 #pragma once
 import std;
 
@@ -34,4 +31,4 @@ class CreditsLogic : public ChromeLogic {
   std::string str_engine_lines_;
 };
 
-}  // namespace ora::ui
+}

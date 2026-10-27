@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Parachutable.cs @1f594e320
 #include "mods/parachutable.hpp"
 
 #include "map/map.hpp"
@@ -47,7 +46,7 @@ std::vector<std::string> FieldStringArray(const meta::RecordObject& rec_info,
   return vec_out;
 }
 
-}  // namespace
+}
 
 ParachutableInfoData ParachutableInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -149,4 +148,4 @@ void Parachutable::OnLanded(sim::Actor& self) {
   self.Kill(&self, info_.bitset_damage_types);
 }
 
-}  // namespace ora::mods
+}

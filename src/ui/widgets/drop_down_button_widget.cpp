@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/DropDownButtonWidget.cs @1f594e320
-// (drop_down_button_widget.hpp 的实现)
-// The implementation of drop_down_button_widget.hpp.
 import std;
 
 #include "ui/widgets/drop_down_button_widget.hpp"
@@ -118,9 +115,6 @@ void DropDownButtonWidget::AttachPanel(std::unique_ptr<Widget> up_panel,
   ptr_panel_ = up_panel.get();
   TakeKeyboardFocus();
 
-  // Mask to prevent any clicks from being sent to other widgets(上游注释)
-  // Mask to prevent any clicks from being sent to other widgets (the
-  // upstream comment).
   auto up_mask = std::make_unique<MaskWidget>();
   const int2 int2_resolution = Ui::Instance().Resolution();
   up_mask->bounds_widget = WidgetBounds{0, 0, int2_resolution.X, int2_resolution.Y};
@@ -211,9 +205,7 @@ bool MaskWidget::HandleMouseInput(const MouseInput& mi_input) {
     return false;
 
   if (mi_input.Event == MouseInputEvent::Down) {
-    // C# 多播委托的调用列表快照:首个 handler 可经 RemovePanel 销毁本 widget
-    // The C# multicast delegate's invocation-list snapshot: the first handler
-    // may destroy this very widget through RemovePanel.
+
     std::vector<std::function<void(const MouseInput&)>> vec_handlers = vec_on_mouse_down;
     for (const auto& fn_handler : vec_handlers)
       fn_handler(mi_input);
@@ -222,4 +214,4 @@ bool MaskWidget::HandleMouseInput(const MouseInput& mi_input) {
   return true;
 }
 
-}  // namespace ora::ui
+}

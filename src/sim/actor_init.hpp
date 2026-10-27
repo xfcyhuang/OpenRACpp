@@ -1,28 +1,3 @@
-// UPSTREAM: OpenRA.Game/Map/ActorInitializer.cs @1f594e320 L21-262(逐语义重写)
-//          Verbatim-semantics rewrite.
-//
-// 机制对照 / Mechanism mapping:
-//  - IActorInitializer/ActorInitializer:模板查询转发 TypeDictionary;
-//    info.InstanceName 匹配语义(带名 init 优先同名,回落无名;重复取最后
-//    —— LastOrDefault)逐字保留
-//    IActorInitializer/ActorInitializer: template queries forwarding into
-//    the TypeDictionary; the info.InstanceName matching semantics (named
-//    inits prefer the same name, falling back to unnamed ones; duplicates
-//    take the last — LastOrDefault) kept verbatim.
-//  - ValueActorInit<T>.Initialize(yaml) 的反射写字段 → 构造注入
-//    (C++ 侧值不可变;Save/Initialize 面随 Phase 5 地图序列化落地)
-//    The reflection-backed field writes of ValueActorInit<T>.Initialize
-//    (yaml) become constructor injection (values are immutable on the C++
-//    side; the Save/Initialize surface lands with Phase 5 map
-//    serialization).
-//  - 注册面:上游 Add 注册 GetInterfaces()+BaseTypes()(含泛型基类 Type 键);
-//    C++ 侧经 ORA_INIT_TYPE 声明 {接口, 自身}。泛型基类键
-//    (ValueActorInit<T>)无查询使用点,省略 —— COVERAGE 登记
-//    Registration surface: upstream Add registers GetInterfaces() +
-//    BaseTypes() (generic base Type keys included); the C++ side declares
-//    {interfaces, self} via ORA_INIT_TYPE. Generic base keys
-//    (ValueActorInit<T>) have no query sites and are omitted — registered
-//    in COVERAGE.
 #pragma once
 import std;
 
@@ -33,19 +8,11 @@ namespace ora::sim {
 
 class Actor;
 
-/// ActorInitializer.GetOrDefault<T>(L50-63) 的字典直查形(ActorInitializer
-/// 与 ActorPreviewInitializer 共用的过滤体)
-/// The dictionary-direct form of ActorInitializer.GetOrDefault<T> (L50-63;
-/// the shared filter body of ActorInitializer and ActorPreviewInitializer).
 template <class T>
 T* FindInitByInstanceName(TypeDictionary& dict,
                           std::string_view info_instance_name) {
   auto inits = dict.WithInterface<T>();
 
-  // Traits tagged with an instance name prefer inits with the same name.
-  // If a more specific init is not available, fall back to an unnamed init.
-  // If duplicate inits are defined, take the last to match standard yaml
-  // override expectations
   if (!info_instance_name.empty()) {
     T* named = nullptr;
     for (T* i : inits)
@@ -60,7 +27,6 @@ T* FindInitByInstanceName(TypeDictionary& dict,
     return unnamed;
   }
 
-  // Untagged traits will only use untagged inits
   T* unnamed = nullptr;
   for (T* i : inits)
     if (i->InstanceName().empty())
@@ -68,7 +34,6 @@ T* FindInitByInstanceName(TypeDictionary& dict,
   return unnamed;
 }
 
-/// ActorInitializer.cs L37-109
 class ActorInitializer {
  public:
   ActorInitializer(Actor& self, TypeDictionary& dict)
@@ -78,14 +43,11 @@ class ActorInitializer {
   Actor& Self() const { return self_; }
   TypeDictionary& Dict() { return dict_; }
 
-  /// GetOrDefault<T>(L50-63):trait info 的 InstanceName 过滤
-  /// GetOrDefault<T> (L50-63): the InstanceName filter of the trait info.
   template <class T>
   T* GetOrDefault(std::string_view info_instance_name) const {
     return FindInitByInstanceName<T>(dict_, info_instance_name);
   }
 
-  /// Get<T>(L65-72)
   template <class T>
   T* Get(std::string_view info_instance_name) const {
     auto* init = GetOrDefault<T>(info_instance_name);
@@ -98,7 +60,6 @@ class ActorInitializer {
     return init;
   }
 
-  /// GetValue(L74-82)
   template <class T, class U>
   U GetValue(std::string_view info_instance_name) const {
     return Get<T>(info_instance_name)->Value();
@@ -110,14 +71,11 @@ class ActorInitializer {
     return init != nullptr ? init->Value() : fallback;
   }
 
-  /// Contains(L85)
   template <class T>
   bool Contains(std::string_view info_instance_name) const {
     return GetOrDefault<T>(info_instance_name) != nullptr;
   }
 
-  // ———— ISingleInstanceInit 直查族(L87-108)————
-  // ———— The ISingleInstanceInit direct-query family (L87-108) ————
   template <class T>
   T* GetOrDefault() const {
     return dict_.GetOrDefault<T>();
@@ -149,9 +107,6 @@ class ActorInitializer {
   TypeDictionary& dict_;
 };
 
-/// ValueActorInit<T>(ActorInitializer.cs L141-171):不可变值载荷
-/// ValueActorInit<T> (ActorInitializer.cs L141-171): an immutable value
-/// payload.
 template <class T>
 class ValueActorInit : public ActorInit {
  public:
@@ -164,7 +119,6 @@ class ValueActorInit : public ActorInit {
   T value_;
 };
 
-/// LocationInit(ActorInitializer.cs L219-221)
 class LocationInit : public ValueActorInit<CPos>,
                      public ISingleInstanceInit {
  public:
@@ -178,9 +132,6 @@ class LocationInit : public ValueActorInit<CPos>,
   }
 };
 
-/// OwnerInit(ActorInitializer.cs L223-262):Player 或 InternalName 延迟解析
-/// OwnerInit (ActorInitializer.cs L223-262): a Player or a lazily resolved
-/// InternalName.
 class OwnerInit : public ActorInit, public ISingleInstanceInit {
  public:
   ORA_INIT_TYPE(OwnerInit, OpenRA_OwnerInit,
@@ -189,15 +140,10 @@ class OwnerInit : public ActorInit, public ISingleInstanceInit {
   explicit OwnerInit(Player* value);
   explicit OwnerInit(std::string str_internal_name);
 
-  // ActorInit → TraitBase 的纯虚收尾(init 非 trait,注册面为空;
-  // GetTraitTypeId 由 ORA_INIT_TYPE 提供)
   std::span<const ora::sim::TraitUpcastEntry> TraitUpcasts() const override {
     return {};
   }
 
-  /// Value(world)(L239-241):显式 Player 优先,否则按 InternalName 找首个
-  /// Value(world) (L239-241): an explicit Player wins; otherwise the first
-  /// player with the InternalName.
   Player* Value(class World& world) const;
 
   const std::string& InternalName() const { return str_internal_name_; }
@@ -207,11 +153,6 @@ class OwnerInit : public ActorInit, public ISingleInstanceInit {
   std::string str_internal_name_;
 };
 
-// ———— 第三批 init 增补(Mods.Common/ActorInitializer.cs + 引用处定义)————
-// ———— The batch-3 init additions (Mods.Common/ActorInitializer.cs + the
-//      definitions at the use sites) ————
-
-/// FacingInit(ActorInitializer.cs L20)
 class FacingInit : public ValueActorInit<WAngle>,
                    public ISingleInstanceInit {
  public:
@@ -225,7 +166,6 @@ class FacingInit : public ValueActorInit<WAngle>,
   }
 };
 
-/// CreationActivityDelayInit(ActorInitializer.cs L28)
 class CreationActivityDelayInit : public ValueActorInit<int>,
                                  public ISingleInstanceInit {
  public:
@@ -240,9 +180,6 @@ class CreationActivityDelayInit : public ValueActorInit<int>,
   }
 };
 
-/// DynamicFacingInit(ActorInitializer.cs L32;Value = 面向闭包)
-/// DynamicFacingInit (ActorInitializer.cs L32; the Value is a facing
-/// closure).
 class DynamicFacingInit
     : public ValueActorInit<std::function<WAngle()>>,
       public ISingleInstanceInit {
@@ -271,10 +208,6 @@ class TerrainOrientationInit : public ValueActorInit<WRot>,
   }
 };
 
-/// SubCellInit(ActorInitializer.cs L37-58;非 ValueInit —— map.yaml 以数值
-/// 而非枚举名携带)
-/// SubCellInit (ActorInitializer.cs L37-58; not a ValueInit — map.yaml
-/// carries the numeric value, not the enum name).
 class SubCellInit : public ActorInit, public ISingleInstanceInit {
  public:
   ORA_INIT_TYPE(SubCellInit, OpenRA_Mods_Common_SubCellInit,
@@ -293,7 +226,6 @@ class SubCellInit : public ActorInit, public ISingleInstanceInit {
   std::uint8_t uint1_value_;
 };
 
-/// CenterPositionInit(ActorInitializer.cs L61)
 class CenterPositionInit : public ValueActorInit<WPos>,
                            public ISingleInstanceInit {
  public:
@@ -307,9 +239,6 @@ class CenterPositionInit : public ValueActorInit<WPos>,
   }
 };
 
-/// FactionInit(ActorInitializer.cs L66;地图/变身指定 actor 的阵营变体)
-/// FactionInit (ActorInitializer.cs L66; maps/transformations name the
-/// actor's faction variant).
 class FactionInit : public ValueActorInit<std::string>,
                     public ISingleInstanceInit {
  public:
@@ -323,8 +252,6 @@ class FactionInit : public ValueActorInit<std::string>,
   }
 };
 
-/// RallyPointInit(Production.cs L151;CPos[] 集结路径)
-/// RallyPointInit (Production.cs L151; the CPos[] rally path).
 class RallyPointInit : public ValueActorInit<std::vector<CPos>>,
                        public ISingleInstanceInit {
  public:
@@ -338,12 +265,6 @@ class RallyPointInit : public ValueActorInit<std::vector<CPos>>,
   }
 };
 
-/// SpawnedByMapInit(SpawnMapActors.cs L66-71;地图摆位标记 ——
-/// FrozenUnderFog 的 startsRevealed 判据;SpawnMapActors trait 随后批,
-/// 本批为标记承载面)
-/// SpawnedByMapInit (SpawnMapActors.cs L66-71; the map-placement marker —
-/// FrozenUnderFog's startsRevealed predicate; the SpawnMapActors trait
-/// arrives with a later batch, this one carries the marker face).
 class SpawnedByMapInit : public ActorInit,
                          public ISuppressInitExport,
                          public ISingleInstanceInit {
@@ -359,7 +280,6 @@ class SpawnedByMapInit : public ActorInit,
   }
 };
 
-/// EffectiveOwnerInit(ActorInitializer.cs L70)
 class Player;
 
 class EffectiveOwnerInit : public ValueActorInit<Player*>,
@@ -375,9 +295,6 @@ class EffectiveOwnerInit : public ValueActorInit<Player*>,
   }
 };
 
-/// HiddenUnderFogInit(FrozenUnderFog.cs L189;RuntimeFlagInit 标记)
-/// HiddenUnderFogInit (FrozenUnderFog.cs L189; the RuntimeFlagInit
-/// marker).
 class HiddenUnderFogInit : public ActorInit, public ISingleInstanceInit {
  public:
   ORA_INIT_TYPE(HiddenUnderFogInit, OpenRA_Mods_Common_Traits_HiddenUnderFogInit,
@@ -389,8 +306,6 @@ class HiddenUnderFogInit : public ActorInit, public ISingleInstanceInit {
   }
 };
 
-/// HuskSpeedInit(Husk.cs L193;残骸拖尾速度)
-/// HuskSpeedInit (Husk.cs L193; the husk's drag speed).
 class HuskSpeedInit : public ValueActorInit<int>, public ISingleInstanceInit {
  public:
   ORA_INIT_TYPE(HuskSpeedInit, OpenRA_Mods_Common_Traits_HuskSpeedInit,
@@ -403,13 +318,6 @@ class HuskSpeedInit : public ValueActorInit<int>, public ISingleInstanceInit {
   }
 };
 
-// ———— 第六批 init 增补(Turreted.cs L316-332)————
-// ———— The batch-6 init additions (Turreted.cs L316-332) ————
-
-/// TurretFacingInit(Turreted.cs L316-326;info 实例名携带 —— Turreted 的
-/// 按名匹配面)
-/// TurretFacingInit (Turreted.cs L316-326; carries the info instance name —
-/// Turreted's by-name matching face).
 class TurretFacingInit : public ValueActorInit<WAngle> {
  public:
   ORA_INIT_TYPE_SELF_ONLY(TurretFacingInit, OpenRA_Mods_Common_Traits_TurretFacingInit)
@@ -422,9 +330,6 @@ class TurretFacingInit : public ValueActorInit<WAngle> {
   }
 };
 
-/// DynamicTurretFacingInit(Turreted.cs L328-332;Value = 朝向闭包)
-/// DynamicTurretFacingInit (Turreted.cs L328-332; the Value is a facing
-/// closure).
 class DynamicTurretFacingInit
     : public ValueActorInit<std::function<WAngle()>> {
  public:
@@ -440,14 +345,6 @@ class DynamicTurretFacingInit
   }
 };
 
-// ———— 第七批 init 增补(Health/GainsExperience/GrantConditionOnDeploy/
-//      SpawnMapActors 批 + ActorReference.LoadInit 的 from-yaml 注册表)————
-// ———— The batch-7 init additions (the Health/GainsExperience/
-//      GrantConditionOnDeploy/SpawnMapActors batch + ActorReference.
-//      LoadInit's from-yaml registry) ————
-
-/// HealthInit(Health.cs L248-252;地图 yaml 的初始 HP 百分比)
-/// HealthInit (Health.cs L248-252; map yaml's initial-HP percentage).
 class HealthInit : public ValueActorInit<int>, public ISingleInstanceInit {
  public:
   ORA_INIT_TYPE(HealthInit, OpenRA_Mods_Common_Traits_HealthInit,
@@ -460,10 +357,6 @@ class HealthInit : public ValueActorInit<int>, public ISingleInstanceInit {
   }
 };
 
-/// ExperienceInit(GainsExperience.cs L167-171;info 实例名携带 —— 变身/
-/// 桥接时经验续传)
-/// ExperienceInit (GainsExperience.cs L167-171; carries the info instance
-/// name — the experience carry-over across transforms/bridges).
 class ExperienceInit : public ValueActorInit<int> {
  public:
   ORA_INIT_TYPE_SELF_ONLY(ExperienceInit, OpenRA_Mods_Common_Traits_ExperienceInit)
@@ -475,7 +368,6 @@ class ExperienceInit : public ValueActorInit<int> {
   }
 };
 
-/// DeployStateInit(GrantConditionOnDeploy.cs L347-351)
 class DeployStateInit : public ValueActorInit<int>, public ISingleInstanceInit {
  public:
   ORA_INIT_TYPE(DeployStateInit, OpenRA_Mods_Common_Traits_DeployStateInit,
@@ -488,10 +380,6 @@ class DeployStateInit : public ValueActorInit<int>, public ISingleInstanceInit {
   }
 };
 
-/// SkipMakeAnimsInit(SpawnMapActors.cs L64;RuntimeFlagInit —— 地图摆位
-/// 跳过 make 动画)
-/// SkipMakeAnimsInit (SpawnMapActors.cs L64; a RuntimeFlagInit — map
-/// placements skip the make animation).
 class SkipMakeAnimsInit : public ActorInit, public ISingleInstanceInit {
  public:
   ORA_INIT_TYPE(SkipMakeAnimsInit, OpenRA_Mods_Common_Traits_SkipMakeAnimsInit,
@@ -529,15 +417,6 @@ class CargoInit : public ValueActorInit<std::vector<std::string>> {
   }
 };
 
-/// ActorReference.LoadInit(ActorReference.cs L48-62)的 C++ 承载:init 短名
-/// ("Location"/"Owner"/…)→ 工厂(MiniYaml 节点值, instance_name) →
-/// ActorInit*(FrameArena 分配 —— 地图装载的整帧域);未知名 = 上游
-/// "Unknown initializer type '{name}Init'" 文本逐字
-/// The C++ carrier of ActorReference.LoadInit (ActorReference.cs L48-62):
-/// an init short-name ("Location"/"Owner"/…) → factory (the MiniYaml node
-/// value, instance_name) → ActorInit* (allocated in the FrameArena — the
-/// map-load frame domain); an unknown name throws upstream's
-/// "Unknown initializer type '{name}Init'" verbatim.
 class InitRegistry {
  public:
   using InitFactory = std::function<ActorInit*(
@@ -547,9 +426,6 @@ class InitRegistry {
 
   void Register(std::string str_init_name, InitFactory fn_factory);
 
-  /// 未知名抛 InvalidDataException 等价文本(逐字)
-  /// An unknown name throws the InvalidDataException-equivalent text
-  /// (verbatim).
   ActorInit* CreateOrThrow(const std::string& str_init_name,
                            const yaml::MiniYaml& yaml_value,
                            const std::string& str_instance_name) const;
@@ -560,4 +436,4 @@ class InitRegistry {
   std::vector<std::pair<std::string, InitFactory>> vec_entries_;
 };
 
-}  // namespace ora::sim
+}

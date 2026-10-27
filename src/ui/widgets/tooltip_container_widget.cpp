@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/TooltipContainerWidget.cs @1f594e320
-// (tooltip_container_widget.hpp 的实现)
-// The implementation of tooltip_container_widget.hpp.
 import std;
 
 #include "ui/widgets/tooltip_container_widget.hpp"
@@ -16,7 +13,7 @@ bool CursorDoubleOrDefault() {
   return Ui::HasInstance() && Ui::Instance().CursorDouble();
 }
 
-}  // namespace
+}
 
 TooltipContainerWidget::TooltipContainerWidget() {
   fn_is_visible = [this] {
@@ -73,13 +70,9 @@ int2 TooltipContainerWidget::ChildOrigin() const {
   if (ptr_tooltip_ != nullptr && Ui::HasInstance()) {
     const int2 int2_resolution = Ui::Instance().Resolution();
 
-    // If the tooltip overlaps the right edge of the screen, move it left
-    // until it fits
     if (int2_pos.X + ptr_tooltip_->bounds_widget.Right() > int2_resolution.X)
       int2_pos = int2_pos.WithX(int2_resolution.X - ptr_tooltip_->bounds_widget.Right());
 
-    // If the tooltip overlaps the bottom edge of the screen, switch tooltip
-    // above cursor
     if (int2_pos.Y + ptr_tooltip_->bounds_widget.Bottom() > int2_resolution.Y)
       int2_pos = int2_pos.WithY(gfx::Viewport::int2_last_mouse_pos.Y +
                                 int4_scale * int4_bottom_edge_y_offset -
@@ -115,8 +108,7 @@ bool TooltipContainerWidget::LoadFieldOrProperty(std::string_view str_key,
 }
 
 void TooltipContainerWidget::LoadWidgetInner() {
-  // PERF: Only load widget once visible(上游注释)| PERF: only load the
-  // widget once visible (the upstream comment)
+
   if (str_id_.empty() || ptr_tooltip_ != nullptr)
     return;
 
@@ -125,4 +117,4 @@ void TooltipContainerWidget::LoadWidgetInner() {
   ptr_tooltip_ = Ui::Instance().LoadWidget(str_id_, this, std::move(args_widget));
 }
 
-}  // namespace ora::ui
+}

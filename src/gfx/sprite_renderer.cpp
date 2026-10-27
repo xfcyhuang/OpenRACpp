@@ -1,31 +1,16 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteRenderer.cs @1f594e320 L20-305(实现)+
-//           OpenRA.Game/Graphics/RgbaSpriteRenderer.cs @1f594e320 L17-58 +
-//           OpenRA.Game/Graphics/RgbaColorRenderer.cs @1f594e320 L20-256
-// 头文件携带完整 UPSTREAM 锚点与第四批优化挂接说明。
-// Implementations; the header carries the full UPSTREAM anchors and the
-// fourth-batch optimization wiring notes.
 #include "gfx/sprite_renderer.hpp"
 
 #include "gfx/sheet.hpp"
-
 
 namespace ora::gfx {
 
 namespace {
 
-/// SheetIndexToTextureName(SpriteRenderer.cs L38:Exts.MakeArray → "Texture{i}")。
-/// SheetIndexToTextureName (SpriteRenderer.cs L38: Exts.MakeArray →
-/// "Texture{i}").
 constexpr std::array<std::string_view, SpriteRenderer::kSheetCount> kSheetSamplerNames{
     "Texture0", "Texture1", "Texture2", "Texture3", "Texture4", "Texture5", "Texture6", "Texture7"};
 
-constexpr std::uint32_t kUintSize = sizeof(std::uint32_t);  // 上游 UintSize | upstream's UintSize
+constexpr std::uint32_t kUintSize = sizeof(std::uint32_t);
 
-/// 预乘后的颜色 float4(core 无 Vector4;上游 PremultiplyAlpha(color)
-/// .ToVector4(),Color.ToVector4 = (R,G,B,A)/255 的渲染域承载)。
-/// The premultiplied color float4 (core has no Vector4; the render-domain
-/// carrier of upstream's PremultiplyAlpha(color).ToVector4(), where
-/// Color.ToVector4 = (R,G,B,A)/255).
 struct ColorF4 {
   float X, Y, Z, W;
 };
@@ -35,25 +20,15 @@ ColorF4 ColorToVector4(core::Color color_c) {
   return ColorF4{color_pre.R() / 255.0f, color_pre.G() / 255.0f, color_pre.B() / 255.0f, color_pre.A() / 255.0f};
 }
 
-/// 上游 new Vertex(pos, c.X, c.Y, c.Z, c.W, 0):xyz = pos;s..v = 颜色四分量;
-/// c = 0;tint 默认 (1,1,1,1)。
-/// Upstream's new Vertex(pos, c.X, c.Y, c.Z, c.W, 0): xyz = pos; s..v = the
-/// four color components; c = 0; tint defaults to (1,1,1,1).
 Vertex VertexColor(core::Vector3 v_pos, ColorF4 v_color) {
   return Vertex{v_pos.X, v_pos.Y, v_pos.Z, v_color.X, v_color.Y, v_color.Z, v_color.W, 0, 1.0f, 1.0f, 1.0f, 1.0f};
 }
 
-/// 上游 Vector3.AsVector2()(丢弃 z)。
-/// Upstream's Vector3.AsVector2() (drops z).
 core::Vector2 AsVector2(core::Vector3 v) { return {v.X, v.Y}; }
 
-/// 上游 Util.Lerp(float, float, float)(a + (b-a)*t)。
-/// Upstream's Util.Lerp(float, float, float) (a + (b-a)*t).
 float LerpF(float float_a, float float_b, float float_t) { return float_a + (float_b - float_a) * float_t; }
 
-}  // namespace
-
-// ———— SpriteRenderer ————
+}
 
 SpriteRenderer::SpriteRenderer(RenderThread& render, VertexBuffer& vertex_buffer, IndexBuffer& index_buffer,
                                Shader&& shader, IBatchRenderer** ptr_current_batch_slot,
@@ -66,8 +41,6 @@ SpriteRenderer::SpriteRenderer(RenderThread& render, VertexBuffer& vertex_buffer
       int4_temp_vertex_buffer_size_{int4_temp_vertex_buffer_size} {
   vec_vertices_.resize(static_cast<std::size_t>(int4_temp_vertex_buffer_size));
 
-  // uniform 位置一次枚举(OPT-A6:热路径零字符串)。
-  // Uniform locations enumerated once (OPT-A6: zero strings on hot paths).
   int4_loc_palette_rows_ = shader_.Location("PaletteRows");
   int4_loc_depth_tex_scale_ = shader_.Location("DepthTextureScale");
   int4_loc_scroll_ = shader_.Location("Scroll");
@@ -95,20 +68,11 @@ void SpriteRenderer::Flush() {
 
   shader_.PrepareRender();
 
-  // OPT-A5:整批顶点一次进命令 payload,渲染线程等槽 fence 后 memcpy 进
-  // 持久映射区;槽轮换隔开仍在被 GPU 消费的上一批。
-  // OPT-A5: the whole batch rides the command payload once; the render
-  // thread awaits the slot fence and memcpys into the persistent mapping,
-  // with slot rotation spacing out the previous batch still under GPU
-  // consumption.
   const std::uint32_t uint4_slot = vertex_buffer_.AcquireSlot();
   vertex_buffer_.WriteSlot(uint4_slot,
                            std::as_bytes(std::span{vec_vertices_.data(), static_cast<std::size_t>(int4_vertex_count_)}));
   vertex_buffer_.BindVao(shader_, &index_buffer_);
 
-  // PERF: this allows us to batch render sprites with interleaved blend modes
-  // without expensive binding and data writing between draw calls.
-  // (SpriteRenderer.cs L76-77)
   for (const auto& span : tracker_spans_.Spans()) {
     if (span.int4_length <= 0)
       continue;
@@ -129,9 +93,6 @@ void SpriteRenderer::Flush() {
     }
   }
 
-  // 该槽本批全部 DrawElements 已提交,fence 之(下一次复用该槽时等待)。
-  // Every DrawElements of this slot has been posted; fence it (awaited when
-  // the slot is next reused).
   vertex_buffer_.FenceSlot(uint4_slot);
 
   tracker_spans_.Clear();
@@ -146,8 +107,6 @@ int2 SpriteRenderer::SetRenderStateForSprite(const Sprite& sprite_r) {
   if (int4_vertex_count_ + 4 > int4_temp_vertex_buffer_size_)
     Flush();
 
-  // Check if the sheet (or secondary data sheet) have already been mapped
-  // (SpriteRenderer.cs L118-121)
   Sheet* ptr_sheet = sprite_r.ptr_sheet;
   std::int32_t int4_sheet_index = 0;
   for (; int4_sheet_index < int4_sheet_count_; int4_sheet_index++)
@@ -155,28 +114,21 @@ int2 SpriteRenderer::SetRenderStateForSprite(const Sprite& sprite_r) {
       break;
 
   std::int32_t int4_secondary_sheet_index = 0;
-  const bool b_secondary = sprite_r.b_secondary;  // 载荷已在基类 | the payload sits in the base
+  const bool b_secondary = sprite_r.b_secondary;
   if (b_secondary) {
     Sheet* ptr_secondary_sheet = sprite_r.ptr_secondary_sheet;
     for (; int4_secondary_sheet_index < int4_sheet_count_; int4_secondary_sheet_index++)
       if (arr_sheets_[static_cast<std::size_t>(int4_secondary_sheet_index)] == ptr_secondary_sheet)
         break;
 
-    // If neither sheet has been mapped both index values will be set to ns.
-    // This is fine if they both reference the same texture, but if they don't
-    // we must increment the secondary sheet index to the next free sampler.
-    // (SpriteRenderer.cs L134-138)
     if (int4_secondary_sheet_index == int4_sheet_index && ptr_secondary_sheet != ptr_sheet)
       int4_secondary_sheet_index++;
   }
 
-  // Make sure that we have enough free samplers to map both if needed,
-  // otherwise flush (SpriteRenderer.cs L141-147)
   if (std::max(int4_sheet_index, int4_secondary_sheet_index) >= kSheetCount) {
     Flush();
     int4_sheet_index = 0;
-    // 载荷在基类(sprite.hpp 第十四批头注)| the payload sits in the base
-    // (the fourteenth-batch note in sprite.hpp).
+
     int4_secondary_sheet_index =
         sprite_r.b_secondary && sprite_r.ptr_secondary_sheet != ptr_sheet ? 1 : 0;
   }
@@ -198,10 +150,6 @@ std::int32_t SpriteRenderer::ResolveTextureIndex(const Sprite& sprite_r, const P
   if (ptr_palette == nullptr)
     return 0;
 
-  // PERF: Remove useless palette assignments for RGBA sprites
-  // HACK: This is working around the limitation that palettes are defined on
-  // traits rather than on sequences, and can be removed once this has been
-  // fixed (SpriteRenderer.cs L169-172)
   if (sprite_r.kind_channel == TextureChannel::RGBA && !ptr_palette->HasColorShift())
     return 0;
 
@@ -280,11 +228,6 @@ void SpriteRenderer::DrawVertexBuffer(VertexBuffer& vertex_buffer, IndexBuffer& 
   }
   shader_.PrepareRender();
 
-  // 上游 renderer.DrawQuadBatch(buffer, indices, shader, length, UintSize *
-  // start):DrawElements(length 个索引,字节偏移 4*start)(Renderer.cs L372-380)。
-  // Upstream's renderer.DrawQuadBatch(buffer, indices, shader, length,
-  // UintSize * start): DrawElements(length indices at byte offset 4*start)
-  // (Renderer.cs L372-380).
   vertex_buffer.BindVao(shader_, &index_buffer);
   vertex_buffer.DrawElements(static_cast<std::uint32_t>(int4_length), kUintSize * static_cast<std::uint32_t>(int4_start));
 
@@ -316,33 +259,10 @@ void SpriteRenderer::SetPalette(HardwarePalette& palette) {
 
 void SpriteRenderer::SetViewportParams(int2 int2_sheet_size, std::int32_t int4_downscale,
                                        float float_depth_margin, int2 int2_scroll) {
-  // OpenGL only renders x and y coordinates inside [-1, 1] range. We project
-  // world coordinates using p1 to values [0, 2] and then subtract by 1 using
-  // p2, where p stands for projection. It's standard practice for shaders to
-  // use a projection matrix, but as we project orthographically we are able
-  // to send less data to the GPU. (SpriteRenderer.cs L265-271)
+
   const float float_width = 2.0f / (static_cast<float>(int4_downscale) * static_cast<float>(int2_sheet_size.X));
   const float float_height = 2.0f / (static_cast<float>(int4_downscale) * static_cast<float>(int2_sheet_size.Y));
 
-  // * The OpenGL z axis is inverted (negative is closer) relative to OpenRA
-  //   (positive is closer).
-  // * We want to avoid clipping pixels that are behind the nominal z == y
-  //   plane at the top of the map, or above the nominal z == y plane at the
-  //   bottom of the map. We therefore expand the depth range by an extra
-  //   margin that is calculated based on the maximum expected world height
-  //   (see Renderer.InitializeDepthBuffer).
-  // * Sprites can specify an additional per-pixel depth offset map, which is
-  //   applied in the fragment shader. The fragment shader operates in OpenGL
-  //   window coordinates, not NDC, with a depth range [0, 1] corresponding to
-  //   the NDC [-1, 1]. We must therefore multiply the sprite channel value
-  //   [0, 1] by 255 to find the pixel depth offset, then by our depth scale
-  //   to find the equivalent NDC offset, then divide by 2 to find the window
-  //   coordinate offset.
-  // * If depthMargin == 0 (which indicates per-pixel depth testing is
-  //   disabled) sprites that extend beyond the top of bottom edges of the
-  //   screen may be pushed outside [-1, 1] and culled by the GPU. We avoid
-  //   this by forcing everything into the z = 0 plane.
-  // (SpriteRenderer.cs L273-287)
   const float float_depth = float_depth_margin != 0.0f
                                 ? 2.0f / (static_cast<float>(int4_downscale) *
                                           static_cast<float>(int2_sheet_size.Y + static_cast<std::int32_t>(float_depth_margin)))
@@ -363,17 +283,13 @@ void SpriteRenderer::EnablePixelArtScaling(bool b_enabled) {
   shader_.SetBoolAt(int4_loc_enable_pixel_art_scaling_, b_enabled);
 }
 
-// ———— RgbaSpriteRenderer ————
-
 namespace {
-/// Channel != RGBA 的上游抛出文本(RgbaSpriteRenderer.cs L28-29 等)。
-/// The upstream throw text for Channel != RGBA (RgbaSpriteRenderer.cs
-/// L28-29 et al.).
+
 void RequireRgbaChannel(const Sprite& sprite_r) {
   if (sprite_r.kind_channel != TextureChannel::RGBA)
     throw std::runtime_error("DrawRGBASprite requires a RGBA sprite.");
 }
-}  // namespace
+}
 
 void RgbaSpriteRenderer::DrawSprite(const Sprite& sprite_r, core::Vector3 v_location, core::Vector3 v_scale,
                                     float float_rotation) {
@@ -398,9 +314,6 @@ void RgbaSpriteRenderer::DrawSprite(const Sprite& sprite_r, core::Vector3 v_a, c
   RequireRgbaChannel(sprite_r);
   parent_.DrawSprite(sprite_r, 0, v_a, v_b, v_c, v_d, v_tint, float_alpha);
 }
-
-// ———— RgbaColorRenderer(RgbaColorRenderer.cs L20-256 几何逐行)————
-// ———— RgbaColorRenderer (the geometry of RgbaColorRenderer.cs L20-256 line by line) ————
 
 void RgbaColorRenderer::DrawLine(core::Vector3 v_start, core::Vector3 v_end, float float_width,
                                  core::Color color_start, core::Color color_end, BlendMode kind_mode) {
@@ -448,10 +361,6 @@ void RgbaColorRenderer::DrawLine(core::Vector3 v_start, core::Vector3 v_end, flo
   sink_.DrawRGBAQuad(arr_vertices, kind_mode);
 }
 
-/// Calculate the 2D intersection of two lines.
-/// Will behave badly if the lines are parallel.
-/// Z position is the average of a and b (ignores actual intersection point if
-/// it exists). (RgbaColorRenderer.cs L69-82)
 core::Vector3 RgbaColorRenderer::IntersectionOf(core::Vector3 v_a, core::Vector3 v_da, core::Vector3 v_b,
                                                 core::Vector3 v_db) {
   const float float_cross_a = v_a.X * (v_a.Y + v_da.Y) - v_a.Y * (v_a.X + v_da.X);
@@ -477,11 +386,9 @@ void RgbaColorRenderer::DrawConnectedLine(std::span<const core::Vector3> vec_poi
                                           core::Color color_c, bool b_closed, BlendMode kind_mode) {
   static constexpr core::Vector3 kOffset{0.5f, 0.5f, 0.0f};
 
-  // Not a line (RgbaColorRenderer.cs L115-118)
   if (vec_points.size() < 2)
     return;
 
-  // Single segment (L120-124)
   if (vec_points.size() == 2) {
     DrawLine(vec_points[0], vec_points[1], float_width, color_c, kind_mode);
     return;
@@ -495,11 +402,9 @@ void RgbaColorRenderer::DrawConnectedLine(std::span<const core::Vector3> vec_poi
   core::Vector2 v_dir = AsVector2(v_delta) * (1.0f / Length(AsVector2(v_delta)));
   core::Vector3 v_corner = (float_width / 2) * core::Vector3{-v_dir.Y, v_dir.X, v_delta.Z};
 
-  // Corners for start of line segment (L128-131)
   core::Vector3 v_ca = v_start - v_corner;
   core::Vector3 v_cb = v_start + v_corner;
 
-  // Segment is part of closed loop (L133-147)
   if (b_closed) {
     const core::Vector3 v_prev = vec_points.back();
     const core::Vector3 v_prev_delta = v_start - v_prev;
@@ -518,7 +423,6 @@ void RgbaColorRenderer::DrawConnectedLine(std::span<const core::Vector3> vec_poi
     const core::Vector2 v_next_dir = AsVector2(v_next_delta) * (1.0f / Length(AsVector2(v_next_delta)));
     const core::Vector3 v_next_corner = (float_width / 2) * core::Vector3{-v_next_dir.Y, v_next_dir.X, v_next_delta.Z};
 
-    // Vertices for the corners joining start-end to end-next (L157-159)
     const core::Vector3 v_cc =
         b_closed || i < size_limit - 1
             ? IntersectionOf(v_end + v_corner, core::Vector3{v_dir.X, v_dir.Y, 0}, v_end + v_next_corner,
@@ -530,14 +434,12 @@ void RgbaColorRenderer::DrawConnectedLine(std::span<const core::Vector3> vec_poi
                              core::Vector3{v_next_dir.X, v_next_dir.Y, 0})
             : v_end - v_corner;
 
-    // Fill segment (L161-166)
     const std::array<Vertex, 4> arr_vertices{
         VertexColor(v_ca + kOffset, v_color), VertexColor(v_cb + kOffset, v_color),
         VertexColor(v_cc + kOffset, v_color), VertexColor(v_cd + kOffset, v_color),
     };
     sink_.DrawRGBAQuad(arr_vertices, kind_mode);
 
-    // Advance line segment (L168-174)
     v_end = v_next;
     v_dir = v_next_dir;
     v_corner = v_next_corner;
@@ -618,7 +520,7 @@ void RgbaColorRenderer::FillRect(core::Vector3 v_a, core::Vector3 v_b, core::Vec
 
 void RgbaColorRenderer::FillEllipse(core::Vector3 v_tl, core::Vector3 v_br, core::Color color_c,
                                     BlendMode kind_mode) {
-  // TODO: Create an ellipse polygon instead (RgbaColorRenderer.cs L240)
+
   const float float_a = (v_br.X - v_tl.X) / 2;
   const float float_b = (v_br.Y - v_tl.Y) / 2;
   const float float_xc = (v_br.X + v_tl.X) / 2;
@@ -634,4 +536,4 @@ void RgbaColorRenderer::FillEllipse(core::Vector3 v_tl, core::Vector3 v_br, core
   }
 }
 
-}  // namespace ora::gfx
+}

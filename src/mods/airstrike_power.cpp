@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/DirectionalSupportPower.cs
-//          + AirstrikePower.cs + SelectDirectionalTarget.cs @1f594e320
-//          的实现面
 #include "mods/airstrike_power.hpp"
 
 #include "game/actor_info.hpp"
@@ -89,7 +86,7 @@ const game::ActorInfo* FindActorInfo(const sim::World& world,
   return nullptr;
 }
 
-}  // namespace
+}
 
 DirectionalSupportPowerInfoData DirectionalSupportPowerInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -526,4 +523,4 @@ bool SelectDirectionalTarget::IsOutsideDragZone() const {
                    vec2_drag_direction_.Y * vec2_drag_direction_.Y) > 20.0;
 }
 
-}  // namespace ora::mods
+}

@@ -1,21 +1,3 @@
-// 第十五批验收:ActionQueue/WidgetArgs/Mediator/Widget 树/Ui 窗口栈与输入/
-// ChromeMetrics/WidgetLoader 异常矩阵 + Game 主循环骨架(时钟注入下的节拍/
-// JoinLocal/延迟动作/Run 清理)。期望值人工对照上游源码(ActionQueue.cs/
-// Widget.cs/ChromeMetrics.cs/WidgetLoader.cs/Game.cs)。
-// Phase 6 第二批追加:Hotkey/HotkeyManager(ra 真热键表)、SpriteFont(fake
-// 字体的度量/绘制/对比度权图)、Fonts mod 装载、基础 widget 族的 ra 真本体
-// chrome.yaml 装载冒烟(THREEBUTTON_PROMPT/MULTIPLAYER_FILTER_PANEL/
-// LABEL_DROPDOWN_TEMPLATE)+ 按钮三态输入 + ScrollPanel 布局/滚动面。
-// The fifteenth-batch acceptance: ActionQueue/WidgetArgs/Mediator/the Widget
-// tree/the Ui window stack and input/ChromeMetrics/the WidgetLoader
-// exception matrix + the Game main-loop skeleton (pacing under an injected
-// clock/JoinLocal/delayed actions/Run cleanup). Expected values hand-checked
-// against the upstream sources. The Phase 6 batch-two append:
-// Hotkey/HotkeyManager (the real ra hotkey tables), SpriteFont (the fake
-// font's metrics/draw/contrast weight maps), the Fonts mod load, and the
-// base widget family's chrome.yaml load smoke against the real mod
-// (THREEBUTTON_PROMPT/MULTIPLAYER_FILTER_PANEL/LABEL_DROPDOWN_TEMPLATE) +
-// the button input trio + the ScrollPanel layout/scroll faces.
 import std;
 
 #include "core/action_queue.hpp"
@@ -37,7 +19,7 @@ import std;
 
 namespace ora::gen {
 void RegisterGeneratedAll();
-}  // namespace ora::gen
+}
 #include "gfx/sheet.hpp"
 #include "gfx/sprite_font.hpp"
 #include "gfx/viewport.hpp"
@@ -101,7 +83,7 @@ void RegisterGeneratedAll();
 #include "ui/widgets/slider_widget.hpp"
 #include "ui/widgets/text_field_widget.hpp"
 #include "ui/widgets/tooltip_container_widget.hpp"
-#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
+#include <cstdio>
 
 namespace {
 
@@ -129,8 +111,6 @@ void CheckThrow(std::string_view sv_message, Fn&& fn_check) {
 
 struct TestCountNotification {};
 
-// ———— ActionQueue ————
-
 void TestActionQueue() {
   core::ActionQueue queue_actions;
   std::vector<int> vec_ran;
@@ -156,7 +136,6 @@ void TestActionQueue() {
   }
   Check(b_null_threw, "Add(null) 抛出");
 
-  // 执行期重入 Add 不死锁且不入本轮快照(上游锁内切片语义)
   core::ActionQueue queue_reentrant;
   bool b_reentrant_ran = false;
   queue_reentrant.Add(
@@ -166,8 +145,6 @@ void TestActionQueue() {
   queue_reentrant.PerformActions(10);
   Check(b_reentrant_ran, "重入动作下轮执行");
 }
-
-// ———— WidgetArgs ————
 
 void TestWidgetArgs() {
   ui::WidgetArgs args_args;
@@ -203,8 +180,6 @@ void TestWidgetArgs() {
   Check(b_dup_threw, "Add 重复键抛出");
 }
 
-// ———— Mediator ————
-
 class HandlerA final : public ui::NotificationHandlerSet<TestCountNotification> {
  public:
   void Handle(const TestCountNotification&) override { ++int4_count; }
@@ -225,8 +200,6 @@ void TestMediator() {
   mediator_m.Send(TestCountNotification{});
   Check(handler_a1.int4_count == 1 && handler_a2.int4_count == 2, "Unsubscribe 摘除");
 }
-
-// ———— Widget 树(纯逻辑)————
 
 class CapturingWidget final : public ui::Widget {
  public:
@@ -316,8 +289,6 @@ void TestWidgetTree() {
   Check(b_bool_threw, "bool 解析拒绝非字面量");
 }
 
-// ———— Game 主循环骨架(Ui 首次消费,LastTickTime 从 0 起)————
-
 void TestGameLoop() {
   std::int64_t int8_clock = 0;
   game::Game::Deps deps_pacing;
@@ -371,8 +342,6 @@ void TestGameLoop() {
   Check(b_current, "IsCurrentWorld 命中");
 }
 
-// ———— 焦点/悬停/生命周期(Ui 单例)————
-
 void TestWidgetFocusInput() {
   ui::Ui& ui_face = ui::Ui::Instance();
 
@@ -400,7 +369,6 @@ void TestWidgetFocusInput() {
   Check(ui_face.MouseOverWidget() == ptr_child, "Move 悬停落子级");
   Check(ptr_child->int4_mouse_inputs == 1, "子级收到输入");
 
-  // Ui.HandleInput 的 Move 清悬停 + MouseExited 通知(根不含点)
   ui_face.HandleInput(mi_move_in);
   Check(ui_face.MouseOverWidget() == nullptr, "Ui.HandleInput 清悬停");
 
@@ -428,7 +396,6 @@ void TestWidgetFocusInput() {
   Check(ui_face.HandleKeyPress(ki_down) && ptr_other->int4_key_presses == 1,
         "键盘路由焦点 widget");
 
-  // Logic:PostInit 订阅 + TickOuter + Removed 退订
   ui::WidgetArgs args_logic;
   ui::ContainerWidget root_logic;
   root_logic.vec_logic = {"CountingLogic"};
@@ -444,7 +411,6 @@ void TestWidgetFocusInput() {
   ui_face.Send(TestCountNotification{});
   Check(int4_counting_notifications_total == 1, "Removed 退订(计数器断言)");
 
-  // Clone 深拷贝 + InputWidget 的 IsDisabled 读源怪癖
   ui::ContainerWidget widget_source;
   auto up_input = std::make_unique<ui::InputWidget>();
   up_input->str_id = "IN";
@@ -456,8 +422,6 @@ void TestWidgetFocusInput() {
   ptr_input->b_disabled = true;
   Check(ptr_clone_input->fn_is_disabled(), "InputWidget 克隆 IsDisabled 读源(上游怪癖)");
 }
-
-// ———— Ui 窗口栈 ————
 
 int int4_stack_became_hidden = 0;
 int int4_stack_became_visible = 0;
@@ -526,8 +490,6 @@ void TestUiWindowStack() {
         "ResetAll 清空");
 }
 
-// ———— ChromeMetrics ————
-
 void TestChromeMetrics() {
   const auto dir_metrics = std::filesystem::temp_directory_path() / "ora_ui_test_metrics";
   std::filesystem::create_directories(dir_metrics);
@@ -548,8 +510,6 @@ void TestChromeMetrics() {
   Check(!metrics_c.TryGet("nope", str_out) && str_out.empty(), "TryGet 未命中");
   CheckThrow("not present in the dictionary", [&] { (void)metrics_c.Get("nope"); });
 }
-
-// ———— WidgetLoader ————
 
 void WriteLayout(const std::filesystem::path& dir_path, std::string_view sv_name,
                  std::string_view sv_body) {
@@ -625,8 +585,6 @@ void TestWidgetLoader() {
   Check(ptr_multi->str_id == "MULTI", "Id = Split('@')[1]");
 }
 
-// ———— Phase 6 第二批:Hotkey/HotkeyManager ————
-
 void TestHotkey() {
   ui::Hotkey hk_key{};
   Check(ui::Hotkey::TryParse("F5", hk_key) && hk_key.key_kind == Keycode::F5 &&
@@ -640,7 +598,6 @@ void TestHotkey() {
   Check((ui::Hotkey{Keycode::F5, Modifiers::None}).ToString() == "F5 None",
         "Hotkey.ToString");
 
-  // FluentProvider 未初始化 = 键回落(D247 族)
   Check(ui::Hotkey{Keycode::F5, Modifiers::None}.DisplayString() == "keycode.f5",
         "KeycodeExts.DisplayString 键回落");
 
@@ -669,7 +626,6 @@ void TestHotkeyManager(game::ModData& mod_data) {
     return mod_data.ModFiles().Open(str_name);
   };
 
-  // settings 覆盖:Sell = Z → 改设为 X
   std::vector<ui::HotkeyManager::SettingsOverride> vec_overrides{
       {"Sell", "X"}};
   ui::HotkeyManager manager_keys(fn_open, mod_data.ManifestRef().Hotkeys(),
@@ -682,7 +638,6 @@ void TestHotkeyManager(game::ModData& mod_data) {
   input_sell.Key = Keycode::X;
   Check(manager_keys.Get("Sell").IsActivatedBy(input_sell), "settings 覆盖生效");
 
-  // Readonly 定义(chat.yaml 的 ToggleChatMode)Set 无效
   const ui::HotkeyDefinition* ptr_readonly = nullptr;
   for (const auto& [str_name, definition] : manager_keys.Definitions())
     if (definition.b_readonly) {
@@ -699,22 +654,17 @@ void TestHotkeyManager(game::ModData& mod_data) {
           "Readonly Set 跳过");
   }
 
-  // 未知名回落硬编码解析
   KeyInput input_hard{};
   input_hard.Event = KeyInputEvent::Down;
   input_hard.Key = Keycode::Q;
   Check(manager_keys.Get("Q").IsActivatedBy(input_hard), "未知名硬编码回落");
 }
 
-// ———— Phase 6 第二批:SpriteFont(fake 字体)————
-
 class FakeFont final : public platform::IFont {
  public:
   platform::FontGlyph CreateGlyph(std::uint32_t uint4_char_code, int int4_size,
                                   float fp4_device_scale) override {
-    // 确定性度量:宽 2/高 3/advance 4/offset (1,2);数据 = 竖条纹
-    // Deterministic metrics: width 2 / height 3 / advance 4 / offset (1,2);
-    // data = vertical stripes.
+
     platform::FontGlyph glyph_ret;
     glyph_ret.offset = int2{1, 2};
     glyph_ret.int4_width = 2;
@@ -768,13 +718,12 @@ void TestSpriteFont() {
 
   up_font->DrawText("A", core::Vector2{10.0f, 20.0f}, core::Color::FromArgb(255, 255, 255, 255));
   Check(vec_flat_drawn.size() == 1, "DrawText 单字形单投递");
-  // screen = ((int)(10*1+0.5), (int)((20+10)*1+0.5)) = (10, 30);pos = (10+1, 30+2)/1
+
   Check(vec_flat_drawn[0].vec_location.X == 11.0f && vec_flat_drawn[0].vec_location.Y == 32.0f,
         "DrawText 屏幕像素取整 + offset");
   Check(vec_flat_drawn[0].fp4_scale == 1.0f, "DrawText scale = 1/deviceScale");
   Check(vec_flat_drawn[0].u8_first_pixel == 200, "字形位图写入 sheet");
 
-  // 阴影:offset=1 → bg 先绘(位移 1),fg 后绘
   vec_flat_drawn.clear();
   up_font->DrawTextWithShadow("A", core::Vector2{0.0f, 0.0f},
                               core::Color::FromArgb(255, 255, 255, 255),
@@ -783,7 +732,6 @@ void TestSpriteFont() {
   Check(vec_flat_drawn[0].vec_location.X == vec_flat_drawn[1].vec_location.X + 1.0f,
         "阴影位移 1 像素");
 
-  // 对比度:radius 1 → 膨胀字形先绘(半径 1 位移)
   vec_flat_drawn.clear();
   up_font->DrawTextWithContrast("A", core::Vector2{0.0f, 0.0f},
                                 core::Color::FromArgb(255, 255, 255, 255),
@@ -794,16 +742,13 @@ void TestSpriteFont() {
             vec_flat_drawn[0].vec_location.Y == vec_flat_drawn[1].vec_location.Y - 1.0f,
         "对比度位移 (radius, radius)");
 
-  // 角度绘制走四角形态
   up_font->DrawText("A", core::Vector2{5.0f, 5.0f},
                     core::Color::FromArgb(255, 255, 255, 255), 0.0f);
   Check(vec_quad_drawn.size() == 1, "DrawText(angle) 四角投递");
 
-  // SetScale(2):advance 和除以 deviceScale
   up_font->SetScale(2.0f);
   Check(up_font->Measure("AB") == int2{4, 10}, "SetScale 后 Measure 减半");
 
-  // 圆形权图:上游注释样例(r=1 角 0.60 / r=3 首行 0,0.44,0.80,1.00,…)
   const std::vector<float> vec_r1 = gfx::SpriteFont::CreateCircularWeightMap(1);
   Check(std::abs(vec_r1[0] - 0.60f) < 0.02f && std::abs(vec_r1[1] - 1.0f) < 0.001f &&
             std::abs(vec_r1[2] - 0.60f) < 0.02f && std::abs(vec_r1[4] - 1.0f) < 0.001f,
@@ -813,7 +758,6 @@ void TestSpriteFont() {
             std::abs(vec_r3[2] - 0.80f) < 0.02f && std::abs(vec_r3[3] - 1.0f) < 0.001f,
         "权图 r=3 首行");
 
-  // GetContrastColor:白/亮色 → dark,暗色 → light
   Check(gfx::SpriteFont::GetContrastColor(core::Color::FromArgb(255, 255, 255, 255),
                                           core::Color::FromArgb(255, 1, 2, 3),
                                           core::Color::FromArgb(255, 4, 5, 6)) ==
@@ -825,8 +769,6 @@ void TestSpriteFont() {
             core::Color::FromArgb(255, 4, 5, 6),
         "GetContrastColor 暗 → light");
 }
-
-// ———— Phase 6 第二批:Fonts mod 装载 + 基础 widget 族 chrome.yaml 冒烟 ————
 
 void TestFontsModData(game::ModData& mod_data) {
   const game::Fonts& fonts_mod = mod_data.GetOrCreateFonts();
@@ -2387,9 +2329,6 @@ void TestProductionPaletteBatch10() {
     ui::Ui::Instance().Initialize(std::move(deps_batch10));
   }
 
-  // 无世界形态:字段装载 + 滚动算术 + tabs 空组面
-  // The worldless form: the field loading + the scroll arithmetic + the
-  // tabs' empty-group face.
   ui::WidgetArgs args_palette;
   mods::ProductionPaletteWidget widget_palette(args_palette);
   Check(widget_palette.LoadFieldOrProperty("Columns", "5") &&
@@ -2463,9 +2402,6 @@ void TestProductionPaletteBatch10() {
             std::string_view{"ProductionTabsWidget"},
         "p6b10: tabs clone type");
 
-  // ProductionTabGroup 纯逻辑(命名链续接 + 移除)
-  // ProductionTabGroup's pure logic (the naming-chain continuation + the
-  // removal).
   mods::ProductionTabGroup group;
   group.group = "Building";
   mods::ProductionTab tab_keep{.name = "2", .queue = nullptr};
@@ -2655,7 +2591,6 @@ void TestPreviewWidgetsBatch8() {
         (void)loader_terrain8.LoadWidget(args_terrain8, &root_terrain8, "ROOT");
       });
 }
-
 
 void TestChromeWidgetsBatch7(game::ModData& mod_data, ui::ChromeMetrics& metrics_chrome,
                              ui::WidgetLoader& loader_chrome) {
@@ -3026,8 +2961,7 @@ void TestChromeWidgetsBatch7(game::ModData& mod_data, ui::ChromeMetrics& metrics
   chrome_provider7.Deinitialize();
 }
 
-}  // namespace
-
+}
 
 void TestRadarObserversBatch11() {
   using namespace ora;
@@ -3057,9 +2991,6 @@ void TestRadarObserversBatch11() {
     ui::Ui::Instance().Initialize(std::move(deps_batch11));
   }
 
-  // VideoPlayerWidget:字段装载 + 合成 IVideo 的缩放方程
-  // VideoPlayerWidget: field loading + the scale equation on a synthetic
-  // IVideo.
   ui::WidgetArgs args_video;
   mods::VideoPlayerWidget widget_video(args_video);
   Check(widget_video.LoadFieldOrProperty("AspectRatio", "1.5") &&
@@ -3125,9 +3056,6 @@ void TestRadarObserversBatch11() {
   Check(widget_video.Video() == nullptr,
         "p6b11: CloseVideo drops the video");
 
-  // RadarWidget:字段装载面(无世界形态不 Initialize —— sheet 面随世界)
-  // RadarWidget: the field-loading face (no Initialize in the worldless
-  // form — the sheet face rides a world).
   ui::WidgetArgs args_radar;
   mods::RadarWidget widget_radar(args_radar);
   Check(widget_radar.LoadFieldOrProperty("AnimationLength", "7") &&
@@ -3153,9 +3081,6 @@ void TestRadarObserversBatch11() {
   Check(widget_radar_clone->TypeName() == std::string_view{"RadarWidget"},
         "p6b11: Radar clone type");
 
-  // SupportPowersWidget/Timer/Observer 族:字段矩阵 + 空态 no-op
-  // The SupportPowersWidget/Timer/Observer family: the field matrix +
-  // the empty-state no-ops.
   ui::WidgetArgs args_powers;
   mods::SupportPowersWidget widget_powers(args_powers);
   Check(widget_powers.LoadFieldOrProperty("IconSize", "48, 36") &&
@@ -3268,10 +3193,6 @@ int main(int argc, char** argv) {
   TestProductionPaletteBatch10();
   TestRadarObserversBatch11();
 
-  // Phase 6 第二批(mod 根经 argv[1] 注入;缺省跳过 —— 与 platform_test 的
-  // SKIP 门同形)
-  // The Phase 6 batch two (the mod root arrives via argv[1]; skip when
-  // absent — the same shape as platform_test's SKIP gate).
   TestHotkey();
   TestSpriteFont();
   if (argc > 1) {

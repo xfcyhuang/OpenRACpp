@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @1f594e320(dump_format.hpp 的实现;
-//          .NET float/WDist/枚举格式化复刻,见 hpp 头注)
-//          Implementation of dump_format.hpp — the .NET float/WDist/enum
-//          formatting replicas; see the hpp header notes.
 import std;
 #include "meta/dump_format.hpp"
 #include "meta/field_loader.hpp"
@@ -11,8 +7,6 @@ import std;
 
 namespace ora::meta {
 
-/// WDist.ToString()(WDist.cs L110-116):"NcM" 定点形式(|v|=N*1024+M)
-/// WDist.ToString() (WDist.cs L110-116): the "NcM" fixed-point form.
 std::string FormatWDistNet(std::int64_t int8_length) {
   const std::int64_t int8_abs = std::abs(int8_length);
   return std::format("{}{}c{}", int8_length < 0 ? "-" : "", int8_abs / 1024,
@@ -27,8 +21,6 @@ std::string FormatFloatNet(float fp4_v) {
   if (fp4_v == 0.0f)
     return std::signbit(fp4_v) ? "-0" : "0";
 
-  // 最短往返科学形式 "d[.ddd]e±dd" → digits + exp10
-  // The shortest-round-trip scientific form "d[.ddd]e±dd" → digits + exp10.
   char arr_buf[64]{};
   const auto [ptr_end, ec_err] =
       std::to_chars(arr_buf, arr_buf + sizeof arr_buf, fp4_v,
@@ -42,18 +34,16 @@ std::string FormatFloatNet(float fp4_v) {
   }
 
   const std::size_t int4_e = sv_sci.find('e');
-  std::string str_digits;  // 去小数点的数字串 / the digit string without the point
+  std::string str_digits;
   for (const char ch : sv_sci.substr(0, int4_e))
     if (ch != '.')
       str_digits.push_back(ch);
   const std::int32_t int4_exp =
-      std::stoi(std::string{sv_sci.substr(int4_e + 1)});  // 'e' 后 ±dd
-  // 首位有效数字的十进制指数 = e + (digits-1) 形式上即 int4_exp 本身
-  // The decimal exponent of the leading digit is int4_exp itself.
+      std::stoi(std::string{sv_sci.substr(int4_e + 1)});
 
   std::string str_ret;
   if (int4_exp >= -4 && int4_exp <= 6) {
-    // 定点摆位 / fixed-point placement.
+
     if (int4_exp >= 0) {
       if (static_cast<std::size_t>(int4_exp) + 1 >= str_digits.size()) {
         str_ret = str_digits + std::string(
@@ -67,7 +57,7 @@ std::string FormatFloatNet(float fp4_v) {
                 str_digits;
     }
   } else {
-    // 科学记法 "d[.ddd]E±dd" / the scientific form.
+
     str_ret = str_digits.substr(0, 1);
     if (str_digits.size() > 1)
       str_ret += "." + str_digits.substr(1);
@@ -79,10 +69,6 @@ std::string FormatFloatNet(float fp4_v) {
 
 namespace {
 
-/// 排序键(字典输出的稳定序):int64 数值序 < string 字典序;混合不发生
-/// (键类型一致)
-/// Sort key (the stable dictionary order): int64 numeric < string
-/// lexicographic; never mixed (key types are uniform).
 std::string DictSortKeyOf(const GenericValue& val) {
   if (const auto* int8_p = std::get_if<std::int64_t>(&val.val))
     return std::format("{:020d}", *int8_p);
@@ -96,9 +82,6 @@ std::string DictSortKeyOf(const GenericValue& val) {
   return {};
 }
 
-/// 嵌套记录的递归展开("{类型名:{字段=值,…}}";字段 = CollectFields 展开)
-/// Recursive nested-record expansion ("{TypeName:{Field=value,…}}"; fields
-/// via the CollectFields expansion).
 std::string FormatRecord(const RecordObject& rec) {
   const RecordDesc& desc = rec.record_desc();
   const auto* rec_generated = dynamic_cast<const GeneratedRecord*>(&rec);
@@ -121,10 +104,6 @@ std::string FormatRecord(const RecordObject& rec) {
   return str_ret;
 }
 
-/// 元组分量的类型化格式化:WVec/WPos 分量 = WDist("NcM"),其余整型按十进制,
-/// float 分量走 FormatFloatNet
-/// Typed tuple-component formatting: WVec/WPos components = WDist ("NcM"),
-/// other integers in decimal, float components through FormatFloatNet.
 std::string FormatTupleComponents(const GenericTuple& t_v, FieldType type_owner) {
   const bool b_wdist = type_owner == FieldType::WVec || type_owner == FieldType::WPos;
   const bool b_floats =
@@ -145,13 +124,11 @@ std::string FormatTupleComponents(const GenericTuple& t_v, FieldType type_owner)
   return str_ret;
 }
 
-}  // namespace
+}
 
 std::string FormatValue(const FieldDesc& desc, const GenericValue& val) {
   if (val.IsNull()) {
-    // C# null(字符串/表达式/Nullable/引用容器 null)一律 → "(null)"
-    // C# null (strings/expressions/Nullable/null reference containers) —
-    // uniformly "(null)".
+
     return "(null)";
   }
 
@@ -159,17 +136,14 @@ std::string FormatValue(const FieldDesc& desc, const GenericValue& val) {
     case FieldType::Bool:
       return std::get<bool>(val.val) ? "True" : "False";
     case FieldType::WDist:
-      // WDist.ToString()(WDist.cs L110-116)
+
       return FormatWDistNet(std::get<std::int64_t>(val.val));
     case FieldType::Byte:
     case FieldType::UInt16:
     case FieldType::Int16:
     case FieldType::Int32:
     case FieldType::WAngle:
-      // 有符号/无符号宽度差异在合法数据不可见(解析阶段已拒越界);
-      // UInt16 按无符号十进制输出
-      // Width/sign differences are invisible on valid data (parsing rejected
-      // out-of-range); UInt16 prints unsigned decimal.
+
       return std::format("{}", std::get<std::int64_t>(val.val));
     case FieldType::Enum:
       return EnumToStringNet(desc.str_type_name,
@@ -221,9 +195,7 @@ std::string FormatValue(const FieldDesc& desc, const GenericValue& val) {
           std::get<std::vector<GenericValue>>(val.val);
       if (vec_vals.empty())
         return "(empty)";
-      // FrozenSet/HashSet 输出按值排序(枚举序不稳定;见文件头协议)
-      // FrozenSet/HashSet output sorts by value (their enumeration order is
-      // unstable; see the protocol note).
+
       std::vector<std::string> vec_formatted;
       vec_formatted.reserve(vec_vals.size());
       for (const GenericValue& val_e : vec_vals)
@@ -246,8 +218,7 @@ std::string FormatValue(const FieldDesc& desc, const GenericValue& val) {
       const GenericDict& map_vals = std::get<GenericDict>(val.val);
       if (map_vals.empty())
         return "(empty)";
-      // 稳定序:按排序键升序(见文件头)
-      // Stable order: ascending by sort key (see the header note).
+
       std::vector<const std::pair<GenericValue, GenericValue>*> vec_sorted;
       vec_sorted.reserve(map_vals.size());
       for (const auto& pair_kv : map_vals)
@@ -268,22 +239,18 @@ std::string FormatValue(const FieldDesc& desc, const GenericValue& val) {
     }
 
     case FieldType::Nullable:
-      // 非空:按内层格式化 / non-null: format the inner value.
+
       return FormatValue(*desc.elem, val);
 
     case FieldType::Record:
     case FieldType::Opaque: {
-      // Opaque 槽:按实际载荷(loader 写入形态)格式化
-      // Opaque slots: format by the actual payload (the loader-written
-      // shape).
+
       if (const auto* rec_p = std::get_if<std::shared_ptr<RecordObject>>(&val.val))
         return *rec_p != nullptr ? FormatRecord(**rec_p) : "(null)";
       if (const auto* map_p = std::get_if<GenericDict>(&val.val)) {
         if (map_p->empty())
           return "(empty)";
-        // MapSmudge 等 dict 值形态:统一 k=v;排序同上
-        // dict-shaped payloads (MapSmudge etc.): uniform k=v; sorted as
-        // above.
+
         std::vector<const std::pair<GenericValue, GenericValue>*> vec_sorted;
         for (const auto& pair_kv : *map_p)
           vec_sorted.push_back(&pair_kv);
@@ -297,13 +264,7 @@ std::string FormatValue(const FieldDesc& desc, const GenericValue& val) {
           if (!b_first)
             str_ret += ",";
           b_first = false;
-          // 值按实际载荷自识别(dict = MapSmudge 的 {Type,Depth};
-          // tuple = TerrainInfo;rec = 嵌套记录)
-          // Values self-identify by payload (dict = the MapSmudge
-          // {Type,Depth}; tuple = TerrainInfo; rec = nested records).
-          // 键同样自识别(Footprint 键 = CVec 元组,TerrainSpeeds 键 = string)
-          // Keys self-identify too (Footprint keys = CVec tuples,
-          // TerrainSpeeds keys = strings).
+
           const FieldDesc desc_opaque = ElemOf(FieldType::Opaque);
           str_ret += std::format("{}={}", FormatValue(desc_opaque, pair_kv->first),
                                  FormatValue(desc_opaque, pair_kv->second));
@@ -343,4 +304,4 @@ std::string FormatValue(const FieldDesc& desc, const GenericValue& val) {
   std::unreachable();
 }
 
-}  // namespace ora::meta
+}

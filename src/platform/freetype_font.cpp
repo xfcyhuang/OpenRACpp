@@ -1,36 +1,3 @@
-// UPSTREAM: OpenRA.Platforms.Default/FreeTypeFont.cs @1f594e320 L20-143(实现)
-// OPT-B2:真结构体直取(third_party/FreeType/include 官方 2.14.1 头);入口经
-// LoadLibraryA 运行时直连。进程级 FT_Library 一次初始化(上游 static
-// library 字段的等价物)。
-//
-// ABI 校正(随包 freetype6.dll 的实证布局):上游 FreeTypeFont.cs L27-36 的
-// 手算偏移(glyph@152/metrics@48/bitmap@152/bitmap_left@192/bitmap_top@196,
-// 64 位分支)与 LLP64 头(long=4,glyph@120)不符 —— 该 DLL 按 long=8 的
-// LP64 字长编译。真结构体路线下,以 `#define long long long` 宏窗把官方头
-// 的 long 提升为 long long,布局即与 DLL 一致(等价于用与 DLL 同字长的编
-// 译器编这份头),并以 static_assert 锁死上游六个偏移 + FT_Pos==8 —— 偏移
-// 漂移在编译期即炸,上游 HACK 常量由此从"运行期魔法数"变为"编译期契约"。
-// 系统头(stddef/limits/string/stdio/stdlib/setjmp/stdarg)先于宏窗经典引入
-// (include guard 已置),宏窗内只剩 FreeType 自有头。
-// OPT-B2: fields read straight through the real structs (the official 2.14.1
-// headers of third_party/FreeType/include); the entries connect at runtime
-// via LoadLibraryA. The process-wide FT_Library initializes once (the
-// equivalent of upstream's static library field).
-//
-// ABI correction (the bundled freetype6.dll's empirically-observed layout):
-// the hand-computed offsets of upstream FreeTypeFont.cs L27-36 (glyph@152/
-// metrics@48/bitmap@152/bitmap_left@192/bitmap_top@196, the 64-bit branch)
-// do not match the LLP64 headers (long = 4, glyph@120) — the DLL was built
-// with LP64-sized longs (8 bytes). On the real-struct route, a
-// `#define long long long` macro window promotes the official headers' long
-// to long long, aligning the layout with the DLL (equivalent to compiling
-// these headers with the DLL's own long size); static_asserts then pin the
-// six upstream offsets plus FT_Pos == 8 — any layout drift explodes at
-// compile time, turning the upstream HACK constants from runtime magic
-// numbers into a compile-time contract. The system headers (stddef/limits/
-// string/stdio/stdlib/setjmp/stdarg) are classically included before the
-// macro window (their include guards are set), so only FreeType's own
-// headers are seen inside it.
 import std;
 
 #include <csetjmp>
@@ -41,28 +8,23 @@ import std;
 #include <cstring>
 #include <climits>
 
-#define FT_SIZEOF_LONG 8  // LP64 分支(与宏窗一致的预处理判定)| the LP64 branch (the preprocess decision matching the macro window)
-#define long long long  // LP64 字长窗(见上)| the LP64 size window (see above)
+#define FT_SIZEOF_LONG 8
+#define long long long
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #undef long
 
-// 编译期 ABI 契约:与上游 FreeTypeFont.cs L27-36 的手算偏移逐值相等
-// (64 位分支),即随包 freetype6.dll 的实际布局。
-// Compile-time ABI contract: value-for-value equal to the hand-computed
-// offsets of FreeTypeFont.cs L27-36 (the 64-bit branch) — the bundled
-// freetype6.dll's actual layout.
 static_assert(sizeof(FT_Pos) == 8);
-static_assert(offsetof(FT_Glyph_Metrics, width) == 0);       // MetricsWidthOffset
-static_assert(offsetof(FT_Glyph_Metrics, height) == 8);      // MetricsHeightOffset
-static_assert(offsetof(FT_Glyph_Metrics, horiAdvance) == 32);  // MetricsAdvanceOffset
-static_assert(offsetof(FT_Bitmap, pitch) == 8);              // BitmapPitchOffset
-static_assert(offsetof(FT_Bitmap, buffer) == 16);            // BitmapBufferOffset
-static_assert(offsetof(FT_FaceRec, glyph) == 152);           // FaceRecGlyphOffset
-static_assert(offsetof(FT_GlyphSlotRec, metrics) == 48);     // GlyphSlotMetricsOffset
-static_assert(offsetof(FT_GlyphSlotRec, bitmap) == 152);     // GlyphSlotBitmapOffset
-static_assert(offsetof(FT_GlyphSlotRec, bitmap_left) == 192);   // GlyphSlotBitmapLeftOffset
-static_assert(offsetof(FT_GlyphSlotRec, bitmap_top) == 196);    // GlyphSlotBitmapTopOffset
+static_assert(offsetof(FT_Glyph_Metrics, width) == 0);
+static_assert(offsetof(FT_Glyph_Metrics, height) == 8);
+static_assert(offsetof(FT_Glyph_Metrics, horiAdvance) == 32);
+static_assert(offsetof(FT_Bitmap, pitch) == 8);
+static_assert(offsetof(FT_Bitmap, buffer) == 16);
+static_assert(offsetof(FT_FaceRec, glyph) == 152);
+static_assert(offsetof(FT_GlyphSlotRec, metrics) == 48);
+static_assert(offsetof(FT_GlyphSlotRec, bitmap) == 152);
+static_assert(offsetof(FT_GlyphSlotRec, bitmap_left) == 192);
+static_assert(offsetof(FT_GlyphSlotRec, bitmap_top) == 196);
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -74,8 +36,8 @@ namespace ora::platform {
 
 namespace {
 
-HMODULE hmodule_ft_ = nullptr;  // freetype6.dll(进程级)| freetype6.dll (process-lifetime)
-FT_Library ptr_library_ = nullptr;  // 进程级 FT_Library(static library 字段)| the process FT_Library (the static library field)
+HMODULE hmodule_ft_ = nullptr;
+FT_Library ptr_library_ = nullptr;
 
 void* DefaultFreetypeLoad(const char* str_name) {
   if (hmodule_ft_ == nullptr)
@@ -95,10 +57,10 @@ ORA_FT_DECL(FT_Load_Char, FT_Error (*)(FT_Face, FT_ULong, FT_Int32))
 
 #undef ORA_FT_DECL
 
-constexpr FT_Int32 kFtLoadRender = 0x04;  // FT_LOAD_RENDER(FreeTypeFont.cs L25)
-constexpr FT_Error kFtOk = 0;             // FreeTypeFont.cs L24 的 OK
+constexpr FT_Int32 kFtLoadRender = 0x04;
+constexpr FT_Error kFtOk = 0;
 
-}  // namespace
+}
 
 FreetypeLoadResult LoadFreetype(void* (*fn_load)(const char* name)) {
   struct Entry {
@@ -159,16 +121,13 @@ FontGlyph FreeTypeFont::CreateGlyph(std::uint32_t uint4_char_code, int int4_size
   const FT_Face ptr_face = reinterpret_cast<FT_Face>(ptr_face_);
 
   const FT_UInt uint4_scaled_size =
-      static_cast<FT_UInt>(int4_size * fp4_device_scale);  // (uint)(size * deviceScale)
+      static_cast<FT_UInt>(int4_size * fp4_device_scale);
   if (FT_Set_Pixel_Sizes(ptr_face, uint4_scaled_size, uint4_scaled_size) != kFtOk)
     return FontGlyph{};
 
   if (FT_Load_Char(ptr_face, uint4_char_code, kFtLoadRender) != kFtOk)
     return FontGlyph{};
 
-  // 提取关注的字形数据 —— 直接真结构体字段(OPT-B2:上游手算偏移 HACK 删除)
-  // Extract the glyph data we care about — straight real-struct fields
-  // (OPT-B2: upstream's hand-computed-offset HACK deleted).
   const FT_GlyphSlot ptr_glyph = ptr_face->glyph;
 
   const FT_Pos int8_metrics_width = ptr_glyph->metrics.width;
@@ -182,9 +141,6 @@ FontGlyph FreeTypeFont::CreateGlyph(std::uint32_t uint4_char_code, int int4_size
   const int int4_bitmap_left = ptr_glyph->bitmap_left;
   const int int4_bitmap_top = ptr_glyph->bitmap_top;
 
-  // FreeType 的 26.6 定点 → 整数:丢弃小数位(右移)
-  // Convert FreeType's 26.6 fixed point to integers by discarding the
-  // fractional bits (right shift).
   FontGlyph glyph;
   glyph.int4_width = static_cast<std::int32_t>(int8_metrics_width) >> 6;
   glyph.int4_height = static_cast<std::int32_t>(int8_metrics_height) >> 6;
@@ -207,4 +163,4 @@ FontGlyph FreeTypeFont::CreateGlyph(std::uint32_t uint4_char_code, int int4_size
   return glyph;
 }
 
-}  // namespace ora::platform
+}

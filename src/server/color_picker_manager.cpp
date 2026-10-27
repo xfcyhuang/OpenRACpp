@@ -1,8 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/ColorPickerManager.cs
-//          @1f594e320 L66-186(实现体;IsInvalidColor/MakeValid/
-//          RandomPresetColor 的 RNG 消耗序逐字保真)
-//          The implementation body (L66-186; IsInvalidColor/MakeValid/
-//          RandomPresetColor with the RNG consumption order kept verbatim).
 #include "server/color_picker_manager.hpp"
 
 namespace ora::server {
@@ -66,7 +61,7 @@ core::Color MakeValidHsv(const ColorPickerManagerData& data, float fp4_hue,
                                fp4_random_val);
 }
 
-}  // namespace
+}
 
 bool ColorIsInvalid(const ColorPickerManagerData& data, core::Color color,
                     std::span<const core::Color> vec_candidate_blockers) {
@@ -93,9 +88,7 @@ core::Color ColorRandomPresetColor(
     const ColorPickerManagerData& data, MersenneTwister& random,
     std::span<const core::Color> vec_terrain,
     std::span<const core::Color> vec_players) {
-  // Shuffle(Util.cs L149-162)的 Fisher-Yates 惰性枚举:逐位洗牌逐位产出
-  // Shuffle's (Util.cs L149-162) lazy Fisher-Yates: per-position shuffle and
-  // per-position yield.
+
   auto vec_items = data.vec_preset_colors;
   for (std::size_t sz_i = 0; sz_i + 1 < vec_items.size(); sz_i++) {
     const std::size_t sz_j =
@@ -151,4 +144,4 @@ core::Color ColorRandomValidColor(
                       vec_players, nullptr);
 }
 
-}  // namespace ora::server
+}

@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Game/FileFormats/CRC32.cs @1f594e320 L19-133(全文)
-// 查表 CRC32:初始与终结均折叠进 polynomial 参数(Calculate 的
-// poly=0xFFFFFFFF 默认形态即标准 CRC-32;static_assert 以标准测试向量
-// "123456789" → 0xCBF43926 锁表)。Update/Finish 链式形态供 PNG/mix
-// 分段输入。消费方:mix 头、oracle 黄金哈希、Phase 5+ 的资产校验。
-// Table-driven CRC32: the initial state and the final XOR both fold into
-// the polynomial parameter (Calculate with the poly=0xFFFFFFFF default is
-// the standard CRC-32; a static_assert pins the table with the standard
-// test vector "123456789" → 0xCBF43926). The Update/Finish chaining form
-// serves segmented inputs for PNG/mix. Consumers: the mix header, the
-// oracle golden hashes, and Phase 5+ asset validation.
 #pragma once
 import std;
 
@@ -16,8 +5,7 @@ namespace ora::fmt {
 
 class CRC32 {
  public:
-  /// CRC32 查找表(CRC32.cs L23-118,逐值照搬)。
-  /// The CRC32 lookup table (CRC32.cs L23-118, copied value for value).
+
   static constexpr std::array<std::uint32_t, 256> LookUp = {
       0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA, 0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,
       0x0EDB8832, 0x79DCB8A4, 0xE0D5E91E, 0x97D2D988, 0x09B64C2B, 0x7EB17CBD, 0xE7B82D07, 0x90BF1D91,
@@ -53,11 +41,6 @@ class CRC32 {
       0xB3667A2E, 0xC4614AB8, 0x5D681B02, 0x2A6F2B94, 0xB40BBE37, 0xC30C8EA1, 0x5A05DF1B, 0x2D02EF8D,
   };
 
-  /// Calculate(L125-132):初始 crc = polynomial,逐字节查表,终结异或
-  /// polynomial。poly=0xFFFFFFFF 时即标准 CRC-32。
-  /// Calculate (L125-132): crc starts as the polynomial, steps through
-  /// the table per byte, and finally XORs the polynomial back. With
-  /// poly=0xFFFFFFFF this is the standard CRC-32.
   static constexpr std::uint32_t Calculate(std::span<const std::byte> vec_data, std::uint32_t uint4_polynomial) {
     auto uint4_crc = uint4_polynomial;
     for (const auto byte_data : vec_data)
@@ -66,21 +49,14 @@ class CRC32 {
     return uint4_crc;
   }
 
-  /// Calculate(L139-141,默认 polynomial)。
-  /// Calculate (L139-141, the default polynomial).
   static constexpr std::uint32_t Calculate(std::span<const std::byte> vec_data) { return Calculate(vec_data, 0xFFFFFFFF); }
 
-  /// 链式形态(L144-148):接受当前 CRC 状态(无初始/终结折叠)。
-  /// The chaining form (L144-148): accepts the current CRC state (no
-  /// initial/final folding).
   static constexpr std::uint32_t Update(std::uint32_t uint4_crc, std::span<const std::byte> vec_data) {
     for (const auto byte_data : vec_data)
       uint4_crc = (uint4_crc >> 8) ^ LookUp[(uint4_crc & 0xFF) ^ static_cast<std::uint8_t>(byte_data)];
     return uint4_crc;
   }
 
-  /// 标准 PNG 终结(L151):异或 0xFFFFFFFF。
-  /// The standard PNG finalization (L151): XOR 0xFFFFFFFF.
   static constexpr std::uint32_t Finish(std::uint32_t uint4_crc) { return uint4_crc ^ 0xFFFFFFFF; }
 };
 
@@ -90,8 +66,8 @@ static_assert(
       auto arr_check = std::array<std::byte, 9>{};
       for (std::size_t st_i = 0; st_i < 9; st_i++)
         arr_check[st_i] = static_cast<std::byte>(str_check[st_i]);
-      return CRC32::Calculate(arr_check) == 0xCBF43926;  // 标准测试向量 | the standard test vector
+      return CRC32::Calculate(arr_check) == 0xCBF43926;
     }(),
     "CRC32 table must produce the standard check value");
 
-}  // namespace ora::fmt
+}

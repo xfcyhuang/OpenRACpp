@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Game/Fonts.cs @1f594e320(fonts.hpp 的实现)
-// The implementation of fonts.hpp.
 import std;
 
 #include "game/fonts.hpp"
@@ -25,7 +23,7 @@ constexpr meta::RecordDesc kDesc_FontData{
     .interfaces = {},
 };
 
-}  // namespace
+}
 
 const meta::RecordDesc& FontData::record_desc() const { return kDesc_FontData; }
 
@@ -41,4 +39,4 @@ std::vector<std::pair<std::string, FontData>> Fonts::Load(const yaml::MiniYaml& 
   return vec_ret;
 }
 
-}  // namespace ora::game
+}

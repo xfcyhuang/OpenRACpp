@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ServerCreationLogic.cs
-//          @1f594e320 L20-256 全文(NAT 公告三标签方程 + CreateAndJoin 的
-//          设置存盘与 Game.CreateServer/SocketException 10048 分流)。
-//          The whole of ServerCreationLogic.cs L20-256 (the NAT-notice
-//          three-label layout equations + CreateAndJoin's settings save and
-//          the Game.CreateServer/SocketException-10048 split).
 #pragma once
 import std;
 
@@ -62,4 +56,4 @@ class ServerCreationLogic final : public ora::ui::ChromeLogic {
 
 void RegisterServerCreationLogic();
 
-}  // namespace ora::mods
+}

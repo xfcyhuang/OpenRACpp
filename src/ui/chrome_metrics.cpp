@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/Widgets/ChromeMetrics.cs @1f594e320(chrome_metrics.hpp
-// 的实现;Get<T> 的标量域经 meta GetValue,类型名进错误文本)
-// The implementation of chrome_metrics.hpp (Get<T>'s scalar domain through
-// meta GetValue; the type names enter the error texts).
 import std;
 
 #include "ui/chrome_metrics.hpp"
@@ -12,7 +8,7 @@ import std;
 namespace ora::ui {
 
 void ChromeMetrics::Initialize(Deps deps) {
-  yaml::StringPool pool_metrics;  // 上游 stringPool | the upstream stringPool
+  yaml::StringPool pool_metrics;
 
   std::vector<std::vector<yaml::MiniYamlNode>> vec_sources;
   vec_sources.reserve(deps.vec_metric_files->size());
@@ -25,9 +21,7 @@ void ChromeMetrics::Initialize(Deps deps) {
   vec_data_.clear();
   for (const yaml::MiniYamlNode& node_metric : yaml::MiniYaml::Merge(std::move(vec_sources)))
     for (const yaml::MiniYamlNode& node_entry : node_metric.Value.Nodes) {
-      // data[n.Key] = n.Value.Value(索引写覆盖原位,保持首插序)
-      // data[n.Key] = n.Value.Value (an indexer write overwriting in place,
-      // keeping the first-insert order)
+
       const std::string str_key = node_entry.Key != nullptr ? *node_entry.Key : std::string{};
       const std::string str_value = node_entry.Value.Value != nullptr ? *node_entry.Value.Value
                                                                       : std::string{};
@@ -69,8 +63,7 @@ int2 ChromeMetrics::GetInt2(std::string_view str_key) const {
 bool ChromeMetrics::TryGet(std::string_view str_key, std::string& str_result) const {
   const std::string* ptr_value = Find(str_key);
   if (ptr_value == nullptr) {
-    // 上游 default 值面(T = string → 空) | upstream's default face
-    // (T = string → empty).
+
     str_result.clear();
     return false;
   }
@@ -108,4 +101,4 @@ const std::string* ChromeMetrics::Find(std::string_view str_key) const {
   return nullptr;
 }
 
-}  // namespace ora::ui
+}

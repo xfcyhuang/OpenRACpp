@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteCache.cs @1f594e320 L21-183
-//          (sprite_cache.hpp 的实现;头注的形态适配说明适用)
-//          Implementation of sprite_cache.hpp; the shape-adaptation notes of
-//          the hpp header apply.
 import std;
 #include "gfx/sprite_cache.hpp"
 
@@ -44,19 +40,16 @@ void SpriteCache::LoadReservations() {
     const std::string* ptr_filename;
     std::int32_t int4_frame_index;
     bool b_premultiplied;
-    const AdjustFrameFn* ptr_adjust_frame;  // null = 无 | absent
+    const AdjustFrameFn* ptr_adjust_frame;
     const ISpriteFrame* ptr_frame;
     std::vector<Sprite>* ptr_sprites_for_token;
   };
 
   std::vector<PendingResolve> vec_pending_resolve;
-  // 帧引用文件字节 —— 逐文件持有至本函数结束(上游靠 GC;见 sprite_loader.hpp)
-  // Frames reference the file bytes — held per file until this function ends
-  // (upstream leans on the GC; see sprite_loader.hpp).
+
   std::vector<std::pair<std::string, FramesSource>> vec_loaded;
   for (const auto& [str_filename, vec_tokens] : vec_reservations_by_filename_) {
-    // modData.LoadScreen?.Display()(L93)—— Phase 6 进度面 no-op
-    // modData.LoadScreen?.Display() (L93) — the Phase 6 progress face, no-op.
+
     auto opt_loaded_frames = TryGetFrames(file_system_, str_filename, vec_loaders_);
     const FramesSource* ptr_loaded = nullptr;
     if (opt_loaded_frames.has_value()) {
@@ -81,10 +74,7 @@ void SpriteCache::LoadReservations() {
         if (rs.vec_frames.has_value()) {
           for (const std::int32_t int4_f : *rs.vec_frames) {
             if (int4_f >= static_cast<std::int32_t>(vec_loaded_frames.size())) {
-              // "{Location}: {filename} does not contain frames: 1,2"(越界
-              // 帧号列表,逗号连接;L103-105 逐字)
-              // "{Location}: {filename} does not contain frames: 1,2" (the
-              // out-of-range list, comma-joined; L103-105 verbatim).
+
               std::string str_list;
               for (const std::int32_t int4_bad : *rs.vec_frames) {
                 if (int4_bad < static_cast<std::int32_t>(vec_loaded_frames.size()))
@@ -100,8 +90,6 @@ void SpriteCache::LoadReservations() {
           }
         }
 
-        // frames 为 null 时 = 0..len-1 全帧(L107-108)
-        // A null frames list = every frame 0..len-1 (L107-108).
         const std::vector<std::int32_t> vec_all_frames = [&vec_loaded_frames, &rs]() {
           if (rs.vec_frames.has_value())
             return *rs.vec_frames;
@@ -134,29 +122,11 @@ void SpriteCache::LoadReservations() {
   vec_sprite_reservations_.clear();
   vec_reservations_by_filename_.clear();
 
-  // SheetBuilder 加精灵时按行保留最高精灵的高度 —— 同高归拢可改善打包
-  // (上游注释 L133-134 逐句)。OrderBy 稳定排序。
-  // The sheet builder reserves the tallest sprite's height per row —
-  // grouping similar heights packs better (upstream comment L133-134). The
-  // OrderBy is a stable sort.
   std::stable_sort(vec_pending_resolve.begin(), vec_pending_resolve.end(),
                    [](const PendingResolve& pending_a, const PendingResolve& pending_b) {
                      return pending_a.ptr_frame->Size().Y < pending_b.ptr_frame->Size().Y;
                    });
 
-  // (文件名, 帧索引, 预乘, AdjustFrame) 去重 —— 同图的预乘/非预乘两版本
-  // 需各持一份(L145-146 上游注释)。上游为 Dictionary(哈希);C++ 以
-  // unordered_map 承载,键 = 四元组的指针恒等(判定与语义均同上游字典的
-  // 键等值:AdjustFrame 的 C# 委托等值 = 方法+目标,闭包各异时上游同样
-  // 不命中 —— 精灵量面两者一致;复杂度 O(n²) 线性扫描 → O(1))
-  // Deduplicated by (filename, frame index, premultiplied, AdjustFrame) —
-  // the same image in both premultiply flavors needs its own copy (the
-  // L145-146 upstream comment). Upstream is a Dictionary (hashed); C++
-  // carries it in an unordered_map keyed on the four-tuple's pointer
-  // identity (the same key-equality semantics as upstream's dictionary:
-  // AdjustFrame's C# delegate equality is method+target — distinct
-  // closures miss upstream too, so the sprite counts agree; the old linear
-  // scan's O(n²) becomes O(1)).
   struct SpriteCacheKey {
     const std::string* ptr_filename;
     std::int32_t int4_frame_index;
@@ -220,8 +190,7 @@ std::vector<Sprite> SpriteCache::ResolveSprites(std::int32_t int4_token) {
   map_resolved_sprites_.erase(it_resolved);
 
   if (const auto it_missing = map_missing_files_.find(int4_token); it_missing != map_missing_files_.end()) {
-    // FileNotFoundException("{Location}: {Filename} not found", Filename)
-    // FileNotFoundException("{Location}: {Filename} not found", Filename).
+
     throw std::runtime_error(std::format("{}: {} not found",
                                          it_missing->second.second.ToString(),
                                          it_missing->second.first));
@@ -231,8 +200,7 @@ std::vector<Sprite> SpriteCache::ResolveSprites(std::int32_t int4_token) {
 }
 
 std::vector<std::pair<std::string, yaml::SourceLocation>> SpriteCache::MissingFiles() const {
-  // ToHashSet 的元组去重(顺序保持首见)
-  // The tuple dedup of ToHashSet (first-seen order kept).
+
   std::vector<std::pair<std::string, yaml::SourceLocation>> vec_out;
   for (const auto& [int4_token, pair_file] : map_missing_files_) {
     if (std::ranges::find(vec_out, pair_file) == vec_out.end())
@@ -249,4 +217,4 @@ SheetBuilder& SpriteCache::BuilderOf(SheetType kind_type) {
   return kind_type == SheetType::Indexed ? builder_indexed_ : builder_bgra_;
 }
 
-}  // namespace ora::gfx
+}

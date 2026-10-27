@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/ModData.cs @1f594e320 L111 + OpenRA.Game/ObjectCreator.cs
-//          @1f594e320 L149-156(sequence_loader_factory.hpp 的实现)
-//          Implementation of sequence_loader_factory.hpp.
 import std;
 #include "mods/sequence_loader_factory.hpp"
 
@@ -13,9 +10,7 @@ import std;
 namespace ora::mods {
 
 std::unique_ptr<gfx::ISpriteSequenceLoader> MakeSequenceLoader(const std::string& str_format) {
-  // FindType(format + "Loader") 的已知集(mods 全部 SpriteSequenceFormat 值)
-  // The known set of FindType(format + "Loader") (every mods
-  // SpriteSequenceFormat value).
+
   if (str_format == "DefaultSpriteSequence")
     return std::make_unique<DefaultSpriteSequenceLoader>();
   if (str_format == "TilesetSpecificSpriteSequence")
@@ -31,4 +26,4 @@ std::unique_ptr<gfx::ISpriteSequenceLoader> MakeSequenceLoader(const std::string
       std::format("Unable to find a sequence loader for type '{}'.", str_format));
 }
 
-}  // namespace ora::mods
+}

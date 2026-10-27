@@ -355,7 +355,7 @@ yaml::MiniYamlNode SerializeGlobal(yaml::StringPool& pool,
                             yaml::MiniYaml{nullptr, std::move(nodes)}};
 }
 
-}  // namespace
+}
 
 Session Session::Deserialize(std::string_view str_data,
                              std::string_view str_name) {
@@ -497,4 +497,4 @@ yaml::MiniYamlNode SerializeSessionGlobalSettings(
   return SerializeGlobal(pool, g);
 }
 
-}  // namespace ora::net
+}

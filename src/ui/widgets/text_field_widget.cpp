@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/TextFieldWidget.cs @1f594e320
-// (text_field_widget.hpp 的实现)
-// The implementation of text_field_widget.hpp.
 import std;
 
 #include "ui/widgets/text_field_widget.hpp"
@@ -18,13 +15,6 @@ import std;
 namespace ora::ui {
 namespace {
 
-/// Path.GetInvalidFileNameChars 的 Windows 域 41 字符(0x00-0x1F 控制位 +
-/// 九个标点;多字节 UTF-8 序列的字节均 ≥0x80,永不命中 —— 字节域过滤 =
-/// 码点域过滤)
-/// Path.GetInvalidFileNameChars' 41-character Windows set (the 0x00-0x1F
-/// control range + the nine punctuation; a multibyte UTF-8 sequence's bytes
-/// are all >= 0x80 and never hit — a byte-domain filter equals the
-/// code-point-domain filter).
 bool IsInvalidFilenameChar(char chr_value) {
   const unsigned char uint1_c{static_cast<unsigned char>(chr_value)};
   return uint1_c < 0x20 || uint1_c == '"' || uint1_c == '<' || uint1_c == '>' ||
@@ -36,7 +26,7 @@ int ClampInt(int int4_v, int int4_lo, int int4_hi) {
   return std::max(int4_lo, std::min(int4_v, int4_hi));
 }
 
-}  // namespace
+}
 
 TextFieldWidget::TextFieldWidget() {
   ChromeMetrics& metrics = RequireChromeMetrics();
@@ -74,7 +64,6 @@ void TextFieldWidget::SetText(std::string str_value) {
 void TextFieldWidget::SetType(TextFieldType kind_value) {
   kind_type_ = kind_value;
 
-  // Revalidate text(上游注释)| Revalidate the text (the upstream comment).
   str_text_ = RemoveInvalidCharacters(str_text_);
   int4_cursor_position =
       ClampInt(int4_cursor_position, 0, static_cast<int>(str_text_.size()));
@@ -103,7 +92,6 @@ bool TextFieldWidget::HandleMouseInput(const MouseInput& mi_input) {
   } else if (mi_input.Event != MouseInputEvent::Down)
     return false;
 
-  // Attempt to take keyboard focus(上游注释)| the upstream comment.
   if (!RenderBounds().Contains(mi_input.Location) || !TakeKeyboardFocus())
     return false;
 
@@ -183,9 +171,7 @@ std::string TextFieldWidget::RemoveInvalidCharacters(std::string_view str_input)
     }
 
     case TextFieldType::Integer: {
-      // char.IsDigit 域:多字节序列字节 ≥0x80 永非 ASCII 数字(等价过滤)
-      // The char.IsDigit domain: multibyte bytes are >= 0x80, never ASCII
-      // digits (the equivalent filter).
+
       std::string str_ret;
       str_ret.reserve(str_input.size());
       for (const char chr_c : str_input)
@@ -203,7 +189,6 @@ bool TextFieldWidget::HandleKeyPress(const KeyInput& e_input) {
   if (fn_is_disabled() || e_input.Event == KeyInputEvent::Up)
     return false;
 
-  // Only take input if we are focused(上游注释)| the upstream comment.
   if (!HasKeyboardFocus())
     return false;
 
@@ -308,8 +293,7 @@ bool TextFieldWidget::HandleKeyPress(const KeyInput& e_input) {
     case Keycode::D:
       if (HasModifier(e_input.ModifierFlags, Modifiers::Ctrl) &&
           int4_cursor_position < static_cast<int>(str_text_.size())) {
-        // Write directly to the Text backing field to avoid unnecessary
-        // validation(上游注释)| the upstream comment.
+
         str_text_.erase(int4_cursor_position, 1);
         int4_cursor_position =
             ClampInt(int4_cursor_position, 0, static_cast<int>(str_text_.size()));
@@ -320,13 +304,11 @@ bool TextFieldWidget::HandleKeyPress(const KeyInput& e_input) {
       break;
 
     case Keycode::K:
-      // ctrl+k is equivalent to cmd+delete on osx (but also works on osx)
-      // (上游注释)| the upstream comment.
+
       ResetBlinkCycle();
       if (HasModifier(e_input.ModifierFlags, Modifiers::Ctrl) &&
           int4_cursor_position < static_cast<int>(str_text_.size())) {
-        // Write directly to the Text backing field to avoid unnecessary
-        // validation(上游注释)| the upstream comment.
+
         str_text_ = str_text_.substr(0, int4_cursor_position);
         int4_cursor_position =
             ClampInt(int4_cursor_position, 0, static_cast<int>(str_text_.size()));
@@ -337,13 +319,11 @@ bool TextFieldWidget::HandleKeyPress(const KeyInput& e_input) {
       break;
 
     case Keycode::U:
-      // ctrl+u is equivalent to cmd+backspace on osx(上游注释)| the
-      // upstream comment.
+
       ResetBlinkCycle();
       if (!b_is_osx && HasModifier(e_input.ModifierFlags, Modifiers::Ctrl) &&
           int4_cursor_position > 0) {
-        // Write directly to the Text backing field to avoid unnecessary
-        // validation(上游注释)| the upstream comment.
+
         str_text_ = str_text_.substr(int4_cursor_position);
         int4_cursor_position = 0;
         ClearSelection();
@@ -385,14 +365,12 @@ bool TextFieldWidget::HandleKeyPress(const KeyInput& e_input) {
       break;
 
     case Keycode::DELETE:
-      // cmd+delete is equivalent to ctrl+k on non-osx(上游注释)| the
-      // upstream comment.
+
       ResetBlinkCycle();
       if (int4_selection_start_index_ != -1)
         RemoveSelectedText();
       else if (int4_cursor_position < static_cast<int>(str_text_.size())) {
-        // Write directly to the Text backing field to avoid unnecessary
-        // validation(上游注释)| the upstream comment.
+
         if ((!b_is_osx && HasModifier(e_input.ModifierFlags, Modifiers::Ctrl)) ||
             (b_is_osx && HasModifier(e_input.ModifierFlags, Modifiers::Alt)))
           str_text_ = str_text_.substr(0, int4_cursor_position) +
@@ -410,14 +388,12 @@ bool TextFieldWidget::HandleKeyPress(const KeyInput& e_input) {
       break;
 
     case Keycode::BACKSPACE:
-      // cmd+backspace is equivalent to ctrl+u on non-osx(上游注释)| the
-      // upstream comment.
+
       ResetBlinkCycle();
       if (int4_selection_start_index_ != -1)
         RemoveSelectedText();
       else if (int4_cursor_position > 0) {
-        // Write directly to the Text backing field to avoid unnecessary
-        // validation(上游注释)| the upstream comment.
+
         if ((!b_is_osx && HasModifier(e_input.ModifierFlags, Modifiers::Ctrl)) ||
             (b_is_osx && HasModifier(e_input.ModifierFlags, Modifiers::Alt))) {
           const int int4_prev_whitespace = GetPrevWhitespaceIndex();
@@ -447,8 +423,6 @@ bool TextFieldWidget::HandleKeyPress(const KeyInput& e_input) {
           (b_is_osx && HasModifier(e_input.ModifierFlags, Modifiers::Meta))) {
         std::string str_clipboard_text = RequireRenderer().GetClipboardText();
 
-        // Take only the first line of the clipboard contents(上游注释)|
-        // the upstream comment.
         const std::size_t int8_nl = str_clipboard_text.find('\n');
         if (int8_nl > 0 && int8_nl != std::string::npos)
           str_clipboard_text = str_clipboard_text.substr(0, int8_nl);
@@ -461,8 +435,7 @@ bool TextFieldWidget::HandleKeyPress(const KeyInput& e_input) {
       break;
 
     case Keycode::A:
-      // Ctrl+A as Select-All, or Cmd+A on OSX(上游注释)| the upstream
-      // comment.
+
       if ((!b_is_osx && HasModifier(e_input.ModifierFlags, Modifiers::Ctrl)) ||
           (b_is_osx && HasModifier(e_input.ModifierFlags, Modifiers::Meta))) {
         ClearSelection();
@@ -482,7 +455,6 @@ bool TextFieldWidget::HandleTextInput(std::string_view str_text) {
   if (!HasKeyboardFocus() || fn_is_disabled())
     return false;
 
-  // Validate input(上游注释)| the upstream comment.
   const std::string str_input = RemoveInvalidCharacters(str_text);
   if (str_input.empty())
     return true;
@@ -496,14 +468,10 @@ bool TextFieldWidget::HandleTextInput(std::string_view str_text) {
 
   int int4_paste_length = static_cast<int>(str_input.size());
 
-  // Truncate the pasted string if the total length (current + paste) is
-  // greater than the maximum.(上游注释)| the upstream comment.
   if (int4_max_length > 0 && int4_max_length > static_cast<int>(str_text_.size()))
     int4_paste_length = std::min(
         int4_paste_length, int4_max_length - static_cast<int>(str_text_.size()));
 
-  // Write directly to the Text backing field to avoid repeating the invalid
-  // character validation(上游注释)| the upstream comment.
   str_text_.insert(int4_cursor_position, str_input, 0, int4_paste_length);
   int4_cursor_position += int4_paste_length;
   ClearSelection();
@@ -514,8 +482,7 @@ bool TextFieldWidget::HandleTextInput(std::string_view str_text) {
 
 void TextFieldWidget::HandleSelectionUpdate(int int4_prev_cursor_pos,
                                             int int4_new_cursor_pos) {
-  // If selection index is -1, there's no selection already open so create
-  // one(上游注释)| the upstream comment.
+
   if (int4_selection_start_index_ == -1)
     int4_selection_start_index_ = int4_prev_cursor_pos;
 
@@ -537,8 +504,6 @@ void TextFieldWidget::RemoveSelectedText() {
     const int int4_highest_index =
         std::max(int4_selection_start_index_, int4_selection_end_index_);
 
-    // Write directly to the Text backing field to avoid unnecessary
-    // validation(上游注释)| the upstream comment.
     str_text_.erase(int4_lowest_index, int4_highest_index - int4_lowest_index);
 
     ClearSelection();
@@ -549,8 +514,7 @@ void TextFieldWidget::RemoveSelectedText() {
 }
 
 void TextFieldWidget::Tick() {
-  // Remove the blinking cursor when disabled(上游注释)| the upstream
-  // comment.
+
   const bool b_is_disabled = fn_is_disabled();
   if (b_is_disabled != b_was_disabled_) {
     b_was_disabled_ = b_is_disabled;
@@ -587,14 +551,10 @@ void TextFieldWidget::Draw() {
   DrawPanel(str_state, Rectangle{int2_pos.X, int2_pos.Y, bounds_widget.int4_width,
                                  bounds_widget.int4_height});
 
-  // Inset text by the margin and center vertically(上游注释)| the upstream
-  // comment.
   const int int4_vertical_margin =
       (bounds_widget.int4_height - int2_text_size.Y) / 2 - int4_visual_height;
   int2 int2_text_pos = int2_pos + int2{int4_left_margin, int4_vertical_margin};
 
-  // Right align when editing and scissor when the text overflows(上游注释)
-  // | the upstream comment.
   const bool b_is_text_overflowing =
       int2_text_size.X > bounds_widget.int4_width - int4_left_margin - int4_right_margin;
   if (b_is_text_overflowing) {
@@ -610,8 +570,6 @@ void TextFieldWidget::Draw() {
                   bounds_widget.Bottom()});
   }
 
-  // Draw the highlight around the selected area(上游注释)| the upstream
-  // comment.
   if (int4_selection_start_index_ != -1) {
     const int int4_visual_selection_start_index =
         std::min(int4_selection_start_index_, int4_selection_end_index_);
@@ -712,4 +670,4 @@ bool TextFieldWidget::LoadFieldOrProperty(std::string_view str_key,
   return InputWidget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/Building.cs 实现部分
-//          | The implementation half.
 #include "mods/building.hpp"
 
 #include "map/map.hpp"
@@ -67,17 +65,12 @@ std::vector<std::string> RecStringArray(const meta::RecordObject& rec,
   return vec_out;
 }
 
-}  // namespace
+}
 
 BuildingInfoData BuildingInfoData::Parse(const meta::RecordObject& rec_info) {
   BuildingInfoData data;
   data.vec_terrain_types = RecStringArray(rec_info, "TerrainTypes");
 
-  // Footprint 槽(loaders.cpp RegisterLoadFootprint 产物:dict{tuple(x,y)
-  // → int(char 码点)};行主序 y 外 x 内 —— 上游字典同建序)
-  // The Footprint slot (loaders.cpp's RegisterLoadFootprint product:
-  // dict{tuple(x,y) → int(char code)}; row-major x-within-y — the same
-  // build order as upstream's dictionary).
   if (const auto* generated =
           dynamic_cast<const meta::GeneratedRecord*>(&rec_info)) {
     const std::vector<const meta::FieldDesc*> fields =
@@ -106,8 +99,6 @@ BuildingInfoData BuildingInfoData::Parse(const meta::RecordObject& rec_info) {
       }
   }
 
-  // Dimensions 的 CVec 槽(GenericTuple 双整型分量)
-  // The Dimensions CVec slot (GenericTuple's two integer components).
   if (const auto* generated =
           dynamic_cast<const meta::GeneratedRecord*>(&rec_info)) {
     const std::vector<const meta::FieldDesc*> fields =
@@ -139,7 +130,7 @@ BuildingInfoData BuildingInfoData::Parse(const meta::RecordObject& rec_info) {
 
 std::vector<CPos> BuildingInfoData::FootprintTiles(
     CPos location, FootprintCellType type) const {
-  // L97-100
+
   std::vector<CPos> vec_out;
   for (const auto& [offset, cell_type] : vec_footprint)
     if (cell_type == type)
@@ -148,7 +139,7 @@ std::vector<CPos> BuildingInfoData::FootprintTiles(
 }
 
 std::vector<CPos> BuildingInfoData::Tiles(CPos location) const {
-  // L102-115
+
   std::vector<CPos> vec_out =
       FootprintTiles(location, FootprintCellType::OccupiedPassable);
   const std::vector<CPos> vec_occupied =
@@ -165,7 +156,7 @@ std::vector<CPos> BuildingInfoData::Tiles(CPos location) const {
 }
 
 std::vector<CPos> BuildingInfoData::FrozenUnderFogTiles(CPos location) const {
-  // L117-124
+
   std::vector<CPos> vec_out = FootprintTiles(location, FootprintCellType::Empty);
   const std::vector<CPos> vec_tiles = Tiles(location);
   vec_out.insert(vec_out.end(), vec_tiles.begin(), vec_tiles.end());
@@ -173,7 +164,7 @@ std::vector<CPos> BuildingInfoData::FrozenUnderFogTiles(CPos location) const {
 }
 
 std::vector<CPos> BuildingInfoData::OccupiedTiles(CPos location) const {
-  // L126-136
+
   std::vector<CPos> vec_out =
       FootprintTiles(location, FootprintCellType::Occupied);
   const std::vector<CPos> vec_untargetable =
@@ -187,7 +178,7 @@ std::vector<CPos> BuildingInfoData::OccupiedTiles(CPos location) const {
 }
 
 std::vector<CPos> BuildingInfoData::PathableTiles(CPos location) const {
-  // L138-145
+
   std::vector<CPos> vec_out = FootprintTiles(location, FootprintCellType::Empty);
   const std::vector<CPos> vec_passable =
       FootprintTiles(location, FootprintCellType::OccupiedPassable);
@@ -196,13 +187,13 @@ std::vector<CPos> BuildingInfoData::PathableTiles(CPos location) const {
 }
 
 std::vector<CPos> BuildingInfoData::TransitOnlyTiles(CPos location) const {
-  // L147-151
+
   return FootprintTiles(location,
                         FootprintCellType::OccupiedPassableTransitOnly);
 }
 
 WVec BuildingInfoData::CenterOffset(sim::World& w) const {
-  // L153-157
+
   const WVec off = w.Map().CenterOfCell(CPos{dimensions.X, dimensions.Y}) -
                    w.Map().CenterOfCell(CPos{1, 1});
   return off / 2 - WVec{0, 0, off.Z / 2} + local_center_offset;
@@ -210,19 +201,16 @@ WVec BuildingInfoData::CenterOffset(sim::World& w) const {
 
 std::vector<std::pair<CPos, SubCell>> BuildingInfoData::OccupiedCellsInfo(
     CPos top_left) const {
-  // L249-253
+
   std::vector<std::pair<CPos, SubCell>> vec_out;
   for (const CPos c : OccupiedTiles(top_left))
     vec_out.emplace_back(c, SubCell::FullCell);
   return vec_out;
 }
 
-// ———— Building(L282-355)————
-// ———— Building (L282-355) ————
-
 Building::Building(sim::ActorInitializer& init, BuildingInfoData info)
     : info_{std::move(info)} {
-  // L282-298
+
   sim::Actor& self = init.Self();
   top_left_ = init.GetValue<sim::LocationInit>();
   for (const CPos cell : info_.OccupiedTiles(top_left_))
@@ -241,21 +229,19 @@ Building::Building(sim::ActorInitializer& init, BuildingInfoData info)
 }
 
 void Building::AddedToWorld(sim::Actor& self) {
-  // L306-318
+
   if (info_.b_remove_smudges_on_build)
     RemoveSmudges(self);
 
   self.world().AddToMaps(&self, this);
 
-  // BuildingInfluence.AddInfluence(self, Info.Tiles(Location))
-  // BuildingInfluence.AddInfluence(self, Info.Tiles(Location)).
   if (auto* influence =
           self.world().WorldActor()->TraitOrDefault<BuildingInfluence>())
     influence->AddInfluence(&self, info_.Tiles(self.Location()));
 }
 
 void Building::RemovedFromWorld(sim::Actor& self) {
-  // L320-324
+
   self.world().RemoveFromMaps(&self, this);
   if (auto* influence =
           self.world().WorldActor()->TraitOrDefault<BuildingInfluence>())
@@ -263,24 +249,23 @@ void Building::RemovedFromWorld(sim::Actor& self) {
 }
 
 void Building::Selling(sim::Actor& self) {
-  // L326-329
+
   if (info_.b_remove_smudges_on_sell)
     RemoveSmudges(self);
 }
 
 void Building::BeforeTransform(sim::Actor& self) {
-  // L334-340(UndeploySounds 的 PlayToPlayer 随声音注入面)
-  // (UndeploySounds' PlayToPlayer rides the sound injection face.)
+
   if (info_.b_remove_smudges_on_transform)
     RemoveSmudges(self);
 }
 
 void Building::RemoveSmudges(sim::Actor& self) {
-  // L346-353
+
   for (auto* smudge_layer :
        self.world().WorldActor()->TraitsImplementing<SmudgeLayer>())
     for (const CPos footprint_tile : info_.Tiles(self.Location()))
       smudge_layer->RemoveSmudge(footprint_tile);
 }
 
-}  // namespace ora::mods
+}

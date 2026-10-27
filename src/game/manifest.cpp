@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/Manifest.cs @1f594e320(manifest.hpp 的实现;
-//          Include 展开/Merge/各节解析,见 hpp 头注)
-//          Implementation of manifest.hpp — the Include expansion/Merge/
-//          section parsing; see the hpp header notes.
 import std;
 #include "game/manifest.hpp"
 #include "meta/field_loader.hpp"
@@ -9,15 +5,8 @@ import std;
 
 namespace ora::game {
 
-// ———— ModMetadata / RendererConstants 描述表 ————
-
 namespace {
 
-// 说明:ModMetadata 的 C# 字段名 Title/Version/…与 C++ 成员名不同 —— yaml 键
-// 兼容面要求描述表携带 C# 名,故手写条目(不走 ORA_FIELD 的 #Member 拼名)
-// NB: the C# field names (Title/Version/…) differ from the C++ members — the
-// yaml-key compatibility surface requires the C# names in the descriptors,
-// so the entries are written out (not the #Member spelling of ORA_FIELD).
 constexpr std::array<meta::FieldDesc, 6> kFields_ModMetadata{{
     {.str_name = "Title", .type = meta::FieldType::String, .b_required = false, .str_loader = {}, .off_offset = __builtin_offsetof(ModMetadata, str_title), .elem = nullptr, .key = nullptr, .value = nullptr, .str_type_name = "System.String"},
     {.str_name = "Version", .type = meta::FieldType::String, .b_required = false, .str_loader = {}, .off_offset = __builtin_offsetof(ModMetadata, str_version), .elem = nullptr, .key = nullptr, .value = nullptr, .str_type_name = "System.String"},
@@ -54,20 +43,15 @@ constexpr meta::RecordDesc kDesc_RendererConstants{
     .interfaces = {},
 };
 
-}  // namespace
+}
 
 const meta::RecordDesc& ModMetadata::record_desc() const { return kDesc_ModMetadata; }
 const meta::RecordDesc& RendererConstants::record_desc() const {
   return kDesc_RendererConstants;
 }
 
-// ———— Manifest ————
-
 namespace {
 
-/// YamlList(Manifest.cs L190-196):节点 Key 列表(缺节 = 空)
-/// YamlList (Manifest.cs L190-196): the node-key list (a missing section
-/// yields empty).
 std::vector<std::string> YamlListOf(
     const std::vector<std::pair<std::string_view, const yaml::MiniYaml*>>& vec_yaml,
     std::string_view str_key) {
@@ -79,12 +63,11 @@ std::vector<std::string> YamlListOf(
   return vec_ret;
 }
 
-}  // namespace
+}
 
 Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
     : str_id_{std::move(str_mod_id)}, pkg_package_{&package} {
-  // mod.yaml 解析(L97):位置名 = "{package.Name}:mod.yaml"
-  // mod.yaml parsing (L97): location name = "{package.Name}:mod.yaml".
+
   const std::optional<std::vector<char>> bytes_mod =
       package.GetStream("mod.yaml");
   if (!bytes_mod.has_value())
@@ -95,8 +78,6 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
       std::string_view{bytes_mod->data(), bytes_mod->size()}, str_name, true,
       pool_stringPool_);
 
-  // Include 展开(L98-111):倒序就地替换
-  // Include expansion (L98-111): in-place replacement, in reverse order.
   for (std::size_t int4_i = vec_nodes_.size(); int4_i-- > 0;) {
     const std::string_view sv_key =
         vec_nodes_[int4_i].Key != nullptr ? std::string_view{*vec_nodes_[int4_i].Key}
@@ -120,17 +101,12 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
         std::string_view{bytes_include->data(), bytes_include->size()},
         str_include_name, true, pool_stringPool_);
 
-    // 倒序替换保持索引稳定(与上游 RemoveAt+InsertRange 等价)
-    // Replace in reverse to keep indices stable (equivalent to the upstream
-    // RemoveAt+InsertRange).
     vec_nodes_.erase(vec_nodes_.begin() + static_cast<std::ptrdiff_t>(int4_i));
     vec_nodes_.insert(vec_nodes_.begin() + static_cast<std::ptrdiff_t>(int4_i),
                       std::make_move_iterator(vec_included.begin()),
                       std::make_move_iterator(vec_included.end()));
   }
 
-  // Merge 继承覆盖(L114):new MiniYaml(null, Merge([nodes])).ToDictionary()
-  // The inheritance merge (L114).
   yaml_merged_ = yaml::MiniYaml{nullptr, yaml::MiniYaml::Merge({vec_nodes_})};
   const std::vector<std::pair<std::string_view, const yaml::MiniYaml*>> vec_yaml =
       yaml_merged_.ToDictionary();
@@ -142,18 +118,12 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
     return nullptr;
   };
 
-  // Metadata(L116):FieldLoader.Load<ModMetadata>(yaml["Metadata"])(缺节 =
-  // KeyNotFound;上游同)
-  // Metadata (L116): FieldLoader.Load<ModMetadata>(yaml["Metadata"]) (a
-  // missing section = KeyNotFound, as upstream).
   const yaml::MiniYamlNode& node_metadata = yaml_merged_.NodeWithKey("Metadata");
   meta::Load(&rec_metadata_, node_metadata.Value);
 
   if (const yaml::MiniYaml* yaml_renderer = find_node("RendererConstants"))
     meta::Load(&rec_rendererConstants_, *yaml_renderer);
 
-  // MapFolders(L119 + L198-204):my.Value 字典
-  // MapFolders (L119 + L198-204): the my.Value dictionary.
   if (const yaml::MiniYaml* yaml_mapFolders = find_node("MapFolders")) {
     for (const yaml::MiniYamlNode& node : yaml_mapFolders->Nodes) {
       vec_mapFolders_.emplace_back(
@@ -162,19 +132,12 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
     }
   }
 
-  // FileSystem(L121-122):必需节
-  // FileSystem (L121-122): the required section.
   yaml_fileSystem_ = find_node("FileSystem");
   if (yaml_fileSystem_ == nullptr)
     throw yaml::YamlException("`FileSystem` section is not defined.");
   if (yaml_fileSystem_->Value != nullptr)
     str_fileSystemLoader_ = *yaml_fileSystem_->Value;
 
-  // PackageFormats(L159-161):存在才取(ImmutableArray<string> 字段加载;
-  // 标量 = 单元素,列表 = 节点键)。C++ mod.yaml 集均为标量("Mix")。
-  // PackageFormats (L159-161): parsed only when present (the
-  // ImmutableArray<string> field load; a scalar is a one-element list, a
-  // list is the node keys). The C++ mod.yaml set is all scalars ("Mix").
   if (const yaml::MiniYaml* yaml_formats = find_node("PackageFormats")) {
     if (yaml_formats->Value != nullptr && !yaml_formats->Value->empty())
       vec_packageFormats_.push_back(*yaml_formats->Value);
@@ -183,11 +146,6 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
         vec_packageFormats_.push_back(*node.Key);
   }
 
-  // SoundFormats/SpriteFormats(L162-167):GetValue<ImmutableArray<string>>
-  // (逗号分隔;空值 = 空数组)。消费方 = 声音/精灵格式链工厂。
-  // SoundFormats/SpriteFormats (L162-167):
-  // GetValue<ImmutableArray<string>> (comma-separated; empty = the empty
-  // array). Consumers = the sound/sprite format-chain factories.
   const auto parse_format_list = [&](const char* chr_key, std::vector<std::string>& vec_out) {
     if (const yaml::MiniYaml* yaml_node = find_node(chr_key)) {
       if (yaml_node->Value != nullptr)
@@ -197,31 +155,21 @@ Manifest::Manifest(std::string str_mod_id, fs::IReadOnlyPackage& package)
   parse_format_list("SoundFormats", vec_soundFormats_);
   parse_format_list("SpriteFormats", vec_spriteFormats_);
 
-  // DefaultOrderGenerator(Manifest.cs L153-154):单标量(World 构造的
-  // DefaultOrderGenerator 名字分派键)
-  // DefaultOrderGenerator (Manifest.cs L153-154): a single scalar (the
-  // name-dispatch key of the World construction).
   if (const yaml::MiniYaml* yaml_entry = find_node("DefaultOrderGenerator")) {
     if (yaml_entry->Value != nullptr)
       str_defaultOrderGenerator_ = *yaml_entry->Value;
   }
 
-  // SpriteSequenceFormat(L171-172):单标量
-  // SpriteSequenceFormat (L171-172): a single scalar.
   if (const yaml::MiniYaml* yaml_entry = find_node("SpriteSequenceFormat")) {
     if (yaml_entry->Value != nullptr)
       str_spriteSequenceFormat_ = *yaml_entry->Value;
   }
 
-  // TerrainFormat(Manifest.cs L174):单标量 | TerrainFormat (L174): a single
-  // scalar.
   if (const yaml::MiniYaml* yaml_entry = find_node("TerrainFormat")) {
     if (yaml_entry->Value != nullptr)
       str_terrainFormat_ = *yaml_entry->Value;
   }
 
-  // MapCompatibility(Manifest.cs L147-151):Allow inherited mods to import
-  // parent maps(上游注释;[Id] + SupportsMapsFrom 逗号展开)
   vec_mapCompatibility_.push_back(str_id_);
   if (const yaml::MiniYaml* yaml_entry = find_node("SupportsMapsFrom")) {
     if (yaml_entry->Value != nullptr) {
@@ -266,4 +214,4 @@ const yaml::MiniYaml* Manifest::GlobalModDataNode(
   return MergedNode(str_key);
 }
 
-}  // namespace ora::game
+}

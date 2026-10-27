@@ -1,10 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Effects/SpriteEffect.cs @1f594e320 L18-86
-//          一次性序列特效:delay 帧后播完自移除(WithDeathAnimation 的
-//          效果载体)。posFunc/facingFunc 构造形态随消费批。
-//          The one-shot sequence effect: plays out after the delay frames
-//          and removes itself (WithDeathAnimation's carrier). The
-//          posFunc/facingFunc constructor forms ride their consumer
-//          batches.
 #pragma once
 import std;
 
@@ -29,8 +22,6 @@ class SpriteEffect final : public sim::IEffect,
 
   void Tick(sim::World& world_ref) override;
 
-  /// Render(L80-86):未初始化或被迷雾遮蔽 = 空
-  /// Render (L80-86): uninitialized or fog-obscured = empty.
   void Render(gfx::WorldRenderer& wr, std::vector<gfx::RenderItem>& vec_out);
 
   const std::string& ImageNameForTest() const { return anim_.Name(); }
@@ -47,4 +38,4 @@ class SpriteEffect final : public sim::IEffect,
   int int4_delay_ = 0;
 };
 
-}  // namespace ora::mods
+}

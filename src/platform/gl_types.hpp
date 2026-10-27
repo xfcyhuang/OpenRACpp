@@ -1,19 +1,8 @@
-// UPSTREAM: OpenRA.Platforms.Default/OpenGL.cs @1f594e320 L12-238(类型/常量手抄段)
-// GL 3.2 Core + GLES3 共用子集的类型与常量(上游 103 个常量全量收录,值与拼写逐一对照)。
-// OPT-A6(docs/OPTIMIZATION_TRACKER.md):不引入 glGetError 轮询 —— 错误检查由
-// KHR_debug 回调承担(Debug 构建),Release 构建零错误检查调用;此处仅定义类型与常量。
-// GL 3.2 Core + GLES3 shared-subset types and constants (all 103 upstream
-// constants, values and spellings cross-checked one by one).
-// OPT-A6 (docs/OPTIMIZATION_TRACKER.md): no glGetError polling — error
-// checking is carried by the KHR_debug callback (Debug builds) and is absent
-// in Release builds; this header defines types and constants only.
 #pragma once
 import std;
 
 namespace ora::gl {
 
-// —— Khronos 标量类型(GL 1.1 语义,C 头等价物) ——
-// —— Khronos scalar types (GL 1.1 semantics, C-header equivalents) ——
 using GLenum = std::uint32_t;
 using GLboolean = std::uint8_t;
 using GLbitfield = std::uint32_t;
@@ -25,14 +14,9 @@ using GLchar = char;
 using GLsizeiptr = std::ptrdiff_t;
 using GLintptr = std::ptrdiff_t;
 
-/// KHR_debug 回调签名(OpenGL.cs L209-215 的 DEBUGPROC 对应物)
-/// KHR_debug callback signature (the DEBUGPROC counterpart of OpenGL.cs L209-215)
 using DEBUGPROC = void (*)(GLenum source, GLenum type, GLuint id, GLenum severity,
                            GLsizei length, const GLchar* message, const void* user_param);
 
-// —— 常量(上游 OpenGL.cs 逐条对照;按上游原拼写保留 GL_ 前缀) ——
-// —— Constants (cross-checked against upstream OpenGL.cs; the GL_ prefix is
-//    kept in the upstream spelling) ——
 inline constexpr GLenum GL_ACTIVE_UNIFORMS = 0x8B86;
 inline constexpr GLenum GL_ALPHA_TEST = 0x0BC0;
 inline constexpr GLenum GL_ARRAY_BUFFER = 0x8892;
@@ -156,26 +140,18 @@ inline constexpr GLenum GL_RGB = 0x1907;
 inline constexpr GLenum GL_DEPTH_COMPONENT24 = 0x81A6;
 inline constexpr GLenum GL_MAX_TEXTURE_SIZE = 0x0D33;
 
-// —— 第四批新增:glBufferStorage 持久映射 + fence 同步 + blend/深度(上游经
-// OpenTK/手写绑定使用;此处按 GL 3.2 Core 规范值收录) ——
-// —— Fourth-batch additions: glBufferStorage persistent mapping + fence
-//    synchronization + blend/depth (upstream uses these via OpenTK/handwritten
-//    bindings; values per the GL 3.2 Core spec) ——
-
-// glMapBufferRange / glBufferStorage 访问标志位 | range-map/storage access flags
 inline constexpr GLbitfield GL_MAP_READ_BIT = 0x0001;
 inline constexpr GLbitfield GL_MAP_WRITE_BIT = 0x0002;
 inline constexpr GLbitfield GL_MAP_PERSISTENT_BIT = 0x0040;
 inline constexpr GLbitfield GL_MAP_COHERENT_BIT = 0x0080;
 
-// fence 同步对象 | fence sync objects
 using GLsync = void*;
 using GLuint64 = std::uint64_t;
-inline constexpr GLenum GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117;  // 0x911D 是 GL_WAIT_FAILED,勿混 | 0x911D is GL_WAIT_FAILED — do not confuse
+inline constexpr GLenum GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117;
 inline constexpr GLenum GL_ALREADY_SIGNALED = 0x911A;
 inline constexpr GLenum GL_TIMEOUT_EXPIRED = 0x911B;
 inline constexpr GLenum GL_CONDITION_SATISFIED = 0x911C;
 inline constexpr GLuint64 GL_TIMEOUT_IGNORED = ~std::uint64_t{0};
 inline constexpr GLbitfield GL_SYNC_FLUSH_COMMANDS_BIT = 0x00000001;
 
-}  // namespace ora::gl
+}

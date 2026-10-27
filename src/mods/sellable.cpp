@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/CustomSellValue.cs @1f594e320
-//          L18-38 全文 + OpenRA.Mods.Common/Traits/Sellable.cs @1f594e320
-//          L21-122 全文 + OpenRA.Mods.Common/Activities/Sell.cs @1f594e320
-//          L19-58 全文(实现部分)。
 #include "mods/sellable.hpp"
 
 #include "game/actor_info.hpp"
@@ -48,7 +44,7 @@ const meta::RecordObject* FindInfoByName(const sim::Actor& self,
   return nullptr;
 }
 
-}  // namespace
+}
 
 CustomSellValueInfoData CustomSellValueInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -179,4 +175,4 @@ bool SellActivity::Tick(Actor& self) {
   return false;
 }
 
-}  // namespace ora::mods
+}

@@ -1,10 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Cloak.cs @1f594e320 L23-377 +
-//          DetectCloaked.cs L11-54 + IgnoresCloak.cs L11-19(逐语句重写;
-//          机制对照见 cloak.hpp 头注)
-//          Statement-by-statement; the mechanism mapping lives in
-//          cloak.hpp's header note.
 #include "mods/cloak.hpp"
-
 
 #include "core/percent_modifiers.hpp"
 #include "mods/armament.hpp"
@@ -12,8 +6,6 @@
 #include "sim/world.hpp"
 
 namespace ora::mods {
-
-// ———— Cloak ————
 
 CloakInfoData CloakInfoData::Parse(const meta::RecordObject& rec) {
   CloakInfoData data;
@@ -44,7 +36,7 @@ CloakInfoData CloakInfoData::Parse(const meta::RecordObject& rec) {
 
 Cloak::Cloak(CloakInfoData info)
     : ConditionalTraitCore{info.conditional}, info_{std::move(info)} {
-  // L132-140
+
   RemainingTime = info_.int4_initial_delay;
 }
 
@@ -52,7 +44,6 @@ Cloak::~Cloak() = default;
 
 void Cloak::Created(sim::Actor& self) {
 
-  // L142-159
   if (!info_.str_cloak_type.empty()) {
     for (Cloak* c : self.TraitsImplementing<Cloak>())
       if (c != this && c->info_.str_cloak_type == info_.str_cloak_type)
@@ -71,14 +62,14 @@ void Cloak::Created(sim::Actor& self) {
 
 void Cloak::Attacking(sim::Actor&, const sim::Target&, Armament&,
                       const Barrel&) {
-  // L167
+
   if (HasUncloakFlag(static_cast<UncloakType>(info_.int4_uncloak_on),
                      UncloakType::Attack))
     Uncloak();
 }
 
 void Cloak::Damaged(sim::Actor& self, const sim::AttackInfo& e) {
-  // L171-181
+
   if (e.Damage->Value == 0)
     return;
 
@@ -91,8 +82,7 @@ void Cloak::Damaged(sim::Actor& self, const sim::AttackInfo& e) {
 }
 
 void Cloak::Tick(sim::Actor& self) {
-  // L219-288(声音/SpriteEffect 面省略 —— 无 RNG 消耗)
-  // L219-288 (the sound/SpriteEffect faces omitted — no RNG consumption).
+
   if (!ConditionalTraitCore::IsTraitDisabled() &&
       !ConditionalTraitCore::IsTraitPaused()) {
     if (RemainingTime > 0 && !b_is_docking_)
@@ -121,23 +111,20 @@ void Cloak::Tick(sim::Actor& self) {
 }
 
 void Cloak::TraitEnabledHook(sim::Actor&) {
-  // L290-293
+
   RemainingTime = info_.int4_initial_delay;
 }
 
 void Cloak::TraitDisabledHook(sim::Actor&) {
-  // L295
+
   Uncloak();
 }
 
 bool Cloak::IsVisible(sim::Actor& self, sim::Player* viewer) {
-  // L297-305
+
   if (!Cloaked() || self.Owner()->IsAlliedWith(viewer))
     return true;
 
-  // 任一同盟 DetectCloaked 覆盖 DetectionTypes 且在范围内即见
-  // Visible when any allied DetectCloaked overlaps the DetectionTypes
-  // within range.
   for (auto& pair :
        self.world().ActorsWithTrait<DetectCloaked>()) {
     if (!pair.actor->IsInWorld())
@@ -155,8 +142,7 @@ bool Cloak::IsVisible(sim::Actor& self, sim::Player* viewer) {
 }
 
 void Cloak::Docked(sim::Actor&, sim::Actor&) {
-  // L315-322/330-337(Client/Host 同体)
-  // L315-322/330-337 (the Client/Host bodies are identical).
+
   if (HasUncloakFlag(static_cast<UncloakType>(info_.int4_uncloak_on),
                      UncloakType::Dock)) {
     b_is_docking_ = true;
@@ -165,48 +151,46 @@ void Cloak::Docked(sim::Actor&, sim::Actor&) {
 }
 
 void Cloak::Undocked(sim::Actor&, sim::Actor&) {
-  // L324-328/339-343
+
   if (HasUncloakFlag(static_cast<UncloakType>(info_.int4_uncloak_on),
                      UncloakType::Dock))
     b_is_docking_ = false;
 }
 
 void Cloak::Loading(sim::Actor&) {
-  // L345-349
+
   if (HasUncloakFlag(static_cast<UncloakType>(info_.int4_uncloak_on),
                      UncloakType::Load))
     Uncloak();
 }
 
 void Cloak::Unloading(sim::Actor&) {
-  // L351-355
+
   if (HasUncloakFlag(static_cast<UncloakType>(info_.int4_uncloak_on),
                      UncloakType::Unload))
     Uncloak();
 }
 
 void Cloak::Demolishing(sim::Actor&) {
-  // L357-361
+
   if (HasUncloakFlag(static_cast<UncloakType>(info_.int4_uncloak_on),
                      UncloakType::Demolish))
     Uncloak();
 }
 
 void Cloak::Infiltrating(sim::Actor&) {
-  // L363-367
+
   if (HasUncloakFlag(static_cast<UncloakType>(info_.int4_uncloak_on),
                      UncloakType::Infiltrate))
     Uncloak();
 }
 
 void Cloak::Activated(sim::Actor&, const std::string&) {
-  // L371-375
+
   if (HasUncloakFlag(static_cast<UncloakType>(info_.int4_uncloak_on),
                      UncloakType::SupportPower))
     Uncloak();
 }
-
-// ———— DetectCloaked ————
 
 DetectCloaked::DetectCloaked(core::BitSet<DetectionType> detection_types,
                              WDist range,
@@ -218,7 +202,7 @@ DetectCloaked::DetectCloaked(core::BitSet<DetectionType> detection_types,
 DetectCloaked::~DetectCloaked() = default;
 
 void DetectCloaked::Created(sim::Actor& self) {
-  // L44-47
+
   for (auto* modifier :
        self.TraitsImplementing<sim::IDetectCloakedModifier>())
     vec_range_modifiers_.push_back(modifier);
@@ -226,8 +210,7 @@ void DetectCloaked::Created(sim::Actor& self) {
 }
 
 WDist DetectCloaked::Range() const {
-  // L49-54:Util.ApplyPercentageModifiers(Info.Range.Length, 链)
-  // L49-54: Util.ApplyPercentageModifiers(Info.Range.Length, the chain).
+
   if (ConditionalTraitCore::IsTraitDisabled())
     return WDist::Zero();
 
@@ -239,4 +222,4 @@ WDist DetectCloaked::Range() const {
                                               vec_modifiers)};
 }
 
-}  // namespace ora::mods
+}

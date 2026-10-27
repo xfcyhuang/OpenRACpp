@@ -1,13 +1,3 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @1f594e320(generic_record.hpp 的实现;
-//          解析分派结构承自 FieldLoader.cs)
-//          L146-752(GetValue + ParseXxx 家族),与 field_loader.cpp 的
-//          LoadValueInto 同源 —— 本文件是唯一解析实现(值形态),
-//          内存路径经 AssignToMemory 二次转换。
-//          Implementation of generic_record.hpp; the dispatch structure
-//          inherits FieldLoader.cs L146-752 (GetValue + the ParseXxx family)
-//          and shares its origin with LoadValueInto in field_loader.cpp —
-//          this file is the single parse implementation (value shape); the
-//          memory path converts a second time via AssignToMemory.
 import std;
 #include "generic_record.hpp"
 #include "field_loader.hpp"
@@ -31,11 +21,6 @@ namespace ora::meta {
 
 namespace {
 
-/// InvalidValue 的本字段包装(fieldType 取 C# Type.ToString(),由 str_type_name
-/// 携带,空则按 FieldType 兜底;与 field_loader.cpp 同一语义)
-/// The per-field InvalidValue wrapper (fieldType is the C# Type.ToString()
-/// string carried by str_type_name, with a FieldType-based fallback; the same
-/// semantics as field_loader.cpp).
 std::string_view DefaultTypeName(FieldType type) {
   switch (type) {
     case FieldType::Bool: return "System.Boolean";
@@ -73,9 +58,6 @@ std::string_view DefaultTypeName(FieldType type) {
   DefaultInvalidValue(sv_value, sv_type, desc.str_name);
 }
 
-/// 表达式构造(解析失败重抛为 InvalidValue 文本前缀,FieldLoader.cs L425-447)
-/// Expression construction (construction failures rethrow with the
-/// InvalidValue text prefix, FieldLoader.cs L425-447).
 std::string MakeExpressionText(const FieldDesc& desc, std::string_view sv_value) {
   try {
     return expr::VariableExpression{std::string{sv_value}}.Expression();
@@ -86,8 +68,6 @@ std::string MakeExpressionText(const FieldDesc& desc, std::string_view sv_value)
   }
 }
 
-/// WDist 三元组载荷(WVec/WPos:分量经 WDist.TryParse)
-/// WDist 3-tuple payload (WVec/WPos: components through WDist.TryParse).
 GenericTuple ParseWTuple3(const FieldDesc& desc, std::string_view sv_value) {
   const auto fn_wdist = [](std::string_view sv_p, std::int32_t& int4_len) {
     const std::expected<WDist, bool> exp_d = WDist::TryParse(sv_p);
@@ -105,9 +85,6 @@ GenericTuple ParseWTuple3(const FieldDesc& desc, std::string_view sv_value) {
   return *opt_v;
 }
 
-/// 字典键的重复检测载荷比较(键形态有限:int64/string/float/tuple/monostate)
-/// Payload comparison for the duplicate-key check (key shapes are bounded:
-/// int64/string/float/tuple/monostate).
 struct KeyEqualsVisitor {
   bool operator()(std::monostate, std::monostate) const { return true; }
   bool operator()(std::int64_t int8_a, std::int64_t int8_b) const { return int8_a == int8_b; }
@@ -127,27 +104,19 @@ bool KeyEquals(const GenericValue& val_a, const GenericValue& val_b) {
   return std::visit(KeyEqualsVisitor{}, val_a.val, val_b.val);
 }
 
-}  // namespace
-
-// ———— GeneratedRecord ————
+}
 
 GeneratedRecord::GeneratedRecord(const RecordDesc& desc,
                                  std::span<const GenericValue> defaults)
     : desc_{&desc} {
   vec_values_.reserve(defaults.size());
   for (const GenericValue& val_d : defaults)
-    vec_values_.push_back(val_d);  // 深拷贝默认载荷(variant 拷贝逐层深)
-                                // The default payload copies deeply (variant
-                                // copy is layer-by-layer deep).
-}
+    vec_values_.push_back(val_d);
 
-// ———— 生成 loader 注册表 / generated-loader registry ————
+}
 
 namespace {
 
-/// 注册键驻留池(同 type_registry;调用方常传 std::format 临时串的视图)
-/// The intern pool of registry keys (as in type_registry; callers often
-/// pass views over std::format temporaries).
 std::string_view InternLoaderKey(std::string_view sv) {
   static std::deque<std::string> deque_pool;
   return *deque_pool.emplace(deque_pool.end(), sv);
@@ -163,7 +132,7 @@ GeneratedLoaderTable() {
       map_table;
   return map_table;
 }
-}  // namespace
+}
 
 void RegisterGeneratedLoader(
     std::string_view str_loader,
@@ -179,8 +148,6 @@ const std::function<void(GenericValue&, const yaml::MiniYaml&)>* FindGeneratedLo
   return it_find == GeneratedLoaderTable().end() ? nullptr : &it_find->second;
 }
 
-// ———— LoadValueIntoValue:唯一解析实现 / the single parse implementation ————
-
 void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
                         const yaml::MiniYaml& node) {
   const std::string_view sv_value =
@@ -188,7 +155,7 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
                                               : std::string_view{});
 
   switch (desc.type) {
-    // ———— 标量 / scalars ————
+
     case FieldType::Bool: {
       bool b_v{};
       if (!TryParseBoolNet(sv_value, b_v))
@@ -239,8 +206,7 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
       return;
     }
     case FieldType::String:
-      // 偏离登记(field_loader.hpp):null 与 "" 合流
-      // Registered deviation (field_loader.hpp): null and "" conflate.
+
       val_out = GenericValue::Of(std::string{sv_value});
       return;
     case FieldType::Color: {
@@ -313,8 +279,7 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
       return;
     }
     case FieldType::Size: {
-      // ParseSize(FieldLoader.cs L501-513):恰 2 段 int(w,h)
-      // ParseSize (FieldLoader.cs L501-513): exactly 2 int segments (w,h).
+
       int2 size_v{};
       const auto fn_int = [](std::string_view sv_p, std::int32_t& int4_v) {
         return TryParseInt32Invariant(sv_p, int4_v);
@@ -326,9 +291,7 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
       return;
     }
     case FieldType::Rectangle: {
-      // ParseRectangle(FieldLoader.cs L568-585):恰 4 段 int(x,y,w,h)
-      // ParseRectangle (FieldLoader.cs L568-585): exactly 4 int segments
-      // (x,y,w,h).
+
       if (!sv_value.empty()) {
         const std::vector<std::string_view> vec_parts = SplitCommaTrimmed(sv_value);
         std::int32_t int4_x{}, int4_y{}, int4_w{}, int4_h{};
@@ -357,8 +320,7 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
       return;
     }
     case FieldType::Vector3: {
-      // ParseVector3(L546-566):3 段;2 段时 z=0
-      // ParseVector3 (L546-566): 3 segments; with 2 segments z=0.
+
       if (!sv_value.empty()) {
         const std::vector<std::string_view> vec_parts = SplitCommaTrimmed(sv_value);
         float fp4_x{}, fp4_y{}, fp4_z{};
@@ -387,8 +349,7 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
       val_out = GenericValue::Of(MakeExpressionText(desc, sv_value));
       return;
     case FieldType::BitSet: {
-      // ParseBitSet(L720-742):Split(Comma) trim/跳空 → 字符串组
-      // ParseBitSet (L720-742): Split(Comma), trimmed, empties skipped.
+
       std::vector<std::string> vec_strs;
       if (!sv_value.empty()) {
         for (const std::string_view sv_part : SplitComma(sv_value)) {
@@ -402,13 +363,6 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
       return;
     }
 
-    // ———— 数组 / arrays ————
-    // ImmutableArray<WVec/CPos/CVec/Int2> 走上游分组特化(L251-499:固定宽度
-    // 成组,尾部残组抛 InvalidValue,空串也抛);其余逐元素
-    // ImmutableArray<WVec/CPos/CVec/Int2> take the upstream grouped
-    // specializations (L251-499: fixed-width groups, a trailing partial group
-    // raises InvalidValue, an empty string raises too); everything else is
-    // element-by-element.
     case FieldType::Array:
     case FieldType::ImmutableArray:
     case FieldType::List:
@@ -425,8 +379,7 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
             desc_elem.type == FieldType::WVec ? 3 : 2;
         if (sv_value.empty())
           InvalidValueFor(desc, sv_value);
-        // 分组宽度按元素类型定:WVec=3(WDist 分量),其余=2
-        // Group width by element type: WVec=3 (WDist components), else 2.
+
         const FieldType type_component =
             desc_elem.type == FieldType::WVec ? FieldType::WDist : FieldType::Int32;
         std::vector<GenericValue> vec_elems;
@@ -436,9 +389,7 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
           const std::string_view sv_trimmed = TrimNetWhiteSpace(sv_part);
           if (sv_trimmed.empty())
             continue;
-          // 单分量经主分派解析(Value 指向本段字符串;失败在分量解析内抛出)
-          // The single component parses through the main dispatch (Value
-          // points at this segment's string; failures raise inside).
+
           const std::string str_trimmed{sv_trimmed};
           yaml::MiniYaml node_scratch{&str_trimmed, {}};
           GenericValue val_elem = GenericValue::Null();
@@ -465,9 +416,7 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
           const std::string_view sv_trimmed = TrimNetWhiteSpace(sv_part);
           if (sv_trimmed.empty())
             continue;
-          // 逐元素失败传播整段(上游 ParseXxxArray 的 value.Span 语义)
-          // Per-element failures propagate the whole segment (the
-          // value.Span semantics of upstream ParseXxxArray).
+
           const std::string str_trimmed{sv_trimmed};
           yaml::MiniYaml node_scratch{&str_trimmed, {}};
           GenericValue val_elem = GenericValue::Null();
@@ -479,7 +428,6 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
       return;
     }
 
-    // ———— 字典 / dictionaries ————
     case FieldType::Dictionary:
     case FieldType::FrozenDictionary: {
       const FieldDesc& desc_key = *desc.key;
@@ -498,12 +446,10 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
 
         GenericValue val_entry = GenericValue::Null();
         {
-          // 值节点直接复用 entry.Value(其 Value/Nodes 原样)
-          // The value reuses entry.Value as-is (its Value/Nodes verbatim).
+
           LoadValueIntoValue(desc_val, val_entry, node_entry.Value);
         }
 
-        // Dictionary.Add 重复键语义 / the Dictionary.Add duplicate semantics.
         for (const auto& [val_existing, val_ignored] : map_ret) {
           (void)val_ignored;
           if (KeyEquals(val_existing, val_key))
@@ -515,7 +461,6 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
       return;
     }
 
-    // ———— Nullable<T>(L744-752)————
     case FieldType::Nullable: {
       if (sv_value.empty()) {
         val_out = GenericValue::Null();
@@ -525,34 +470,25 @@ void LoadValueIntoValue(const FieldDesc& desc, GenericValue& val_out,
       return;
     }
 
-    // ———— 未覆盖形态 / shapes not covered ————
     case FieldType::DateTime:
     case FieldType::Hotkey:
     case FieldType::HotkeyReference:
     case FieldType::Record:
     case FieldType::Opaque:
-      // 无解析器字段(含 Opaque):上游 GetValue 同样找不到解析器 →
-      // UnknownFieldAction;消息逐字一致
-      // Fields without a parser (Opaque included): upstream GetValue finds
-      // no parser either → UnknownFieldAction; verbatim message.
+
       DefaultUnknownField(desc.str_name);
   }
   std::unreachable();
 }
 
-// ———— AssignToMemory:值 → typed 内存 / value → typed memory ————
-
 namespace {
 
-/// 按目标类型从 int64 载荷取值(-fwrapv 下窄化回绕等价 C# unchecked)
-/// Read from the int64 payload by target width (-fwrapv narrowing wraps
-/// equivalently to C# unchecked).
 template <class T>
 void AssignInt(const GenericValue& val, void* p_field) {
   *reinterpret_cast<T*>(p_field) = static_cast<T>(std::get<std::int64_t>(val.val));
 }
 
-}  // namespace
+}
 
 void AssignToMemory(const FieldDesc& desc, const GenericValue& val, void* p_field) {
   switch (desc.type) {
@@ -811,13 +747,7 @@ void AssignToMemory(const FieldDesc& desc, const GenericValue& val, void* p_fiel
       const GenericDict& map_vals = std::get<GenericDict>(val.val);
       const FieldDesc& desc_key = *desc.key;
       const FieldDesc& desc_val = *desc.value;
-      // 键/值内存形态完全按 desc 分派(与 field_loader.cpp 的字典分派同构;
-      // 组合:K ∈ {Int32,Enum,String,BooleanExpression,CPos,CVec};
-      // V ∈ {Int32,Enum,String,Float,表达式,数组(String/Int32/Float)})
-      // The key/value memory shapes dispatch purely on the descs (isomorphic
-      // to the dictionary dispatch of field_loader.cpp; combinations:
-      // K in {Int32,Enum,String,BooleanExpression,CPos,CVec};
-      // V in {Int32,Enum,String,Float,expressions,arrays}).
+
       const auto assign_pair = [&]<class K, class V>(K&&, V&&) {
         std::vector<std::pair<K, V>> vec_t;
         vec_t.reserve(map_vals.size());
@@ -848,17 +778,14 @@ void AssignToMemory(const FieldDesc& desc, const GenericValue& val, void* p_fiel
           } else if constexpr (std::same_as<V, float>) {
             pair_t.second = std::get<float>(val_v.val);
           } else if constexpr (std::same_as<V, Rectangle>) {
-            // 字典值 Rectangle(ChromeProvider.Regions;第十三批补)
-            // A Rectangle dictionary value (ChromeProvider.Regions; landed
-            // with the thirteenth batch).
+
             const GenericTuple& t_v = std::get<GenericTuple>(val_v.val);
             pair_t.second = Rectangle{static_cast<std::int32_t>(t_v.arr_ints[0]),
                                       static_cast<std::int32_t>(t_v.arr_ints[1]),
                                       static_cast<std::int32_t>(t_v.arr_ints[2]),
                                       static_cast<std::int32_t>(t_v.arr_ints[3])};
           } else if constexpr (std::same_as<V, int2>) {
-            // 字典值 int2/Size(第十三批补)| an int2/Size dictionary value
-            // (landed with the thirteenth batch).
+
             const GenericTuple& t_v = std::get<GenericTuple>(val_v.val);
             pair_t.second = int2{static_cast<std::int32_t>(t_v.arr_ints[0]),
                                  static_cast<std::int32_t>(t_v.arr_ints[1])};
@@ -866,8 +793,7 @@ void AssignToMemory(const FieldDesc& desc, const GenericValue& val, void* p_fiel
             if (std::holds_alternative<std::string>(val_v.val))
               pair_t.second = expr::VariableExpression{std::get<std::string>(val_v.val)};
           } else {
-            // vector 值:元素载荷逐个转 V::value_type
-            // vector values: element payloads convert one by one.
+
             using E = typename V::value_type;
             V vec_v;
             const std::vector<GenericValue>& vec_elems =
@@ -1000,9 +926,7 @@ void AssignToMemory(const FieldDesc& desc, const GenericValue& val, void* p_fiel
     }
 
     case FieldType::Record:
-      // 嵌套记录仅经 LoadUsing 进入(值形态在 rec 槽;手写类目标由 loader 自管)
-      // Nested records only enter via LoadUsing (the value sits in the rec
-      // slot; hand-written class targets are owned by their loaders).
+
       DefaultUnknownField(desc.str_name);
 
     case FieldType::DateTime:
@@ -1013,9 +937,6 @@ void AssignToMemory(const FieldDesc& desc, const GenericValue& val, void* p_fiel
   }
   std::unreachable();
 }
-
-
-// ———— ReadFromMemory:typed 内存 → 值 / typed memory → value ————
 
 GenericValue ReadFromMemory(const FieldDesc& desc, const void* p_field) {
   switch (desc.type) {
@@ -1093,9 +1014,7 @@ GenericValue ReadFromMemory(const FieldDesc& desc, const void* p_field) {
     case FieldType::List:
     case FieldType::HashSet:
     case FieldType::FrozenSet: {
-      // 元素类型逐分支读回(与 AssignToMemory 的写入形态互逆)
-      // Element-wise read-back per branch (inverse of the AssignToMemory
-      // write shapes).
+
       const FieldType type_elem = desc.elem->type;
       auto read_int_vec = [&]<class E>() {
         std::vector<GenericValue> vec_vals;
@@ -1165,9 +1084,7 @@ GenericValue ReadFromMemory(const FieldDesc& desc, const void* p_field) {
 
     case FieldType::Dictionary:
     case FieldType::FrozenDictionary: {
-      // 与 AssignToMemory 的字典分派对称:K/V 内存形态按 desc 逆读
-      // Symmetric to the dictionary dispatch of AssignToMemory: the K/V
-      // memory shapes read back per the descs.
+
       const FieldDesc& desc_key = *desc.key;
       const FieldDesc& desc_val = *desc.value;
       GenericDict map_ret;
@@ -1214,7 +1131,7 @@ GenericValue ReadFromMemory(const FieldDesc& desc, const void* p_field) {
             if (pair_kv.second.has_value())
               val_v = GenericValue::Of(pair_kv.second->Expression());
           } else {
-            // vector 值 / vector values.
+
             using E = typename V::value_type;
             const FieldDesc desc_elem = ElemOf(desc_val.elem->type);
             std::vector<GenericValue> vec_vals;
@@ -1324,12 +1241,10 @@ GenericValue ReadFromMemory(const FieldDesc& desc, const void* p_field) {
     case FieldType::HotkeyReference:
     case FieldType::Size:
     case FieldType::Rectangle:
-      // Opaque 字段的内存形态由宿主特判(dump 侧手工构造);通用逆不覆盖
-      // Opaque memory shapes are special-cased by their hosts (dump
-      // assembles them by hand); no generic inverse here.
+
       return GenericValue::Null();
   }
   std::unreachable();
 }
 
-}  // namespace ora::meta
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/MapPreviewWidget.cs @1f594e320 L22-234(全文;
-// SpawnOccupant 三 ctor + 缩放布局/出生点覆盖/禁用面)。minimap 柄 =
-// map::MapPreview::GetMinimap 的 uintptr(Sprite* 重释;D 注册)。
 #pragma once
 import std;
 
@@ -94,4 +91,4 @@ class MapPreviewWidget : public Widget {
   gfx::Sprite sprite_minimap_;
 };
 
-}  // namespace ora::ui
+}

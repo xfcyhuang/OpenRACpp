@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Targetable.cs 实现部分
-//          The implementation half.
 #include "mods/targetable.hpp"
 
 #include "meta/field_loader.hpp"
@@ -35,11 +33,9 @@ TargetableInfoData TargetableInfoData::Parse(
   return data;
 }
 
-bool Targetable::TargetableBy(Actor& /*self*/, Actor& /*viewer*/) {
-  // L40-49(Cloak trait 未移植 → cloaks.Length == 0 的上游真分支)
-  // L40-49 (the Cloak trait is unported → upstream's cloaks.Length == 0
-  // true branch).
+bool Targetable::TargetableBy(Actor& , Actor& ) {
+
   return !IsTraitDisabled();
 }
 
-}  // namespace ora::mods
+}

@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/NukePower.cs +
-//          SpawnActorPower.cs + ProduceActorPower.cs +
-//          GrantExternalConditionPower.cs(NukePowerInfo/SpawnActorPowerInfo/
-//          ProduceActorPowerInfo/GrantExternalConditionPowerInfo 的注册装配)
 #include "meta/generic_record.hpp"
 #include "mods/concrete_support_powers.hpp"
 #include "sim/actor.hpp"
@@ -48,4 +44,4 @@ void RegisterCommonTraitsBatch13() {
       });
 }
 
-}  // namespace ora::mods
+}

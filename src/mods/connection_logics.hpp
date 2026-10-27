@@ -170,4 +170,4 @@ class DirectConnectLogic final : public ora::ui::ChromeLogic {
 
 void RegisterConnectionLogics();
 
-}  // namespace ora::mods
+}

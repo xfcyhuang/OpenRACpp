@@ -1,13 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/GameInfoLogic.cs
-//          @1f594e320 L23-195 全文(五面板字典 + AutoSelect 流 + Chat 焦点
-//          转发)+ GameInfoBriefingLogic.cs L17-40 全文 + GameInfo
-//          ObjectivesLogic.cs L19-92 全文 + GameInfoStatsLogic.cs L24-335
-//          全文(队伍分组的计分板 + 踢人/投票踢对话 + 观战者行)。
-//          The whole of GameInfoLogic.cs L23-195 (the five-panel dictionary
-//          + the AutoSelect flow + the chat focus forwarding) +
-//          GameInfoBriefingLogic.cs L17-40 + GameInfoObjectivesLogic.cs
-//          L19-92 + GameInfoStatsLogic.cs L24-335 (the team-grouped score
-//          board + the kick/vote-kick dialogs + the spectator rows).
 #pragma once
 import std;
 
@@ -143,4 +133,4 @@ class GameInfoStatsLogic final : public ora::ui::ChromeLogic {
 
 void RegisterGameInfoLogics();
 
-}  // namespace ora::mods
+}

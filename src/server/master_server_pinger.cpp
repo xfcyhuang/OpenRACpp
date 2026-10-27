@@ -1,11 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/ServerTraits/MasterServerPinger.cs
-//          @1f594e320 L27-217 + BeaconLib 1.0.2(rix0rrr/beacon)的
-//          Beacon.cs(实现体;Task.Run 的闭包态 → shared_ptr 共享态,HTTP
-//          线程不触达 trait 生命周期 —— 上游 GC 常青语义的确定性等价)
-//          The implementation body (MasterServerPinger.cs + BeaconLib
-//          1.0.2's Beacon.cs; Task.Run's closure state → a shared_ptr state
-//          block, so the HTTP thread never touches the trait's lifetime —
-//          the deterministic equivalent of upstream's GC evergreen liveness).
 #include "server/master_server_pinger.hpp"
 
 #include "core/mersenne_twister.hpp"
@@ -32,10 +24,8 @@ constexpr std::string_view kError = "notification-master-server-error";
 constexpr std::string_view kGameOffline = "notification-game-offline";
 
 constexpr std::string_view kBeaconType = "OpenRALANGame";
-constexpr int kDiscoveryPort = 35891;  // BeaconLib.DiscoveryPort
+constexpr int kDiscoveryPort = 35891;
 
-/// BeaconLib.Encode:2 字节小端长度前缀 + UTF-8
-/// BeaconLib.Encode: a 2-byte little-endian length prefix + UTF-8.
 std::vector<std::uint8_t> BeaconEncode(std::string_view sv_text) {
   auto vec_out = std::vector<std::uint8_t>{};
   const auto u2_len = static_cast<std::uint16_t>(sv_text.size());
@@ -45,8 +35,6 @@ std::vector<std::uint8_t> BeaconEncode(std::string_view sv_text) {
   return vec_out;
 }
 
-/// BeaconLib.HasPrefix:已编码前缀的字节比对
-/// BeaconLib.HasPrefix: a byte compare against the encoded prefix.
 bool BeaconHasPrefix(std::span<const std::uint8_t> span_packet,
                      std::span<const std::uint8_t> span_prefix) {
   return span_packet.size() >= span_prefix.size() &&
@@ -54,10 +42,6 @@ bool BeaconHasPrefix(std::span<const std::uint8_t> span_packet,
                     span_packet.begin());
 }
 
-/// 首投应答的 ^\[(?<code>-?\d+)\](?<message>.*) 解析;返回 false =
-/// InvalidErrorCode 形态
-/// The first ping's ^\[(?<code>-?\d+)\](?<message>.*) parse; false = the
-/// InvalidErrorCode shape.
 bool ParseMasterResponse(const std::string& str_response, int& int4_code_out,
                          std::string& str_message_out) {
   const auto sz_first = str_response.find_first_not_of(" \t\r\n");
@@ -97,10 +81,7 @@ bool ParseMasterResponse(const std::string& str_response, int& int4_code_out,
   return true;
 }
 
-}  // namespace
-
-// ———— LanBeacon(BeaconLib.Beacon 的直连形态)————
-// ———— LanBeacon (BeaconLib.Beacon's direct form) ——
+}
 
 LanBeacon::LanBeacon(std::string str_beacon_type, int int4_advertised_port,
                      std::function<void(std::string_view)> fn_log)
@@ -153,8 +134,6 @@ void LanBeacon::ReceiveLoop() {
     auto vec_reply = std::vector<std::uint8_t>{};
     vec_reply.insert(vec_reply.end(), vec_prefix.begin(), vec_prefix.end());
 
-    // AdvertisedPort 的 2 字节大端序(HostToNetworkOrder)
-    // The AdvertisedPort's 2 big-endian bytes (HostToNetworkOrder).
     const auto u2_port = static_cast<std::uint16_t>(int4_advertised_port_);
     vec_reply.push_back(static_cast<std::uint8_t>((u2_port >> 8) & 0xFF));
     vec_reply.push_back(static_cast<std::uint8_t>(u2_port & 0xFF));
@@ -171,13 +150,8 @@ void LanBeacon::ReceiveLoop() {
   }
 }
 
-// ———— MasterServerPinger ——
-
 int MasterServerPinger::LanAdvertisePort() {
-  // System.Random(DateTime.Now.Millisecond).Next(2048, 60000) 的值域等
-  // 价面(端口号值不影响协议语义;D225)
-  // The value-domain equivalent of System.Random(DateTime.Now.Millisecond)
-  // .Next(2048, 60000) (the port value carries no protocol semantics; D225).
+
   static const int int4_port = [] {
     const auto ms_now =
         std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -232,10 +206,7 @@ void MasterServerPinger::Tick(Server& server) {
 
 void MasterServerPinger::ServerStarted(Server& server) {
   if (server.IsMultiplayer() && server.Settings.AdvertiseOnLocalNetwork) {
-    // CreateLanGameBeacon(L205-217):旧 beacon 停止后重建;绑定失败 =
-    // null(上游 catch 形态)
-    // CreateLanGameBeacon (L205-217): the old beacon is stopped and
-    // recreated; a bind failure = null (upstream's catch shape).
+
     if (up_lan_beacon_) {
       up_lan_beacon_->Stop();
       up_lan_beacon_.reset();
@@ -348,19 +319,7 @@ void MasterServerPinger::UpdateMasterServer(const Server&,
       deps_.fn_advertise_endpoint ? deps_.fn_advertise_endpoint()
                                   : std::string{};
   if (!deps_.fn_post) {
-    // HttpClient 的消费点直调(D236):boost::beast + boost::url 的同步
-    // POST 在专属线程执行后回调 —— 上游 await PostAsync 的非阻塞等价
-    // (服务器事件循环不被网络往返卡住);fn_done 只触 SharedState
-    // (shared_ptr),detach 线程越过 trait 析构仍安全(本文件头注记的
-    // GC 常青语义);原缺省「立即失败」为 HTTP 未展开期的占位形态。
-    // The HttpClient direct call at the use site (D236): the synchronous
-    // boost::beast + boost::url POST runs on a dedicated thread and then
-    // calls back — the non-blocking equivalent of upstream's await
-    // PostAsync (the server event loop never stalls on the network
-    // round-trip); fn_done touches only the SharedState (shared_ptr), so
-    // a detached thread remains safe past the trait's destruction (the
-    // GC-evergreen note in this file's header); the former "fail at
-    // once" default was the placeholder of the unexpanded HTTP era.
+
     std::thread{[str_endpoint, str_post_data, fn_done]() {
       std::string str_response;
       const bool b_ok =
@@ -381,4 +340,4 @@ void MasterServerPinger::UpdateMasterServer(const Server&,
   }
 }
 
-}  // namespace ora::server
+}

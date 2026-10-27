@@ -1,9 +1,5 @@
-// UPSTREAM: OpenRA.Game/Graphics/CursorManager.cs @1f594e320 L20-317
-//          (cursor_manager.hpp 的实现;头注的形态适配说明适用)
-//          Implementation of cursor_manager.hpp; the shape-adaptation notes
-//          of the hpp header apply.
 import std;
-#include <cstdio>  // stderr 为宏,不穿越 import 边界(规范允许的并用正形态) | stderr is a macro; the spec-sanctioned mixed form
+#include <cstdio>
 
 #include "gfx/cursor_manager.hpp"
 #include "gfx/renderer.hpp"
@@ -31,7 +27,6 @@ CursorManager::CursorManager(Deps deps)
           "Cursor {}: Length is greater than the length of the sprite sequence.",
           seq_cursor.Name()));
 
-    // Skip(Start).Take(length)
     std::vector<const ISpriteFrame*> vec_frames;
     for (std::int32_t int4_i{seq_cursor.Start()};
          int4_i < seq_cursor.Start() + int4_length &&
@@ -57,24 +52,11 @@ CursorManager::CursorManager(Deps deps)
     cursor_c.vec_sprites.resize(vec_frames.size());
     cursor_c.vec_ptr_cursors.resize(vec_frames.size());
 
-    // 硬件光标有若干平台特异 bug/限制。逐帧加衬垫以减少边角情形:
-    //  - 热点在帧界内(SDL 强制)
-    //  - 同序列所有帧同尺寸(macOS 10.15 需要)
-    //  - 帧尺寸为 8 的倍数(Windows 需要)
-    // Hardware cursors have a number of odd platform-specific
-    // bugs/limitations. Reduce the number of edge cases by padding the
-    // individual frames such that:
-    //  - the hotspot is inside the frame bounds (enforced by SDL)
-    //  - all frames within a sequence have the same size (needed for macOS
-    //    10.15)
-    //  - the frame size is a multiple of 8 (needed for Windows)
     for (const ISpriteFrame* ptr_frame : vec_frames) {
-      // 热点相对帧中心声明 | The hotspot is specified relative to the
-      // frame's center.
+
       const int2 int2_hotspot =
           int2::FromVector(ptr_frame->Offset()) - seq_cursor.Hotspot() - ptr_frame->Size() / 2;
 
-      // 索引数据解为真彩色 | Resolve indexed data to real colours.
       std::span<const std::byte> vec_data = ptr_frame->Data();
       SpriteFrameType kind_type = ptr_frame->Type();
       std::vector<std::byte> vec_converted;
@@ -89,28 +71,20 @@ CursorManager::CursorManager(Deps deps)
                              core::Vector3{static_cast<float>(int2_hotspot.X),
                                            static_cast<float>(int2_hotspot.Y), 0.0f});
 
-      // Bounds 相对热点 | Bounds relative to the hotspot.
       cursor_c.rect_bounds = Rectangle::Union(
           cursor_c.rect_bounds,
           Rectangle{int2_hotspot.X, int2_hotspot.Y, ptr_frame->Size().X, ptr_frame->Size().Y});
     }
 
-    // 右下加衬至 8 倍数 | Pad the bottom-right edge to a multiple of 8.
     cursor_c.int2_padded_size =
         8 * int2{(cursor_c.rect_bounds.Width + 7) / 8, (cursor_c.rect_bounds.Height + 7) / 8};
 
-    // 上游 cursors.Add 的重复键 ArgumentException 等价抛
-    // The equivalent throw of upstream cursors.Add's duplicate-key
-    // ArgumentException.
     if (std::ranges::any_of(vec_cursors_,
                             [&](const auto& kv) { return kv.first == str_key; }))
       throw std::runtime_error("An item with the same key has already been added.");
     vec_cursors_.emplace_back(str_key, std::move(cursor_c));
   }
 
-  // Game.Renderer != null 时才建硬件光标(上游 Utility 面)
-  // Hardware cursors only when Game.Renderer != null (upstream's Utility
-  // face).
   if (deps_.ptr_renderer != nullptr && deps_.ptr_window != nullptr) {
     CreateOrUpdateHardwareCursors();
     Update();
@@ -126,17 +100,12 @@ void CursorManager::CreateOrUpdateHardwareCursors() {
   if (deps_.fn_hardware_cursors_disabled && deps_.fn_hardware_cursors_disabled())
     return;
 
-  // 先释放既有光标,防原生资源泄漏(上游注释)
-  // Dispose any existing cursors to avoid leaking native resources (the
-  // upstream comment).
   ClearHardwareCursors();
 
   for (auto& [str_key, cursor_template] : vec_cursors_) {
     for (std::size_t st_i{}; st_i < cursor_template.vec_sprites.size(); st_i++) {
       cursor_template.vec_ptr_cursors[st_i].reset();
 
-      // 计算帧在序列 Bounds 内的衬垫位置
-      // Calculate the padding to position the frame within sequenceBounds.
       const Sprite& sprite_frame = cursor_template.vec_sprites[st_i];
       const int2 int2_padding_tl =
           -(cursor_template.rect_bounds.TopLeft() - int2::FromVector(core::Vector2{
@@ -213,11 +182,7 @@ void CursorManager::Update() {
               ptr_cursor_->vec_ptr_cursors[static_cast<std::size_t>(int4_frame_)] != nullptr
           ? ptr_cursor_->vec_ptr_cursors[static_cast<std::size_t>(int4_frame_)].get()
           : nullptr;
-  // Utility 面(无窗口):上游 Game.Renderer == null 时不会走到 Update
-  // (构造器门槛),SetCursor 亦不该触窗口 —— 此处静默跳过
-  // The Utility face (no window): upstream never reaches Update with
-  // Game.Renderer == null (the constructor gate), so SetCursor must not
-  // touch a window either — skipped silently here.
+
   if (deps_.ptr_window == nullptr)
     return;
   if (ptr_hardware_cursor == nullptr || b_is_locked_)
@@ -227,25 +192,20 @@ void CursorManager::Update() {
 }
 
 void CursorManager::Render(Renderer& renderer_host) {
-  // 光标隐藏 | The cursor is hidden.
+
   if (ptr_cursor_ == nullptr)
     return;
 
-  // 硬件光标启用 | The hardware cursor is live.
   if (!b_is_locked_ &&
       ptr_cursor_->vec_ptr_cursors[static_cast<std::size_t>(
                                        int4_frame_ % ptr_cursor_->int4_length)] != nullptr)
     return;
 
-  // 软件绘制光标 | Render the cursor in software.
   const bool b_double_cursor = deps_.fn_cursor_double && deps_.fn_cursor_double();
   const Sprite& sprite_cursor =
       ptr_cursor_->vec_sprites[static_cast<std::size_t>(int4_frame_ % ptr_cursor_->int4_length)];
   float fp4_cursor_scale = b_double_cursor ? 2.0f : 1.0f;
 
-  // 光标按窗口原生坐标绘制;应用与硬件光标相同的缩放规则
-  // The cursor is rendered in native window coordinates; the same scaling
-  // rules as the hardware cursor apply.
   if (deps_.ptr_window->NativeWindowScale() > 1.5f)
     fp4_cursor_scale *= 2.0f;
 
@@ -280,9 +240,6 @@ std::vector<std::byte> CursorManager::ConvertIndexedToBgra(const std::string& st
     throw std::runtime_error(
         "ConvertIndexedToBgra requires input frames to be indexed. (Parameter 'frame')");
 
-  // 所有调色板必须显式引用,即使内嵌于精灵中
-  // All palettes must be explicitly referenced, even if they are embedded
-  // in the sprite.
   if (ptr_palette == nullptr)
     throw std::runtime_error(std::format(
         "Cursor sequence `{}` attempted to load an indexed sprite but does not define Palette",
@@ -341,7 +298,7 @@ std::unique_ptr<platform::Sdl2HardwareCursor> CursorManager::CreateHardwareCurso
       str_name, int4_new_width, int4_new_height, vec_rgba_data, int2_hotspot,
       deps_.fn_cursor_double && deps_.fn_cursor_double());
   if (!opt_cursor.has_value() || opt_cursor->Cursor() == nullptr)
-    return nullptr;  // 上游 null 槽(建败;窗口层已记日志)| upstream's null slot (build failure; the window layer already logged)
+    return nullptr;
   return std::make_unique<platform::Sdl2HardwareCursor>(std::move(*opt_cursor));
 }
 
@@ -352,4 +309,4 @@ void CursorManager::ClearHardwareCursors() {
   }
 }
 
-}  // namespace ora::gfx
+}

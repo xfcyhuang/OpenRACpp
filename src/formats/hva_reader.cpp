@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/HvaReader.cs @1f594e320 + Util.cs
-// L131-255(MatrixInverse 子集)—— 逐句照抄(Stream → SpanReader)。
-// [UPSTREAM continued] HvaReader.cs + the Util.cs L131-255 MatrixInverse
-// subset, copied statement by statement (Stream → SpanReader).
 #include "formats/hva_reader.hpp"
 
 namespace ora::fmt {
@@ -133,7 +129,7 @@ std::optional<std::array<float, 16>> MatrixInverse(const std::array<float, 16>& 
 }
 
 HvaReader::HvaReader(std::span<const std::byte> vec_file, std::string_view str_file_name) {
-  // Index swaps for transposing a matrix
+
   constexpr std::uint8_t arr_ids[12] = {0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14};
 
   auto reader = SpanReader{vec_file};
@@ -141,14 +137,13 @@ HvaReader::HvaReader(std::span<const std::byte> vec_file, std::string_view str_f
   uint4_frame_count = reader.ReadUInt32();
   uint4_limb_count = reader.ReadUInt32();
 
-  // Skip limb names
   reader.Skip(16 * static_cast<std::int64_t>(uint4_limb_count));
   vec_transforms.assign(16ull * uint4_frame_count * uint4_limb_count, 0.0f);
 
   auto arr_test_matrix = std::array<float, 16>{};
   for (auto uint4_j = 0ull; uint4_j < uint4_frame_count; uint4_j++)
     for (auto uint4_i = 0ull; uint4_i < uint4_limb_count; uint4_i++) {
-      // Convert to column-major matrices and add the final matrix row
+
       const auto st_c = 16ull * (uint4_limb_count * uint4_j + uint4_i);
       vec_transforms[st_c + 3] = 0;
       vec_transforms[st_c + 7] = 0;
@@ -169,4 +164,4 @@ HvaReader::HvaReader(std::span<const std::byte> vec_file, std::string_view str_f
     }
 }
 
-}  // namespace ora::fmt
+}

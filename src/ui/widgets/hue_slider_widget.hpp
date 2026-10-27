@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/HueSliderWidget.cs @1f594e320 L18-75(全文)。
 #pragma once
 import std;
 
@@ -32,4 +31,4 @@ class HueSliderWidget : public SliderWidget {
   gfx::Sprite sprite_picker_;
 };
 
-}  // namespace ora::ui
+}

@@ -272,7 +272,7 @@ void WithParachutePreviewFace(
       ptr_palette));
 }
 
-}  // namespace
+}
 
 void RegisterActorPreviewFaces() {
   static const bool b_registered = [] {
@@ -295,4 +295,4 @@ void RegisterActorPreviewFaces() {
   (void)b_registered;
 }
 
-}  // namespace ora::mods
+}

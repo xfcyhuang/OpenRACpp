@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/WorldLabelWithTooltipWidget.cs @1f594e320 L19-44(全文)。
 import std;
 
 #include "ui/widgets/world_label_with_tooltip_widget.hpp"
@@ -30,4 +29,4 @@ void WorldLabelWithTooltipWidget::MouseEntered() {
   }
 }
 
-}  // namespace ora::ui
+}

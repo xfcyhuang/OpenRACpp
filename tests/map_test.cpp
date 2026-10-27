@@ -1,13 +1,8 @@
-// 第十六批(Phase 5 第一批)验收:Map 数据层 / ScreenMap(OPT-A8)/
-// Selection / World 全量接线 / trait 工厂入 World arena / MapCache。
-// Batch 16 (Phase 5 first installment) acceptance: the map data layer /
-// ScreenMap (OPT-A8) / Selection / the full World wiring / the trait factory
-// into the World arena / MapCache.
 import std;
 
 namespace ora::gen {
 void RegisterGeneratedAll();
-}  // namespace ora::gen
+}
 
 #include "core/polygon.hpp"
 #include "fs/folder.hpp"
@@ -26,10 +21,10 @@ void RegisterGeneratedAll();
 #include "sim/spatially_partitioned.hpp"
 #include "mods/create_map_players.hpp"
 #include "sim/world.hpp"
-#include <boost/hash2/sha1.hpp>  // SHA-1 承载(std→Boost 选型;白名单头)| the SHA-1 carrier (the std→Boost selection; a whitelisted header)
-#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
+#include <boost/hash2/sha1.hpp>
+#include <cstdio>
 #ifdef GetMessage
-#undef GetMessage  // winsock 的 GetMessageA 宏不得改写 MapPreview::GetMessage | winsock's GetMessageA macro must not rewrite MapPreview::GetMessage
+#undef GetMessage
 #endif
 
 using namespace ora;
@@ -50,9 +45,6 @@ void CheckEq(const A& a, const B& b, const std::string& what) {
   Check(a == b, std::format("{} ({} == {})", what, a, b));
 }
 
-// ———— SHA-1 标准向量(FIPS 180-1 附录;boost::hash2 直调;多段流式与一次性同值)————
-// ———— SHA-1 standard vectors (the FIPS 180-1 appendix; the direct
-// boost::hash2 calls; the multi-segment streaming == the one-shot) ————
 void TestSha1() {
   const auto hex_digest = [](const boost::hash2::digest<20>& d) {
     std::string out;
@@ -73,9 +65,7 @@ void TestSha1() {
   CheckEq(hex(std::span<const unsigned char>(
               reinterpret_cast<const unsigned char*>(abc.data()), 3)),
           "a9993e364706816aba3e25717850c26c9cd0d89d", "SHA1('abc')");
-  // 52 字节 = 前 26 + 后 26 两段 update(块内分段 + 尾部填充路径)与一次性恒等
-  // 52 bytes = two 26-byte updates (the in-block split + the tail-padding
-  // path) agree with the one-shot.
+
   const std::string az = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz";
   const std::span<const unsigned char> az_bytes{
       reinterpret_cast<const unsigned char*>(az.data()), az.size()};
@@ -86,7 +76,6 @@ void TestSha1() {
         "streaming == one-shot digest");
 }
 
-// ———— CellRegion 族:枚举序(行主序)/ Contains / BoundingRegion ————
 void TestCellRegions() {
 
   CellRegion region{MapGridType::Rectangular, CPos{2, 1}, CPos{3, 2}};
@@ -101,16 +90,13 @@ void TestCellRegions() {
   Check(region.Contains(CPos{3, 2}), "Contains inside");
   Check(!region.Contains(CPos{4, 2}), "Contains outside");
 
-  // MPos 构造路径(Rectangular 下 TopLeft/BottomRight 恒等)
   CellRegion from_map{MapGridType::Rectangular, ora::MPos{2, 1},
                       ora::MPos{3, 2}};
   Check(from_map.Contains(CPos{2, 1}), "MPos ctor equality");
 
-  // Expand(L136-141)
   const CellRegion expanded = CellRegion::Expand(region, 1);
   Check(expanded.Contains(CPos{1, 0}), "Expand grows the cordon");
 
-  // BoundingRegion 的空输入抛(ArgumentException 同文本)
   bool threw = false;
   try {
     (void)CellRegion::BoundingRegion(MapGridType::Rectangular, {});
@@ -119,7 +105,6 @@ void TestCellRegions() {
   }
   Check(threw, "BoundingRegion empty-argument text verbatim");
 
-  // CellCoordsRegion 枚举 + MapCoordsRegion
   CellCoordsRegion coords{CPos{0, 0}, CPos{1, 1}};
   int count = 0;
   for (const CPos c : coords) {
@@ -137,7 +122,6 @@ void TestCellRegions() {
   CheckEq(count, 4, "MapCoordsRegion enumerates 4");
 }
 
-// ———— CellLayer:方格索引 / Resize / 等距 X<Y 预滤怪癖 ————
 void TestCellLayer() {
     CellLayer<int> layer{MapGridType::Rectangular, ora::Size{4, 3}};
   layer.Set(ora::MPos{2, 1}, 42);
@@ -146,8 +130,6 @@ void TestCellLayer() {
   Check(layer.Contains(ora::MPos{3, 2}), "Contains in-bounds");
   Check(!layer.Contains(ora::MPos{4, 2}), "Contains out-of-bounds");
 
-  // IndexOutOfRangeException 等价抛(L72-77 的 MPos 域;方格 GridType 直接
-  // 数组寻址 —— 上游同,负坐标为未定义索引而界检查只在 MPos 面)
   bool threw = false;
   try {
     (void)layer.Get(ora::MPos{4, 0});
@@ -156,19 +138,16 @@ void TestCellLayer() {
   }
   Check(threw, "out-of-bounds MPos index throws");
 
-  // 等距网格 X<Y 预滤(CellLayer.cs L110-114/132-134)
   CellLayer<int> iso{MapGridType::RectangularIsometric, ora::Size{8, 8}};
   int v = 0;
   Check(!iso.TryGetValue(CPos{1, 2}, v), "isometric X<Y TryGetValue false");
   Check(!iso.Contains(CPos{1, 2}), "isometric X<Y Contains false");
 
-  // Resize:交集拷贝 + defaultValue 填充
   auto resized = Resize(layer, ora::Size{5, 4}, 7);
   CheckEq(resized.Get(ora::MPos{2, 1}), 42, "Resize keeps the intersection");
   CheckEq(resized.Get(ora::MPos{4, 3}), 7, "Resize fills the default");
 }
 
-// ———— MapGrid:ramp 表 / TilesByDistance / DefaultSubCell 校验 ————
 void TestMapGrid() {
     const MapGrid grid;
   CheckEq(grid.Ramps().size(), std::size_t{21}, "21 ramp constants");
@@ -184,14 +163,10 @@ void TestMapGrid() {
   CheckEq(grid.OffsetOfSubCell(ora::sim::SubCell::First).X, -299,
           "subcell 1 offset x");
 
-  // 平坡中心高度 0;半坡构造的斜面插值(HeightOffset 的三角判定)
   CheckEq(grid.Ramps()[0].HeightOffset(0, 0), 0, "flat ramp height 0");
   CheckEq(grid.Ramps()[1].int4_center_height_offset, 256,
           "half-ramp center height = 724*512/1024 = 362? (实测按公式)");
-  // 注:斜坡 1 为 tr=br=Half → 中心插值 = (0*z0 + 512*z1 + 512*z2)/1024,
-  // z1=z2=512*1 → 256(以公式为准的构造自洽断言)
 
-  // DefaultSubCell 越界抛(InvalidDataException 文本逐字)
   ora::yaml::MiniYaml bad_grid_yaml;
   ora::yaml::StringPool& pool = ora::yaml::MiniYaml::GlobalPool();
   ora::yaml::MiniYamlNode node{pool.Intern("DefaultSubCell"),
@@ -208,13 +183,11 @@ void TestMapGrid() {
   Check(threw, "DefaultSubCell out-of-range text");
 }
 
-// ———— Polygon + 空间索引(OPT-A8 slab 形态)————
 void TestSpatialPartition() {
   using namespace ora::sim;
   SpatiallyPartitioned<Actor*> partitioned{1000, 1000, 100};
   ora::Rectangle bounds = ora::Rectangle::FromLTRB(0, 0, 50, 50);
 
-  // 空界抛(消息含 actor 呈现面 —— 无 World 上下文下以 stub 空指针承载)
   bool threw = false;
   try {
     ora::Rectangle empty = ora::Rectangle::FromLTRB(0, 0, 0, 0);
@@ -224,7 +197,6 @@ void TestSpatialPartition() {
   }
   Check(threw, "empty-bounds text verbatim (null actor)");
 
-  // At/InBox/去重:actor 依赖 World(ActorID)——构造最小 world 注入
   ora::sim::World world(ora::sim::WorldSimParams{});
   std::vector<ora::sim::Actor*> actors;
   {
@@ -245,7 +217,6 @@ void TestSpatialPartition() {
   CheckEq(partitioned.InBox(ora::Rectangle::FromLTRB(0, 0, 100, 100)).size(),
           std::size_t{2}, "InBox spans two bins, dedup applied");
 
-  // 移除后不可查询
   Check(partitioned.Remove(actors[1]), "Remove returns true");
   Check(!partitioned.Remove(actors[1]), "second Remove returns false");
   CheckEq(partitioned.InBox(ora::Rectangle::FromLTRB(0, 0, 100, 100)).size(),
@@ -254,16 +225,10 @@ void TestSpatialPartition() {
   CheckEq(partitioned.Count(), 0, "Clear empties the partition");
 }
 
-// ———— 第十七批:在线资源中心 HTTP 面(回环伪资源中心全链)————
-// Batch 17: the online resource-center HTTP face (the loopback fake
-// resource-center full chain).
 void TestRemoteMapRepository(const char* ch_upstream_root) {
   std::println("[map] remote map repository");
   const std::string str_root{ch_upstream_root};
 
-  // 临时 SupportDir + User 地图目录({DEV_VERSION} 为上游字面目录名)
-  // A temporary SupportDir + the User map directory ({DEV_VERSION} is
-  // upstream's literal directory name).
   std::filesystem::path path_support =
       std::filesystem::temp_directory_path() / "ora_map_test_support";
   std::error_code ec_fs{};
@@ -280,11 +245,6 @@ void TestRemoteMapRepository(const char* ch_upstream_root) {
   mod_data.ModFiles().SetPathResolver(
       game::PathResolver{str_root, path_support.string()});
 
-  // 伪资源中心:GET /hash/{uid}/yaml → RemoteMapData 节点;GET /download/
-  // {uid} → 真图字节 + Content-Disposition;GET /version → 状态词。
-  // The fake resource center: GET /hash/{uid}/yaml → the RemoteMapData
-  // node; GET /download/{uid} → real map bytes + Content-Disposition; GET
-  // /version → the status word.
   const std::string str_uid_hit = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
   const std::string str_uid_miss = "ffffffffffffffffffffffffffffffffffffffff";
 
@@ -368,11 +328,6 @@ void TestRemoteMapRepository(const char* ch_upstream_root) {
     }
   }};
 
-  // QueryRemoteMapDetails:命中 uid → DownloadAvailable + received 回调;
-  // 未命中 uid → 批尾 Searching → CompleteRemoteSearch(null) → fail 回调
-  // QueryRemoteMapDetails: the hit uid → DownloadAvailable + the received
-  // callback; the missed uid → the batch tail's Searching →
-  // CompleteRemoteSearch(null) → the fail callback.
   {
     auto cache = map::MapCache{mod_data.ManifestRef(), mod_data.ModFiles()};
     cache.LoadMaps(mod_data, "a-path-beyond");
@@ -398,11 +353,6 @@ void TestRemoteMapRepository(const char* ch_upstream_root) {
           vec_failed_uids.push_back(p.Uid());
         });
 
-    // 等后台批查线程全链收尾(状态 + 两侧回调均已落地)—— 回调数据面
-    // 的读须在回调静默后
-    // Wait for the background batch thread's full tail (the statuses +
-    // both callbacks landed) — the callback data faces are read only after
-    // the callbacks fall silent.
     bool b_hit_done = false;
     for (int i = 0; i < 400 && !b_hit_done; ++i) {
       std::this_thread::sleep_for(std::chrono::milliseconds{10});
@@ -432,10 +382,6 @@ void TestRemoteMapRepository(const char* ch_upstream_root) {
     if (!vec_failed_uids.empty())
       CheckEq(vec_failed_uids.front(), str_uid_miss, "fail uid is the miss");
 
-    // Install:DownloadAvailable → GET /download/{uid} → 写 User 包 →
-    // UpdateFromMapWithoutOwningPackage → Available
-    // Install: DownloadAvailable → GET /download/{uid} → writing the User
-    // package → UpdateFromMapWithoutOwningPackage → Available.
     cache.At(str_uid_hit).Install(
         std::format("http://127.0.0.1:{}/download/", int4_port));
     bool b_installed = false;
@@ -453,18 +399,12 @@ void TestRemoteMapRepository(const char* ch_upstream_root) {
     CheckEq(cache.At(str_uid_hit).DownloadPercentage(), 100,
             "download percentage reaches 100");
 
-    // 状态前置门:Available 态 Install 为 no-op(不触发新请求)
-    // The status preamble gate: Install at Available is a no-op (no new
-    // request fires).
     cache.At(str_uid_hit).Install(
         std::format("http://127.0.0.1:{}/download/", int4_port));
     Check(cache.At(str_uid_hit).Status() == map::MapStatus::Available,
           "install at Available stays a no-op");
   }
 
-  // WebServices.CheckModVersion:回环 /version 的 "outdated" 三态映射
-  // WebServices.CheckModVersion: the loopback /version's "outdated"
-  // three-state mapping.
   {
     auto services = game::WebServices{};
     services.VersionCheck =
@@ -501,11 +441,7 @@ int main(int argc, char** argv) {
   gen::RegisterGeneratedAll();
   game::RegisterGameLoaders();
   ora::sim::RegisterWorldTraits();
-  // mods 侧 trait 注册(本批:ActorMap/ControlGroups/CreateMapPlayers/
-  // Health/Locomotor/PathFinder + UnitOrderGenerator 名字分派)
-  // The mods-side trait registrations (this batch: ActorMap/ControlGroups/
-  // CreateMapPlayers/Health/Locomotor/PathFinder + the UnitOrderGenerator
-  // name dispatch).
+
   ora::mods::RegisterCommonTraits();
 
   TestSha1();
@@ -513,7 +449,7 @@ int main(int argc, char** argv) {
   TestCellLayer();
   TestMapGrid();
   TestSpatialPartition();
-  // ———— 真实 mod 链(逐段推进)————
+
   game::InstalledMods mods_installed{std::string{argv[1]} + "/mods"};
   const game::Manifest* manifest = mods_installed.Find("ra");
   Check(manifest != nullptr, "ra mod found");
@@ -542,10 +478,8 @@ int main(int argc, char** argv) {
                   map_size};
   CheckEq(editor.MapSize().Width, 8, "editor map width");
 
-  // 二进制往返:SaveBinaryData → 临时目录包 → Map 读回
   const auto bin = editor.SaveBinaryData();
-  // 平图(MaximumTerrainHeight=0):头 17 + tiles 3B/格 + resources 2B/格
-  // (heights 偏移 0 = 不落盘)
+
   CheckEq(bin.size(), std::size_t{17 + 5 * 8 * 6},
           "flat map.bin size = header 17 + tiles(3) + resources(2)");
 
@@ -599,7 +533,6 @@ int main(int argc, char** argv) {
   const auto bin2 = loaded.SaveBinaryData();
   Check(bin == bin2, "SaveBinaryData roundtrip identical");
 
-  // ———— MapCache:ra maps 目录全量装载(真实地图链)————
   game::Game game_{game::Game::Deps{.ptr_mod_data = &mod_data}};
   game_.JoinLocal();
 
@@ -615,7 +548,6 @@ int main(int argc, char** argv) {
     }
   Check(!str_uid.empty(), "an available ra map exists");
 
-  // ———— 第十批:MapPreview 异步面 + 自定义规则面 ————
   if (!str_uid.empty()) {
     map::MapPreview& preview = cache.At(str_uid);
     Check(preview.MapFormat() >= Map::kSupportedMapFormat,
@@ -651,9 +583,6 @@ int main(int argc, char** argv) {
     cache.UpdateMaps();
     Check(cache.Previews().size() > 0, "UpdateMaps no-op keeps previews");
 
-    // ———— 第十五批:MapStatusCache(真图定级 + 缓存 + lint 注入)————
-    // Batch 15: MapStatusCache (the real-map grading + the cache + the
-    // lint injection).
     {
       auto vec_status_log = std::vector<std::string>{};
       auto deps_cache = ora::server::MapStatusCacheDeps{};
@@ -685,7 +614,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  // ———— World 全量构造(world actor 规则 + TraitRegistry + arena)————
   if (!str_uid.empty()) {
     map::MapPreview& preview = cache.At(str_uid);
     auto map_world = preview.ToMap();
@@ -716,7 +644,6 @@ int main(int argc, char** argv) {
   return g_failures == 0 ? 0 : 1;
 }
 
-  // ———— 真实 mod 链(排查中:#if 0 段恢复后启用)————
 #if 0
   if (g_failures == 0)
     std::println("\nmap_test: all passed");

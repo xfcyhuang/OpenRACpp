@@ -20,4 +20,4 @@ void BadgeWidget::Draw() {
   }
 }
 
-}  // namespace ora::ui
+}

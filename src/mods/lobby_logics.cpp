@@ -93,8 +93,7 @@ std::string SpawnLetter(int int4_spawn) {
              : std::string(1, static_cast<char>('A' - 1 + int4_spawn));
 }
 
-}  // namespace
-
+}
 
 std::string CompleteTabCompletion(TabCompletionState& state_tab,
                                   const std::string& str_text) {
@@ -154,7 +153,6 @@ std::string CompleteTabCompletion(TabCompletionState& state_tab,
   return state_tab.str_last_completed;
 }
 
-
 void SetupLatencyTooltip(ora::ui::Widget& widget,
                          ora::ui::TooltipContainerWidget& tooltip_container,
                          net::SessionClient* ptr_client) {
@@ -188,7 +186,6 @@ void SetupLatencyTooltip(ora::ui::Widget& widget,
     return LatencyColor(ptr_client);
   };
 }
-
 
 void SetupSpawnSelectorTooltip(
     ora::ui::Widget& widget, game::ModData& mod_data,
@@ -322,7 +319,6 @@ void SetupSpawnSelectorTooltip(
   team.fn_is_visible = [ptr_occupied] { return *ptr_occupied; };
 }
 
-
 void SetupKickClient(ora::ui::Widget& widget, std::string str_client_name,
                      std::function<void(bool)> fn_ok_pressed,
                      std::function<void()> fn_cancel_pressed) {
@@ -354,7 +350,6 @@ void SetupKickClient(ora::ui::Widget& widget, std::string str_client_name,
       };
 }
 
-
 void SetupKickSpectators(ora::ui::Widget& widget, int int4_client_count,
                          std::function<void()> fn_ok_pressed,
                          std::function<void()> fn_cancel_pressed) {
@@ -377,7 +372,6 @@ void SetupKickSpectators(ora::ui::Widget& widget, int int4_client_count,
         fn_cancel_pressed();
       };
 }
-
 
 MapPreviewLogic::MapPreviewLogic(
     ora::ui::Widget& widget, game::ModData& mod_data,
@@ -699,7 +693,6 @@ void MapPreviewLogic::Tick() {
   }
 }
 
-
 LobbyOptionsLogic::LobbyOptionsLogic(
     ora::ui::Widget& widget, net::OrderManager& order_manager,
     std::function<map::MapPreview*()> fn_get_map,
@@ -972,7 +965,6 @@ void LobbyOptionsLogic::RebuildOptions() {
   ptr_panel_->ScrollToTop();
 }
 
-
 namespace {
 
 net::TextNotificationPool ParseTextNotificationPool(
@@ -1016,7 +1008,7 @@ std::vector<std::pair<std::string, std::string>> CollectBotTypes(
   return vec_bots;
 }
 
-}  // namespace
+}
 
 void DiscordServiceNoop() {}
 
@@ -1066,7 +1058,6 @@ bool LobbyLogic::MapIsPlayable() const {
   return net::HasMapStatusFlag(int4_map_status_,
                                net::SessionMapStatus::Playable);
 }
-
 
 LobbyLogic::LobbyLogic(
     ora::ui::Widget& widget, game::ModData& mod_data,
@@ -1228,7 +1219,6 @@ LobbyLogic::LobbyLogic(
            ptr_order_manager_->LocalClient()->IsReady();
   };
 
-
   if (auto* ptr_map_button =
           widget.GetOrNull<ora::ui::ButtonWidget>("CHANGEMAP_BUTTON")) {
     ptr_map_button->fn_is_visible = [this] {
@@ -1336,7 +1326,6 @@ LobbyLogic::LobbyLogic(
                                          std::move(args_chooser));
     };
   }
-
 
   if (auto* ptr_slots_button = widget.GetOrNull<ora::ui::DropDownButtonWidget>(
           "SLOTS_DROPDOWNBUTTON")) {
@@ -1514,7 +1503,6 @@ LobbyLogic::LobbyLogic(
           });
     };
   }
-
 
   if (auto* ptr_reset_button = widget.GetOrNull<ora::ui::ButtonWidget>(
           "RESET_OPTIONS_BUTTON")) {
@@ -1853,7 +1841,6 @@ bool LobbyLogic::OptionsTabDisabled() const {
          kind_panel_ == PanelType::ForceStart;
 }
 
-
 bool LobbyLogic::StartDisabled() const {
   if (ptr_map_->Status() != map::MapStatus::Available)
     return true;
@@ -2086,7 +2073,6 @@ void LobbyLogic::UpdateCurrentMap() {
         std::vector<std::string>{str_uid});
   }
 }
-
 
 void LobbyLogic::UpdatePlayerList() {
   const net::SessionClient* ptr_local =
@@ -2505,4 +2491,4 @@ void RegisterLobbyLogics() {
       });
 }
 
-}  // namespace ora::mods
+}

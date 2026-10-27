@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ColorBlockWidget.cs + Gradient-
-// ColorBlockWidget.cs @1f594e320(color_block_widget.hpp 的实现)
-// The implementation of color_block_widget.hpp.
 import std;
 
 #include "ui/widgets/color_block_widget.hpp"
@@ -43,9 +40,7 @@ bool ColorBlockWidget::HandleMouseInput(const MouseInput& mi_input) {
     return false;
 
   if (HasMouseFocus() && mi_input.Event == MouseInputEvent::Up) {
-    // Only fire the onMouseUp event if we successfully lost focus, and were
-    // pressed. The focus yields first and the callback fires off a stack
-    // copy — a self-destroying OnClick takes the widget with it.
+
     const bool b_yielded = YieldMouseFocus(mi_input);
     auto fn_on_mouse_up_copy = fn_on_mouse_up;
     fn_on_mouse_up_copy(mi_input);
@@ -54,7 +49,7 @@ bool ColorBlockWidget::HandleMouseInput(const MouseInput& mi_input) {
   }
 
   if (mi_input.Event == MouseInputEvent::Down) {
-    // OnMouseDown returns false if the button shouldn't be pressed
+
     fn_on_mouse_down(mi_input);
 
     Ui::Instance().PlayNotification(mod_rules, str_click_sound);
@@ -132,4 +127,4 @@ const bool kWidgetRegistered_GradientColorBlockWidget = [] {
   return true;
 }();
 
-}  // namespace ora::ui
+}

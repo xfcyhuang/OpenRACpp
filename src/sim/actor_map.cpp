@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/ActorMap.cs @1f594e320(实现部分)
-//          The implementation half of ActorMap.cs.
 import std;
 
 #include "sim/actor_map.hpp"
@@ -14,7 +12,6 @@ import std;
 
 namespace ora::sim {
 
-// ———— CellTrigger(L45-90)————
 class CellTrigger final {
  public:
   CellTrigger(std::vector<CPos> footprint, std::function<void(Actor&)> on_entry,
@@ -22,8 +19,7 @@ class CellTrigger final {
       : footprint_{std::move(footprint)},
         fn_on_actor_entered_{std::move(on_entry)},
         fn_on_actor_exited_{std::move(on_exit)} {
-    // Notify any actors that are initially inside the trigger zone(上游
-    // 注释)| (upstream comment).
+
     dirty_ = true;
   }
 
@@ -31,7 +27,6 @@ class CellTrigger final {
     if (!dirty_)
       return;
 
-    // PERF: Reuse collection to avoid allocations.(上游注释)
     vec_old_actors_.clear();
     UnionWith(vec_old_actors_, vec_current_actors_);
 
@@ -54,11 +49,11 @@ class CellTrigger final {
     dirty_ = false;
   }
 
-  bool dirty_ = false;  // L48 | (L48).
+  bool dirty_ = false;
   const std::vector<CPos> footprint_;
 
  private:
-  using ActorSet = std::vector<Actor*>;  // HashSet → 插入序 vector + id 判重
+  using ActorSet = std::vector<Actor*>;
 
   static bool ContainsActor(const ActorSet& set, Actor* a) {
     const std::uint32_t id = a->ActorID();
@@ -78,7 +73,6 @@ class CellTrigger final {
   ActorSet vec_current_actors_;
 };
 
-// ———— ProximityTrigger(L92-165)————
 class ProximityTrigger final {
  public:
   ProximityTrigger(const WPos& pos, const WDist& range, const WDist& v_range,
@@ -89,12 +83,11 @@ class ProximityTrigger final {
     Update(pos, range, v_range);
   }
 
-  WPos TopLeft() const { return wpos_top_left_; }          // L94
-  WPos BottomRight() const { return wpos_bottom_right_; }  // L95
+  WPos TopLeft() const { return wpos_top_left_; }
+  WPos BottomRight() const { return wpos_bottom_right_; }
 
-  bool dirty_ = false;  // L97
+  bool dirty_ = false;
 
-  /// Update(L116-128) | Update (L116-128).
   void Update(const WPos& new_pos, const WDist& new_range,
               const WDist& new_v_range) {
     wpos_position_ = new_pos;
@@ -109,12 +102,10 @@ class ProximityTrigger final {
     dirty_ = true;
   }
 
-  /// Tick(L130-157) | Tick (L130-157).
   void Tick(ActorMap& am) {
     if (!dirty_)
       return;
 
-    // PERF: Reuse collection to avoid allocations.(上游注释)
     vec_old_actors_.clear();
     UnionWith(vec_old_actors_, vec_current_actors_);
 
@@ -122,7 +113,7 @@ class ProximityTrigger final {
     vec_current_actors_.clear();
     for (Actor* a : am.ActorsInBox(wpos_position_ - delta,
                                    wpos_position_ + delta)) {
-      // Where 谓词(L143-144)| the Where predicate (L143-144).
+
       if ((a->CenterPosition() - wpos_position_).HorizontalLengthSquared() <
               wdist_range_.LengthSquared() &&
           (wdist_v_range_.Length == 0 ||
@@ -145,7 +136,6 @@ class ProximityTrigger final {
     dirty_ = false;
   }
 
-  /// Dispose(L159-164) | Dispose (L159-164).
   void Dispose() {
     if (fn_on_actor_exited_ != nullptr)
       for (Actor* a : vec_current_actors_)
@@ -167,8 +157,7 @@ class ProximityTrigger final {
         into.push_back(a);
   }
 
-  friend class ActorMap;  // dirty_ 直写面(Add/RemovePosition 触发)
-                          // the dirty_ direct-write face.
+  friend class ActorMap;
 
   std::function<void(Actor&)> fn_on_actor_entered_;
   std::function<void(Actor&)> fn_on_actor_exited_;
@@ -184,11 +173,6 @@ class ProximityTrigger final {
 
 namespace {
 
-/// IHitShape.OuterRadius 的值袋求值(形状嵌套记录;Circle=Radius,
-/// Rectangle=corners 最大长度,Capsule=Radius+max(|A|,|B|))
-/// The bag evaluation of IHitShape.OuterRadius (the nested shape record;
-/// Circle = Radius, Rectangle = the max corner length, Capsule = Radius +
-/// max(|A|,|B|)).
 WDist OuterRadiusOfShape(const meta::RecordObject& rec_shape) {
   const auto* generated =
       dynamic_cast<const meta::GeneratedRecord*>(&rec_shape);
@@ -204,7 +188,7 @@ WDist OuterRadiusOfShape(const meta::RecordObject& rec_shape) {
         continue;
       const meta::GenericValue& v = generated->Slot(i);
       if (auto* t = std::get_if<meta::GenericTuple>(&v.val))
-        return {t->arr_ints[0], t->arr_ints[1]};  // WDist.Length / int2
+        return {t->arr_ints[0], t->arr_ints[1]};
     }
     return {0, 0};
   };
@@ -216,30 +200,22 @@ WDist OuterRadiusOfShape(const meta::RecordObject& rec_shape) {
   if (name == "CircleShape")
     return WDist{static_cast<std::int32_t>(read_ints("Radius")[0])};
   if (name == "RectangleShape") {
-    // corners.Max(x => x.Length):四角 = 两点横纵分量的组合极值
-    // corners.Max(x => x.Length): the corners' extreme = the component-wise
-    // extremes of the two points.
+
     const std::int64_t a = int2_length(read_ints("TopLeft"));
     const std::int64_t b = int2_length(read_ints("BottomRight"));
     return WDist{static_cast<std::int32_t>(std::max(a, b))};
   }
   if (name == "CapsuleShape") {
-    // OuterRadius = Radius + max(PointA.Length, PointB.Length)(Capsule.cs
-    // L62)| (Capsule.cs L62).
+
     const std::int64_t a = int2_length(read_ints("PointA"));
     const std::int64_t b = int2_length(read_ints("PointB"));
     return WDist{static_cast<std::int32_t>(
         read_ints("Radius")[0] + std::max(a, b))};
   }
-  // 未知形状:Initialize 未接的运行时面(见 loaders.cpp 注记)—— 0 贡献
-  // An unknown shape: the runtime face noted un-wired in loaders.cpp — a
-  // 0 contribution.
+
   return WDist{0};
 }
 
-/// 生成记录的按名嵌套记录槽(Type 字段 → 形状记录)
-/// The by-name nested-record slot of a generated record (the Type field →
-/// the shape record).
 const meta::RecordObject* ShapeSlotOf(const meta::RecordObject& rec) {
   const auto* generated = dynamic_cast<const meta::GeneratedRecord*>(&rec);
   if (generated == nullptr)
@@ -257,21 +233,18 @@ const meta::RecordObject* ShapeSlotOf(const meta::RecordObject& rec) {
   return nullptr;
 }
 
-}  // namespace
+}
 
-// ———— ctor(L191-210)————
 ActorMap::ActorMap(World& world, int bin_size)
     : bin_size_{bin_size}, map_{world.Map()}, world_{world} {
-  // influence = [new CellLayer<InfluenceNode>(world.Map)](L195:0 层恒有)
-  // (L195: layer 0 always present.)
+
   vec_influence_.push_back(std::make_unique<InfluenceLayer>(map_));
 
   const Size size = map_.MapSize();
-  cols_ = CellCoordToBinIndex(size.Width) + 1;   // L197
-  rows_ = CellCoordToBinIndex(size.Height) + 1;  // L198
-  vec_bins_.resize(static_cast<std::size_t>(rows_) * cols_);  // L199-202
+  cols_ = CellCoordToBinIndex(size.Width) + 1;
+  rows_ = CellCoordToBinIndex(size.Height) + 1;
+  vec_bins_.resize(static_cast<std::size_t>(rows_) * cols_);
 
-  // LargestActorRadius/ LargestBlockingActorRadius(L207-209)
   std::optional<WDist> largest_actor_radius;
   std::vector<const game::ActorInfo*> blockers;
   for (const auto& [name, info] : map_.Rules().Actors()) {
@@ -290,11 +263,7 @@ ActorMap::ActorMap(World& world, int bin_size)
             "OpenRA.Traits.IBlocksProjectilesInfo"))
       blockers.push_back(info.get());
   }
-  // SelectMany(...).Max():空序列 InvalidOperationException 等价(规则表
-  // 至少含 world actor,实际可达面恒非空)
-  // SelectMany(...).Max(): the empty-sequence InvalidOperationException
-  // equivalent (the rules table always carries the world actor — the
-  // reachable face is never empty).
+
   wdist_largest_actor_radius_ = largest_actor_radius.value_or(WDist{0});
   if (!blockers.empty()) {
     std::optional<WDist> largest_blocking;
@@ -316,7 +285,6 @@ ActorMap::ActorMap(World& world, int bin_size)
 
 ActorMap::~ActorMap() = default;
 
-// ———— INotifyCreated.Created(L212-227)————
 void ActorMap::Created(Actor& self) {
   const auto custom_movement_layers =
       self.TraitsImplementing<ICustomMovementLayer>();
@@ -340,13 +308,8 @@ void ActorMap::Created(Actor& self) {
   }
 }
 
-// ———— 查询族(L265-287)————
 std::vector<Actor*> ActorMap::GetActorsAt(CPos a) {
-  // PERF: Custom enumerator for efficiency - using `yield` is slower.
-  // (上游注释;C++ 侧 = ForEachActorAt 物化 + 零分配核)
-  // PERF: Custom enumerator for efficiency - using `yield` is slower.
-  // (upstream comment; the C++ side = a materialized ForEachActorAt plus
-  // the zero-allocation core)
+
   std::vector<Actor*> out;
   ForEachActorAt(a, [&](Actor& actor) { out.push_back(&actor); });
   return out;
@@ -366,7 +329,6 @@ std::vector<Actor*> ActorMap::GetActorsAt(CPos a, SubCell sub) {
   return out;
 }
 
-// ———— HasFreeSubCell/FreeSubCell(L289-334)————
 bool ActorMap::HasFreeSubCell(CPos cell, bool check_transient) {
   return FreeSubCell(cell, SubCell::Any, check_transient) != SubCell::Invalid;
 }
@@ -426,9 +388,8 @@ SubCell ActorMap::FreeSubCell(
   return SubCell::Invalid;
 }
 
-// ———— AnyActorsAt 族(L336-399)————
 bool ActorMap::AnyActorsAt(CPos a) {
-  // NOTE: always includes transients with influence(上游注释)
+
   const MPos uv = a.ToMPos(map_.Grid().Type);
   auto* layer = LayerAt(a.Layer());
   if (layer == nullptr || !layer->Contains(uv))
@@ -453,15 +414,12 @@ bool ActorMap::AnyActorsAt(CPos a, SubCell sub,
   return AnyActorsAtInner(layer->Get(uv), sub, with_condition);
 }
 
-// ———— AllActors(L401-411)————
 std::vector<Actor*> ActorMap::AllActors() {
   std::vector<Actor*> out;
   for (const auto& layer : vec_influence_) {
     if (layer == nullptr)
       continue;
-    // 逐格链表游走(CellLayer 全枚举 = Entries 行主序)
-    // The per-cell list walk (the CellLayer full enumeration = the
-    // Entries' row-major order).
+
     for (InfluenceNode* node : layer->Entries())
       for (InfluenceNode* i = node; i != nullptr; i = i->next)
         out.push_back(i->actor);
@@ -469,7 +427,6 @@ std::vector<Actor*> ActorMap::AllActors() {
   return out;
 }
 
-// ———— AddInfluence/RemoveInfluence(L413-451)————
 void ActorMap::AddInfluence(Actor* self, IOccupySpace* ios) {
   for (const auto& [cell, sub_cell] : ios->OccupiedCells()) {
     const MPos uv = cell.ToMPos(map_.Grid().Type);
@@ -512,9 +469,7 @@ void ActorMap::RemoveInfluence(Actor* self, IOccupySpace* ios) {
 
 ActorMap::InfluenceNode* ActorMap::RemoveInfluenceInner(InfluenceNode* head,
                                                         Actor* to_remove) {
-  // 递归 ref 重写 → 迭代重建(摘除节点 delete = GC 的显式等价,链序保持)
-  // The recursive ref rewrite → an iterative rebuild (deleting the removed
-  // nodes = the explicit GC equivalent; list order preserved).
+
   InfluenceNode* out_head = nullptr;
   InfluenceNode** out_tail = &out_head;
   InfluenceNode* node = head;
@@ -532,23 +487,15 @@ ActorMap::InfluenceNode* ActorMap::RemoveInfluenceInner(InfluenceNode* head,
   return out_head;
 }
 
-// ———— AnyActorsAt 的静态内层(L348-365/L379-388)————
 bool ActorMap::AnyActorsAtInner(InfluenceNode* influence_node, CPos a,
                                 SubCell sub, bool check_transient) {
-  // NOTE: pos required to be in map bounds(上游注释)
+
   const bool always = sub == SubCell::FullCell || sub == SubCell::Any;
   for (InfluenceNode* i = influence_node; i != nullptr; i = i->next) {
     if (always || i->sub_cell == sub || i->sub_cell == SubCell::FullCell) {
       if (check_transient)
         return true;
 
-      // PERF: Avoid trait lookup(L359):上游
-      // `i.Actor.OccupiesSpace is not IPositionable pos ||
-      //  !pos.IsLeavingCell(a, i.SubCell)` —— IPositionable 实现随 Mobile
-      // 批落地;部分覆盖装配面下 `is not` 恒真 → 阻挡(COVERAGE 登记)
-      // PERF: Avoid trait lookup (L359): with the IPositionable family
-      // landing in the Mobile batch, the partial-coverage assembly face
-      // makes `is not` always true → blocked (in COVERAGE).
       return true;
     }
   }
@@ -568,7 +515,6 @@ bool ActorMap::AnyActorsAtInner(
   return false;
 }
 
-// ———— UpdateOccupiedCells(L464-471)————
 void ActorMap::UpdateOccupiedCells(IOccupySpace* ios) {
   if (vec_cell_updated_.empty())
     return;
@@ -577,12 +523,11 @@ void ActorMap::UpdateOccupiedCells(IOccupySpace* ios) {
       fn(cell);
 }
 
-// ———— ITick.Tick(L473-509)————
 void ActorMap::Tick(Actor& self) {
-  // Position updates are done in one pass(上游注释)
+
   if (!vec_remove_actor_position_.empty()) {
     for (Bin& bin : vec_bins_) {
-      // RemoveAll(actorShouldBeRemoved)(L481)| RemoveAll (L481).
+
       const auto before = bin.actors.size();
       const auto& to_remove = vec_remove_actor_position_;
       bin.actors.erase(
@@ -613,13 +558,6 @@ void ActorMap::Tick(Actor& self) {
   }
   vec_add_actor_position_.clear();
 
-  // Dictionary 枚举序 = 插入序(无删除面)—— cellTriggers/proximityTriggers
-  // 以 unordered_map 承载;tick 顺序经 nextTriggerId 单调键的有序视图保持
-  // (插入序 = id 升序,与上游 Dictionary 桶序一致)
-  // The Dictionary enumeration order = insertion order (no deletion face)
-  // — carried by unordered_maps keyed by the monotonic nextTriggerId; an
-  // ordered view keeps the tick order (insertion order = ascending id,
-  // matching upstream's Dictionary bucket order).
   std::vector<int> ids;
   ids.reserve(map_cell_triggers_.size());
   for (const auto& [id, t] : map_cell_triggers_)
@@ -636,7 +574,6 @@ void ActorMap::Tick(Actor& self) {
     map_proximity_triggers_[static_cast<std::size_t>(id)]->Tick(*this);
 }
 
-// ———— 触发器族(L511-586)————
 int ActorMap::AddCellTrigger(const std::vector<CPos>& cells,
                              std::function<void(Actor&)> on_entry,
                              std::function<void(Actor&)> on_exit) {
@@ -674,7 +611,7 @@ void ActorMap::RemoveCellTrigger(int id) {
     auto infl = map_cell_trigger_influence_.find(c);
     if (infl == map_cell_trigger_influence_.end())
       continue;
-    // RemoveAll(t => t == trigger) | RemoveAll (t => t == trigger).
+
     std::erase(infl->second, trigger);
   }
 }
@@ -726,9 +663,8 @@ void ActorMap::UpdateProximityTrigger(int id, const WPos& new_pos,
     bin_ptr->proximity_triggers.push_back(t);
 }
 
-// ———— 位置缓存面(L588-602)————
 void ActorMap::AddPosition(Actor* a, IOccupySpace* ios) {
-  // HashSet.Add:去重(ActorID)| HashSet.Add: dedup by ActorID.
+
   const std::uint32_t id = a->ActorID();
   if (!std::any_of(vec_add_actor_position_.begin(),
                    vec_add_actor_position_.end(),
@@ -749,7 +685,6 @@ void ActorMap::UpdatePosition(Actor* a, IOccupySpace* ios) {
   AddPosition(a, ios);
 }
 
-// ———— 几何辅助(L614-642)————
 Rectangle ActorMap::BinRectangleCoveringWorldArea(int world_left,
                                                   int world_top,
                                                   int world_right,
@@ -775,10 +710,8 @@ std::vector<ActorMap::Bin*> ActorMap::BinsInBox(const WPos& a, const WPos& b) {
   return out;
 }
 
-// ———— ActorsInBox(L644-671)————
 std::vector<Actor*> ActorMap::ActorsInBox(const WPos& a, const WPos& b) {
-  // PERF: Inline BinsInBox here to avoid allocations as this method is
-  // called often.(上游注释)
+
   std::vector<Actor*> out;
   const int left = std::min(a.X, b.X);
   const int top = std::min(a.Y, b.Y);
@@ -800,4 +733,4 @@ std::vector<Actor*> ActorMap::ActorsInBox(const WPos& a, const WPos& b) {
   return out;
 }
 
-}  // namespace ora::sim
+}

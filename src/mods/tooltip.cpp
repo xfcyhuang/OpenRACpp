@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Tooltip.cs @1f594e320
-//          L16-102(实现面)
-//          L16-102 (the implementation face).
 #include "mods/tooltip.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -71,4 +68,4 @@ Tooltip::Tooltip(const ActorInitializer& init, TooltipInfoData info)
   ptr_self_ = &init.Self();
 }
 
-}  // namespace ora::mods
+}

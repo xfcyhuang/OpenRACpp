@@ -5,23 +5,23 @@ namespace ora::game {
 namespace {
 
 const core::Color kPerfColors[] = {
-    core::Color::FromArgb(255, 255, 0, 0),      // Red
-    core::Color::FromArgb(255, 0, 128, 0),      // Green
-    core::Color::FromArgb(255, 255, 165, 0),    // Orange
-    core::Color::FromArgb(255, 255, 255, 0),    // Yellow
-    core::Color::FromArgb(255, 255, 0, 255),    // Fuchsia
-    core::Color::FromArgb(255, 0, 255, 0),      // Lime
-    core::Color::FromArgb(255, 0, 255, 255),    // Cyan
-    core::Color::FromArgb(255, 0, 0, 255),      // Blue
-    core::Color::FromArgb(255, 255, 255, 255),  // White
-    core::Color::FromArgb(255, 0, 128, 128),    // Teal
-    core::Color::FromArgb(255, 255, 192, 203),  // Pink
-    core::Color::FromArgb(255, 147, 112, 219),  // MediumPurple
-    core::Color::FromArgb(255, 128, 128, 0),    // Olive
-    core::Color::FromArgb(255, 100, 149, 237),  // CornflowerBlue
+    core::Color::FromArgb(255, 255, 0, 0),
+    core::Color::FromArgb(255, 0, 128, 0),
+    core::Color::FromArgb(255, 255, 165, 0),
+    core::Color::FromArgb(255, 255, 255, 0),
+    core::Color::FromArgb(255, 255, 0, 255),
+    core::Color::FromArgb(255, 0, 255, 0),
+    core::Color::FromArgb(255, 0, 255, 255),
+    core::Color::FromArgb(255, 0, 0, 255),
+    core::Color::FromArgb(255, 255, 255, 255),
+    core::Color::FromArgb(255, 0, 128, 128),
+    core::Color::FromArgb(255, 255, 192, 203),
+    core::Color::FromArgb(255, 147, 112, 219),
+    core::Color::FromArgb(255, 128, 128, 0),
+    core::Color::FromArgb(255, 100, 149, 237),
 };
 
-}  // namespace
+}
 
 void PerfItem::Tick(bool b_game_is_active) {
   arr_samples[sz_head++] = fp8_val;
@@ -121,4 +121,4 @@ void PerfHistory::Reset() {
     up_item->ResetSamples();
 }
 
-}  // namespace ora::game
+}

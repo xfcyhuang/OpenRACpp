@@ -1,12 +1,3 @@
-// UPSTREAM: OpenRA.Game/Support/VariableExpression.cs @1f594e320 L22-983
-//          (variable_expression.hpp 的实现;tokenizer/校验/后缀化/求值逐行对照)
-//          Implementation of variable_expression.hpp (tokenizer/validation/
-//          postfix/evaluation line-checked against upstream).
-// 已登记偏离(docs/COVERAGE.md)/ Registered deviations:
-//  - 错误消息中的 index 按 UTF-8 字节计(C# 按 UTF-16 code unit);
-//    ASCII 输入下完全一致,mods 表达式均为 ASCII
-//    Indices in error messages count UTF-8 bytes (C# counts UTF-16 code
-//    units); identical for ASCII input, and mods expressions are ASCII.
 import std;
 #include "variable_expression.hpp"
 #include "parse.hpp"
@@ -15,8 +6,6 @@ import std;
 namespace ora::expr {
 
 namespace {
-
-// ———— 字符分类(VariableExpression.cs L30-91)/ Character classes ————
 
 enum class CharClass : std::uint8_t { Whitespace, Operator, Mixed, Id, Digit };
 

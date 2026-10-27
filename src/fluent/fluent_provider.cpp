@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Game/FluentProvider.cs @1f594e320 —— 单例承载实现
-// (Initialize 的 map 文件表/base64 文本装载 = FluentBundle.cs L129-137 的
-// 调用序;GetMessage 的 mod → map → 键回落序)。
-// The singleton-carrier implementation of OpenRA.Game/FluentProvider.cs
-// (Initialize's map file-list/base64-text loading = FluentBundle.cs's
-// L129-137 call order; GetMessage's mod → map → key fallback order).
 #include "fluent/fluent_provider.hpp"
 
 #include "yaml/mini_yaml.hpp"
@@ -25,8 +19,6 @@ int Base64Digit(char ch) {
   return -1;
 }
 
-/// Convert.FromBase64String(ChunkSize 安全面:遇 '=' 截断)
-/// Convert.FromBase64String (the '='-terminated form).
 std::optional<std::string> DecodeBase64(std::string_view sv) {
   std::string str_out;
   str_out.reserve(sv.size() / 4 * 3);
@@ -48,7 +40,7 @@ std::optional<std::string> DecodeBase64(std::string_view sv) {
   return str_out;
 }
 
-}  // namespace
+}
 
 void FluentProvider::Initialize(std::string_view str_culture,
                                 std::span<const std::string> vec_paths,
@@ -64,9 +56,7 @@ void FluentProvider::Initialize(std::string_view str_culture,
   if (ptr_map_definitions != nullptr) {
     std::vector<std::string> vec_map_files;
     if (ptr_map_definitions->Value != nullptr) {
-      // FieldLoader.GetValue<ImmutableArray<string>>:逗号分割 + 去空段
-      // FieldLoader.GetValue<ImmutableArray<string>>: comma split + drop
-      // empties.
+
       for (const auto part :
            std::views::split(std::string_view{*ptr_map_definitions->Value}, ',')) {
         std::string_view str_part{part.begin(), part.end()};
@@ -146,4 +136,4 @@ void FluentProvider::ResetForTest() {
   ptr_map_bundle_ = nullptr;
 }
 
-}  // namespace ora::fluent
+}

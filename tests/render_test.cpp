@@ -1,15 +1,3 @@
-// UPSTREAM: Phase 5 第八批验收:RenderSprites/WithSpriteBody(+Facing)/
-//          WithInfantryBody/WithSpriteTurret/WithMakeAnimation(+Overlay)+
-//          ProximityCapturable 族 + FieldSaver/Settings + ReplayRecorder/
-//          ReplayConnection/SyncReport 起步(真 ra 全链:真序列集装配 →
-//          e1 动画状态机 → 2tnk 炮塔面 → TENT make 动画 → 邻近捕获换主)
-//          The Phase 5 batch-8 acceptance: the RenderSprites/WithSpriteBody
-//          family + WithInfantryBody/WithSpriteTurret/WithMakeAnimation
-//          (+Overlay) + the ProximityCapturable family + FieldSaver/
-//          Settings + the ReplayRecorder/ReplayConnection/SyncReport
-//          start (the real ra full chain: the real sequence-set assembly →
-//          e1's animation state machine → the 2tnk turret face → TENT's
-//          make animation → the proximity capture's owner change).
 import std;
 
 #include <cstdio>
@@ -169,8 +157,7 @@ std::string_view TestMapFilter() {
     return std::string_view{str_env};
   return "Siberian-Pass";
 }
-}  // namespace
-
+}
 
 namespace ora::fmt {
 std::vector<std::byte> LcwEncodeForRenderTest(std::vector<std::byte> vec_frame);
@@ -179,7 +166,6 @@ std::vector<std::byte> LcwEncodeForRenderTest(std::vector<std::byte> vec_frame);
 namespace ora::gen {
 void RegisterGeneratedAll();
 }
-
 
 static int g_failures = 0;
 
@@ -275,9 +261,6 @@ int main(int argc, char** argv) {
   ora::sim::RegisterWorldTraits();
   ora::mods::RegisterCommonTraits();
 
-  // qboi facings 解析钩子(测试接线 8;同 attack/condition 批的注入面)
-  // The qboi facings-resolution hook (the test wires 8; attack/condition
-  // batches' injection face).
   ora::mods::SetBodyOrientationFacingsResolver(
       [](const ora::game::ActorInfo&, const std::string&) { return 8; });
 
@@ -286,9 +269,6 @@ int main(int argc, char** argv) {
 
   using namespace ora;
   using ora::testfx::InstallSyntheticSequences;
-
-  // ———— 装配:ModData + 真 ra 序列集 ————
-  // ———— Assembly: ModData + the real ra sequence set ————
 
   game::InstalledMods mods_installed{std::string{str_upstream_root} + "/mods"};
   const game::Manifest* manifest = mods_installed.Find("ra");
@@ -319,9 +299,6 @@ int main(int argc, char** argv) {
   if (map_world == nullptr)
     return g_failures != 0;
 
-  // 序列装配(共享夹具:真 ra 序列表 + 合成资产副本)
-  // The sequence assembly (the shared fixture: ra's real sequence tables
-  // + synthetic asset copies).
   InstallSyntheticSequences(*map_world, *manifest, mod_data,
                                      str_upstream_root);
 
@@ -333,8 +310,6 @@ int main(int argc, char** argv) {
   if (world->Players().empty())
     return g_failures != 0;
 
-  // 两个战斗玩家
-  // Two combatants.
   std::vector<sim::Player*> vec_combatants;
   for (sim::Player* p : world->Players())
     if (!p->NonCombatant())
@@ -369,14 +344,9 @@ int main(int argc, char** argv) {
     return world->CreateActor(true, str_type, dict);
   };
 
-  // WorldRenderer + player 调色板(RenderSprites 的 CachePalette 消费)
-  // The WorldRenderer + the player palettes (RenderSprites's CachePalette
-  // consumer).
   gfx::WorldRenderer wr{*world, gfx::WorldRenderer::Desc{}};
   {
-    // 视口桩(注释族消费 WorldToViewPx/Zoom;上游恒有真 Viewport)
-    // The viewport stub (the annotation family consumes WorldToViewPx/Zoom;
-    // upstream always has the real Viewport).
+
     class ViewportStub final : public gfx::IViewportSurface {
      public:
       int2 WorldToViewPx(int2 int2_world) override { return int2_world; }
@@ -427,9 +397,7 @@ int main(int argc, char** argv) {
     wr.SetViewport(&viewport_stub);
   }
   {
-    // 灰阶基底(色移无关;引用存在性即所测面)
-    // A grayscale base (no color shift; the reference's existence is the
-    // tested face).
+
     std::vector<std::uint32_t> vec_argb(256);
     for (int i = 0; i < 256; ++i)
       vec_argb[static_cast<std::size_t>(i)] =
@@ -451,31 +419,21 @@ int main(int argc, char** argv) {
       std::vector<std::uint32_t> vec_;
     };
     for (const sim::Player* p : world->Players()) {
-      // ra 的玩家调色板基名两系(PlayerColorPalette 的 BasePalette:
-      // player / player-noshadow)
-      // ra's two player-palette base names (PlayerColorPalette's
-      // BasePalette: player / player-noshadow).
+
       for (const std::string_view sv_base : {"player", "player-noshadow"})
         wr.AddPalette(std::string{sv_base} + p->InternalName(),
                       gfx::ImmutablePalette{VectorPalette{vec_argb}}, false);
     }
-    // 装饰/死亡效果的世界级调色板(chrome = pips·装饰;effect = 碾压)
-    // The world-scope palettes of the decoration/death family (chrome =
-    // the pips & decorations; effect = the crushed).
+
     for (const std::string_view sv_base : {"chrome", "effect"})
       wr.AddPalette(std::string{sv_base},
                     gfx::ImmutablePalette{VectorPalette{vec_argb}}, false);
   }
 
-  // ———— 1. e1:WithInfantryBody 动画状态机 ————
-  // ———— 1. e1: WithInfantryBody's animation state machine ————
-
   sim::Actor* e1 = spawn("e1", player_a, CPos{cx, cy});
   Check(e1 != nullptr, "e1 constructed");
   if (e1 != nullptr) {
-    // e1 合法双份(无名 + WithInfantryBody@PARACHUTE)—— 取首份
-    // e1 legitimately carries two (the unnamed + WithInfantryBody@PARACHUTE)
-    // — take the first.
+
     std::vector<mods::WithInfantryBody*> vec_infantry_bodies =
         e1->TraitsImplementing<mods::WithInfantryBody>();
     CheckEq(vec_infantry_bodies.size(), std::size_t{2},
@@ -496,8 +454,6 @@ int main(int argc, char** argv) {
             "e1 starts on a stand sequence (stand/stand2 pick)");
     }
 
-    // Render:RenderSprites 出真 sprite 项
-    // Render: RenderSprites yields real sprite items.
     if (render_sprites != nullptr) {
       std::vector<gfx::RenderItem> vec_items;
       e1->Render(wr, vec_items);
@@ -506,16 +462,11 @@ int main(int argc, char** argv) {
             "render item carries a real sprite");
     }
 
-    // ScreenBounds:非空矩形
-    // ScreenBounds: a non-empty rectangle.
     const std::vector<Rectangle> vec_bounds = e1->ScreenBounds(wr);
     Check(!vec_bounds.empty(), "e1 ScreenBounds non-empty");
     if (!vec_bounds.empty())
       Check(!vec_bounds[0].IsEmpty(), "e1 ScreenBounds[0] non-empty rect");
 
-    // run/stand 状态机(移动类型位直驱;Tick 的两分支)
-    // The run/stand state machine (the movement-type bit drives it;
-    // Tick's two branches).
     if (infantry_body != nullptr) {
       auto* mobile = e1->TraitOrDefault<mods::Mobile>();
       Check(mobile != nullptr, "e1 Mobile mounted");
@@ -538,9 +489,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  // ———— 2. 2tnk:WithSpriteTurret ————
-  // ———— 2. 2tnk: WithSpriteTurret ————
-
   sim::Actor* tnk = spawn("2tnk", player_a, CPos{cx + 4, cy});
   Check(tnk != nullptr, "2tnk constructed");
   if (tnk != nullptr) {
@@ -555,27 +503,19 @@ int main(int argc, char** argv) {
                             ->Name()} == "turret",
             "turret animation starts on the turret sequence");
 
-      // 炮塔朝向被钳到精灵 facings(2tnk turret = 32)
-      // The turret facings clamp to the sprite's (2tnk turret = 32).
       CheckEq(turreted->QuantizedFacings(),
               turret_sprite->DefaultAnimation().CurrentSequence()->Facings(),
               "QuantizedFacings clamped to the turret-sequence facings");
       CheckEq(turreted->QuantizedFacings(), 32, "2tnk turret facings = 32");
 
-      // TurretOffset(recoil 求和 + LocalToWorld 旋转)
-      // TurretOffset (the recoil sum + the LocalToWorld rotation).
       Check(turret_sprite->TurretOffset(*tnk) == turreted->Position(*tnk),
             "zero-recoil TurretOffset = Turreted.Position");
 
-      // 炮塔渲染项
-      // The turret render item.
       std::vector<gfx::RenderItem> vec_items;
       tnk->Render(wr, vec_items);
       Check(vec_items.size() >= 1, "2tnk renders (body + turret)");
     }
 
-    // 车体 = WithFacingSpriteBody(facing 面)
-    // The hull = WithFacingSpriteBody (the facing face).
     auto* body_sprite = tnk->TraitOrDefault<mods::WithSpriteBody>();
     Check(body_sprite != nullptr, "2tnk WithFacingSpriteBody as body");
     if (body_sprite != nullptr)
@@ -584,9 +524,6 @@ int main(int argc, char** argv) {
                             ->Name()} == "idle",
             "2tnk body starts on idle");
   }
-
-  // ———— 3. TENT:WithMakeAnimation(make → idle 全程)————
-  // ———— 3. TENT: WithMakeAnimation (the make → idle full course) ————
 
   sim::Actor* tent = spawn("tent", player_a, CPos{cx - 4, cy - 2});
   Check(tent != nullptr, "tent constructed");
@@ -601,15 +538,12 @@ int main(int argc, char** argv) {
                 "make",
             "tent born on the make sequence");
 
-      // make 全程后回 idle(帧长 × 40ms;帧末任务在 world.Tick 帧末 drain)
-      // The full make course then back to idle (frame length × 40ms; the
-      // frame-end task drains at world.Tick's frame end).
       const std::int32_t int4_frames =
           body->DefaultAnimation().CurrentSequence()->Length();
       Check(int4_frames > 0, "tent make sequence has frames");
       const std::int32_t int4_ticks =
-          int4_frames + 2;  // 尾帧 + after 回调一拍 | the tail frame + one
-                            // beat for the after callback.
+          int4_frames + 2;
+
       for (std::int32_t i = 0; i < int4_ticks; ++i)
         world->Tick();
       Check(std::string{body->DefaultAnimation().CurrentSequence()->Name()} ==
@@ -618,15 +552,8 @@ int main(int argc, char** argv) {
     }
   }
 
-  // ———— 4. ProximityCapturable:邻近换主(真 ActorMap 触发器链)————
-  // ———— 4. ProximityCapturable: the proximity owner change (the real
-  //      ActorMap trigger chain) ————
-
   {
-    // ra 规则无 ProximityCapturable 承载 actor —— 手动挂 trait(e1 的
-    // ^Infantry 带 ProximityCaptor: Infantry)
-    // ra's rules carry no ProximityCapturable actor — mount the trait by
-    // hand (^Infantry carries ProximityCaptor: Infantry on e1).
+
     sim::Actor* victim = spawn("tent", player_a, CPos{cx + 12, cy + 6});
     Check(victim != nullptr, "victim tent constructed");
     if (victim != nullptr) {
@@ -648,9 +575,6 @@ int main(int argc, char** argv) {
       victim->AddTrait(proximity);
       proximity->AddedToWorld(*victim);
 
-      // player_b 的 e1 从 5c 外走进入域:期待帧末换主
-      // player_b's e1 walks in from beyond 5c: the frame-end owner change
-      // is expected.
       sim::Actor* captor = spawn("e1", player_b, CPos{cx + 12, cy});
       Check(captor != nullptr, "captor e1 constructed");
       if (captor != nullptr) {
@@ -670,8 +594,6 @@ int main(int argc, char** argv) {
                     victim->Owner() == player_b,
                 "proximity capture flips the owner to B");
 
-          // 离域还原(非 Sticky)
-          // Leaving reverts (non-Sticky).
           sim::Activity* leave =
               mobile->MoveTo(CPos{cx + 12, cy - 6}, 0, nullptr, false,
                              std::nullopt);
@@ -685,22 +607,15 @@ int main(int argc, char** argv) {
     }
   }
 
-  // ———— 5. Settings/FieldSaver:差异保存 ————
-  // ———— 5. Settings/FieldSaver: the save-differences protocol ————
-
   {
     yaml::StringPool pool;
     game::Settings settings;
     Check(settings.Module("Player") != nullptr, "Player section present");
     Check(settings.Module("Game") != nullptr, "Game section present");
 
-    // 全默认 → 空差异
-    // All defaults → the empty difference.
     Check(settings.Module("Player")->Commit(pool).empty(),
           "default Player saves no nodes");
 
-    // 改名 → 单节点差异
-    // A rename → the single-node difference.
     const std::vector<const meta::FieldDesc*> vec_fields =
         meta::CollectFields(settings.Module("Player")->Record().record_desc());
     std::size_t sz_name_slot = vec_fields.size();
@@ -718,13 +633,9 @@ int main(int argc, char** argv) {
             "diff node value = NewName");
     }
 
-    // SaveRecord/SaveRecordDifferences 的 FieldSaver 面
-    // The FieldSaver faces SaveRecord/SaveRecordDifferences.
     yaml::MiniYaml yaml_saved = meta::SaveRecord(settings.Module("Player")->Record(), pool);
     Check(!yaml_saved.Nodes.empty(), "SaveRecord yields the field nodes");
 
-    // 回读:节点 → 记录
-    // The reload: the nodes → the record.
     game::Settings settings_loaded;
     settings_loaded.Load(settings.Save(pool), pool);
     Check(settings_loaded.Module("Player") != nullptr &&
@@ -739,14 +650,8 @@ int main(int argc, char** argv) {
           "settings reload round-trips the rename");
   }
 
-  // ———— 6. ReplayRecorder/ReplayConnection:三段包序 ————
-  // ———— 6. ReplayRecorder/ReplayConnection: the three-part packet order
-  //      ————
-
   {
-    // 开局包:frame 0 的 "StartGame" order(OrderIO 序列化)
-    // The game-start packet: frame 0's "StartGame" order (OrderIO
-    // serialized).
+
     const net::Order order_start{"StartGame", nullptr, false};
     net::OrderPacket packet_start{std::vector<const net::Order*>{&order_start}};
     const std::vector<std::uint8_t> vec_start =
@@ -754,8 +659,6 @@ int main(int argc, char** argv) {
 
     net::ReplayRecorder recorder{[] { return std::string{"test"}; }};
 
-    // 开局前包(进 preStart 缓冲)
-    // A pre-start packet (into the pre-start buffer).
     const std::vector<std::uint8_t> vec_pre{0x11, 0x22, 0x33};
     recorder.Receive(7, vec_pre);
     recorder.Receive(1, vec_start);
@@ -765,18 +668,12 @@ int main(int argc, char** argv) {
     recorder.Metadata = &meta_render;
     recorder.Dispose();
 
-    // 读回:ctor 的 chunk/有效性面(包序逐字节回读随 replay_test 第十一批)
-    // The read-back: the ctor's chunk/validity faces (the byte-exact
-    // packet read-back rides batch 11's replay_test).
     net::ReplayConnection connection{recorder.Bytes()};
     Check(connection.IsValid(), "game-start packet marks replay valid");
     Check(!connection.HasLobbyInfo(), "no SyncInfo in stream");
     CheckEq(connection.TickCount(), 3, "tick count = frame 3");
     Check(connection.Metadata() != nullptr, "metadata tail parsed");
   }
-
-  // ———— 7. SyncReport:环形记账 ————
-  // ———— 7. SyncReport: the ring bookkeeping ————
 
   {
     net::SyncReport sync_report{*game_.OrderManagerFace()};
@@ -804,13 +701,8 @@ int main(int argc, char** argv) {
           "the 7-report ring");
   }
 
-  // ———— 8. 第九批:选择注释/装饰/死亡动画/损伤覆盖/生产条 ————
-  // ———— 8. Batch 9: the selection annotations/decoration/death/damage/
-  //      production faces ————
-
   {
-    // 8a. e1 的选择注释(^Selectable:SelectionDecorations + 控制组装饰)
-    // 8a. e1's selection annotations.
+
     std::vector<sim::IRenderAnnotations*> vec_annotations =
         e1 != nullptr ? e1->TraitsImplementing<sim::IRenderAnnotations>()
                       : std::vector<sim::IRenderAnnotations*>{};
@@ -819,14 +711,11 @@ int main(int argc, char** argv) {
     if (e1 != nullptr && !vec_annotations.empty()) {
       sim::IRenderAnnotations* annotations = vec_annotations.front();
 
-      // 未选中 + Standard → 零项 | Unselected + Standard → zero items.
       std::vector<gfx::RenderItem> vec_items;
       annotations->RenderAnnotations(*e1, wr, vec_items);
       Check(vec_items.empty(),
             "unselected e1 renders no annotations (Standard bars)");
 
-      // 选中 → 选择框 + 血条(两个 Custom 项)
-      // Selected → the box + bars (two Custom items).
       world->Selection()->Add(e1);
       annotations->RenderAnnotations(*e1, wr, vec_items);
       int int4_custom = 0;
@@ -836,7 +725,6 @@ int main(int argc, char** argv) {
       Check(int4_custom >= 2,
             "selected e1 renders the selection box + bars annotations");
 
-      // 编组 → 控制组 pip | Grouped → the control-group pip.
       world->ControlGroups()->AddToControlGroup(e1, 3);
       vec_items.clear();
       annotations->RenderAnnotations(*e1, wr, vec_items);
@@ -850,7 +738,6 @@ int main(int argc, char** argv) {
       world->Selection()->Remove(e1);
     }
 
-    // 8b. spy 的条件装饰初始禁用 | 8b. spy's conditional decoration.
     sim::Actor* spy = spawn("spy", player_a, CPos{cx - 8, cy + 3});
     Check(spy != nullptr, "spy constructed");
     if (spy != nullptr) {
@@ -866,8 +753,6 @@ int main(int argc, char** argv) {
               "the disguise decoration starts disabled (RequiresCondition)");
     }
 
-    // 8c. e1 死亡动画(DefaultDeath → SpriteEffect)
-    // 8c. e1's death animation.
     sim::Actor* victim = spawn("e1", player_a, CPos{cx + 8, cy + 2});
     Check(victim != nullptr, "death victim e1 constructed");
     if (victim != nullptr) {
@@ -879,11 +764,10 @@ int main(int argc, char** argv) {
       damage_death.Value = 100000;
       damage_death.DamageTypes = core::BitSet<sim::DamageType>::FromRawBits(
           meta::BitsOf("OpenRA.Traits.DamageType", vec_death_types));
-      // AutoTarget.Damaged 直读 e.Attacker(上游无空判)—— 传活攻击者
-      // Upstream reads e.Attacker unguarded — pass a live attacker.
+
       victim->Trait<sim::IHealth>()->InflictDamage(*victim, e1,
                                                    damage_death, true);
-      world->Tick();  // 帧末:效果入世界 | frame end: the effect enters
+      world->Tick();
       bool b_death_effect = false;
       for (sim::IEffect* effect : world->Effects())
         if (auto* sprite_effect =
@@ -903,7 +787,6 @@ int main(int argc, char** argv) {
             "the death effect entered the world's effect list");
     }
 
-    // 8d. jeep 重损烟雾链 | 8d. jeep's heavy-damage smoke chain.
     sim::Actor* jeep = spawn("jeep", player_a, CPos{cx - 6, cy + 4});
     Check(jeep != nullptr, "jeep constructed");
     if (jeep != nullptr) {
@@ -914,7 +797,7 @@ int main(int argc, char** argv) {
               "the overlay stays idle while undamaged");
         sim::IHealth* health = jeep->Trait<sim::IHealth>();
         static sim::Damage damage_smoke{0};
-        damage_smoke.Value = health->MaxHP() * 3 / 5;  // 60% → Heavy
+        damage_smoke.Value = health->MaxHP() * 3 / 5;
         health->InflictDamage(*jeep, e1, damage_smoke, true);
         Check(overlay->IsPlayingAnimation(),
               "heavy damage starts the smoke chain immediately "
@@ -922,7 +805,6 @@ int main(int argc, char** argv) {
       }
     }
 
-    // 8e. spen 生产条绑定经典 Ship 队列 | 8e. spen's production bar.
     sim::Actor* spen = spawn("spen", player_a, CPos{cx - 2, cy + 8});
     Check(spen != nullptr, "spen constructed");
     if (spen != nullptr) {
@@ -937,7 +819,6 @@ int main(int argc, char** argv) {
       }
     }
 
-    // 8f. harv 存量 pips | 8f. harv's stores pips.
     sim::Actor* harv = spawn("harv", player_a, CPos{cx + 6, cy - 6});
     Check(harv != nullptr, "harv constructed");
     if (harv != nullptr) {
@@ -1084,9 +965,6 @@ int main(int argc, char** argv) {
           "p6b8: widget clone type");
   }
 
-  // ———— 第九批:输入装配(SelectableExts/SelectionUtils/WIC/VCW)————
-  // ———— Batch nine: the input assembly (SelectableExts/SelectionUtils/
-  //      WIC/VCW) ————
   {
     world->SetRenderPlayer(player_a);
     world->ScreenMapFace()->SetActorBoundsSources(
@@ -1302,11 +1180,6 @@ int main(int argc, char** argv) {
     wr.SetViewport(nullptr);
   }
 
-  // ———— 第十批:生产 palette 全链(BuildingUtils/LineBuild/PlaceBuilding/
-  //      PrimaryBuilding/ProductionIconOverlay/palette widget)————
-  // ———— Batch ten: the production-palette chain (BuildingUtils/LineBuild/
-  //      PlaceBuilding/PrimaryBuilding/ProductionIconOverlay/the palette
-  //      widget) ————
   {
     mods::DeveloperMode* dev_mode =
         player_a->PlayerActor()->TraitOrDefault<mods::DeveloperMode>();
@@ -1351,9 +1224,6 @@ int main(int argc, char** argv) {
                                   tent_existing),
           "p6b10: building influence blocks even with the occupant ignored");
 
-    // ———— LineBuild:SBAG 连线(cell 展开方向 + 节点连接)————
-    // ———— LineBuild: the SBAG run (the cell expansion directions + the
-    //      node connections) ————
     const game::ActorInfo* sbag_info = map_world->Rules().FindActor("sbag");
     Check(sbag_info != nullptr, "p6b10: sbag ActorInfo found");
     const meta::RecordObject* rec_sbag_building =
@@ -1410,9 +1280,6 @@ int main(int argc, char** argv) {
           "p6b10: intermediate cell yielded with the node connector");
     Check(b_connector_is_node, "p6b10: node cell itself not yielded");
 
-    // 段出生经 LineBuildParentInit 驱动父节点的 SegmentAdded
-    // A segment's birth drives the parent's SegmentAdded through
-    // LineBuildParentInit.
     {
       sim::TypeDictionary dict_segment;
       dict_segment.Add(world->Arena().Create<sim::LocationInit>(run[1]));
@@ -1429,8 +1296,6 @@ int main(int argc, char** argv) {
       Check(sbag_segment != nullptr, "p6b10: sbag segment spawned");
     }
 
-    // ———— PrimaryBuilding:双 FACT 的主建筑互斥 ————
-    // ———— PrimaryBuilding: the two-FACT primary mutual exclusion ————
     const game::ActorInfo* fact_info = map_world->Rules().FindActor("weap");
     const meta::RecordObject* rec_fact_building =
         fact_info != nullptr
@@ -1477,9 +1342,6 @@ int main(int argc, char** argv) {
             "p6b10: WEAP B primary revokes A");
     }
 
-    // FACT 的 Production@Building 使能 Building 队(ra 的生产主建筑)
-    // FACT's Production@Building enables the Building queue (ra's
-    // production main).
     CPos site_fact_prod{0, 0};
     bool b_found_fact_prod = false;
     for (int dy = 0; dy < 14 && !b_found_fact_prod; dy++)
@@ -1498,9 +1360,6 @@ int main(int argc, char** argv) {
     sim::Actor* fact_prod = spawn("fact", player_a, site_fact_prod);
     Check(fact_prod != nullptr, "p6b10: production FACT spawned");
 
-    // ———— PlaceBuilding:TENT 经 Building 队完成 + 放置 order 落地 ————
-    // ———— PlaceBuilding: the TENT through the Building queue's completion
-    //      + the placement order landing ————
     mods::ProductionQueue* queue_building = nullptr;
     for (auto* q :
          player_a->PlayerActor()->TraitsImplementing<mods::ProductionQueue>())
@@ -1563,9 +1422,6 @@ int main(int argc, char** argv) {
               "p6b10: placed TENT stands at the site");
     }
 
-    // ———— ProductionIconOverlayManager(player actor;ra player.yaml)————
-    // ———— ProductionIconOverlayManager (the player actor; ra player.yaml)
-    //      ————
     mods::ProductionIconOverlayManager* overlay_manager = nullptr;
     for (auto* m : player_a->PlayerActor()
                        ->TraitsImplementing<
@@ -1584,9 +1440,6 @@ int main(int argc, char** argv) {
               "p6b10: overlay offset X = (8 - 64) / 2 (iconchevrons 8px)");
     }
 
-    // ———— palette widget:icon 刷新 + BuildPaletteOrder 序 ————
-    // ———— The palette widget: the icon refresh + the BuildPaletteOrder
-    //      ordering ————
     ui::WidgetArgs args_palette;
     args_palette.Add("world", world.get());
     args_palette.Add("worldRenderer", &wr);
@@ -1633,9 +1486,6 @@ int main(int argc, char** argv) {
     Check(widget_palette.GetCursor(int2{-4096, -4096}) == nullptr,
           "p6b10: GetCursor null outside every icon");
 
-    // ———— tabs widget:规则组表 + TypeButton 字段面 ————
-    // ———— The tabs widget: the rules group table + TypeButton's field
-    //      face ————
     ui::WidgetArgs args_tabs;
     args_tabs.Add("world", world.get());
     mods::ProductionTabsWidget widget_tabs(args_tabs);
@@ -1702,12 +1552,8 @@ int main(int argc, char** argv) {
 
   mods::SupportPowerManager* spm = nullptr;
 
-  // ———— 第十一批:Radar 链 + SupportPowers 面 + PlayerStatistics/Tooltip ————
-  // ———— Batch 11: the radar chain + the SupportPowers face +
-  //      PlayerStatistics/Tooltip ————
   {
-    // RadarPings:三点星的收缩/旋转/到期排水 + LastPingPosition
-    // RadarPings: the star's shrink/rotate/expiry drain + LastPingPosition.
+
     mods::RadarPingsInfoData info_pings;
     info_pings.int4_from_radius = 200;
     info_pings.int4_to_radius = 15;
@@ -1739,8 +1585,6 @@ int main(int argc, char** argv) {
     Check(int4_manager_ticks == 4 && pings.Pings().empty(),
           "p6b11: 5-tick ping drains by the 4th manager tick");
 
-    // AppearsOnRadar:占用格签名 + OwnerColor
-    // AppearsOnRadar: the occupied-cell signature + OwnerColor.
     sim::Actor* jeep_a = spawn("jeep", player_a, CPos{cx, cy});
     auto* appears = jeep_a->TraitOrDefault<mods::AppearsOnRadar>();
     Check(appears != nullptr, "p6b11: jeep carries AppearsOnRadar");
@@ -1753,8 +1597,6 @@ int main(int argc, char** argv) {
             "p6b11: signature color = owner color");
     }
 
-    // PlayerRadarTerrain::GetColor 的空层回落 = map.GetTerrainColorPair
-    // PlayerRadarTerrain::GetColor's empty-layer fallback = the map pair.
     {
       const MPos uv_probe{0, 0};
       const auto pair_static =
@@ -1765,15 +1607,11 @@ int main(int argc, char** argv) {
             "p6b11: radar terrain color = map terrain pair");
     }
 
-    // Player actor 的 SupportPowerManager
-    // The player actor's SupportPowerManager.
     spm = player_a->PlayerActor()->TraitOrDefault<mods::SupportPowerManager>();
     Check(spm != nullptr, "p6b11: player actor carries SupportPowerManager");
     Check(spm->DevMode() != nullptr && spm->GetTechTree() != nullptr,
           "p6b11: manager resolves DeveloperMode + TechTree");
 
-    // SupportPowerInstance 状态机(MSLO 的 NukePowerInfo 记录)
-    // The SupportPowerInstance state machine (MSLO's NukePowerInfo record).
     const meta::RecordObject* rec_nuke = nullptr;
     for (const auto& [str_name, info_actor] : world->Map().Rules().Actors())
       if (str_name == std::string{"mslo"})
@@ -1829,9 +1667,6 @@ int main(int argc, char** argv) {
       Check(spm->GetPowersForActor(*player_a->PlayerActor()).empty(),
             "p6b11: player actor itself matches no power instances");
 
-      // SelectGenericPowerTarget:落点 order + 取消态 + 光标
-      // SelectGenericPowerTarget: the placement order + the cancel
-      // transition + the cursor.
       Check(mods::SelectGenericPowerTarget(
                 instance->Key(), *spm, power->Info())
                 .GetCursor(*world, CPos{cx, cy}, int2{}, MouseInput{}) ==
@@ -1864,8 +1699,6 @@ int main(int argc, char** argv) {
       spm->Powers().erase(instance->Key());
     }
 
-    // PlayerStatistics + UpdatesPlayerStatistics:击杀记账
-    // PlayerStatistics + UpdatesPlayerStatistics: kill accounting.
     mods::PlayerStatistics* stats_a =
         player_a->PlayerActor()->TraitOrDefault<mods::PlayerStatistics>();
     mods::PlayerStatistics* stats_b =
@@ -1873,7 +1706,7 @@ int main(int argc, char** argv) {
     Check(stats_a != nullptr && stats_b != nullptr,
           "p6b11: player actors carry PlayerStatistics");
     if (stats_a != nullptr && stats_b != nullptr) {
-      
+
       mods::ArmyUnit& e1_unit = stats_a->Unit("e1");
       Check(e1_unit.ActorInfo() != nullptr &&
                 e1_unit.BuildableInfo().has_value() &&
@@ -1882,8 +1715,6 @@ int main(int argc, char** argv) {
     }
   }
 
-    // ———— 第十二批:具体 support power(Nuke/SpawnActor/IRON)—— 
-    // The batch-12 concrete support powers (Nuke/SpawnActor/IRON).
     {
       const auto find_record =
           [world = world.get()](
@@ -1898,8 +1729,6 @@ int main(int argc, char** argv) {
         return nullptr;
       };
 
-      // NukePowerInfo:MSLO 的字段面
-      // NukePowerInfo: MSLO's field face.
       const meta::RecordObject* rec_mslo =
           find_record("mslo", "OpenRA.Mods.Common.Traits.NukePowerInfo");
       Check(rec_mslo != nullptr, "p6b12: MSLO NukePowerInfo record found");
@@ -1929,9 +1758,6 @@ int main(int argc, char** argv) {
               "p6b12: FlightDelay/FlightVelocity defaults");
       }
 
-      // NukeLaunch 弹道:turn 中点 + 落地爆点 + 帧末移除
-      // The NukeLaunch trajectory: the turn midpoint + the impact + the
-      // frame-end removal.
       const game::WeaponInfo* weapon_carbine = nullptr;
       for (const auto& [name, weapon] : world->Map().Rules().Weapons())
         if (name == "m1carbine")
@@ -1963,9 +1789,6 @@ int main(int argc, char** argv) {
               "p6b12: the turn point sits at the target when velocity is 0");
       }
 
-      // SpawnActorPower:sonarpulse 的字段面 + 地形验证 + 出生/到期
-      // SpawnActorPower: sonarpulse's field face + the terrain validation +
-      // the spawn/expiry.
       const meta::RecordObject* rec_sonar =
           find_record("powerproxy.sonarpulse",
                       "OpenRA.Mods.Common.Traits.SpawnActorPowerInfo");
@@ -2029,8 +1852,6 @@ int main(int argc, char** argv) {
         }
       }
 
-      // GrantExternalConditionPower:IRON 的字段面 + footprint 展开
-      // GrantExternalConditionPower: IRON's field face + the footprint.
       const meta::RecordObject* rec_iron =
           find_record(
               "iron",
@@ -2086,8 +1907,6 @@ int main(int argc, char** argv) {
               "p6b12: UnitsInRange keeps allies and filters enemies");
       }
 
-      // SelectNukePowerTarget:CircleRanges 注释圈
-      // SelectNukePowerTarget: the CircleRanges annotations.
       if (spm != nullptr) {
         mods::NukePowerInfoData circle_info = nuke_info_data;
         circle_info.b_has_circle_ranges = true;
@@ -2127,8 +1946,6 @@ int main(int argc, char** argv) {
         wr.SetViewport(nullptr);
       }
 
-      // Beacon:箭头高度振荡 + duration 到期移除
-      // Beacon: the arrow-height oscillation + the duration expiry.
       {
         auto up_beacon = std::make_unique<mods::Beacon>(
             *player_a, WPos{cx * 1024, cy * 1024, 0}, 10, "player", false,
@@ -2144,9 +1961,6 @@ int main(int argc, char** argv) {
       }
     }
 
-    // ———— 第十三批:空中机动链(Aircraft/Fly 族/AmmoPool/Airstrike)———
-    // The batch-13 air-mobility chain (Aircraft/the Fly family/AmmoPool/
-    // Airstrike).
     {
       const auto find_record =
           [world = world.get()](
@@ -2386,8 +2200,6 @@ int main(int argc, char** argv) {
       }
     }
 
-    // ———— 第十四批:运输链(Cargo/Passenger/ParaDrop/Parachutable/
-    // WithParachute/ParatroopersPower)————
     {
       const auto find_record =
           [world = world.get()](
@@ -2615,8 +2427,6 @@ int main(int argc, char** argv) {
       }
     }
 
-    // ———— 第十五批:Carryall 运输扩展(Carryable/AutoCarryable/
-    // Carryall/AutoCarryall/CarryableHarvester + PickupUnit/DeliverUnit)————
     {
       const auto parse_record =
           [](std::string_view str_type_name,
@@ -2852,8 +2662,6 @@ int main(int argc, char** argv) {
       }
     }
 
-  // ———— Phase 6 第十六批:游戏内 HUD Logic 第一组 ————
-  // ———— Phase 6 batch 16: the HUD logic group one ————
   {
     std::println("-- batch 16: ingame HUD logics --");
     world->SetLocalPlayerForTest(player_a);
@@ -2911,8 +2719,6 @@ int main(int argc, char** argv) {
 
     ui::WidgetArgs args_widget;
 
-    // IngameRadarDisplayLogic:ticker 状态机 + 渐隐面
-    // IngameRadarDisplayLogic: the ticker state machine + the fade face.
     {
       auto up_root = std::make_unique<ui::ContainerWidget>();
       auto up_radar = std::make_unique<mods::RadarWidget>(args_widget);
@@ -2959,8 +2765,6 @@ int main(int argc, char** argv) {
             "p6b16: a zero alpha hides the block");
     }
 
-    // IngameCashCounterLogic:收敛步进 + silo tooltip
-    // IngameCashCounterLogic: the decay step + the silo tooltip.
     {
       auto up_root = std::make_unique<ui::ContainerWidget>();
       auto up_cash =
@@ -2989,8 +2793,6 @@ int main(int argc, char** argv) {
             "p6b16: the silo-usage tooltip renders (the key fallback)");
     }
 
-    // IngamePowerCounterLogic:三态文本/颜色/图标
-    // IngamePowerCounterLogic: the three-state text/color/icon.
     {
       auto up_root = std::make_unique<ui::ContainerWidget>();
       auto up_power =
@@ -3028,8 +2830,6 @@ int main(int argc, char** argv) {
       ptr_dev->UnlimitedPower = false;
     }
 
-    // IngameSiloBarLogic:三色门 + 双源
-    // IngameSiloBarLogic: the three-color gate + the two sources.
     {
       auto up_root = std::make_unique<ui::ContainerWidget>();
       auto up_bar = std::make_unique<ui::ResourceBarWidget>(args_widget);
@@ -3057,8 +2857,6 @@ int main(int argc, char** argv) {
             "p6b16: a full silo turns the bar red");
     }
 
-    // GameTimerLogic:暂停文本/状态闪烁/录像 tooltip 三态
-    // GameTimerLogic: the paused text/status blink/replay tooltip trio.
     {
       auto up_root = std::make_unique<ui::ContainerWidget>();
       auto up_timer =
@@ -3094,9 +2892,6 @@ int main(int argc, char** argv) {
             "p6b16: a non-replay connection leaves the tooltip unset");
     }
 
-    // ClassicProductionLogic:背景行方程 + tab 装配 + ticker 选队
-    // ClassicProductionLogic: the background-row equation + the tab
-    // assembly + the ticker's queue pick.
     {
       auto up_root = std::make_unique<ui::ContainerWidget>();
       auto up_palette =
@@ -3186,8 +2981,6 @@ int main(int argc, char** argv) {
             "p6b16: the tab icon resolves the bare chrome name");
     }
 
-    // ProductionTabsLogic:组表装配 + 选组链
-    // ProductionTabsLogic: the group-table assembly + the pick chain.
     {
       auto up_palette =
           std::make_unique<mods::ProductionPaletteWidget>(args_widget);
@@ -3253,9 +3046,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  // ———— Phase 6 第十七批:菜单 Logic 组 + sell/repair 链 ————
-  // ———— Phase 6 batch 17: the menu-logic group + the sell/repair
-  //      chains ————
   {
     std::println("-- batch 17: menu logics + sell/repair chains --");
     world->SetLocalPlayerForTest(player_a);
@@ -3665,9 +3455,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  // ———— Phase 6 第十八批:浏览器面板第一组(Replay 链 + GameSave 格式)————
-  // ———— Phase 6 batch 18: the first browser-panel group (the replay
-  //      chain + the GameSave format) ————
   {
     std::println("-- batch 18: replay browser + game save format --");
 
@@ -4062,16 +3849,6 @@ int main(int argc, char** argv) {
     std::filesystem::remove_all("Replays", ec_cleanup);
   }
 
-
-  // ———— Phase 6 第十九批:浏览器面板第二组(GameSave 浏览器 + 任务浏览器 +
-  //      地图选择器 + MusicPlaylist/MusicPlayer)————
-  // ———— Phase 6 batch 19: the second browser-panel group (the game-save
-  //      browser + mission browser + map chooser + MusicPlaylist/
-  // ———— Phase 6 第十九批:浏览器面板第二组(GameSave 浏览器 + 任务浏览器 +
-  //      地图选择器 + MusicPlaylist/MusicPlayer)————
-  // ———— Phase 6 batch 19: the second browser-panel group (the game-save
-  //      browser + mission browser + map chooser + MusicPlaylist/
-  //      MusicPlayer) ————
   {
     std::println("-- batch 19: browser panels ii + music playlist --");
 
@@ -4732,8 +4509,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  // ———— Phase 6 第二十批:连接链 + 服务器列表 ————
-  // ———— Phase 6 batch 20: the connection chain + the server list ————
   {
     std::println("-- batch 20: connection chain + server list --");
 
@@ -5365,9 +5140,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  // ———— Phase 6 第二十一批:ServerCreation + GameInfo 面板族 + AssetBrowser ————
-  // ———— Phase 6 batch 21: server creation + the game-info panels + the
-  // asset browser ————
   {
     std::println("-- batch 21: server creation + game-info + asset browser --");
 
@@ -5644,7 +5416,7 @@ int main(int argc, char** argv) {
         const ui::ServerSettingsFace& face_next) {
       face_server_state21 = face_next;
     };
-    static int int4_create_result21 = 1;  // 1 = 成功 | success
+    static int int4_create_result21 = 1;
     static int int4_create_error_code21 = 0;
     static std::string str_create_error_message21;
     static net::ConnectionTarget target_created21{"127.0.0.1", 4242};
@@ -5672,8 +5444,6 @@ int main(int argc, char** argv) {
     deps_ui_21.fn_is_host = [] { return b_is_host21; };
     ui::Ui::Instance().Initialize(std::move(deps_ui_21));
 
-    // ———— AssetBrowserData:ra mod.yaml 的 "AssetBrowser" 节点 ————
-    // ———— AssetBrowserData: ra mod.yaml's "AssetBrowser" node ————
     {
       const mods::AssetBrowserData data_browser =
           mods::AssetBrowserData::FromManifest(mod_data);
@@ -5696,8 +5466,6 @@ int main(int argc, char** argv) {
             "p6b21: the extension tables lowercase and parse");
     }
 
-    // ———— AssetBrowserLogic:真 ra 资产装载 ————
-    // ———— AssetBrowserLogic: loading real ra assets ————
     {
       ui::Widget* ptr_root_browser = ptr_stub->MakeRoot();
       ui::Widget* ptr_list =
@@ -5863,9 +5631,6 @@ int main(int argc, char** argv) {
       logic_browser.reset();
     }
 
-    // ———— ServerCreationLogic:公告三标签 + CreateAndJoin 双路 ————
-    // ———— ServerCreationLogic: the notice trio + CreateAndJoin's two
-    // paths ————
     {
       for (const char* str_key :
            {"TextfieldFont", "TextfieldColor", "TextfieldColorDisabled",
@@ -5981,9 +5746,6 @@ int main(int argc, char** argv) {
       int4_create_result21 = 1;
     }
 
-    // ———— GameInfoLogic:ra 世界的可见 tab 装配 + AutoSelect ————
-    // ———— GameInfoLogic: the visible-tab assembly over the ra world +
-    // AutoSelect ————
     {
       ui::Widget* ptr_root_info = ptr_stub->MakeRoot();
       ui::Widget* ptr_tabs_2 = ptr_stub->AttachNew(
@@ -6045,9 +5807,6 @@ int main(int argc, char** argv) {
       logic_info.reset();
     }
 
-    // ———— GameInfoObjectivesLogic:模板行重建 + 状态色 ————
-    // ———— GameInfoObjectivesLogic: the template-row rebuild + the
-    // status color ————
     {
       ui::Widget* ptr_root_obj = ptr_stub->MakeRoot();
       ui::Widget* ptr_panel_obj =
@@ -6094,8 +5853,6 @@ int main(int argc, char** argv) {
       logic_objectives.reset();
     }
 
-    // ———— GameInfoStatsLogic:计分板装配 ————
-    // ———— GameInfoStatsLogic: the score board assembly ————
     {
       ui::Widget* ptr_root_stats = ptr_stub->MakeRoot();
       ui::Widget* ptr_player_list =
@@ -6197,8 +5954,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  // ———— Phase 6 第二十二批:Lobby 大厅面板族 ————
-  // ———— Phase 6 batch 22: the lobby panel family ————
   {
     std::println("-- batch 22: lobby panels --");
 
@@ -6905,7 +6660,7 @@ int main(int argc, char** argv) {
     }
 
     static ui::ChromeMetrics metrics_panel23;
-    // ———— Phase 6 第二十三批:Settings 面板族 ————
+
     {
       std::println("-- batch 23: settings panels --");
       struct PanelStub23 {
@@ -7773,7 +7528,6 @@ int main(int argc, char** argv) {
       }
     }
 
-    // ———— Phase 6 第二十四批:Credits + PerfDebug + GraphicSettings 启动装配 ————
     {
       std::println("-- batch 24: credits, perf debug, graphics boot --");
       {
@@ -8062,9 +7816,6 @@ int main(int argc, char** argv) {
 
   }
 
-
-    // ———— Phase 6 第二十五批:Game 装配链(Arguments/LaunchArguments +
-    // LoadScreen 族 + InitializeMod/LoadShellMap)————
     {
       {
         const core::Arguments args_parse{std::vector<std::string>{
@@ -8314,8 +8065,6 @@ int main(int argc, char** argv) {
       }
     }
 
-    // ———— Phase 6 第二十六批:MAINMENU 装配链(Game.OpenWindow/
-    // LoadWidget + LoadWidgetAtGameStart + 热键/profile Logic 族)————
     {
       static gfx::SheetBuilder builder_font26{gfx::SheetType::BGRA, 128};
       static std::unique_ptr<gfx::SpriteFont> up_font26;

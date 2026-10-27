@@ -7,11 +7,9 @@ import std;
 namespace ora::ui {
 namespace {
 
-// 单例已构造标志(HasInstance 不得触发构造)| the singleton-exists flag
-// (HasInstance must never construct).
 std::atomic<bool> b_singleton_created_{false};
 
-}  // namespace
+}
 
 Ui& Ui::Instance() {
   static Ui instance_ui;
@@ -30,9 +28,7 @@ Ui::Ui()
 Ui::~Ui() = default;
 
 void Ui::Initialize(Deps deps) {
-  // 上游 Initialize 仅存 modData;注入面整体换装为装配点
-  // upstream Initialize only stores modData; the Deps swap is the assembly
-  // point for the injected faces.
+
   deps_ = std::move(deps);
 }
 
@@ -60,9 +56,6 @@ void Ui::CloseWindow() {
     if (up_detached == nullptr)
       up_detached = std::move(entry_hidden.up_owned);
 
-    // 上游怪癖:RemoveChild 已 Dispose Logic,仍对快照逐个 BecameHidden
-    // the upstream quirk: RemoveChild has already disposed the Logic, yet
-    // BecameHidden is still called on the snapshot
     if (up_detached != nullptr) {
       std::vector<ChromeLogic*> vec_logic_ptrs;
       vec_logic_ptrs.reserve(up_detached->LogicObjects().size());
@@ -71,16 +64,13 @@ void Ui::CloseWindow() {
       for (ChromeLogic* ptr_logic : vec_logic_ptrs)
         ptr_logic->BecameHidden();
 
-      // up_detached 于作用域末析构(widget 连同 Logic 对象)
-      // up_detached dies at scope end (the widget with its Logic objects).
     }
   }
 
   if (!vec_windows_.empty()) {
     WindowEntry& entry_restore = vec_windows_.back();
     if (entry_restore.up_owned != nullptr) {
-      // 隐藏态条目的所有权交还 Root | a hidden entry's ownership returns
-      // to Root
+
       ptr_root_->AddChild(std::move(entry_restore.up_owned));
     }
 
@@ -90,11 +80,7 @@ void Ui::CloseWindow() {
 }
 
 Widget* Ui::OpenWindow(const std::string& str_id, WidgetArgs args_args) {
-  // 上游 L75-76 的 modData 补缺 + 本侧 chromeMetrics/windowSize 补缺(上游
-  // 为静态取值,此处随 args 传递 —— widget.hpp 文件头)
-  // upstream's L75-76 modData fill-in, plus this side's chromeMetrics/
-  // windowSize fill-in (upstream fetches statically, threaded via args —
-  // widget.hpp header).
+
   if (!args_args.ContainsKey("modData"))
     args_args = args_args.With("modData", deps_.ptr_mod_data);
   if (!args_args.ContainsKey("chromeMetrics"))
@@ -182,8 +168,7 @@ bool Ui::HandleTextInput(std::string_view str_text) {
 }
 
 void Ui::ResetAll() {
-  // 上游序为 RemoveChildren → CloseWindow 循环(GC 下悬引用安全);C++ 可见
-  // 栈顶由 Root 持有,先清 Root 会析构它 —— 逆序排水等价终态(COVERAGE 登记)
+
   while (!vec_windows_.empty())
     CloseWindow();
 
@@ -191,9 +176,9 @@ void Ui::ResetAll() {
 }
 
 void Ui::ResetTooltips() {
-  // Issue a no-op mouse move to force any tooltips to be recalculated(上游注释)
+
   HandleInput(MouseInput{MouseInputEvent::Move, MouseButton::None,
                          gfx::Viewport::int2_last_mouse_pos, int2{}, Modifiers::None, 0});
 }
 
-}  // namespace ora::ui
+}

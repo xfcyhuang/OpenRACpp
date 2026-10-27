@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ConfirmationDialogs.cs @1f594e320
-//          L17-193 全文。
 #pragma once
 import std;
 

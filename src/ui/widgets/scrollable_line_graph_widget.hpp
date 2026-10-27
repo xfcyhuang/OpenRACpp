@@ -105,4 +105,4 @@ class ScrollableLineGraphWidget : public Widget {
   std::int64_t int8_last_smooth_scroll_time = 0;
 };
 
-}  // namespace ora::ui
+}

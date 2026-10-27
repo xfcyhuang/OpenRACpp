@@ -1,7 +1,5 @@
-// UPSTREAM: OpenRA.Game/ObjectCreator.cs @1f594e320(trait_registry.hpp 的实现)
-//          The implementation of trait_registry.hpp.
 import std;
-#include <cassert>  // assert 为宏,规范允许的 import/#include 并用正形态
+#include <cassert>
 
 #include "sim/trait_registry.hpp"
 
@@ -21,8 +19,7 @@ TraitRegistry& TraitRegistry::Instance() {
 }
 
 void TraitRegistry::Register(std::string str_name, TraitCreateFn fn_factory) {
-  // 重复注册 = 上游 ObjectCreator 的静态表同键覆盖语义不存在 —— 先到先得
-  // (上游 FindType 取程序集内唯一;双注册属装配错误,断言承载)
+
   assert(!Contains(str_name));
   vec_entries_.emplace_back(std::move(str_name), std::move(fn_factory));
 }
@@ -34,7 +31,7 @@ TraitBase* TraitRegistry::Create(const std::string& str_name,
   for (const auto& [name, factory] : vec_entries_)
     if (name == str_name)
       return factory(rec_info, init, arena);
-  return nullptr;  // 未注册 Info:随 trait 批补齐(见 hpp 注记)
+  return nullptr;
 }
 
 void TraitRegistry::ThrowCannotLocate(const std::string& str_name) {
@@ -46,11 +43,9 @@ bool TraitRegistry::Contains(std::string_view str_name) const {
                      [&](const auto& e) { return e.first == str_name; });
 }
 
-// ———— 按名槽位读值(GeneratedRecord 的 CollectFields 序 = 槽位序)————
-
 const meta::RecordObject* FindTraitInfoOfInterface(
     const game::ActorInfo& info, std::string_view str_interface) {
-  // ActorInfo.TraitInfos<T> 的接口名过滤面(注册序首条)
+
   const auto vec = info.TraitInfosByInterface(str_interface);
   return vec.empty() ? nullptr : vec.front();
 }
@@ -86,9 +81,7 @@ std::optional<std::int64_t> RecordFieldInt(const meta::RecordObject& rec,
     const meta::GenericValue& v = generated->Slot(i);
     if (auto* n = std::get_if<std::int64_t>(&v.val))
       return *n;
-    // bool 载荷(true/false 的整型面;C# 布尔字段 = 0/1)
-    // The bool payload (the integral face of true/false; a C# boolean
-    // field is 0/1).
+
     if (auto* b = std::get_if<bool>(&v.val))
       return *b ? 1 : 0;
     return std::int64_t{0};
@@ -111,7 +104,7 @@ const meta::GenericValue* RecordFieldValue(
 
 void RegisterWorldTraits() {
   static const bool b_registered = [] {
-    // ScreenMapInfo.Create(init) → new ScreenMap(init.World, this)
+
     TraitRegistry::Instance().Register(
         "ScreenMapInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -122,9 +115,6 @@ void RegisterWorldTraits() {
                                          static_cast<int>(bin_size));
         });
 
-    // DebugPauseStateInfo.Create(init) → new DebugPauseState(init.World)
-    // (第十二批 G2 黄金对拍补面)
-    // (the batch-12 G2 golden differential's missing face)
     TraitRegistry::Instance().Register(
         "DebugPauseStateInfo",
         [](const meta::RecordObject&, ActorInitializer& init,
@@ -132,7 +122,6 @@ void RegisterWorldTraits() {
           return arena.Create<DebugPauseState>(init.Self().world());
         });
 
-    // SelectionInfo.Create(init) → new Selection()
     TraitRegistry::Instance().Register(
         "SelectionInfo",
         [](const meta::RecordObject&, ActorInitializer&,
@@ -145,4 +134,4 @@ void RegisterWorldTraits() {
   (void)b_registered;
 }
 
-}  // namespace ora::sim
+}

@@ -1,12 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Graphics/DefaultSpriteSequence.cs @1f594e320 L24-605
-// 通用精灵序列:两段流水(ReserveSprites 预留记账 → ResolveSprites 物化重
-// 索引),字段全走 FieldLoader.GetValue&lt;T&gt; 的 LoadField 查找(data 缺键
-// 回退 defaults)。mods 侧 Classic/Tileset/D2k 变体继承此类。
-// The generic sprite sequence: the two-stage pipeline (ReserveSprites
-// booking → ResolveSprites materialization + reindexing), every field read
-// through the LoadField lookup of FieldLoader.GetValue<T> (a data miss falls
-// back to defaults). The mods-side Classic/Tileset/D2k variants derive from
-// this class.
 #pragma once
 import std;
 
@@ -18,12 +9,6 @@ import std;
 
 namespace ora::mods {
 
-/// DefaultSpriteSequenceLoader(L24-61):CreateSequence 虚工厂 +
-/// ParseSequences(Defaults 剥离 + 逐序列构造/预留 + InvalidDataException
-/// 包装文本)。
-/// DefaultSpriteSequenceLoader (L24-61): the CreateSequence virtual factory
-/// + ParseSequences (Defaults stripping + per-sequence
-/// construct/reserve + the InvalidDataException wrapper text).
 class DefaultSpriteSequenceLoader : public gfx::ISpriteSequenceLoader {
  public:
   std::vector<std::pair<std::string, std::unique_ptr<gfx::ISpriteSequence>>> ParseSequences(
@@ -37,14 +22,12 @@ class DefaultSpriteSequenceLoader : public gfx::ISpriteSequenceLoader {
                                                               const yaml::MiniYaml& yaml_defaults);
 };
 
-/// DefaultSpriteSequence(L66-605)。
 class DefaultSpriteSequence : public gfx::ISpriteSequence {
  public:
   DefaultSpriteSequence(gfx::SpriteCache& cache_sprites, gfx::ISpriteSequenceLoader& loader,
                         std::string str_image, std::string str_sequence, const yaml::MiniYaml& yaml_data,
                         const yaml::MiniYaml& yaml_defaults);
 
-  // ———— ISpriteSequence ————
   std::string_view Name() const override { return str_name_; }
   std::int32_t Length() const override;
   std::int32_t Facings() const override { return opt_interpolated_facings_.value_or(int4_facings_); }
@@ -65,8 +48,7 @@ class DefaultSpriteSequence : public gfx::ISpriteSequence {
                               const yaml::MiniYaml& yaml_defaults, gfx::SpriteCache& cache_sprites);
 
  protected:
-  /// 预留记账(L68-77)。
-  /// The reservation booking (L68-77).
+
   struct SpriteReservation {
     std::int32_t int4_token = 0;
     core::Vector3 vec_offset{};
@@ -74,11 +56,9 @@ class DefaultSpriteSequence : public gfx::ISpriteSequence {
     bool b_flip_y = false;
     float fp4_z_ramp = 0.0f;
     gfx::BlendMode kind_blend_mode = gfx::BlendMode::Alpha;
-    std::optional<std::vector<std::int32_t>> opt_vec_frames;  // nullopt = 上游 null | upstream's null
+    std::optional<std::vector<std::int32_t>> opt_vec_frames;
   };
 
-  /// 文件名解析结果(L79-93)。
-  /// The filename-parse result (L79-93).
   struct ReservationInfo {
     std::string str_filename;
     std::optional<std::vector<std::int32_t>> opt_vec_load_frames;
@@ -86,11 +66,6 @@ class DefaultSpriteSequence : public gfx::ISpriteSequence {
     yaml::SourceLocation location_source{};
   };
 
-  /// LoadField&lt;T&gt;(L245-270):data 键缺失回退 defaults;location 版带出
-  /// SourceLocation(异常文本用)。
-  /// LoadField<T> (L245-270): a data miss falls back to defaults; the
-  /// location variant also yields the SourceLocation (for the exception
-  /// texts).
   static const yaml::MiniYamlNode* FindFieldNode(std::string_view sv_key, const yaml::MiniYaml& yaml_data,
                                                  const yaml::MiniYaml* yaml_defaults) {
     if (const yaml::MiniYamlNode* node = yaml_data.NodeWithKeyOrDefault(sv_key))
@@ -107,9 +82,6 @@ class DefaultSpriteSequence : public gfx::ISpriteSequence {
   static float LoadFloat(std::string_view sv_key, float fp4_fallback, const yaml::MiniYaml& yaml_data,
                          const yaml::MiniYaml* yaml_defaults);
 
-  /// 带 SourceLocation 出参的三态 int(int? 字段:InterpolatedFacings 等)。
-  /// The three-state int with a SourceLocation out (the int? fields:
-  /// InterpolatedFacings among others).
   static std::optional<std::int32_t> LoadNullableInt32(std::string_view sv_key,
                                                        const yaml::MiniYaml& yaml_data,
                                                        const yaml::MiniYaml* yaml_defaults,
@@ -135,14 +107,8 @@ class DefaultSpriteSequence : public gfx::ISpriteSequence {
   static std::int32_t LoadWDist(std::string_view sv_key, std::int32_t int4_fallback,
                                 const yaml::MiniYaml& yaml_data, const yaml::MiniYaml* yaml_defaults);
 
-  /// FlipRectangle(L272-280):翻转轴交换左右/上下边界。
-  /// FlipRectangle (L272-280): flipping an axis swaps that axis's edges.
   static Rectangle FlipRectangle(Rectangle rect_in, bool b_flip_x, bool b_flip_y);
 
-  /// CalculateFrameIndices(L282-312):length null = 全帧请求(null);影子段
-  /// 追加 shadowOffset 平移副本。
-  /// CalculateFrameIndices (L282-312): a null length requests all frames
-  /// (null); the shadow section appends the shadowOffset-shifted copies.
   static std::optional<std::vector<std::int32_t>> CalculateFrameIndices(
       std::int32_t int4_start, const std::optional<std::int32_t>& opt_int4_length, std::int32_t int4_stride,
       std::int32_t int4_facings, const std::optional<std::vector<std::int32_t>>& opt_vec_frames,
@@ -158,20 +124,16 @@ class DefaultSpriteSequence : public gfx::ISpriteSequence {
 
   void ThrowIfUnresolved() const;
 
-  /// GetFacingFrameOffset(L590-593):IndexFacing 量化。
-  /// GetFacingFrameOffset (L590-593): the IndexFacing quantization.
   virtual std::int32_t GetFacingFrameOffset(WAngle wangle_facing);
   virtual float GetScale() const { return fp4_scale_; }
 
   static const yaml::MiniYaml& NoData();
 
-  // ———— 上游 protected 字段面(名随 C#)————
-  // ———— The upstream protected field faces (C# names kept) ————
   std::string str_image_;
   std::string str_name_;
   std::vector<SpriteReservation> vec_sprites_to_load_;
   std::vector<gfx::Sprite> vec_sprites_;
-  std::vector<gfx::Sprite> vec_shadow_sprites_;  // 空 = 上游 null | empty = upstream's null
+  std::vector<gfx::Sprite> vec_shadow_sprites_;
   bool b_has_shadow_sprites_ = false;
   bool b_reverse_facings_ = false;
   bool b_reverses_ = false;
@@ -186,7 +148,7 @@ class DefaultSpriteSequence : public gfx::ISpriteSequence {
   std::optional<std::int32_t> opt_interpolated_facings_;
   std::int32_t int4_tick_ = 40;
   std::int32_t int4_z_offset_ = 0;
-  std::int32_t int4_shadow_z_offset_ = -5;  // new WDist(-5).Length | the WDist(-5).Length
+  std::int32_t int4_shadow_z_offset_ = -5;
   bool b_ignore_world_tint_ = false;
   float fp4_scale_ = 1.0f;
   std::optional<std::vector<float>> opt_vec_alpha_;
@@ -196,15 +158,9 @@ class DefaultSpriteSequence : public gfx::ISpriteSequence {
   std::optional<std::int32_t> opt_int4_depth_sprite_reservation_;
   core::Vector2 vec_depth_sprite_offset_{};
 
-  // Cache/Loader 引用仅构造期消费(上游同:ctor 不留 cache 字段)
-  // The cache/loader references are consumed at construction only (as
-  // upstream: the ctor keeps no cache field).
   gfx::ISpriteSequenceLoader* ptr_loader_ = nullptr;
 
-  // 当前预留轮的 tileset(上游方法参数的成员化;每轮 ReserveSprites 更新)
-  // The tileset of the current reservation round (the member form of
-  // upstream's method parameter; updated per ReserveSprites round).
   std::string str_tile_set_;
 };
 
-}  // namespace ora::mods
+}

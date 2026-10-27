@@ -1,10 +1,8 @@
-// UPSTREAM: OpenRA.Game/Graphics/Util.cs @1f594e320 L23-320(渲染域子集;头文件已注记范围)
-// The rendering-domain subset of Util.cs (scope noted in the header).
 #include "gfx/gfx_util.hpp"
 
 #include <cassert>
 
-#include "gfx/sheet.hpp"  // FastCopyIntoChannel 经 Sprite->ptr_sheet 访问 Sheet | FastCopyIntoChannel reaches the Sheet via Sprite->ptr_sheet
+#include "gfx/sheet.hpp"
 
 namespace ora::gfx {
 
@@ -31,10 +29,6 @@ void FastCreateQuad(std::span<Vertex> vec_vertices, core::Vector3 v_a, core::Vec
 
   float float_sl = 0.0f, float_st = 0.0f, float_sr = 0.0f, float_sb = 0.0f;
 
-  // See combined.vert for documentation on the channel attribute format
-  // (Util.cs L75-76)。RGBA → 0x02(全通道采样);索引通道 → 通道号 << 1 | 0x01。
-  // (Util.cs L75-76). RGBA packs 0x02 (sample-all-channels); an index
-  // channel packs channel << 1 | 0x01.
   std::uint32_t uint4_attrib_c =
       sprite_r.kind_channel == TextureChannel::RGBA
           ? 0x02
@@ -65,7 +59,7 @@ void FastCreateQuad(std::span<Vertex> vec_vertices, core::Vector3 v_a, core::Vec
 void FastCreateQuad(std::span<Vertex> vec_vertices, core::Vector3 v_o, const Sprite& sprite_r, int2 int2_samplers,
                     std::int32_t int4_palette_index, std::int32_t int4_nv, core::Vector3 v_size, core::Vector3 v_tint,
                     float float_alpha, float float_rotation) {
-  // Rotate sprite if rotation angle is not equal to 0(Util.cs L48-62)
+
   if (float_rotation != 0.0f) {
     core::Vector3 vec_rot[4];
     RotateQuadInto(vec_rot, v_o, v_size, float_rotation);
@@ -80,16 +74,11 @@ void FastCreateQuad(std::span<Vertex> vec_vertices, core::Vector3 v_o, const Spr
   }
 }
 
-/// CopyIntoRgba(Util.cs L132-201):RGBA 目标路径。Bgra32 源(与目标格式一致)
-/// 走逐行 memcpy 快路径;非 premultiplied 时逐像素预乘(原地覆盖)。
-/// CopyIntoRgba (Util.cs L132-201): the RGBA-destination path. Bgra32
-/// sources (matching the destination format) take the per-row memcpy fast
-/// path; non-premultiplied data is premultiplied per pixel in place.
 namespace {
 void CopyIntoRgba(std::span<const std::byte> vec_src, SpriteFrameType kind_src_type, bool b_premultiplied,
                   std::span<std::byte> vec_dest, std::int32_t int4_x, std::int32_t int4_y, std::int32_t int4_width,
                   std::int32_t int4_height, std::int32_t int4_stride) {
-  auto* ptr_d = reinterpret_cast<std::uint32_t*>(vec_dest.data());  // 全局 -fno-strict-aliasing | global -fno-strict-aliasing
+  auto* ptr_d = reinterpret_cast<std::uint32_t*>(vec_dest.data());
   const auto bytes_per_px = kind_src_type == SpriteFrameType::Bgra32 || kind_src_type == SpriteFrameType::Rgba32
                                 ? 4
                                 : 3;
@@ -149,7 +138,7 @@ void CopyIntoRgba(std::span<const std::byte> vec_src, SpriteFrameType kind_src_t
     size_di += static_cast<std::size_t>(int4_stride) - int4_width;
   }
 }
-}  // namespace
+}
 
 void FastCopyIntoChannel(const Sprite& sprite_dest, std::span<const std::byte> vec_src, SpriteFrameType kind_src_type,
                          bool b_premultiplied) {
@@ -164,7 +153,7 @@ void FastCopyIntoChannel(const Sprite& sprite_dest, std::span<const std::byte> v
     CopyIntoRgba(vec_src, kind_src_type, b_premultiplied, vec_dest_data, int4_x, int4_y, int4_width, int4_height,
                  int4_stride);
   } else {
-    // yes, our channel order is nuts.(Util.cs L24)
+
     constexpr std::int32_t kChannelMasks[4] = {2, 1, 0, 3};
     const auto int4_dest_stride = int4_stride * 4;
     auto int4_dest_offset =
@@ -187,10 +176,6 @@ void RotateQuadInto(std::span<core::Vector3> vec_des, core::Vector3 v_tl, core::
   assert(vec_des.size() >= 4);
   const core::Vector3 v_center = v_tl + 0.5f * v_size;
 
-  // rotMatrix = Matrix3x2.CreateRotation(-rotation);m11=cos, m12=sin,
-  // m21=-sin, m22=cos;Vector2.Transform(v, m) = (v.X·m11 + v.Y·m21, v.X·m12 + v.Y·m22)。
-  // rotMatrix = Matrix3x2.CreateRotation(-rotation); m11=cos, m12=sin,
-  // m21=-sin, m22=cos; Vector2.Transform(v, m) = (v.X·m11 + v.Y·m21, v.X·m12 + v.Y·m22).
   const float float_rad = -float_rotation;
   const float float_cos = std::cos(float_rad);
   const float float_sin = std::sin(float_rad);
@@ -205,7 +190,6 @@ void RotateQuadInto(std::span<core::Vector3> vec_des, core::Vector3 v_tl, core::
   const auto v_ra2d = Transform2({float_half_x, float_half_y});
   const auto v_rb2d = Transform2({float_half_x, -float_half_y});
 
-  // Rotated offset for +/- x with +/- y | with -/+ y(Util.cs L277-281)
   const core::Vector3 v_ra{v_ra2d.X, v_ra2d.Y, v_ra2d.Y * float_z_scale};
   const core::Vector3 v_rb{v_rb2d.X, v_rb2d.Y, v_rb2d.Y * float_z_scale};
 
@@ -234,9 +218,6 @@ Rectangle BoundingRectangle(core::Vector3 v_offset, core::Vector3 v_size, float 
     float_max_y = std::max(vec_rotated_quad[i].Y, float_max_y);
   }
 
-  // C#:(int) 向零截断;Math.Ceiling(double) 后转 int(整值,无方向歧义)。
-  // C#: (int) truncates towards zero; Math.Ceiling(double) then (int) (an
-  // integral value — no direction ambiguity).
   const auto int4_min_x = static_cast<std::int32_t>(float_min_x);
   const auto int4_min_y = static_cast<std::int32_t>(float_min_y);
   return Rectangle{int4_min_x, int4_min_y,
@@ -271,7 +252,7 @@ void FastCopyIntoSprite(const Sprite& sprite_dest, const fmt::Png& png_src) {
           const std::uint8_t uint1_index =
               static_cast<std::uint8_t>(png_src.Data()[st_si++]);
           const fmt::PngColor& color_pal =
-              (*png_src.Palette())[uint1_index];  // 上游:调色板必在 | upstream: the palette must exist
+              (*png_src.Palette())[uint1_index];
           color_c = core::Color::FromArgb(color_pal.uint1_a, color_pal.uint1_r, color_pal.uint1_g,
                                           color_pal.uint1_b);
           break;
@@ -288,10 +269,6 @@ void FastCopyIntoSprite(const Sprite& sprite_dest, const fmt::Png& png_src) {
           break;
         }
 
-        // PNG does not support BGR[A], so no need to include them here
-        // (Util.cs L234-235 逐字)
-        // PNG does not support BGR[A], so no need to include them here
-        // (Util.cs L234-235 verbatim).
         default:
           throw std::runtime_error(std::format("Unknown SpriteFrameType {}",
                                                static_cast<int>(png_src.Type())));
@@ -304,4 +281,4 @@ void FastCopyIntoSprite(const Sprite& sprite_dest, const fmt::Png& png_src) {
   }
 }
 
-}  // namespace ora::gfx
+}

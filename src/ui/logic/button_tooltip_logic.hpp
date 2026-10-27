@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ButtonTooltipLogic.cs @1f594e320 L17-68(全文)。
 #pragma once
 import std;
 
@@ -15,4 +14,4 @@ class ButtonTooltipLogic : public ChromeLogic {
   std::unique_ptr<LabelWidget> up_desc_template_;
 };
 
-}  // namespace ora::ui
+}

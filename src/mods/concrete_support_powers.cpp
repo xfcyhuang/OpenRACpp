@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/NukePower.cs +
-//          SpawnActorPower.cs + ProduceActorPower.cs +
-//          GrantExternalConditionPower.cs 的实现面
 #include "mods/concrete_support_powers.hpp"
 
 #include "core/cvec.hpp"
@@ -149,7 +146,7 @@ SupportPowerSoundPlayer& FnSupportPowerSoundPlayer() {
   return fn_play;
 }
 
-}  // namespace
+}
 
 void SetSupportPowerSoundPlayer(SupportPowerSoundPlayer fn_play) {
   FnSupportPowerSoundPlayer() = std::move(fn_play);
@@ -830,4 +827,4 @@ std::string SelectConditionTarget::GetCursor(sim::World& world, CPos cell,
                                       : power_.Info().str_blocked_cursor;
 }
 
-}  // namespace ora::mods
+}

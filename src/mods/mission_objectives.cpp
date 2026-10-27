@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/MissionObjectives.cs 实现部分
-//          The implementation half.
 #include "mods/mission_objectives.hpp"
 
 #include "mods/cash_trickler.hpp"
@@ -17,9 +15,6 @@
 #include "sim/trait_registry.hpp"
 
 namespace ora::mods {
-
-// ———— MissionObjectivesInfoData::Parse(L23-47 的字段面)————
-// ———— MissionObjectivesInfoData::Parse (the L23-47 field face) ————
 
 MissionObjectivesInfoData MissionObjectivesInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -88,10 +83,6 @@ void MissionObjectives::RemoveObjectiveAddedHandler(std::size_t n_token) {
     }
 }
 
-// ———— [VerifySync] 哈希注册({ObjectivesHash};第十二批 G2 补面)————
-// ———— The [VerifySync] hash registration ({ObjectivesHash}; the
-//      batch-12 G2 missing face) ————
-
 int MissionObjectivesSyncHash(const sim::ISync* s) {
   const auto* objectives = static_cast<const MissionObjectives*>(s);
   return sim::sync::CombineSyncHash(0, objectives->ObjectivesHash());
@@ -159,4 +150,4 @@ void RegisterCommonTraitsBatch12Objectives() {
       });
 }
 
-}  // namespace ora::mods
+}

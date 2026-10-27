@@ -1,10 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ColorMixerWidget.cs @1f594e320 L18-189(全文)。
-// OnChange 多播 event → vector + 调用列表快照(D262 同族);Sheet 的 RAII
-// 持有(上游手动 Dispose → Removed 释放);modData 经 WidgetArgs。
-// The whole of ColorMixerWidget.cs L18-189. The OnChange multicast event
-// becomes a vector + invocation-list snapshot (the D262 family); the Sheet
-// is RAII-owned (upstream's manual Dispose → Released in Removed());
-// modData through WidgetArgs.
 #pragma once
 import std;
 
@@ -80,4 +73,4 @@ class ColorMixerWidget : public Widget {
   bool b_is_moving_ = false;
 };
 
-}  // namespace ora::ui
+}

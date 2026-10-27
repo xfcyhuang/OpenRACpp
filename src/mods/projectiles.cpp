@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Projectiles/Bullet.cs + InstantHit.cs
-//          (实现部分) | The implementation half.
 #include "mods/projectiles.hpp"
 
 #include "gfx/animation.hpp"
@@ -23,7 +21,6 @@ std::function<gfx::Animation*(sim::World&, const std::string&,
 std::function<void(const std::string&, sim::World&, const WPos&)>
     fn_projectile_sound_play_ = nullptr;
 
-/// 字符串数组槽读取 | the string-array slot reader.
 std::vector<std::string> RecordFieldStringArray(
     const meta::RecordObject& rec, std::string_view str_name) {
   std::vector<std::string> vec_out;
@@ -44,8 +41,6 @@ std::vector<std::string> RecordFieldStringArray(
   return vec_out;
 }
 
-/// int 数组槽读取(WDist/WAngle 族) | the int-array slot reader (the
-/// WDist/WAngle families).
 std::vector<std::int64_t> RecordFieldIntArray(const meta::RecordObject& rec,
                                               std::string_view str_name) {
   std::vector<std::int64_t> vec_out;
@@ -98,9 +93,6 @@ std::optional<std::string> RecordFieldStringOf(
   return std::nullopt;
 }
 
-/// ImmutableArrayExtensions.Random(world.SharedRandom) 的等价 RNG 消耗
-/// The equivalent RNG consumption of ImmutableArrayExtensions.Random(
-/// world.SharedRandom).
 std::string RandomOf(sim::World& world,
                      const std::vector<std::string>& vec_xs) {
   if (vec_xs.empty())
@@ -110,7 +102,7 @@ std::string RandomOf(sim::World& world,
   return vec_xs[static_cast<std::size_t>(index)];
 }
 
-}  // namespace
+}
 
 void SetBulletAnimationFactory(
     std::function<gfx::Animation*(sim::World&, const std::string&,
@@ -139,8 +131,6 @@ gfx::Animation* MakeBulletAnimation(
   return fn_bullet_animation_factory_(world, str_image, str_sequence,
                                       std::move(fn_facing));
 }
-
-// ———— BulletInfoData::Parse ————
 
 BulletInfoData BulletInfoData::Parse(const meta::RecordObject& rec_info) {
   BulletInfoData data;
@@ -252,46 +242,34 @@ BulletInfoData BulletInfoData::Parse(const meta::RecordObject& rec_info) {
   return data;
 }
 
-// ———— Bullet(L146-398)————
-// ———— Bullet (L146-398) ————
-
-/// Bullet(Bullet.cs L146-398;ISync {pos,lastPos,target,source})
 class Bullet final : public sim::IProjectile, public sim::ISync {
  public:
   Bullet(const BulletInfoData& info, sim::ProjectileArgs& args);
 
   void Tick(sim::World& world) override;
 
-  /// gen/sync_gen.cpp Bullet 成员表的哈希(dynamic_cast 分派消费)
-  /// The hash of gen/sync_gen.cpp's Bullet member table (consumed by the
-  /// dynamic_cast dispatch).
   static int SyncHashOf(const sim::ISync* s);
 
  private:
-  /// L232-245:GetEffectiveFacing | L232-245: GetEffectiveFacing.
+
   WAngle GetEffectiveFacing() const;
 
-  /// L263-323:ShouldExplode | L263-323: ShouldExplode.
   bool ShouldExplode(sim::World& world);
 
-  /// L366-377:Explode | L366-377: Explode.
   void Explode(sim::World& world);
 
-  /// L379-397:AnyValidTargetsInRadius | L379-397:
-  /// AnyValidTargetsInRadius.
   bool AnyValidTargetsInRadius(sim::World& world, const WPos& pos,
                                const WDist& radius, Actor* fired_by,
                                bool check_target_type);
 
   const BulletInfoData& info_;
   sim::ProjectileArgs args_;
-  gfx::Animation* animation_ = nullptr;  // 注入面(缺省 null)
+  gfx::Animation* animation_ = nullptr;
   WAngle angle_facing_;
   WAngle angle_;
   WDist speed_;
   std::string str_trail_palette_;
 
-  // [VerifySync] L161-162
   WPos pos_, last_pos_, target_, source_;
 
   int int4_length_ = 0;
@@ -301,7 +279,7 @@ class Bullet final : public sim::IProjectile, public sim::ISync {
 
 Bullet::Bullet(const BulletInfoData& info, sim::ProjectileArgs& args)
     : info_{info}, args_{args} {
-  // L170-230
+
   pos_ = args.source;
   source_ = args.source;
 
@@ -338,11 +316,7 @@ Bullet::Bullet(const BulletInfoData& info, sim::ProjectileArgs& args)
   int4_length_ = std::max((target_ - pos_).Length() / speed_.Length, 1);
 
   if (!info_.str_image.empty()) {
-    // RNG 消耗序与上游一致(PlayRepeating(Sequences.Random(...)));
-    // Animation 仅在注入面就绪时构造
-    // The RNG consumption order matches upstream (PlayRepeating(
-    // Sequences.Random(...))); the Animation is constructed only when the
-    // injection face is wired.
+
     const std::string str_sequence =
         RandomOf(world, info_.vec_sequences);
     if (fn_bullet_animation_factory_ != nullptr)
@@ -360,7 +334,7 @@ Bullet::Bullet(const BulletInfoData& info, sim::ProjectileArgs& args)
 }
 
 WAngle Bullet::GetEffectiveFacing() const {
-  // L232-245
+
   const float at =
       static_cast<float>(int4_ticks_) /
       static_cast<float>(int4_length_ - 1);
@@ -379,7 +353,7 @@ WAngle Bullet::GetEffectiveFacing() const {
 }
 
 void Bullet::Tick(sim::World& world) {
-  // L247-261
+
   if (animation_ != nullptr)
     animation_->Tick();
 
@@ -388,16 +362,13 @@ void Bullet::Tick(sim::World& world) {
                              int4_length_);
 
   if (ShouldExplode(world)) {
-    // ContrailFader 的帧末生成随渲染批(RNG 无消耗;COVERAGE 登记)
-    // The ContrailFader's frame-end spawn rides the render batch (no RNG
-    // consumption; registered in COVERAGE).
+
     Explode(world);
   }
 }
 
 bool Bullet::ShouldExplode(sim::World& world) {
-  // L263-323
-  // Check for walls or other blocking obstacles
+
   if (info_.b_blockable) {
     WPos blocked_pos;
     if (BlocksProjectiles::AnyBlockingActorsBetween(
@@ -409,18 +380,12 @@ bool Bullet::ShouldExplode(sim::World& world) {
   }
 
   if (!info_.str_trail_image.empty() && --int4_smoke_ticks_ < 0) {
-    // RNG 消耗保持(SpriteEffect 的视觉面随渲染批;COVERAGE 登记)
-    // The RNG consumption preserved (SpriteEffect's visual face rides the
-    // render batch; registered in COVERAGE).
+
     [[maybe_unused]] const std::string str_sequence =
         RandomOf(world, info_.vec_trail_sequences);
 
     int4_smoke_ticks_ = info_.int4_trail_interval;
   }
-
-  // Contrail 的 Update 随渲染批(无 RNG;COVERAGE 登记)
-  // The Contrail update rides the render batch (no RNG; registered in
-  // COVERAGE).
 
   const bool b_flight_length_reached = int4_ticks_++ >= int4_length_;
   const bool b_should_bounce = int4_remaining_bounces_ > 0;
@@ -456,15 +421,12 @@ bool Bullet::ShouldExplode(sim::World& world) {
     int4_remaining_bounces_--;
   }
 
-  // Flight length reached / exceeded
   if (b_flight_length_reached && !b_should_bounce)
     return true;
 
-  // Driving into cell with higher height level
   if (world.Map().DistanceAboveTerrain(pos_).Length < 0)
     return true;
 
-  // After first bounce, check for targets each tick
   if (int4_remaining_bounces_ < info_.int4_bounce_count &&
       AnyValidTargetsInRadius(world, pos_, info_.dist_width,
                               args_.source_actor, true))
@@ -474,7 +436,7 @@ bool Bullet::ShouldExplode(sim::World& world) {
 }
 
 void Bullet::Explode(sim::World& world) {
-  // L366-377
+
   world.AddFrameEndTask([this](sim::World& w) { w.Remove(this); });
 
   sim::WarheadArgs warhead_args{args_};
@@ -489,7 +451,7 @@ void Bullet::Explode(sim::World& world) {
 bool Bullet::AnyValidTargetsInRadius(sim::World& world, const WPos& pos,
                                      const WDist& radius, Actor* fired_by,
                                      bool check_target_type) {
-  // L379-397
+
   for (Actor* victim : FindActorsOnCircle(world, pos, radius)) {
     if (check_target_type &&
         !sim::Target::FromActor(victim).IsValidFor(fired_by))
@@ -501,8 +463,6 @@ bool Bullet::AnyValidTargetsInRadius(sim::World& world, const WPos& pos,
             fired_by->Owner()->RelationshipWith(victim->Owner())))
       continue;
 
-    // If the impact position is within any actor's HitShape, we have a
-    // direct hit(上游注释)
     for (sim::ITargetablePositions* target_pos :
          victim->EnabledTargetablePositions())
       if (auto* h = dynamic_cast<HitShape*>(target_pos);
@@ -515,10 +475,7 @@ bool Bullet::AnyValidTargetsInRadius(sim::World& world, const WPos& pos,
 }
 
 int Bullet::SyncHashOf(const sim::ISync* s) {
-  // gen/sync_gen.cpp Bullet {pos, lastPos, target, source}(Sync.cs 的
-  // WPos 自定义哈希 = HashWPos)
-  // gen/sync_gen.cpp's Bullet {pos, lastPos, target, source} (Sync.cs's
-  // WPos custom hash = HashWPos).
+
   const auto* bullet = static_cast<const Bullet*>(s);
   return sim::sync::CombineSyncHash(
       sim::sync::CombineSyncHash(
@@ -532,19 +489,15 @@ int Bullet::SyncHashOf(const sim::ISync* s) {
 }
 
 sim::IProjectile* BulletInfo::Create(sim::ProjectileArgs& args) {
-  // L143
+
   return new Bullet(info_, args);
 }
 
-// ———— InstantHit(L45-95)————
-// ———— InstantHit (L45-95) ————
-
-/// InstantHit(InstantHit.cs L45-95)
 class InstantHit final : public sim::IProjectile {
  public:
   InstantHit(const InstantHitInfoData& info, sim::ProjectileArgs& args)
       : info_{info}, args_{args} {
-    // L52-67
+
     if (args.weapon->b_targetActorCenter)
       target_ = args.guided_target;
     else if (info_.dist_inaccuracy.Length > 0) {
@@ -562,14 +515,10 @@ class InstantHit final : public sim::IProjectile {
   }
 
   void Tick(sim::World& world) override {
-    // L69-89
-    // If GuidedTarget has become invalid due to getting killed the same
-    // tick, we need to set target to args.PassiveTarget to prevent
-    // target.CenterPosition below from crashing.(上游注释)
+
     if (target_.Type() == sim::TargetType::Invalid)
       target_ = sim::Target::FromPos(args_.passive_target);
 
-    // Check for blocking actors
     if (info_.b_blockable) {
       WPos blocked_pos;
       if (BlocksProjectiles::AnyBlockingActorsBetween(
@@ -596,8 +545,6 @@ class InstantHit final : public sim::IProjectile {
   sim::Target target_;
 };
 
-// ———— InstantHitInfoData::Parse ————
-
 InstantHitInfoData InstantHitInfoData::Parse(
     const meta::RecordObject& rec_info) {
   InstantHitInfoData data;
@@ -616,11 +563,9 @@ InstantHitInfoData InstantHitInfoData::Parse(
 }
 
 sim::IProjectile* InstantHitInfo::Create(sim::ProjectileArgs& args) {
-  // L42
+
   return new InstantHit(info_, args);
 }
-
-// ———— 同步效果哈希装配 ————
 
 void InstallCommonSyncEffectHasher(sim::World& world) {
   world.SetSyncEffectHashResolver([](const sim::ISync* s) -> int {
@@ -638,4 +583,4 @@ void InstallCommonSyncEffectHasher(sim::World& world) {
   });
 }
 
-}  // namespace ora::mods
+}

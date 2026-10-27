@@ -51,4 +51,4 @@ class PlayerProfileBadgesLogic final : public ora::ui::ChromeLogic {
 
 void RegisterLocalProfileLogics();
 
-}  // namespace ora::mods
+}

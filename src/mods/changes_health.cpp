@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/ChangesHealth.cs 实现部分
-//          The implementation half.
 #include "mods/changes_health.hpp"
 
 #include "meta/field_loader.hpp"
@@ -32,10 +30,6 @@ ChangesHealth::ChangesHealth(ChangesHealthInfoData&& info)
     : sim::ConditionalTraitCore<ChangesHealth>(info.conditional),
       info_{std::move(info)} {}
 
-// ———— [VerifySync] 哈希注册({ticks, damageTicks};第十二批 G2 补面)————
-// ———— The [VerifySync] hash registration ({ticks, damageTicks}; the
-//      batch-12 G2 missing face) ————
-
 int ChangesHealthSyncHash(const sim::ISync* s) {
   const auto* changes = static_cast<const ChangesHealth*>(s);
   return sim::sync::CombineSyncHash(
@@ -51,4 +45,4 @@ const bool b_changes_health_sync_registered = [] {
 [[maybe_unused]] const bool* b_changes_health_sync_registered_anchor =
     &b_changes_health_sync_registered;
 
-}  // namespace ora::mods
+}

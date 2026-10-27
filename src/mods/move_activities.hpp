@@ -1,41 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/Wait.cs @1f594e320
-//          全族逐语义重写:Activities/Wait.cs L17-30 | Activities/Turn.cs
-//          L17-41 | Move/Drag.cs L17-71 | Move/Nudge.cs L17-56 |
-//          Move/AttackMoveActivity.cs L17-106 | Move/MoveCooldownHelper.cs
-//          L15-106 | Move/MoveAdjacentTo.cs L17-157 |
-//          Move/MoveWithinRange.cs L17-76 | Move/MoveOnto.cs L17-55 |
-//          Move/MoveOntoAndTurn.cs L17-42 | Move/Follow.cs L17-86 |
-//          Move/LocalMoveIntoTarget.cs L17-84 | Move/Move.cs L22-655
-//          (锚文件 = Wait.cs;族内文件见各行内标注)
-//          Verbatim-semantics rewrites of the whole Move activity family
-//          (the anchor file = Wait.cs; the family members carry their own
-//          inline tags).
-//
-// 机制对照 / Mechanism mapping:
-//  - 活动对象分配:C# new(GC)→ WorldArena::Create<T>(每局世界区 + 析构登记,
-//    D26/D27 所有权面);活动相互构造(QueueChild)统一经 NewActivity 助手
-//    Activity allocation: C#'s new (GC) → WorldArena::Create<T> (the
-//    per-world arena + destructor records, the D26/D27 ownership face);
-//    activities constructing one another (QueueChild) uniformly go through
-//    the NewActivity helper.
-//  - GetTargets/TargetLineNodes:Activity 基类未引入渲染域面(见
-//    sim/activity.hpp 头注)—— 本族同形省略(Phase 4/6 随 Target 渲染面)
-//    GetTargets/TargetLineNodes: the Activity base pulls in no render
-//    face (see sim/activity.hpp's header) — omitted here the same way
-//    (with the Target render surface in Phase 4/6).
-//  - Nudge 的 Aircraft 分支 / AttackMoveActivity 的 AutoTarget·AttackMove
-//    trait 面:实现类未移植 → 查询空集的上游等价分支(不可达;COVERAGE 登记)
-//    Nudge's Aircraft branch / AttackMoveActivity's AutoTarget·AttackMove
-//    trait faces: the implementing classes are unported → the
-//    upstream-equivalent empty-query branches (unreachable; registered in
-//    COVERAGE).
-//  - Move.getPath 的闭包(Func<BlockedByActor,(bool,List)>;三构造变体)
-//    → std::function 成员(构造期绑定;求值体零分配 —— TakeWhile 物化进
-//    成员缓冲)
-//    Move.getPath's closure (Func<BlockedByActor,(bool,List)>; the three
-//    constructor variants) → a std::function member (bound at
-//    construction; the evaluation body materializes TakeWhile into a
-//    member buffer, zero allocation).
 #pragma once
 import std;
 
@@ -48,15 +10,11 @@ import std;
 
 namespace ora::mods::activities {
 
-/// WorldArena 内构造活动的助手(new 的 C++ 等价;上游 GC)
-/// The helper constructing an activity inside the WorldArena (the C++
-/// equivalent of new; upstream's GC).
 template <class T, class... As>
 T* NewActivity(sim::Actor& self, As&&... as) {
   return self.world().Arena().Create<T>(self, std::forward<As>(as)...);
 }
 
-/// Wait.cs L17-30
 class Wait : public sim::Activity {
  public:
   Wait(int period, bool interruptible = true)
@@ -84,7 +42,6 @@ class WaitFor final : public sim::Activity {
   std::function<bool()> fn_;
 };
 
-/// Turn.cs L17-41
 class Turn : public sim::Activity {
  public:
   Turn(sim::Actor& self, WAngle desired_facing);
@@ -97,7 +54,6 @@ class Turn : public sim::Activity {
   WAngle angle_desired_facing_;
 };
 
-/// Drag.cs L17-71
 class Drag : public sim::Activity {
  public:
   Drag(sim::Actor& self, WPos start, WPos end, int length,
@@ -108,7 +64,7 @@ class Drag : public sim::Activity {
 
  private:
   sim::IPositionable* positionable_ = nullptr;
-  TraitBase* disableable_ = nullptr;  // IDisabledTrait 面
+  TraitBase* disableable_ = nullptr;
   WPos pos_start_;
   WPos pos_end_;
   int int4_length_;
@@ -116,7 +72,6 @@ class Drag : public sim::Activity {
   std::optional<WAngle> opt_desired_facing_;
 };
 
-/// Nudge.cs L17-56
 class Nudge : public sim::Activity {
  public:
   explicit Nudge(sim::Actor* nudger)
@@ -128,11 +83,6 @@ class Nudge : public sim::Activity {
   sim::Actor* p_nudger_;
 };
 
-/// AttackMoveActivity.cs L17-106(AutoTarget/AttackMove trait 面未移植:
-/// autoTarget/attackMove 恒 null → QueueChild(getMove()) 的上游等价分支)
-/// AttackMoveActivity.cs L17-106 (the AutoTarget/AttackMove trait faces
-/// unported: autoTarget/attackMove stay null → upstream's
-/// QueueChild(getMove()) equivalent branch).
 class AttackMoveActivity : public sim::Activity {
  public:
   AttackMoveActivity(sim::Actor& self,
@@ -151,7 +101,6 @@ class AttackMoveActivity : public sim::Activity {
   sim::Target target_ = sim::Target::Invalid();
 };
 
-/// MoveCooldownHelper.cs L15-106
 class MoveCooldownHelper {
  public:
   MoveCooldownHelper(sim::World& world, Mobile* mobile)
@@ -170,16 +119,8 @@ class MoveCooldownHelper {
 
   void NotifyMoveQueued() { b_was_moving_ = true; }
 
-  /// mobile 指针的构造后换装(Attack 活动的构造序:ctor 初始化列表先于
-  /// mobile 解析 —— 实现细节,无上游对应)
-  /// The post-construction mobile swap (Attack's construction order: the
-  /// ctor init list runs before the mobile resolve — an implementation
-  /// detail with no upstream counterpart).
   void SetMobile(Mobile* p_mobile) { p_mobile_ = p_mobile; }
 
-  /// Tick:L110-141(true/false = 立即完成/等待;nullopt = 继续常规逻辑)
-  /// Tick: L110-141 (true/false = complete at once / keep waiting;
-  /// nullopt = continue with the usual logic).
   std::optional<bool> Tick(bool b_target_is_hidden_actor);
 
  private:
@@ -193,7 +134,6 @@ class MoveCooldownHelper {
   int int4_cooldown_ticks_ = 0;
 };
 
-/// MoveAdjacentTo.cs L17-157
 class MoveAdjacentTo : public sim::Activity {
  public:
   MoveAdjacentTo(sim::Actor& self, const sim::Target& target,
@@ -204,16 +144,12 @@ class MoveAdjacentTo : public sim::Activity {
   bool Tick(sim::Actor& self) override;
 
  protected:
-  /// CalculatePathToTarget 的求值结果(上游 (bool, List<CPos>) 元组)
-  /// The evaluation result of CalculatePathToTarget (upstream's
-  /// (bool, List<CPos>) tuple).
+
   struct PathEval {
     bool b_already_at_destination = false;
     std::vector<CPos> vec_path;
   };
 
-  /// 目标取值(useLastVisibleTarget ? lastVisible : target)
-  /// The target value (useLastVisibleTarget ? lastVisible : target).
   sim::Target CurrentTarget() const;
 
   virtual bool ShouldStop(sim::Actor& self);
@@ -230,11 +166,10 @@ class MoveAdjacentTo : public sim::Activity {
   CPos last_visible_target_location_;
   bool b_use_last_visible_target_ = false;
 
-  std::vector<CPos> vec_search_cells_;  // SearchCells(L128)
-  int int4_search_cells_tick_ = -1;     // searchCellsTick(L126)
+  std::vector<CPos> vec_search_cells_;
+  int int4_search_cells_tick_ = -1;
 };
 
-/// MoveWithinRange.cs L17-76
 class MoveWithinRange : public MoveAdjacentTo {
  public:
   MoveWithinRange(sim::Actor& self, const sim::Target& target,
@@ -257,7 +192,6 @@ class MoveWithinRange : public MoveAdjacentTo {
   int int4_min_cells_;
 };
 
-/// MoveOnto.cs L17-55
 class MoveOnto : public MoveAdjacentTo {
  public:
   MoveOnto(sim::Actor& self, const sim::Target& target,
@@ -276,7 +210,6 @@ class MoveOnto : public MoveAdjacentTo {
   WVec vec_offset_;
 };
 
-/// MoveOntoAndTurn.cs L17-42
 class MoveOntoAndTurn : public MoveOnto {
  public:
   MoveOntoAndTurn(sim::Actor& self, const sim::Target& target,
@@ -289,7 +222,6 @@ class MoveOntoAndTurn : public MoveOnto {
   std::optional<WAngle> opt_desired_facing_;
 };
 
-/// Follow.cs L17-86
 class Follow : public sim::Activity {
  public:
   Follow(sim::Actor& self, const sim::Target& target, WDist min_range,
@@ -309,7 +241,6 @@ class Follow : public sim::Activity {
   bool b_use_last_visible_target_ = false;
 };
 
-/// LocalMoveIntoTarget.cs L17-84
 class LocalMoveIntoTarget : public sim::Activity {
  public:
   LocalMoveIntoTarget(sim::Actor& self, const sim::Target& target,
@@ -327,24 +258,16 @@ class LocalMoveIntoTarget : public sim::Activity {
   WPos pos_target_start_;
 };
 
-/// Move.cs L22-655(MovePart/MoveFirstHalf/MoveSecondHalf 内嵌同上游)
-/// Move.cs L22-655 (MovePart/MoveFirstHalf/MoveSecondHalf nested as
-/// upstream).
 class Move : public sim::Activity {
  public:
-  /// 脚本移动序(L57-74;无 lane bias)
-  /// The scriptable move order (L57-74; no lane bias).
+
   Move(sim::Actor& self, CPos destination,
        std::optional<core::Color> target_line_color = std::nullopt);
 
-  /// 常规移动序(L76-101)
-  /// The regular move order (L76-101).
   Move(sim::Actor& self, CPos destination, WDist near_enough,
        Actor* ignore_actor, bool evaluate_nearest_movable_cell,
        std::optional<core::Color> target_line_color = std::nullopt);
 
-  /// 路径函数序(L103-113)
-  /// The path-function order (L103-113).
   Move(sim::Actor& self,
        const std::function<std::pair<bool, std::vector<CPos>>(
            sim::BlockedByActor)>& fn_get_path,
@@ -358,9 +281,6 @@ class Move : public sim::Activity {
   void Cancel(sim::Actor& self, bool keep_queue = false) override;
   void Cancel(sim::Actor& self, bool keep_queue, bool force_clear_path);
 
-  /// PopPath 的求值结果(上游 ((CPos,SubCell)?, bool) 元组)
-  /// PopPath's evaluation result (upstream's ((CPos,SubCell)?, bool)
-  /// tuple).
   struct NextCellResult {
     std::optional<std::pair<CPos, sim::SubCell>> opt_next;
     bool b_should_try_again = false;
@@ -373,21 +293,17 @@ class Move : public sim::Activity {
   friend class MoveFirstHalf;
   friend class MoveSecondHalf;
 
-  /// EvalPath(L115-120):TakeWhile(≠ mobile.ToCell)物化
-  /// EvalPath (L115-120): the TakeWhile(!= mobile.ToCell)
-  /// materialization.
   std::pair<bool, std::vector<CPos>> EvalPath(sim::BlockedByActor check);
 
   std::optional<std::pair<CPos, sim::SubCell>> UnblockDestination(
       sim::Actor& self);
   static bool CellIsEvacuating(sim::Actor& self, CPos cell);
 
-  /// MovePart(L409-545)
   class MovePart;
   class MoveFirstHalf;
   class MoveSecondHalf;
 
-  WAngle angle_actor_facing_modifier_;  // L24
+  WAngle angle_actor_facing_modifier_;
   Mobile* mobile_ = nullptr;
   WDist dist_near_enough_;
   std::function<std::pair<bool, std::vector<CPos>>(sim::BlockedByActor)>
@@ -395,21 +311,21 @@ class Move : public sim::Activity {
   Actor* p_ignore_actor_ = nullptr;
   std::optional<core::Color> opt_target_line_color_;
 
-  int int4_carryover_progress_ = 0;   // L39
-  int int4_last_move_part_completed_tick_ = 0;  // L40
+  int int4_carryover_progress_ = 0;
+  int int4_last_move_part_completed_tick_ = 0;
 
-  bool b_already_at_destination_ = false;  // L42
-  std::vector<CPos> vec_path_;             // L43(null 区分:上游 OnLastRun
-                                           // 置 null → C++ 清空 + has_path)
+  bool b_already_at_destination_ = false;
+  std::vector<CPos> vec_path_;
+
   bool b_has_path_ = true;
-  std::optional<CPos> opt_destination_;    // L44
-  int int4_start_ticks_ = 0;               // L45
-  bool b_had_no_path_ = false;             // L46
+  std::optional<CPos> opt_destination_;
+  int int4_start_ticks_ = 0;
+  bool b_had_no_path_ = false;
 
-  bool b_has_waited_ = false;              // L49
-  int int4_wait_ticks_remaining_ = 0;      // L50
+  bool b_has_waited_ = false;
+  int int4_wait_ticks_remaining_ = 0;
 
-  bool b_evaluate_nearest_movable_cell_ = false;  // L53
+  bool b_evaluate_nearest_movable_cell_ = false;
 };
 
-}  // namespace ora::mods::activities
+}

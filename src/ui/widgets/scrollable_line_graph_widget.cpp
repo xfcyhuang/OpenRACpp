@@ -681,4 +681,4 @@ void ScrollableLineGraphWidget::Tick() {
     ScrollBy(-1, true);
 }
 
-}  // namespace ora::ui
+}

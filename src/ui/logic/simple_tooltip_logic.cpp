@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/SimpleTooltipLogic.cs @1f594e320
-// (simple_tooltip_logic.hpp 的实现)
-// The implementation of simple_tooltip_logic.hpp.
 import std;
 
 #include "ui/logic/simple_tooltip_logic.hpp"
@@ -24,18 +21,8 @@ SimpleTooltipLogic::SimpleTooltipLogic(WidgetArgs& args_args) {
   LabelWidget* ptr_label = ptr_widget->Get<LabelWidget>("LABEL");
   Widget* ptr_spacing = ptr_widget->Get("LINE_HEIGHT");
 
-  // 上游 RemoveChildren 后 label/spacing 由 GC 闭包保活;C++ 侧以模板克隆
-  // + 值拷 bounds 承载(模板面语义等价)
-  // After RemoveChildren upstream's label/spacing stay alive in the GC'd
-  // closure; the C++ side carries a template clone + by-value bounds
-  // (equivalent on the template face).
   up_label_template_.reset(static_cast<LabelWidget*>(ptr_label->Clone().release()));
-  // 克隆体的标准委托族仍读源体(上游委托拷贝语义);源体随 RemoveChildren
-  // 亡于 GC 域之外 —— 重绑自读(ButtonWidget::BindDefaults 先例,值面等价)
-  // The clone's standard delegate family still reads the SOURCE (upstream's
-  // delegate-copy semantics); the source dies with RemoveChildren outside
-  // the GC domain — rebound to self (ButtonWidget::BindDefaults' precedent,
-  // value-equal).
+
   LabelWidget* ptr_label_template = up_label_template_.get();
   ptr_label_template->fn_is_visible = [ptr_label_template] {
     return ptr_label_template->b_visible;
@@ -72,7 +59,6 @@ SimpleTooltipLogic::SimpleTooltipLogic(WidgetArgs& args_args) {
         }
         const int int4_text_width = font_text.Measure(str_text).X;
 
-        // Set up label widgets(上游注释)| the upstream comment.
         ptr_widget->RemoveChildren();
         int int4_bottom = 0;
         for (std::size_t int8_i = 0; int8_i < vec_lines.size(); ++int8_i) {
@@ -94,4 +80,4 @@ SimpleTooltipLogic::SimpleTooltipLogic(WidgetArgs& args_args) {
       };
 }
 
-}  // namespace ora::ui
+}

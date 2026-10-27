@@ -1,10 +1,3 @@
-// UPSTREAM: OpenRA.Game/Server/Server.cs @1f594e320 L181-1601 + OpenRA.Game/
-//          Server/PlayerMessageTracker.cs L26-84(服务器实体与聊天闸的实
-//          现全文;事件闭包/注入面偏离见 docs/COVERAGE.md D216~)
-//          Server.cs L181-1601 + PlayerMessageTracker.cs L26-84 (the
-//          implementation whole of the server entity and the chat gate;
-//          the event-closure/injection-face deviations live in
-//          docs/COVERAGE.md D216-on).
 import std;
 
 #include "server/server.hpp"
@@ -75,8 +68,6 @@ std::string Base64Encode(std::span<const std::uint8_t> span_bytes) {
   return str_out;
 }
 
-/// Session.AnonizeIP 等价名 Session.AnonymizeIP (Session.cs L32-44): IPv4
-/// goes anonymized, v6 → null ("").
 std::string AnonymizeIP(std::string_view str_ip) {
   if (str_ip.find(':') != std::string_view::npos)
     return {};
@@ -133,8 +124,6 @@ std::vector<std::uint8_t> SerializeImmediateTargetString(
   return net::Order::FromTargetString(str_order, str_target, true).Serialize();
 }
 
-/// 构造带类型的握手 order(L452-457/205-225 形态)
-/// Builds a typed handshake order (the L452-457/205-225 shape).
 std::vector<std::uint8_t> SerializeHandshakeOrder(std::string_view str_name,
                                                   std::string_view str_payload) {
   auto order = net::Order(std::string{str_name}, nullptr, false);
@@ -153,7 +142,7 @@ std::optional<int> ParseProfileId(std::string_view str_text) {
   return value;
 }
 
-}  // namespace
+}
 
 void Server::EventQueue::Add(std::function<void()> fn) {
   {
@@ -554,7 +543,7 @@ void Server::ValidateClient(std::shared_ptr<ServerConnection> up_new_conn,
   client.AnonymizedIPAddress =
       IsMultiplayer() && Settings.ShareAnonymizedIPs ? AnonymizeIP(str_ip)
                                                      : std::string{};
-  client.IPAddress = str_ip;  // Session.cs L138(封禁面,不上线) | (the banning face, never on the wire)
+  client.IPAddress = str_ip;
   client.Index = new_conn.int4_player_index;
   client.PreferredColor = handshake->Client.PreferredColor;
   client.Color = handshake->Client.Color;
@@ -1131,9 +1120,6 @@ void Server::DropClient(ServerConnection& to_drop) {
       return;
     }
 
-    // RemoveAll 使 drop_client 悬垂前留驻管理位(C# 引用常青)
-    // Stash the admin bit before RemoveAll dangles drop_client (C#'s
-    // evergreen reference).
     const bool b_drop_was_admin = drop_client->IsAdmin;
 
     if (State() == ServerState::GameStarted) {
@@ -1520,4 +1506,4 @@ bool Server::MapIsKnown(const std::string& str_uid) const {
          kind_status == map::MapStatus::DownloadAvailable;
 }
 
-}  // namespace ora::server
+}

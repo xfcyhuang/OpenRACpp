@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/FootprintPlaceBuildingPreview.cs
-//          @1f594e320(实现部分)
-//          The implementation half.
 #include "mods/footprint_place_building_preview.hpp"
 
 #include "game/actor_info.hpp"
@@ -143,4 +140,4 @@ std::unique_ptr<IPlaceBuildingPreview> CreateFootprintPlaceBuildingPreview(
   return std::make_unique<FootprintPlaceBuildingPreviewPreview>(wr, ai, info);
 }
 
-}  // namespace ora::mods
+}

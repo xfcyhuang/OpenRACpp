@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Effects/SpriteEffect.cs @1f594e320 L18-86
 #include "gfx/world_renderer.hpp"
 #include "map/map.hpp"
 #include "mods/sprite_effect.hpp"
@@ -18,7 +17,7 @@ gfx::Animation::Deps MakeDeps(const sim::World& world_ref) {
   return deps;
 }
 
-}  // namespace
+}
 
 SpriteEffect::SpriteEffect(WPos wpos_pos, sim::World& world_ref,
                            std::string str_image, std::string str_sequence,
@@ -33,16 +32,12 @@ SpriteEffect::SpriteEffect(WPos wpos_pos, sim::World& world_ref,
       int4_delay_{int4_delay} {}
 
 void SpriteEffect::Tick(sim::World& world_ref) {
-  // L64:post-decrement —— delay 为 0 时本帧即初始化且 delay 落 -1
-  // L64: the post-decrement — a zero delay initializes this very frame and
-  // leaves delay at -1.
+
   if (int4_delay_-- > 0)
     return;
 
   if (!b_initialized_) {
-    // 播完帧末自移除;effect 由 World 统一析构
-    // The frame-end self-removal after playing out; the World destroys
-    // the effect after Remove.
+
     SpriteEffect* ptr_self = this;
     sim::World* ptr_world = &world_ref_;
     anim_.PlayThen(str_sequence_, [ptr_self, ptr_world]() {
@@ -56,8 +51,7 @@ void SpriteEffect::Tick(sim::World& world_ref) {
     b_initialized_ = true;
   } else {
     anim_.Tick();
-    // 固定 pos 形态:posFunc() 恒返回构造 pos
-    // The fixed-pos form: posFunc() always returns the construction pos.
+
     world_ref.ScreenMapFace()->Update(this, wpos_pos_, anim_.Image());
   }
 }
@@ -75,4 +69,4 @@ void SpriteEffect::Render(gfx::WorldRenderer& wr,
     vec_out.push_back(arr_items[static_cast<std::size_t>(i)]);
 }
 
-}  // namespace ora::mods
+}

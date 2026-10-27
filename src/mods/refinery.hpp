@@ -1,12 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/Refinery.cs @1f594e320
-//          L19-110 全文(逐语义重写;Requires<WithSpriteBodyInfo> 的
-//          约束面 = WithSpriteBody 未移植的注册侧跳过 —— COVERAGE 登记;
-//          FloatingText 的 ShowTicks 显示面随 Phase 6)
-//          The whole of Buildings/Refinery.cs L19-110 (a verbatim-semantics
-//          rewrite; the Requires<WithSpriteBodyInfo> constraint face = the
-//          registration-side skip with WithSpriteBody unported — registered
-//          in COVERAGE; the ShowTicks FloatingText display face rides
-//          Phase 6).
 #pragma once
 import std;
 
@@ -27,19 +18,15 @@ using sim::ActorInitializer;
 using sim::Player;
 using sim::TraitBase;
 
-/// RefineryInfo(L21-33)的解析面
-/// The parsed face of RefineryInfo (L21-33).
 struct RefineryInfoData {
-  bool b_use_storage = true;            // L24
-  bool b_discard_excess_resources = false;  // L27
-  bool b_show_ticks = true;             // L29
-  int int4_tick_rate = 10;              // L30
+  bool b_use_storage = true;
+  bool b_discard_excess_resources = false;
+  bool b_show_ticks = true;
+  int int4_tick_rate = 10;
 
   static RefineryInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// Refinery(L35-109;IAcceptResources)
-/// Refinery (L35-109; IAcceptResources).
 class Refinery final : public TraitBase,
                        public sim::IAcceptResources,
                        public sim::INotifyCreated,
@@ -52,8 +39,6 @@ class Refinery final : public TraitBase,
                        sim::IAcceptResources, sim::INotifyCreated,
                        sim::ITick, sim::INotifyOwnerChanged)
 
-  // ———— IAcceptResources(L55-91)————
-  // ———— IAcceptResources (L55-91) ————
   int AcceptResources(Actor& self, const std::string& resource_type,
                       int count = 1) override;
 
@@ -65,12 +50,10 @@ class Refinery final : public TraitBase,
  private:
   RefineryInfoData info_;
   PlayerResources* p_player_resources_;
-  std::vector<int> vec_resource_value_modifiers_;  // Created 一次物化
-                                                   // (the one-shot
-                                                   // Created materialization)
+  std::vector<int> vec_resource_value_modifiers_;
 
   int int4_current_display_tick_ = 0;
   int int4_current_display_value_ = 0;
 };
 
-}  // namespace ora::mods
+}

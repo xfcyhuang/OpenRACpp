@@ -21,11 +21,11 @@ class ChromeProvider;
 class WorldRenderer;
 class Viewport;
 struct IPaletteModifier;
-}  // namespace ora::gfx
+}
 namespace ora::map {
 class MapCache;
 class MapPreview;
-}  // namespace ora::map
+}
 namespace ora::sound {
 class Sound;
 }
@@ -45,8 +45,6 @@ class LocalPlayerProfile;
 
 namespace ora::game {
 
-/// RunStatus(Program.cs L14-19)
-/// RunStatus (Program.cs L14-19).
 enum class RunStatus : std::int32_t {
   Error = -1,
   Success = 0,
@@ -55,59 +53,34 @@ enum class RunStatus : std::int32_t {
 
 class Game {
  public:
-  /// 注入面(缺失编排点的 no-op 语义见文件头) | the injection faces (the
-  /// no-op semantics of absent orchestration points per the header).
-  struct Deps {
-    std::function<std::int64_t()> fn_clock;  // Game.RunTime;缺省 = 构造起 steady ms
 
-    gfx::Renderer* ptr_renderer = nullptr;      // 空 = 无头(Loop 全逻辑化)
+  struct Deps {
+    std::function<std::int64_t()> fn_clock;
+
+    gfx::Renderer* ptr_renderer = nullptr;
     sound::Sound* ptr_sound = nullptr;
     gfx::CursorManager* ptr_cursor = nullptr;
     gfx::ChromeProvider* ptr_chrome_provider = nullptr;
-    ui::Ui* ptr_ui = nullptr;                       // 缺省取 Ui::Instance()
+    ui::Ui* ptr_ui = nullptr;
 
-    // NetworkConnection 的连接态观测(Phase 7);空 = EchoConnection 恒跳过
-    // the NetworkConnection state observation (Phase 7); empty = the
-    // EchoConnection always skips.
     std::function<std::optional<net::ConnectionState>()> fn_connection_state;
     std::function<void(net::OrderManager&)> fn_connection_state_changed;
 
-    /// world.OrderGenerator.Tick(world)(Phase 5;缺省 no-op)
-    /// world.OrderGenerator.Tick(world) (Phase 5; a no-op by default).
     std::function<void(sim::World&)> fn_order_generator_tick;
 
-    /// 挂起窗口的事件泵(Renderer.Window.PumpInput(NullInputHandler);输入
-    /// 装配随 Phase 7) | the suspended-window event pump.
     std::function<void()> fn_pump_suspended_input;
 
-    /// World.IsReplay(上游 = Connection is ReplayConnection;Phase 7 前
-    /// 缺省恒 false) | the World.IsReplay face (upstream = Connection is
-    /// ReplayConnection; false by default until Phase 7).
     std::function<bool(const sim::World&)> fn_is_replay;
 
     std::function<void()> fn_on_quit;
 
-    /// JoinLocal 观战客户端名(Settings.Player.Name;Phase 5)
-    /// the JoinLocal spectator name (Settings.Player.Name; Phase 5).
     std::string str_player_name = "New Player";
 
-    /// ModData(嵌入侧所有权 —— D105 系;MapCache/StartGame 装配所需)
-    /// ModData (embedder-owned — the D105 family; needed by the MapCache/
-    /// StartGame assembly).
     game::ModData* ptr_mod_data = nullptr;
 
-    /// WorldRenderer 装配钩子(上游 Game.StartGame 直接 new;渲染面为
-    /// 测试注入面 —— 无钩子 = 无头)
-    /// The WorldRenderer assembly hook (upstream news it in StartGame; the
-    /// render face is the test injection — no hook = headless).
     std::function<std::unique_ptr<gfx::WorldRenderer>(sim::World&)>
         fn_create_world_renderer;
 
-    /// ModData.PrepareMap(L206)的序列装载面(上游 Sequences.LoadSprites;
-    /// Phase 6 资产链前的注入面 —— 无钩子 = 跳过)
-    /// ModData.PrepareMap's (L206) sequence-loading face (upstream's
-    /// Sequences.LoadSprites; an injection face until the Phase 6 asset
-    /// chain — no hook = skipped).
     std::function<void(map::Map&)> fn_prepare_map;
 
     std::function<void()> fn_take_screenshot_inner = [] {};
@@ -146,75 +119,47 @@ class Game {
   Game(const Game&) = delete;
   Game& operator=(const Game&) = delete;
 
-  /// RunTime(Game.cs L130-132;Stopwatch 等价)
-  /// RunTime (Game.cs L130-132; the Stopwatch equivalent).
   std::int64_t RunTime() const;
 
-  std::int32_t RenderFrame() const { return int4_render_frame_; }  // L134
+  std::int32_t RenderFrame() const { return int4_render_frame_; }
 
-  /// NetFrameNumber/LocalTick(L135-136;OM 缺失时上游为 NRE —— 调用方保证)
-  /// NetFrameNumber/LocalTick (L135-136; a missing OM is an upstream NRE —
-  /// the caller guarantees).
   int NetFrameNumber() const;
   int LocalTick() const;
 
   net::OrderManager* OrderManagerFace() const { return up_order_manager_.get(); }
 
-  /// CosmeticRandom(L53;not synced 上游注释) | CosmeticRandom (L53).
   MersenneTwister& CosmeticRandom() { return mt_cosmetic_; }
 
   bool HideCursor() const { return b_hide_cursor_; }
   void SetHideCursor(bool b_value) { b_hide_cursor_ = b_value; }
 
-  Modifiers GetModifierKeys() const { return kind_modifiers_; }            // L327
+  Modifiers GetModifierKeys() const { return kind_modifiers_; }
   void HandleModifierKeys(Modifiers kind_mods) { kind_modifiers_ = kind_mods; }
 
-  // ———— 延迟动作(L601-606/691-694)————
   void RunAfterTick(std::function<void()> fn_a) { delayed_actions_.Add(std::move(fn_a), RunTime()); }
   void RunAfterDelay(std::int32_t int4_delay_ms, std::function<void()> fn_a) {
     delayed_actions_.Add(std::move(fn_a), RunTime() + int4_delay_ms);
   }
   void PerformDelayedActions() { delayed_actions_.PerformActions(RunTime()); }
 
-  // ———— 连接面(L89-128/934-946)————
-  /// JoinInner(L89-104):非 shellmap OM 先 Dispose(上游所有权序)
-  /// JoinInner (L89-104): a non-shellmap OM is disposed first.
   void JoinInner(std::unique_ptr<net::OrderManager> up_om);
 
-  /// JoinLocal(L111-128):EchoConnection + 观战客户端(色面随 Phase 5)
-  /// JoinLocal (L111-128): the EchoConnection + the spectator client (the
-  /// color faces land with Phase 5).
   void JoinLocal();
 
-  /// JoinReplay(L106-109):OrderManager(ReplayConnection);orderLatency =
-  /// GameSpeeds 注入面(上游 ctor 内查;第十一批)
-  /// JoinReplay (L106-109): the OrderManager over the ReplayConnection;
-  /// orderLatency = the GameSpeeds injection face (upstream reads it in
-  /// the ctor; batch 11).
   void JoinReplay(std::vector<std::uint8_t> vec_replay_bytes,
                   int int4_order_latency = 3);
 
-  // ———— 主循环(L598/625-932)————
   RunStatus State() const { return state_; }
-  void Exit() { state_ = RunStatus::Success; }  // L929-932
+  void Exit() { state_ = RunStatus::Success; }
 
-  /// InnerLogicTick(L625-674) | InnerLogicTick (L625-674).
   void InnerLogicTick(net::OrderManager& om_order);
-  void LogicTick();     // L676-689
-  void RenderTick();    // L701-769
-  void Loop();          // L771-897
-  RunStatus Run();      // L899-927
+  void LogicTick();
+  void RenderTick();
+  void Loop();
+  RunStatus Run();
 
-  /// IsCurrentWorld(L987-990) | IsCurrentWorld (L987-990).
   bool IsCurrentWorld(const sim::World* ptr_world) const;
 
-  /// LobbyInfoChanged(L179-183 事件面;UnitOrders 的 SyncLobby* 分支经
-  /// Game.SyncLobbyInfo 触发 —— 第十六批客户端接线)。返回退订器(上游
-  /// event -= 的等价;置空移除)
-  /// LobbyInfoChanged (the L179-183 event face; UnitOrders' SyncLobby*
-  /// branches fire it through Game.SyncLobbyInfo — the batch-16 client
-  /// wiring). Returns the unsubscriber (the event -= equivalent; removal by
-  /// nulling out).
   std::function<void()> AddLobbyInfoChangedHandler(
       std::function<void()> fn_changed) {
     vec_lobby_info_changed_.push_back(std::move(fn_changed));
@@ -225,11 +170,6 @@ class Game {
     };
   }
 
-  /// AfterGameStart(L186 事件面;StartGame L260 触发 —— PerfDebugLogic 的
-  /// FPS 计时重置消费)。返回退订器(上游 event -= 的等价;置空移除)
-  /// AfterGameStart (the L186 event face; fired at StartGame L260 — consumed
-  /// by PerfDebugLogic's FPS-timing reset). Returns the unsubscriber (the
-  /// event -= equivalent; removal by nulling out).
   std::function<void()> AddAfterGameStartHandler(std::function<void()> fn_handler) {
     vec_after_game_start_.push_back(std::move(fn_handler));
     const std::size_t sz_slot = vec_after_game_start_.size() - 1;
@@ -272,14 +212,10 @@ class Game {
   void SetWorldRenderer(std::unique_ptr<gfx::WorldRenderer> up_wr, gfx::Viewport* ptr_viewport);
   gfx::WorldRenderer* WorldRendererFace() const { return up_world_renderer_.get(); }
 
-  // ———— StartGame 装配(Game.cs L187-261;Phase 5 第一批)————
-  /// ModData 的 MapCache 面(上游 ModData.MapCache;C++ 分层下由 Game 持有
-  /// —— 所有权偏离随 D105 族登记)
   map::MapCache& MapCacheFace();
 
-  /// StartGame(uid, WorldType)(L187-194)
   void StartGame(const std::string& str_uid, sim::WorldType type);
-  /// StartGame(Map, WorldType)(L196-261)
+
   void StartGame(map::Map& map_world, sim::WorldType type);
 
   ModData* ModDataFace() const {
@@ -315,17 +251,14 @@ class Game {
                                  std::vector<net::Order> vec_setup_orders);
 
  private:
-  /// World.IsLoadingGameSave(World.cs L116:NetFrameNumber <= GameSaveLastFrame;
-  /// 以世界自属 OM 求值)
-  /// World.IsLoadingGameSave (World.cs L116) evaluated over the world's own
-  /// OM.
+
   bool WorldIsLoadingGameSave(const sim::World& world_world) const;
 
   std::string ChooseShellmap();
 
   Deps deps_;
   core::ActionQueue delayed_actions_;
-  MersenneTwister mt_cosmetic_{0};  // 种子于 ctor 按时钟重设 | re-seeded in the ctor
+  MersenneTwister mt_cosmetic_{0};
 
   std::vector<std::function<void()>> vec_lobby_info_changed_;
   std::vector<std::function<void()>> vec_after_game_start_;
@@ -338,7 +271,7 @@ class Game {
 
   std::unique_ptr<net::OrderManager> up_order_manager_;
   std::unique_ptr<gfx::WorldRenderer> up_world_renderer_;
-  gfx::Viewport* ptr_viewport_ = nullptr;  // 非拥有(WorldRenderer 配套) | non-owning
+  gfx::Viewport* ptr_viewport_ = nullptr;
   std::unique_ptr<map::MapCache> up_map_cache_;
   std::unique_ptr<map::Map> up_map_;
   std::unique_ptr<sim::World> up_world_;
@@ -350,11 +283,11 @@ class Game {
   std::int32_t int4_render_frame_ = 0;
   bool b_take_screenshot_ = false;
   Modifiers kind_modifiers_ = Modifiers::None;
-  net::ConnectionState last_connection_state_ = net::ConnectionState::PreConnecting;  // L140
+  net::ConnectionState last_connection_state_ = net::ConnectionState::PreConnecting;
   bool b_hide_cursor_ = false;
-  RunStatus state_ = RunStatus::Running;  // L598
+  RunStatus state_ = RunStatus::Running;
 
-  std::chrono::steady_clock::time_point tp_started_;  // Stopwatch.StartNew 等价
+  std::chrono::steady_clock::time_point tp_started_;
 };
 
-}  // namespace ora::game
+}

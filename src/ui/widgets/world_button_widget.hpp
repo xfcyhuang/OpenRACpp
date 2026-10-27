@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/WorldButtonWidget.cs @1f594e320 L19-49(全文)。
 #pragma once
 import std;
 
@@ -23,9 +22,9 @@ class WorldButtonWidget : public ButtonWidget {
   }
   std::string_view TypeName() const override { return kWidgetTypeName; }
 
-  sim::World* ptr_world = nullptr;  // 非拥有 | non-owning
+  sim::World* ptr_world = nullptr;
 
   void MouseEntered() override;
 };
 
-}  // namespace ora::ui
+}

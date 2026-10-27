@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/RadarWidget.cs @1f594e320
-//          L25-539 的实现面
-//          The implementation face of L25-539.
 #include "mods/radar_widget.hpp"
 
 #include "gfx/gfx_util.hpp"
@@ -43,7 +40,7 @@ void WriteCellColor(std::span<std::byte> vec_data, int int4_stride,
   }
 }
 
-}  // namespace
+}
 
 RadarWidget::RadarWidget(ora::ui::WidgetArgs& args_args) {
   if (const ora::ui::WidgetArgValue* ptr_value = args_args.TryGet("modData"))
@@ -628,4 +625,4 @@ void RegisterRadarWidget() {
   (void)b_registered;
 }
 
-}  // namespace ora::mods
+}

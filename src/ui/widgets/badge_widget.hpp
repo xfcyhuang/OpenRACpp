@@ -39,4 +39,4 @@ class BadgeWidget : public Widget {
   }
 };
 
-}  // namespace ora::ui
+}

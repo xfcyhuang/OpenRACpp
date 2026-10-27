@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/Air/Fly.cs @1f594e320 +
-//          TakeOff.cs + Land.cs + FlyOffMap.cs + FlyIdle.cs +
-//          FlyForward.cs + FlyFollow.cs + ReturnToBase.cs + FallToEarth.cs
-//          + ../Resupply.cs 的实现面
 #include "mods/air_activities.hpp"
 
 #include "map/map.hpp"
@@ -1203,4 +1199,4 @@ void Resupply::RepairTick(sim::Actor& self) {
     --int4_remaining_ticks_;
 }
 
-}  // namespace ora::mods::activities
+}

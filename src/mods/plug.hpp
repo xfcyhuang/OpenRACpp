@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Plug.cs @1f594e320 L15-24 +
-//          Traits/Pluggable.cs L15-160
-//          Plug.cs L15-24 + Pluggable.cs L15-160.
 #pragma once
 import std;
 
@@ -18,13 +15,11 @@ class RecordObject;
 namespace ora::mods {
 
 struct PlugInfoData {
-  std::string str_type;  // L20([FieldLoader.Require])
+  std::string str_type;
 
   static PlugInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// Plug(L23;空运行时类)
-/// Plug (L23; the empty runtime class).
 class Plug final : public sim::TraitBase {
  public:
   static constexpr gen::TypeId kTypeId =
@@ -37,18 +32,14 @@ class Plug final : public sim::TraitBase {
 };
 
 struct PluggableInfoData {
-  CVec cvec_offset;                                     // L23
-  std::vector<std::pair<std::string, std::string>> vec_conditions;  // L28
-  std::vector<std::pair<std::string, expr::BooleanExpression>> vec_requirements;  // L33
-  std::string str_empty_option{"Empty"};                // L42
+  CVec cvec_offset;
+  std::vector<std::pair<std::string, std::string>> vec_conditions;
+  std::vector<std::pair<std::string, expr::BooleanExpression>> vec_requirements;
+  std::string str_empty_option{"Empty"};
 
   static PluggableInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// Pluggable(L82-153;IEditorActorOptions 的编辑器面不入运行时 —— lint
-/// 域,COVERAGE 登记)
-/// Pluggable (L82-153; the IEditorActorOptions editor face stays out of
-/// the runtime — lint domain, registered in COVERAGE).
 class Pluggable final : public sim::TraitBase,
                         public sim::IObservesVariables,
                         public sim::INotifyCreated {
@@ -59,17 +50,14 @@ class Pluggable final : public sim::TraitBase,
   Pluggable(sim::ActorInitializer& init, PluggableInfoData info,
             std::string str_instance_name);
 
-  void Created(sim::Actor& self) override;  // L106-110
+  void Created(sim::Actor& self) override;
 
-  std::vector<sim::VariableObserver> GetVariableObservers() override;  // L146-152
+  std::vector<sim::VariableObserver> GetVariableObservers() override;
 
-  /// L112-121 | L112-121.
   bool AcceptsPlug(std::string_view str_type) const;
 
-  /// L123-133 | L123-133.
   void EnablePlug(sim::Actor& self, std::string_view str_type);
 
-  /// L135-144 | L135-144.
   void DisablePlug(sim::Actor& self, std::string_view str_type);
 
   const PluggableInfoData& Info() const { return info_; }
@@ -78,14 +66,12 @@ class Pluggable final : public sim::TraitBase,
  private:
   PluggableInfoData info_;
   std::string str_instance_name_;
-  std::string str_initial_plug_;                    // L87
-  int int4_condition_token_ = sim::Actor::InvalidConditionToken;  // L88
-  std::map<std::string, bool> map_plug_types_availability;        // L88
-  std::string str_active_;                          // L90
+  std::string str_initial_plug_;
+  int int4_condition_token_ = sim::Actor::InvalidConditionToken;
+  std::map<std::string, bool> map_plug_types_availability;
+  std::string str_active_;
 };
 
-/// PlugInit(L155-159;info 实例名形)
-/// PlugInit (L155-159; the info-instance-name form).
 class PlugInit final : public sim::ValueActorInit<std::string> {
  public:
   ORA_INIT_TYPE_SELF_ONLY(PlugInit, OpenRA_Mods_Common_Traits_PlugInit)
@@ -98,4 +84,4 @@ class PlugInit final : public sim::ValueActorInit<std::string> {
   }
 };
 
-}  // namespace ora::mods
+}

@@ -1,11 +1,3 @@
-// UPSTREAM: OpenRA.Platforms.Default/DummySoundEngine.cs @1f594e320 L16-105(全文:
-// DummySoundEngine/NullSoundSource/NullSound;DefaultPlatform.CreateSound 的
-// OpenAL 初始化失败回落目标)
-// 空实现逐语义移植(NullSound.Complete 恒假、Play2DStream 返回 null 照抄)。
-// The whole of DummySoundEngine.cs L16-105 (DummySoundEngine/NullSoundSource/
-// NullSound; the fallback target of DefaultPlatform.CreateSound when OpenAL
-// initialization fails). The no-op semantics ported verbatim (NullSound's
-// Complete stays false; Play2DStream returns null).
 #pragma once
 import std;
 
@@ -60,4 +52,4 @@ class DummySoundEngine final : public ISoundEngine {
   void SetSoundPosition(ISound*, WPos) override {}
 };
 
-}  // namespace ora::platform
+}

@@ -46,4 +46,4 @@ class MapDirectoryTracker final {
   std::vector<FileStamp> vec_last_scan_;
 };
 
-}  // namespace ora::map
+}

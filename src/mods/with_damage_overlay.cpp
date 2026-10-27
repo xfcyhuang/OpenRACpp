@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDamageOverlay.cs @1f594e320
-//          L18-165
 #include "mods/render_sprites.hpp"
 #include "mods/render_utils.hpp"
 #include "mods/util.hpp"
@@ -27,7 +25,7 @@ std::vector<int> ParseIntArray(const meta::GenericValue& gv_value) {
   return vec_out;
 }
 
-}  // namespace
+}
 
 WithDamageOverlayInfoData WithDamageOverlayInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -100,7 +98,6 @@ void WithDamageOverlay::Damaged(Actor& self, const sim::AttackInfo& e) {
     return;
   }
 
-  // 负伤害 = 治疗,忽略 | Negative damage = healing, ignored.
   if (e.Damage->Value < 0)
     return;
 
@@ -116,9 +113,6 @@ void WithDamageOverlay::Tick(Actor& self) {
   if (int4_delay < 0)
     return;
 
-  // 延迟期内伤害状态可能漂移,出区间即复位
-  // The damage state may drift during the delay window; leaving the range
-  // resets.
   const sim::DamageState state = render::GetDamageState(self);
   if (state < info_.minimum_damage_state ||
       state > info_.maximum_damage_state)
@@ -157,4 +151,4 @@ void WithDamageOverlay::PlayAnimation(int int4_animation_state) {
     b_is_playing_animation_ = false;
 }
 
-}  // namespace ora::mods
+}

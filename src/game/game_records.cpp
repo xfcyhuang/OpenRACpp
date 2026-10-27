@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/GameRules/WeaponInfo.cs @1f594e320(game_records.hpp
-//          的实现;WeaponInfo/SoundInfo/MusicInfo,见 hpp 头注)
-//          Implementation of game_records.hpp — WeaponInfo/SoundInfo/
-//          MusicInfo; see the hpp header notes.
 import std;
 #include "game/game_records.hpp"
 #include "meta/field_loader.hpp"
@@ -9,21 +5,14 @@ import std;
 
 namespace ora::game {
 
-// ———— WeaponInfo ————
-
 namespace {
 
-/// ValidTargets 默认 "Ground,Water"(L107)的位分配在 Defaults 静态构造时
-/// 与 C# 首个实例化同序
-/// The ValidTargets default "Ground,Water" (L107) allocates bits at Defaults
-/// construction, in the same order as the first C# instantiation.
 std::int64_t DefaultValidTargetsBits() {
   static const std::int64_t int8_bits = static_cast<std::int64_t>(
       meta::BitsOf("OpenRA.Traits.TargetableType", std::vector<std::string>{"Ground", "Water"}));
   return int8_bits;
 }
 
-// 元素/容器子描述复用 / the shared element/container sub-descriptors.
 constexpr meta::FieldDesc kElemString = meta::ElemOf(meta::FieldType::String);
 constexpr meta::FieldDesc kElemInt32 = meta::ElemOf(meta::FieldType::Int32);
 constexpr meta::FieldDesc kValStringArray{
@@ -66,11 +55,7 @@ constexpr meta::RecordDesc kDesc_WeaponInfo{
 };
 
 const meta::RecordDesc& WeaponInfoDescWithWarheads() {
-  // Warheads 字段单列一个 RecordDesc(同名字段不与 Projectile 并表 ——
-  // FieldDesc 数组须完整覆盖字段;两表合一更简洁,但战头加载器需要
-  // off_offset 指向 vec_warheads,直接并入主表)
-  // The Warheads field lives in its own RecordDesc table merged into the
-  // main one below (a FieldDesc array must cover every field).
+
   static constexpr std::array<meta::FieldDesc, 18> kAll = [] {
     std::array<meta::FieldDesc, 18> arr{};
     for (std::size_t int4_i{}; int4_i < kFields_WeaponInfo.size(); int4_i++)
@@ -89,14 +74,11 @@ const meta::RecordDesc& WeaponInfoDescWithWarheads() {
   return kDesc;
 }
 
-}  // namespace
+}
 
 WeaponInfo::WeaponInfo(const yaml::MiniYaml& content) {
   int8_validTargets = DefaultValidTargetsBits();
 
-  // L141-144:WithNodes(Merge([content.Nodes])) —— 武器级继承/删除解析
-  // L141-144: WithNodes(Merge([content.Nodes])) — the weapon-level
-  // inheritance/removal resolution.
   const yaml::MiniYaml yaml_resolved =
       content.WithNodes(yaml::MiniYaml::Merge({content.Nodes}));
   meta::Load(this, yaml_resolved);
@@ -105,8 +87,6 @@ WeaponInfo::WeaponInfo(const yaml::MiniYaml& content) {
 const meta::RecordDesc& WeaponInfo::record_desc() const {
   return WeaponInfoDescWithWarheads();
 }
-
-// ———— SoundInfo ————
 
 namespace {
 
@@ -130,13 +110,11 @@ constexpr meta::RecordDesc kDesc_SoundInfo{
     .interfaces = {},
 };
 
-}  // namespace
+}
 
 SoundInfo::SoundInfo(const yaml::MiniYaml& y) {
   meta::Load(this, y);
-  // 保留原节点:NotificationsPools 的 Lazy 重读面(上游闭包捕获 y)
-  // Keep the raw node: the Lazy re-read face of NotificationsPools
-  // (upstream's closure captures y).
+
   yaml_source_ = y;
 }
 
@@ -168,9 +146,6 @@ std::string SoundPool::GetNext(MersenneTwister& mt_random) const {
   if (vec_live_clips_.empty())
     vec_live_clips_ = vec_clips_;
 
-  // 零 clips 防崩 —— 上游注释逐句
-  // Avoid crashing if there's no clips at all — the upstream comment
-  // verbatim.
   if (vec_live_clips_.empty())
     return {};
 
@@ -181,9 +156,7 @@ std::string SoundPool::GetNext(MersenneTwister& mt_random) const {
 }
 
 const std::vector<std::pair<std::string, SoundPool>>& SoundInfo::VoicePools() const {
-  // Exts.Lazy 的首查物化:Voices → (1f, DefaultInterruptType, clips)
-  // Exts.Lazy materialized on first query: Voices → (1f,
-  // DefaultInterruptType, clips).
+
   if (!opt_vec_voice_pools_.has_value()) {
     std::vector<std::pair<std::string, SoundPool>> vec_pools;
     for (const auto& [str_k, vec_clips] : map_voices)
@@ -197,8 +170,7 @@ const std::vector<std::pair<std::string, SoundPool>>& SoundInfo::VoicePools() co
 
 const std::vector<std::pair<std::string, SoundPool>>& SoundInfo::NotificationsPools() const {
   if (!opt_vec_notification_pools_.has_value()) {
-    // ParseSoundPool(L56-74):重读原 yaml 的 Notifications 节点
-    // ParseSoundPool (L56-74): re-reads the raw yaml's Notifications node.
+
     static constexpr meta::EnumMemberDesc kInterruptType[] = {
         {.str_name = "DoNotPlay", .int4_value = 0},
         {.str_name = "Interrupt", .int4_value = 1},
@@ -244,11 +216,8 @@ const std::vector<std::pair<std::string, SoundPool>>& SoundInfo::NotificationsPo
   return *opt_vec_notification_pools_;
 }
 
-// ———— MusicInfo ————
-
 MusicInfo::MusicInfo(std::string str_key, const yaml::MiniYaml& value) {
-  // MusicInfo(MusicInfo.cs L30-45):手读字段(不走 FieldLoader)
-  // MusicInfo (MusicInfo.cs L30-45): hand-read fields (no FieldLoader).
+
   str_title_ = value.Value != nullptr ? *value.Value : std::string{};
 
   const std::vector<std::pair<std::string_view, const yaml::MiniYaml*>> vec_nd =
@@ -279,4 +248,4 @@ MusicInfo::MusicInfo(std::string str_key, const yaml::MiniYaml& value) {
   str_filename_ = str_base + "." + str_ext;
 }
 
-}  // namespace ora::game
+}

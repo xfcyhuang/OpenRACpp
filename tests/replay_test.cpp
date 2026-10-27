@@ -29,8 +29,7 @@ std::string_view TestMapFilter() {
     return std::string_view{str_env};
   return "Siberian-Pass";
 }
-}  // namespace
-
+}
 
 namespace ora::gen {
 void RegisterGeneratedAll();
@@ -181,25 +180,17 @@ bool TamperSyncHash(std::vector<std::uint8_t>& vec_bytes, int int4_frame,
   return false;
 }
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
   if (argc < 2) {
     std::println("usage: replay_test <upstream-root>");
     return 1;
   }
-  // 无缓冲:管道下也逐行实时可见(ctest/重定向不丢进度)
-  // Unbuffered: lines stream live even under pipes (ctest/redirect).
+
   setvbuf(stdout, nullptr, _IONBF, 0);
   const char* str_root = argv[1];
-  // stage 选择(argv[2]):record/playback/tamper 缺省 all —— ctest 以
-  // 三面拆跑(逐段独立模块;record 段确定性产出同字节,playback/tamper
-  // 面各自重跑录制段取自用副本)
-  // The stage selection (argv[2]): record/playback/tamper, all by
-  // default — ctest runs the three faces (independent modules; the
-  // record stage deterministically produces the same bytes, and the
-  // playback/tamper faces re-run the recording stage for their own
-  // copy).
+
   const std::string_view str_stage = argc > 2 ? std::string_view{argv[2]}
                                               : std::string_view{"all"};
   const bool b_stage = str_stage != "all";
@@ -219,8 +210,8 @@ int main(int argc, char** argv) {
   int int4_tick_count_recorded = 0;
   std::string str_recorded_uid;
 
-  {  // 录制段恒跑:playback/tamper 面的消费源
-     // The recording stage always runs: the playback/tamper faces consume it.
+  {
+
     std::println("[replay] record phase");
     ReplayFixture fx{str_root};
     Check(!fx.str_uid.empty(), "map found");

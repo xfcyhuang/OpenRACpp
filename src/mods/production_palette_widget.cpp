@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ProductionPaletteWidget.cs @1f594e320
-//          (实现部分)
-//          The implementation half.
 import std;
 
 #include "mods/production_palette_widget.hpp"
@@ -67,7 +64,7 @@ core::Vector2 Int2ToVector2(int2 v) {
   return core::Vector2{static_cast<float>(v.X), static_cast<float>(v.Y)};
 }
 
-}  // namespace
+}
 
 ProductionPaletteWidget::ProductionPaletteWidget(
     ora::ui::WidgetArgs& args_args) {
@@ -963,4 +960,4 @@ void RegisterProductionPaletteWidget() {
   (void)b_registered;
 }
 
-}  // namespace ora::mods
+}

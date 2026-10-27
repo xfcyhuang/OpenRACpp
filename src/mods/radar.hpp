@@ -1,12 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/RadarPings.cs @1f594e320
-//          L20-115 + Traits/Player/PlayerRadarTerrain.cs L19-96 +
-//          Traits/Radar/{AppearsOnRadar,ProvidesRadar,RadarColorFromTerrain}.cs
-//          (雷达链五件:ping 星箭头动画/玩家雷达地形缓存/minimap 签名三元
-//          组/纯开关/地形色覆写)
-//          L20-115 plus PlayerRadarTerrain.cs L19-96 and the three Radar/
-//          traits (the five radar-chain pieces: the ping star animation,
-//          the player radar-terrain cache, the minimap signature triple,
-//          the bare switch, the terrain-color override).
 #pragma once
 import std;
 
@@ -35,20 +26,15 @@ using sim::Actor;
 using sim::ActorInitializer;
 using sim::TraitBase;
 
-/// RadarPingsInfo(L21-28)的解析面
-/// The parsed face of RadarPingsInfo (L21-28).
 struct RadarPingsInfoData {
-  int int4_from_radius = 200;    // L23
-  int int4_to_radius = 15;       // L24
-  int int4_shrink_speed = 4;     // L25
-  float fp4_rotation_speed = 0.12f;  // L26
+  int int4_from_radius = 200;
+  int int4_to_radius = 15;
+  int int4_shrink_speed = 4;
+  float fp4_rotation_speed = 0.12f;
 
   static RadarPingsInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// RadarPing(L69-114):三点星箭头的收缩旋转;Tick 到期返 false
-/// RadarPing (L69-114): the shrinking rotating three-point star; Tick
-/// returns false on expiry.
 class RadarPing {
  public:
   std::function<bool()> fn_is_visible;
@@ -81,7 +67,6 @@ class RadarPing {
     return true;
   }
 
-  /// Points(L109-114):三点星 | Points (L109-114): the three-point star.
   std::array<core::Vector2, 3> Points(int2 int2_center) const;
 
  private:
@@ -90,9 +75,6 @@ class RadarPing {
   int int4_tick = 0;
 };
 
-/// RadarPings(L31-67):world actor 的 ping 账本(Tick 排水到期项)
-/// RadarPings (L31-67): the world actor's ping ledger (Tick drains the
-/// expired entries).
 class RadarPings final : public TraitBase, public sim::ITick {
  public:
   RadarPings(RadarPingsInfoData info)
@@ -124,15 +106,10 @@ class RadarPings final : public TraitBase, public sim::ITick {
   std::optional<WPos> wpos_last_ping_position_;
 };
 
-/// PlayerRadarTerrainInfo(L19-25)的解析面
-/// The parsed face of PlayerRadarTerrainInfo (L19-25).
 struct PlayerRadarTerrainInfoData {
   static PlayerRadarTerrainInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// PlayerRadarTerrain(L28-95):玩家侧雷达地形色缓存(迷雾可见格驱动)
-/// PlayerRadarTerrain (L28-95): the player-side radar terrain-color cache
-/// (fog-visible-cell driven).
 class PlayerRadarTerrain final : public TraitBase, public sim::IWorldLoaded {
  public:
   explicit PlayerRadarTerrain(Actor& self);
@@ -145,14 +122,10 @@ class PlayerRadarTerrain final : public TraitBase, public sim::IWorldLoaded {
 
   bool IsInitialized() const { return b_is_initialized_; }
 
-  /// this[uv](L85) | this[uv] (L85).
   std::pair<std::uint32_t, std::uint32_t> At(MPos uv) const {
     return layer_terrain_color_->Get(uv);
   }
 
-  /// CellTerrainColorChanged 事件(L37):订阅令牌对(RadarWidget 的退订面)
-  /// The CellTerrainColorChanged event (L37): the subscribe-token pair
-  /// (RadarWidget's unsubscribe face).
   std::size_t SubscribeCellTerrainColorChanged(
       std::function<void(MPos)> fn) {
     vec_cell_terrain_color_changed_.push_back(std::move(fn));
@@ -163,9 +136,6 @@ class PlayerRadarTerrain final : public TraitBase, public sim::IWorldLoaded {
       vec_cell_terrain_color_changed_[n_token] = nullptr;
   }
 
-  /// GetColor(L87-95):IRadarTerrainLayer 首命中,回落 map.GetTerrainColorPair
-  /// GetColor (L87-95): the first IRadarTerrainLayer hit, falling back to
-  /// map.GetTerrainColorPair.
   static std::pair<std::uint32_t, std::uint32_t> GetColor(
       const map::Map& map,
       std::span<sim::IRadarTerrainLayer* const> vec_radar_terrain_layers,
@@ -187,22 +157,16 @@ class PlayerRadarTerrain final : public TraitBase, public sim::IWorldLoaded {
   bool b_is_initialized_ = false;
 };
 
-/// AppearsOnRadarInfo(L20-28)的解析面
-/// The parsed face of AppearsOnRadarInfo (L20-28).
 struct AppearsOnRadarInfoData {
   sim::ConditionalTraitData conditional;
-  bool b_use_location = false;  // L23
+  bool b_use_location = false;
   sim::PlayerRelationship kind_valid_relationships =
       sim::PlayerRelationship::Ally | sim::PlayerRelationship::Neutral |
-      sim::PlayerRelationship::Enemy;  // L26
+      sim::PlayerRelationship::Enemy;
 
   static AppearsOnRadarInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// AppearsOnRadar(L31-63):IRadarSignature(占用格或中心位 + 关系过滤 +
-/// IRadarColorModifier 覆写)
-/// AppearsOnRadar (L31-63): IRadarSignature (occupied cells or center
-/// position, relationship filter, IRadarColorModifier override).
 class AppearsOnRadar final : public TraitBase,
                              public sim::ConditionalTraitCore<AppearsOnRadar>,
                              public sim::IObservesVariables,
@@ -242,15 +206,11 @@ class AppearsOnRadar final : public TraitBase,
   sim::IRadarColorModifier* ptr_modifier_ = nullptr;
 };
 
-/// ProvidesRadarInfo(L15-18)的解析面
-/// The parsed face of ProvidesRadarInfo (L15-18).
 struct ProvidesRadarInfoData {
   sim::ConditionalTraitData conditional;
   static ProvidesRadarInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// ProvidesRadar(L20-24):雷达开关的纯承载
-/// ProvidesRadar (L20-24): the bare radar-switch carrier.
 class ProvidesRadar final : public TraitBase,
                             public sim::ConditionalTraitCore<ProvidesRadar>,
                             public sim::IObservesVariables,
@@ -282,19 +242,13 @@ class ProvidesRadar final : public TraitBase,
   ProvidesRadarInfoData info_;
 };
 
-/// RadarColorFromTerrainInfo(L17-29)的解析面 + GetColorFromTerrain(L22-26)
-/// The parsed face of RadarColorFromTerrainInfo (L17-29) plus
-/// GetColorFromTerrain (L22-26).
 struct RadarColorFromTerrainInfoData {
-  std::string str_terrain;  // L20([FieldLoader.Require])
+  std::string str_terrain;
 
   static RadarColorFromTerrainInfoData Parse(const meta::RecordObject& rec_info);
   core::Color GetColorFromTerrain(sim::World& world) const;
 };
 
-/// RadarColorFromTerrain(L31-41):IRadarColorModifier(地形类型色覆写)
-/// RadarColorFromTerrain (L31-41): IRadarColorModifier (the terrain-type
-/// color override).
 class RadarColorFromTerrain final : public TraitBase,
                                     public sim::IRadarColorModifier {
  public:
@@ -314,4 +268,4 @@ class RadarColorFromTerrain final : public TraitBase,
   core::Color color_color_;
 };
 
-}  // namespace ora::mods
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/BackgroundWidget.cs @1f594e320
-// (background_widget.hpp 的实现)
-// The implementation of background_widget.hpp.
 import std;
 
 #include "ui/widgets/background_widget.hpp"
@@ -38,4 +35,4 @@ bool BackgroundWidget::LoadFieldOrProperty(std::string_view str_key,
   return Widget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

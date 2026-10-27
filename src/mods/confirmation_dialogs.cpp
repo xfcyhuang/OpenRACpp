@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ConfirmationDialogs.cs @1f594e320
-//          L17-193 全文(实现部分)。
 #include "mods/confirmation_dialogs.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -219,4 +217,4 @@ void TextInputPrompt(const std::string& str_title,
   (*fn_do_validate)();
 }
 
-}  // namespace ora::mods
+}

@@ -64,4 +64,4 @@ class PerfHistory {
   std::size_t sz_next_color = 0;
 };
 
-}  // namespace ora::game
+}

@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Game/ModData.cs @1f594e320 L236-252
 #pragma once
 import std;
 
@@ -25,4 +24,4 @@ class ILoadScreen {
   virtual void StartGame(const core::Arguments& args) = 0;
 };
 
-}  // namespace ora::game
+}

@@ -81,4 +81,4 @@ struct PlayerDatabase {
 
 PlayerDatabase PlayerDatabaseFromYaml(const yaml::MiniYaml& yaml_source);
 
-}  // namespace ora::game
+}

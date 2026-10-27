@@ -1,13 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpTSLoader.cs @1f594e320 L17-200
-// 实现文件:TmpTSFrame(菱形展开/extra 回填)/ TmpTSDepthFrame /
-// UnpackTileData / IsTmpTS / ParseFrames 逐句照抄;Stream → SpanReader。
-// 索引 .at():上游数组负/越界索引抛 IndexOutOfRange 的等价抛点(合法
-// 文件不可达)。
-// Implementation file: TmpTSFrame (the diamond unpack / extra refill) /
-// TmpTSDepthFrame / UnpackTileData / IsTmpTS / ParseFrames copied
-// statement by statement; Stream → SpanReader. The .at() indexing is the
-// equivalent throw point of upstream's IndexOutOfRange on negative or
-// out-of-bounds array indices (unreachable for valid files).
 #include "formats/tmp_ts.hpp"
 
 #include "core/rectangle.hpp"
@@ -19,8 +9,6 @@ namespace {
 
 class TmpTSFrame;
 
-/// TmpTSDepthFrame(L20-35):深度通道视图(共享 parent)。
-/// TmpTSDepthFrame (L20-35): the depth-channel view (sharing its parent).
 class TmpTSDepthFrame final : public gfx::ISpriteFrame {
  public:
   explicit TmpTSDepthFrame(const TmpTSFrame& parent) : ptr_parent_(&parent) {}
@@ -33,12 +21,9 @@ class TmpTSDepthFrame final : public gfx::ISpriteFrame {
   bool DisableExportPadding() const override { return false; }
 
  private:
-  const TmpTSFrame* ptr_parent_;  // 同一帧数组内的堆对象,指针稳定 | a heap object within the same frame array; the pointer stays stable
+  const TmpTSFrame* ptr_parent_;
 };
 
-/// UnpackTileData(L139-148):菱形行展开(行宽 4 起 +4/-4)。
-/// UnpackTileData (L139-148): the diamond row unpack (row width stepping
-/// +4/-4 from 4).
 void UnpackTileData(SpanReader& stream, std::span<std::byte> vec_data, int2 int2_size, Rectangle rect_frame_bounds) {
   auto int4_width = 4;
   for (auto int4_j = 0; int4_j < int2_size.Y; int4_j++) {
@@ -50,18 +35,14 @@ void UnpackTileData(SpanReader& stream, std::span<std::byte> vec_data, int2 int2
   }
 }
 
-/// TmpTSFrame(L37-136)。
 class TmpTSFrame final : public gfx::ISpriteFrame {
  public:
   TmpTSFrame(SpanReader& stream, int2 int2_tile_size, std::int32_t int4_u, std::int32_t int4_v) {
     if (stream.Position() != 0) {
       int2_size_ = int2_tile_size;
 
-      // 跳过无用头数据 | skip unnecessary header data
       stream.Skip(20);
 
-      // 附加数据相对模板左上定位 | extra data is specified relative to
-      // the top-left of the template
       const auto int4_extra_x = stream.ReadInt32() - (int4_u - int4_v) * int2_tile_size.X / 2;
       const auto int4_extra_y = stream.ReadInt32() - (int4_u + int4_v) * int2_tile_size.Y / 2;
       const auto int4_extra_width = stream.ReadInt32();
@@ -78,7 +59,6 @@ class TmpTSFrame final : public gfx::ISpriteFrame {
         int2_size_ = int2{rect_bounds.Width, rect_bounds.Height};
       }
 
-      // 跳过无用头数据 | skip unnecessary header data
       stream.Skip(12);
 
       vec_data_.assign(static_cast<std::size_t>(rect_bounds.Width) * static_cast<std::size_t>(rect_bounds.Height),
@@ -92,7 +72,6 @@ class TmpTSFrame final : public gfx::ISpriteFrame {
       if ((uint4_flags & 0x01) == 0)
         return;
 
-      // 附加数据(悬崖立面等)| load extra data (cliff faces, etc)
       for (auto int4_j = 0; int4_j < int4_extra_height; int4_j++) {
         const auto int4_start =
             (int4_j + int4_extra_y - rect_bounds.Y) * rect_bounds.Width + int4_extra_x - rect_bounds.X;
@@ -103,15 +82,12 @@ class TmpTSFrame final : public gfx::ISpriteFrame {
         }
       }
 
-      // 附加数据深度 | extra data depth
       for (auto int4_j = 0; int4_j < int4_extra_height; int4_j++) {
         const auto int4_start =
             (int4_j + int4_extra_y - rect_bounds.Y) * rect_bounds.Width + int4_extra_x - rect_bounds.X;
         for (auto int4_i = 0; int4_i < int4_extra_width; int4_i++) {
           const auto byte_extra = stream.ReadUInt8();
 
-          // XCC 源表明仅 32 个有效值 | XCC source indicates that there
-          // are only 32 valid values
           if (byte_extra < 32)
             vec_depth_data_.at(static_cast<std::size_t>(int4_start + int4_i)) = static_cast<std::byte>(byte_extra);
         }
@@ -141,7 +117,7 @@ int2 TmpTSDepthFrame::Size() const { return ptr_parent_->Size(); }
 core::Vector2 TmpTSDepthFrame::Offset() const { return ptr_parent_->Offset(); }
 std::span<const std::byte> TmpTSDepthFrame::Data() const { return ptr_parent_->DepthData(); }
 
-}  // namespace
+}
 
 bool IsTmpTS(std::span<const std::byte> vec_file) {
   auto stream = SpanReader{vec_file};
@@ -150,7 +126,6 @@ bool IsTmpTS(std::span<const std::byte> vec_file) {
   const auto uint4_sx = stream.ReadUInt32();
   const auto uint4_sy = stream.ReadUInt32();
 
-  // 找首个非空帧 | find the first non-empty frame
   auto uint4_offset = stream.ReadUInt32();
   while (uint4_offset == 0)
     uint4_offset = stream.ReadUInt32();
@@ -169,7 +144,6 @@ bool IsTmpTS(std::span<const std::byte> vec_file) {
 
 namespace {
 
-/// ParseFrames(L169-190)。
 std::vector<std::unique_ptr<gfx::ISpriteFrame>> ParseFrames(std::span<const std::byte> vec_file) {
   auto stream = SpanReader{vec_file};
   const auto uint4_template_width = stream.ReadUInt32();
@@ -182,8 +156,6 @@ std::vector<std::unique_ptr<gfx::ISpriteFrame>> ParseFrames(std::span<const std:
   for (auto& uint4_offset : arr_offsets)
     uint4_offset = stream.ReadUInt32();
 
-  // 深度信息存为第二组帧(如分离的阴影)| depth information is stored
-  // as a second set of frames (like split shadows)
   const auto st_stride = arr_offsets.size();
   auto vec_tiles = std::vector<std::unique_ptr<gfx::ISpriteFrame>>(st_stride * 2);
 
@@ -203,7 +175,7 @@ std::vector<std::unique_ptr<gfx::ISpriteFrame>> ParseFrames(std::span<const std:
   return vec_tiles;
 }
 
-}  // namespace
+}
 
 bool TryParseTmpTS(std::span<const std::byte> vec_file, std::vector<std::unique_ptr<gfx::ISpriteFrame>>& vec_frames) {
   if (!IsTmpTS(vec_file))
@@ -213,4 +185,4 @@ bool TryParseTmpTS(std::span<const std::byte> vec_file, std::vector<std::unique_
   return true;
 }
 
-}  // namespace ora::fmt
+}

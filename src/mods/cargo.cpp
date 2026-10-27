@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Cargo.cs + ParaDrop.cs @1f594e320
 #include "mods/cargo.hpp"
 
 #include "game/actor_info.hpp"
@@ -105,7 +104,7 @@ bool HasAnyVoice(Actor& self, std::string_view str_voice) {
   return false;
 }
 
-}  // namespace
+}
 
 CargoInfoData CargoInfoData::Parse(const meta::RecordObject& rec_info) {
   CargoInfoData data;
@@ -634,4 +633,4 @@ const bool b_para_drop_sync_registered = [] {
 [[maybe_unused]] const bool* b_para_drop_sync_registered_anchor =
     &b_para_drop_sync_registered;
 
-}  // namespace ora::mods
+}

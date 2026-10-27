@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ObserverArmyIconsWidget.cs @1f594e320
-//          L24-211 + ObserverProductionIconsWidget.cs L25-281 +
-//          ObserverSupportPowerIconsWidget.cs L23-199 的实现面
-//          The implementation face of the three observer icon strips.
 #include "mods/observer_widgets.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -77,10 +73,7 @@ void AdjustWidthHack(ora::ui::Widget& widget_self, int int4_new_width,
                widget_self.bounds_widget.Left() + int4_min_width);
 }
 
-}  // namespace
-
-// ———— ObserverArmyIconsWidget ————
-// ———— ObserverArmyIconsWidget ————
+}
 
 ObserverArmyIconsWidget::ObserverArmyIconsWidget(
     ora::ui::WidgetArgs& args_args) {
@@ -250,9 +243,6 @@ void ObserverArmyIconsWidget::Tick() {
 
   ptr_tooltip_unit_ = nullptr;
 }
-
-// ———— ObserverProductionIconsWidget ————
-// ———— ObserverProductionIconsWidget ————
 
 ObserverProductionIconsWidget::ObserverProductionIconsWidget(
     ora::ui::WidgetArgs& args_args) {
@@ -555,9 +545,6 @@ void ObserverProductionIconsWidget::Tick() {
   ptr_tooltip_icon_ = nullptr;
 }
 
-// ———— ObserverSupportPowerIconsWidget ————
-// ———— ObserverSupportPowerIconsWidget ————
-
 ObserverSupportPowerIconsWidget::ObserverSupportPowerIconsWidget(
     ora::ui::WidgetArgs& args_args) {
   if (const ora::ui::WidgetArgValue* ptr_value = args_args.TryGet("world"))
@@ -778,4 +765,4 @@ void RegisterObserverWidgets() {
   (void)b_registered;
 }
 
-}  // namespace ora::mods
+}

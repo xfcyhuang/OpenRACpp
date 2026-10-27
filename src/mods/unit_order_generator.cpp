@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Orders/UnitOrderGenerator.cs @1f594e320
-//          (实现部分)
-//          The implementation half of UnitOrderGenerator.cs.
 import std;
 
 #include "mods/unit_order_generator.hpp"
@@ -23,16 +20,12 @@ using sim::TargetModifiers;
 UnitOrderGenerator::UnitOrderGenerator(sim::World& world,
                                        const GameSettingsFace& game_settings)
     : game_settings_{game_settings} {
-  // ChromeMetrics.Get<string>("WorldSelectCursor"/"WorldDefaultCursor")
-  // (L23-24):Chrome 装配批接入前取缺省键值(部分覆盖装配面)
-  // (L23-24): the default key values stand in before the Chrome assembly
-  // batch (the partial-coverage assembly face).
+
   (void)world;
-  // HasIssuedQueuedCommand = false(L34)| (L34).
+
   b_has_issued_queued_command_ = false;
 }
 
-// ———— TargetForInput(L37-54)————
 sim::Target UnitOrderGenerator::TargetForInput(sim::World& world, CPos cell,
                                                int2 world_pixel,
                                                const MouseInput& mi) {
@@ -80,13 +73,12 @@ MouseButton UnitOrderGenerator::CancelButton() const {
   return game_settings_.ResolveCancelButton(ActionType());
 }
 
-// ———— Order(L56-64)————
 std::vector<std::unique_ptr<net::Order>> UnitOrderGenerator::Order(
     sim::World& world, CPos cell,
     int2 world_pixel,
     const MouseInput& mi) {
   if (mi.Button == game_settings_.ResolveActionButton(
-                       MouseActionType::Contextual))  // ActionType(L27)
+                       MouseActionType::Contextual))
     return OrderInner(world, cell, world_pixel, mi);
   if (mi.Button == game_settings_.ResolveCancelButton(
                        MouseActionType::Contextual))
@@ -95,7 +87,6 @@ std::vector<std::unique_ptr<net::Order>> UnitOrderGenerator::Order(
   return {};
 }
 
-// ———— OrderInner(L66-84)————
 std::vector<std::unique_ptr<net::Order>> UnitOrderGenerator::OrderInner(
     sim::World& world, CPos cell, int2 world_pixel, const MouseInput& mi) {
   const sim::Target target = TargetForInput(world, cell, world_pixel, mi);
@@ -107,7 +98,6 @@ std::vector<std::unique_ptr<net::Order>> UnitOrderGenerator::OrderInner(
         orders.push_back(std::move(*o));
   }
 
-  // actorsInvolved = orders.Select(o => o.Actor).Distinct()(L74)
   std::vector<Actor*> actors_involved;
   for (const UnitOrderResult& o : orders) {
     const std::uint32_t id = o.actor->ActorID();
@@ -117,12 +107,10 @@ std::vector<std::unique_ptr<net::Order>> UnitOrderGenerator::OrderInner(
   }
 
   if (actors_involved.empty())
-    return {};  // yield break(L76)| (L76).
+    return {};
 
   std::vector<std::unique_ptr<net::Order>> out;
 
-  // HACK: This is required by the hacky player actions-per-minute
-  // calculation(上游注释)| (upstream comment)
   out.push_back(std::make_unique<net::Order>(
       "CreateGroup", actors_involved[0]->Owner()->PlayerActor(),
       false, actors_involved));
@@ -136,7 +124,6 @@ std::vector<std::unique_ptr<net::Order>> UnitOrderGenerator::OrderInner(
   return out;
 }
 
-// ———— Tick/Render 族(L86-90/L117/L156)————
 void UnitOrderGenerator::Tick(sim::World&) {}
 std::vector<gfx::IRenderable*> UnitOrderGenerator::Render(gfx::WorldRenderer&,
                                                             sim::World&) {
@@ -154,7 +141,6 @@ void UnitOrderGenerator::Deactivate() {}
 void UnitOrderGenerator::SelectionChanged(sim::World&,
                                           std::span<sim::Actor* const>) {}
 
-// ———— GetCursor(L92-115)————
 std::string UnitOrderGenerator::GetCursor(sim::World& world, CPos cell,
                                           int2 world_pixel,
                                           const MouseInput& mi) {
@@ -175,10 +161,10 @@ std::string UnitOrderGenerator::GetCursor(sim::World& world, CPos cell,
     if (ISelection* selection = world.Selection()) {
       for (Actor* a : selection->Actors()) {
         auto o = OrderForUnit(a, target, cell, mi);
-        // Where(o != null && o.Cursor != null)(L103)| (L103).
+
         if (!o.has_value() || o->cursor.empty())
           continue;
-        // MaxByOrDefault(o => o.Order.OrderPriority)(L105)
+
         const int priority = o->order->OrderPriority();
         if (!cursor_order.has_value() || priority > cursor_priority) {
           cursor_order = std::move(o);
@@ -205,7 +191,6 @@ std::string UnitOrderGenerator::GetCursor(sim::World& world, CPos cell,
   return use_select ? world_select_cursor_ : world_default_cursor_;
 }
 
-// ———— InputOverridesSelection(L122-154)————
 bool UnitOrderGenerator::InputOverridesSelection(sim::World& world, int2 xy,
                                                  const MouseInput& mi) {
   std::vector<sim::ActorBoundsPair> eligible;
@@ -251,19 +236,18 @@ bool UnitOrderGenerator::InputOverridesSelection(sim::World& world, int2 xy,
   return false;
 }
 
-// ———— OrderForUnit(L163-202)————
 std::optional<UnitOrderResult> UnitOrderGenerator::OrderForUnit(
     sim::Actor* self, const sim::Target& target_in, CPos xy,
     const MouseInput& mi) {
-  if (self->Owner() != self->world().LocalPlayer())  // L165
+  if (self->Owner() != self->world().LocalPlayer())
     return std::nullopt;
 
-  if (self->world().IsGameOver())  // L168
+  if (self->world().IsGameOver())
     return std::nullopt;
 
   sim::Target target = target_in;
-  // IsValidFor(L171)的 C++ 面:Type() 的 Actor 失效退化
-  if (self->Disposed() || target.Type() == sim::TargetType::Invalid)  // L171
+
+  if (self->Disposed() || target.Type() == sim::TargetType::Invalid)
     return std::nullopt;
 
   TargetModifiers modifiers = TargetModifiers::None;
@@ -274,8 +258,6 @@ std::optional<UnitOrderResult> UnitOrderGenerator::OrderForUnit(
   if (HasModifier(mi.ModifierFlags, Modifiers::Alt))
     modifiers = modifiers | TargetModifiers::ForceMove;
 
-  // orders = TraitsImplementing<IIssueOrder>().SelectMany(Orders) 按
-  // OrderPriority 降序(L182-185)| (L182-185).
   struct TraitOrder {
     sim::IIssueOrder* trait;
     sim::IOrderTargeter* order;
@@ -297,26 +279,22 @@ std::optional<UnitOrderResult> UnitOrderGenerator::OrderForUnit(
         return UnitOrderResult{self, o.order, o.trait, cursor, target};
     }
 
-    // No valid orders, so check for orders against the cell(上游注释)
     target = self->world().TargetFromCell(xy, sim::SubCell::Any);
   }
 
   return std::nullopt;
 }
 
-// ———— CheckSameOrder(L204-211)————
 std::unique_ptr<net::Order> UnitOrderGenerator::CheckSameOrder(
     sim::IOrderTargeter* iot, std::unique_ptr<net::Order> order) {
-  // TextNotificationsManager.Debug → 注入钩子面(通知管理器随 Phase 6;
-  // 静默 = D29 系)| the injected-hook face (the notification manager lands
-  // in Phase 6; silence = the D29 family).
+
   if (order == nullptr && !iot->OrderID().empty())
-    ;  // Debug("BUG: in order targeter - decided on {0} but then didn't order", ...)
+    ;
   else if (order != nullptr &&
            (!order->str_target_string.has_value() ||
             iot->OrderID() != *order->str_target_string))
-    ;  // Debug("BUG: in order targeter - decided on {0} but ordered {1}", ...)
+    ;
   return order;
 }
 
-}  // namespace ora::mods
+}

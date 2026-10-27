@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/BlocksProjectiles.cs @1f594e320
-//          L17-75 全文(逐语义重写)
-//          The whole of BlocksProjectiles.cs L17-75.
 #pragma once
 import std;
 
@@ -20,11 +17,9 @@ using sim::Actor;
 using sim::ActorInitializer;
 using sim::TraitBase;
 
-/// BlocksProjectilesInfo 的解析面(L18-26)
-/// The parsed face of BlocksProjectilesInfo (L18-26).
 struct BlocksProjectilesInfoData {
-  WDist dist_height = WDist::FromCells(1);  // L20
-  sim::PlayerRelationship valid_relationships =  // L23
+  WDist dist_height = WDist::FromCells(1);
+  sim::PlayerRelationship valid_relationships =
       sim::PlayerRelationship::Ally | sim::PlayerRelationship::Neutral |
       sim::PlayerRelationship::Enemy;
   sim::ConditionalTraitData conditional;
@@ -32,7 +27,6 @@ struct BlocksProjectilesInfoData {
   static BlocksProjectilesInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// BlocksProjectiles(L28-74)
 class BlocksProjectiles final
     : public TraitBase,
       public sim::ConditionalTraitCore<BlocksProjectiles>,
@@ -68,18 +62,13 @@ class BlocksProjectiles final
     return info_.valid_relationships;
   }
 
-  void TraitEnabledHook(Actor& /*self*/) {}
-  void TraitDisabledHook(Actor& /*self*/) {}
-  void TraitResumedHook(Actor& /*self*/) {}
-  void TraitPausedHook(Actor& /*self*/) {}
+  void TraitEnabledHook(Actor& ) {}
+  void TraitDisabledHook(Actor& ) {}
+  void TraitResumedHook(Actor& ) {}
+  void TraitPausedHook(Actor& ) {}
 
-  /// L37-45:AnyBlockingActorAt(静态)
-  /// L37-45: AnyBlockingActorAt (static).
   static bool AnyBlockingActorAt(sim::World& world, const WPos& pos);
 
-  /// L47-72:AnyBlockingActorsBetween(静态;out hit → 引用出参)
-  /// L47-72: AnyBlockingActorsBetween (static; the out hit → a reference
-  /// out-parameter).
   static bool AnyBlockingActorsBetween(sim::World& world,
                                        sim::Player* owner,
                                        const WPos& start, const WPos& end,
@@ -90,4 +79,4 @@ class BlocksProjectiles final
   BlocksProjectilesInfoData info_;
 };
 
-}  // namespace ora::mods
+}

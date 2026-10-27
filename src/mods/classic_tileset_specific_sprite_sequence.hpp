@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Cnc/Graphics/ClassicTilesetSpecificSpriteSequence.cs @1f594e320 L21-95
-// Classic + TilesetSpecific 的组合:Classic 的面向怪癖叠加地形集文件名变体。
-// The Classic + TilesetSpecific combination: Classic's facing quirks stacked
-// with the tileset filename variants.
 #pragma once
 import std;
 
@@ -10,7 +6,6 @@ import std;
 
 namespace ora::mods::cnc {
 
-/// ClassicTilesetSpecificSpriteSequenceLoader(L21-28)。
 class ClassicTilesetSpecificSpriteSequenceLoader : public ClassicSpriteSequenceLoader {
  public:
   std::unique_ptr<gfx::ISpriteSequence> CreateSequence(gfx::SpriteCache& cache_sprites,
@@ -20,7 +15,6 @@ class ClassicTilesetSpecificSpriteSequenceLoader : public ClassicSpriteSequenceL
                                                       const yaml::MiniYaml& yaml_defaults) override;
 };
 
-/// ClassicTilesetSpecificSpriteSequence(L32-95)。
 class ClassicTilesetSpecificSpriteSequence : public ClassicSpriteSequence {
  public:
   using ClassicSpriteSequence::ClassicSpriteSequence;
@@ -36,4 +30,4 @@ class ClassicTilesetSpecificSpriteSequence : public ClassicSpriteSequence {
       const yaml::MiniYaml& yaml_data) override;
 };
 
-}  // namespace ora::mods::cnc
+}

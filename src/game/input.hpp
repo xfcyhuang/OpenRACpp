@@ -52,4 +52,4 @@ struct GameSettingsInputFace {
   Modifiers kind_zoom_modifier = Modifiers::None;
 };
 
-}  // namespace ora
+}

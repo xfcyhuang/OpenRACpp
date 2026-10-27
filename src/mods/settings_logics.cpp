@@ -693,7 +693,7 @@ void ShowZoomModifierDropdown(ora::ui::Widget& dropdown,
       });
 }
 
-}  // namespace
+}
 
 void ResetSettingsPanelSnapshotsForTest() {
   game::Settings& settings_instance = game::Settings::Instance();
@@ -3172,4 +3172,4 @@ void RegisterSettingsLogics() {
       });
 }
 
-}  // namespace ora::mods
+}

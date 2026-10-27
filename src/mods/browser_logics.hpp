@@ -1,12 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ReplayBrowserLogic.cs
-//          @1f594e320 L29-883 全文 +
-//          OpenRA.Mods.Common/Widgets/Logic/ReplayUtils.cs L17-79 全文 +
-//          GameSaveUtils.cs L19-82 全文 +
-//          GameSaveBrowserLogic.cs L26-599 全文 +
-//          MissionBrowserLogic.cs L25-631 全文 +
-//          MapChooserLogic.cs L23-660 全文 +
-//          MusicPlayerLogic.cs L19-170 全文 +
-//          Lobby/LobbyUtils.cs L195-205(SplitOnFirstToken)。
 #pragma once
 import std;
 
@@ -52,50 +43,35 @@ namespace ora::mods {
 class MusicPlaylist;
 class VideoPlayerWidget;
 
-/// GameInformation.GetMapPreview(GameInformation.cs L59-67)的等价面
-/// (MapGenerationArgs 分支随地图生成批;COVERAGE 登记)
 map::MapPreview& GameInfoMapPreview(const server::GameInformation& info,
                                      game::ModData& mod_data);
 
-/// GameInformation.ResolvedPlayerName(GameInformation.cs L171-181)
 std::string GameInfoResolvedPlayerName(const server::GameInformation& info,
                                        const server::GameInformationPlayer&
                                            player);
 
-/// ReplayUtils.PromptConfirmReplayCompatibility(ReplayUtils.cs L45-70);
-/// meta 的 GameInfo 载荷不可解析 = 上游 replayMeta == null 的对话框路径
 bool PromptConfirmReplayCompatibility(const net::ReplayMetadata& meta,
                                       game::ModData& mod_data,
                                       std::function<void()> fn_on_cancel = {});
 
-/// GameSaveUtils.GetGameDuration(GameSaveUtils.cs L33-39)的秒域承载;
-/// 无 GameSave → nullopt
 std::optional<double> GetGameDurationSeconds(const net::GameSave* save);
 
-/// GameSaveUtils.FormatGameDuration(L41-48)
 std::string FormatGameDuration(std::optional<double> fp8_seconds);
 
-/// GameSaveUtils.IsValidNewSaveName(L65-80)
 bool IsValidNewSaveName(const std::string& str_new_name,
                         const std::string& str_initial_name,
                         const std::string& str_directory);
 
-/// GameSaveUtils.BuildSaveTooltipText(L50-63)
 std::string BuildSaveTooltipText(const std::string& str_save_path,
                                  const net::GameSave* ptr_save,
                                  game::ModData& mod_data);
 
-/// LobbyUtils.SplitOnFirstToken(LobbyUtils.cs L195-205)
 std::pair<std::optional<std::string>, std::optional<std::string>>
 SplitOnFirstToken(const std::string& str_input,
                   const std::string& str_token = "\n");
 
-/// MapChooserLogic.MapSizeLabel(L100-109)
 std::string MapChooserMapSizeLabel(const Size& size);
 
-/// map.PlayerActorInfo/WorldActorInfo 的 ILobbyOptions 汇流
-/// (MissionBrowserLogic.RebuildOptions 的 L341 消费;逐 trait 声明面随宿主
-/// 批 —— 缺省空集,测试注入)
 std::vector<server::LobbyOptionData> CollectMapLobbyOptions(
     const map::MapPreview& preview);
 void SetMapLobbyOptionsCollectorForTest(
@@ -131,7 +107,6 @@ class ReplayBrowserLogic final : public ora::ui::ChromeLogic {
                      std::function<void()> fn_on_start);
   ~ReplayBrowserLogic() override;
 
-  /// EvaluateReplayVisibility(L601-687):filter 静态域消费(测试面)
   static bool EvaluateReplayVisibility(const server::GameInformation& info);
 
   void ApplyFilter();
@@ -424,4 +399,4 @@ class MusicPlayerLogic final : public ora::ui::ChromeLogic {
 
 void RegisterBrowserLogics();
 
-}  // namespace ora::mods
+}

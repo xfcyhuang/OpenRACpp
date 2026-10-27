@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ClientTooltipRegionWidget.cs @1f594e320 L20-76(全文)。
 import std;
 
 #include "ui/widgets/client_tooltip_region_widget.hpp"
@@ -68,4 +67,4 @@ bool ClientTooltipRegionWidget::LoadFieldOrProperty(std::string_view str_key,
   return Widget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

@@ -1,13 +1,3 @@
-// UPSTREAM: OpenRA.Game/Sound/Sound.cs @1f594e320 L36-481(sound.hpp 的实现)
-//          Implementation of sound.hpp.
-// 形态偏离(COVERAGE 登记):文件缺失日志(Log.Write "sound")不落地(同
-// D70 的日志面);sounds[name] 为 null 源时上游 Play2D(null) 即 NRE,此处
-// 以同文本 runtime_error 等价抛;LoadSound 的 "not a valid sound file!"
-// 逐字。
-// Registered shape deviations: the missing-file log (Log.Write "sound") is
-// not ported (D70's log face); a null sounds[name] hits upstream's
-// Play2D(null) NRE, thrown here as a runtime_error with the same text;
-// LoadSound's "not a valid sound file!" verbatim.
 import std;
 #include "sound/sound.hpp"
 
@@ -15,8 +5,6 @@ namespace ora::sound {
 
 namespace {
 
-/// 内存 PCM → IPcmStream(Play2DStream 的 Stream 参数形态)。
-/// In-memory PCM → IPcmStream (the Stream-parameter shape of Play2DStream).
 class VectorPcmStream final : public platform::IPcmStream {
  public:
   explicit VectorPcmStream(std::vector<std::byte> vec_pcm) : vec_pcm_{std::move(vec_pcm)} {}
@@ -40,17 +28,11 @@ std::span<const std::byte> AsBytes(const std::vector<char>& vec_chars) {
                                     vec_chars.size()};
 }
 
-/// 缺源 = 上游 Play2D(null, …) 的 NRE 等价抛。
-/// A missing source = the equivalent throw of upstream's Play2D(null, ...)
-/// NRE.
 [[noreturn]] void ThrowNullSource() {
   throw std::runtime_error(
       "System.NullReferenceException: Object reference not set to an instance of an object.");
 }
 
-/// Ruleset 声音表按名查找(上游 ruleset.Voices[type] 的 null-语义)。
-/// The by-name lookup of a Ruleset sound table (upstream's
-/// ruleset.Voices[type] null semantics).
 const game::SoundInfo* FindSoundInfo(
     const std::vector<std::pair<std::string, std::unique_ptr<game::SoundInfo>>>& vec_table,
     std::string_view str_key) {
@@ -69,13 +51,12 @@ const game::SoundPool* FindPool(
   return nullptr;
 }
 
-}  // namespace
+}
 
 Sound::Sound(std::unique_ptr<platform::ISoundEngine> up_engine, SoundSettingsFace& settings_sound)
     : up_engine_{std::move(up_engine)},
       settings_{settings_sound},
-      // Game.CosmeticRandom = new MersenneTwister()(TickCount 种子)
-      // Game.CosmeticRandom = new MersenneTwister() (the TickCount seed).
+
       mt_cosmetic_{static_cast<std::int32_t>(
           std::chrono::steady_clock::now().time_since_epoch().count())} {
   b_dummy_engine_ = up_engine_->Dummy();
@@ -85,12 +66,11 @@ Sound::Sound(std::unique_ptr<platform::ISoundEngine> up_engine, SoundSettingsFac
 }
 
 Sound::~Sound() {
-  // Dispose(L471-479)
+
   StopAudio();
   for (const auto& [str_name_ignored, ptr_source] : vec_sources_)
     delete ptr_source;
-  // 引擎 unique_ptr 析构 = 上游 soundEngine.Dispose()
-  // The engine's unique_ptr destructor = upstream's soundEngine.Dispose().
+
 }
 
 void Sound::Initialize(std::span<const SoundLoaderFn> vec_loaders, fs::FileSystem& file_system) {
@@ -140,19 +120,11 @@ platform::ISoundSource* Sound::GetOrLoadSource(const std::string& str_filename) 
     if (str_k == str_filename)
       return ptr_source;
 
-  // LoadSound(L60-83):缺文件 → null 源(上游日志面不落地);文件在而无
-  // 加载器命中 → "not a valid sound file!" 逐字
-  // LoadSound (L60-83): a missing file → the null source (upstream's log
-  // face not ported); a present file with no loader hit → the "not a valid
-  // sound file!" verbatim.
   platform::ISoundSource* ptr_source = nullptr;
   if (ptr_file_system_->Exists(str_filename)) {
     const std::vector<char> vec_chars = ptr_file_system_->Open(str_filename);
     const std::span<const std::byte> vec_file = AsBytes(vec_chars);
 
-    // 链内首查(stream.Position = 0 每轮重放 = 同一字节视图)
-    // The first chain hit (stream.Position = 0 replays the same byte view
-    // per round).
     for (const SoundLoaderFn fn_loader : vec_loaders_) {
       SoundFormatInfo info_format{};
       std::vector<std::byte> vec_pcm;
@@ -181,9 +153,6 @@ platform::ISound* Sound::PlayInternal(SoundType kind_type, const sim::Player* pt
       (b_disable_world_sounds_ && kind_type == SoundType::World))
     return nullptr;
 
-  // player != player.World.LocalPlayer 静默(null player 恒放)
-  // player != player.World.LocalPlayer stays silent (a null player always
-  // plays).
   if (ptr_player != nullptr && ptr_player != ptr_local_player_)
     return nullptr;
 
@@ -191,9 +160,6 @@ platform::ISound* Sound::PlayInternal(SoundType kind_type, const sim::Player* pt
   if (ptr_source == nullptr)
     ThrowNullSource();
 
-  // 产物入所有权表,返回非拥有引用(上游 GC 等价)
-  // The product joins the ownership list; the caller gets a non-owning
-  // reference (the GC equivalent).
   vec_playing_.push_back(up_engine_->Play2D(ptr_source, b_loop, b_head_relative, pos_position,
                                             InternalSoundVolume() * fp4_volume_modifier, true));
   return vec_playing_.back().get();
@@ -239,9 +205,7 @@ platform::ISound* Sound::PlayLooped(SoundType kind_type, const std::string& str_
 platform::ISound* Sound::Play(SoundType kind_type, std::span<const std::string> vec_names,
                               sim::World& world_sim, const sim::Player* ptr_player,
                               float fp4_volume_modifier) {
-  // names.Random(world.LocalRandom):空表 = 上游 Random 的 ArgumentException
-  // names.Random(world.LocalRandom): an empty list = upstream Random's
-  // ArgumentException.
+
   if (vec_names.empty())
     throw std::runtime_error("System.ArgumentException: Collection must not be empty. (Parameter 'names')");
   const std::string& str_name =
@@ -300,8 +264,7 @@ void Sound::StopVideo() {
 }
 
 void Sound::Tick() {
-  // 歌毕(onMusicComplete 在 StopMusic 前捕获)
-  // Song finished (onMusicComplete captured before StopMusic clears it).
+
   if (b_music_playing_ && up_music_ != nullptr && up_music_->Complete()) {
     std::function<void()> fn_then = fn_on_music_complete_;
     StopMusic();
@@ -330,9 +293,6 @@ void Sound::PlayMusic(game::MusicInfo& info_music, bool b_looped) {
 
   StopMusic();
 
-  // Stream 委托:文件 → 首查格式 → Play2DStream(音量 = Music × 曲目修正)
-  // The Stream delegate: file → the first format hit → Play2DStream (the
-  // volume = Music × the track's modifier).
   platform::ISound* ptr_music = nullptr;
   bool b_loader_hit = false;
   if (ptr_file_system_->Exists(info_music.Filename())) {
@@ -343,9 +303,7 @@ void Sound::PlayMusic(game::MusicInfo& info_music, bool b_looped) {
       std::vector<std::byte> vec_pcm;
       if (fn_loader(vec_file, info_format, vec_pcm)) {
         b_loader_hit = true;
-        // 引擎可返回 null(Dummy 的 Play2DStream 恒 null)= 上游 music=null
-        // An engine may return null (the Dummy's Play2DStream is always
-        // null) = upstream's music == null.
+
         ptr_music = up_engine_
                         ->Play2DStream(std::make_unique<VectorPcmStream>(std::move(vec_pcm)),
                                        info_format.int4_channels, info_format.int4_sample_bits,
@@ -359,9 +317,7 @@ void Sound::PlayMusic(game::MusicInfo& info_music, bool b_looped) {
     if (!b_loader_hit)
       throw std::runtime_error(info_music.Filename() + " is not a valid sound file!");
   } else {
-    // 缺文件 = LoadSound 的 null 分支 → music == null → onMusicComplete 置空
-    // A missing file = LoadSound's null branch → music == null →
-    // onMusicComplete cleared.
+
   }
 
   if (ptr_music == nullptr) {
@@ -440,16 +396,10 @@ bool Sound::PlayPredefined(SoundType kind_type, const game::Ruleset& ruleset,
                            std::string_view str_type, std::string_view str_definition,
                            std::string_view str_variant, bool b_relative, WPos pos_position,
                            float fp4_volume_modifier, bool b_attenuate_volume) {
-  // ArgumentNullException.ThrowIfNull(ruleset):C++ 引用不可空,天然满足
-  // ArgumentNullException.ThrowIfNull(ruleset): a C++ reference is never
-  // null, satisfied by construction.
+
   if (str_definition.empty() || b_disable_all_sounds_ ||
       (b_disable_world_sounds_ && kind_type == SoundType::World))
     return false;
-
-  // ruleset.Voices/Notifications null 检查 = 上游死分支(构造恒非空)
-  // The ruleset.Voices/Notifications null check = upstream's dead branch
-  // (construction never leaves them null).
 
   const game::SoundInfo* info_rules =
       actor_voiced != nullptr
@@ -535,8 +485,6 @@ bool Sound::PlayPredefined(SoundType kind_type, const game::Ruleset& ruleset,
       if (ptr_sound == nullptr)
         return false;
 
-      // currentNotifications[name] = sound(旧项让位)
-      // currentNotifications[name] = sound (the old entry yields).
       bool b_replaced = false;
       for (auto& [str_k, ptr_s] : vec_current_notifications_)
         if (str_k == str_name) {
@@ -586,8 +534,6 @@ bool Sound::PlayNotification(const game::Ruleset& ruleset, const sim::Player* pt
   if (str_type.empty() || str_notification.empty())
     return false;
 
-  // type.ToLowerInvariant(ASCII 域)
-  // type.ToLowerInvariant (the ASCII domain).
   std::string str_type_lower{str_type};
   std::ranges::transform(str_type_lower, str_type_lower.begin(),
                          [](unsigned char chr_c) { return static_cast<char>(std::tolower(chr_c)); });
@@ -608,8 +554,7 @@ void Sound::LoadMusicInfo(game::MusicInfo& info_music) {
           SoundFormatInfo info_format{};
           std::vector<std::byte> vec_pcm_ignored;
           if (fn_loader(vec_file, info_format, vec_pcm_ignored)) {
-            // Length = (int)LengthInSeconds(向零截断)
-            // Length = (int)LengthInSeconds (truncation towards zero).
+
             info_target.SetLength(
                 static_cast<std::int32_t>(info_format.fp4_length_in_seconds));
             break;
@@ -618,4 +563,4 @@ void Sound::LoadMusicInfo(game::MusicInfo& info_music) {
       });
 }
 
-}  // namespace ora::sound
+}

@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Game/Support/Arguments.cs @1f594e320 L17-36
 #pragma once
 import std;
 
@@ -41,4 +40,4 @@ struct Arguments {
   }
 };
 
-}  // namespace ora::core
+}

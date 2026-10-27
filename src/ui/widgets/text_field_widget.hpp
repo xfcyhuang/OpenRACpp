@@ -1,19 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/TextFieldWidget.cs @1f594e320 L20-618
-// (全文)。全编辑面:选择区双索引 + 鼠标拖选/键盘左移右移的词跳(Ctrl)/
-// Home/End/Ctrl+D·K·U 的直写 backing field 面/Ctrl+X·C·V·A 的剪贴板对/
-// 删除族(DELETE/BACKSPACE 的词删)/MaxLength 截断/blink 光标(20 tick 相位);
-// 三类型字符过滤(Filename 的 Path.GetInvalidFileNameChars / Integer 的
-// IsDigit)。Text/CursorPosition 的索引域 = UTF-8 字节(上游 UTF-16 单元;
-// ASCII 域恒等,登记 COVERAGE);isOSX = game::CurrentPlatformIsOSX。
-// The whole of TextFieldWidget.cs L20-618. The full editing face: the
-// selection index pair + mouse drag-select / the keyboard arrows'
-// Ctrl word-jumps / Home/End / Ctrl+D·K·U's direct-backing-field writes /
-// the Ctrl+X·C·V·A clipboard quartet / the delete family (DELETE/BACKSPACE
-// word-deletes) / MaxLength truncation / the blinking cursor (20-tick
-// phase); the three-type character filter (Filename's Path.
-// GetInvalidFileNameChars / Integer's IsDigit). Text/CursorPosition's
-// index domain is UTF-8 bytes (upstream: UTF-16 units; identical over
-// ASCII, registered); isOSX = game::CurrentPlatformIsOSX.
 #pragma once
 import std;
 
@@ -24,8 +8,6 @@ import std;
 
 namespace ora::ui {
 
-/// TextFieldType(TextFieldWidget.cs L21)。
-/// TextFieldType (TextFieldWidget.cs L21).
 enum class TextFieldType : std::uint8_t { General, Filename, Integer };
 
 class TextFieldWidget : public InputWidget {
@@ -42,9 +24,6 @@ class TextFieldWidget : public InputWidget {
   }
   std::string_view TypeName() const override { return kWidgetTypeName; }
 
-  /// Text 属性(setter 经 RemoveInvalidCharacters + 光标钳位 + 清选区)
-  /// The Text property (the setter runs RemoveInvalidCharacters + cursor
-  /// clamp + selection clear).
   const std::string& Text() const { return str_text_; }
   void SetText(std::string str_value);
 
@@ -54,8 +33,6 @@ class TextFieldWidget : public InputWidget {
   int int4_right_margin = 5;
   std::string str_background = "textfield";
 
-  /// Type 属性(setter 重验证文本)| The Type property (the setter
-  /// revalidates the text).
   TextFieldType Type() const { return kind_type_; }
   void SetType(TextFieldType kind_value);
 
@@ -67,7 +44,7 @@ class TextFieldWidget : public InputWidget {
   std::function<bool()> fn_on_alt_key = [] { return false; };
   std::function<void()> fn_on_lose_focus = [] {};
   std::function<void()> fn_on_text_edited = [] {};
-  int int4_cursor_position = 0;  // CursorPosition{get; set;} 公开 | public
+  int int4_cursor_position = 0;
 
   std::function<bool()> fn_is_valid = [] { return true; };
   std::string str_font;
@@ -86,26 +63,19 @@ class TextFieldWidget : public InputWidget {
   bool LoadFieldOrProperty(std::string_view str_key,
                            std::string_view str_value) override;
 
-  /// 测试可见面 | the test-visible faces.
   int SelectionStartIndex() const { return int4_selection_start_index_; }
   int SelectionEndIndex() const { return int4_selection_end_index_; }
   bool ShowCursor() const { return b_show_cursor_; }
 
  protected:
-  /// GetApparentText(L173;PasswordField 覆写面)| GetApparentText (L173;
-  /// PasswordField's override face).
+
   virtual const std::string& GetApparentText() const { return str_text_; }
 
-  /// ClosestCursorPosition(L175-192):前扫最近字节位(度量单调即断)。
-  /// ClosestCursorPosition (L175-192): the forward scan for the nearest
-  /// byte position (monotonic measure breaks early).
   int ClosestCursorPosition(int int4_x);
 
   int GetPrevWhitespaceIndex();
   int GetNextWhitespaceIndex();
 
-  /// RemoveInvalidCharacters(L209-229)。
-  /// RemoveInvalidCharacters (L209-229).
   std::string RemoveInvalidCharacters(std::string_view str_input) const;
 
   void HandleSelectionUpdate(int int4_prev_cursor_pos, int int4_new_cursor_pos);
@@ -126,4 +96,4 @@ class TextFieldWidget : public InputWidget {
   TextFieldType kind_type_ = TextFieldType::General;
 };
 
-}  // namespace ora::ui
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Graphics/TilesetSpecificSpriteSequence.cs @1f594e320 L20-93
-//          (tileset_specific_sprite_sequence.hpp 的实现)
-//          Implementation of tileset_specific_sprite_sequence.hpp.
 import std;
 #include "mods/tileset_specific_sprite_sequence.hpp"
 
@@ -15,20 +12,16 @@ std::unique_ptr<gfx::ISpriteSequence> TilesetSpecificSpriteSequenceLoader::Creat
 
 namespace {
 
-/// tileset 命中节点的文件名/位置提取(protected 构造面由成员侧完成)。
-/// The filename/location extraction of a tileset-hit node (the protected
-/// construction face completes on the member side).
 std::string FilenameOf(const yaml::MiniYamlNode& node_tileset) {
   return node_tileset.Value.Value != nullptr ? *node_tileset.Value.Value : std::string{};
 }
 
-}  // namespace
+}
 
 std::vector<DefaultSpriteSequence::ReservationInfo> TilesetSpecificSpriteSequence::ParseFilenames(
     const std::string& str_tile_set, const std::optional<std::vector<std::int32_t>>& opt_vec_frames,
     const yaml::MiniYaml& yaml_data, const yaml::MiniYaml& yaml_defaults) {
-  // TilesetFilenamesPattern 优先(L43-55)
-  // TilesetFilenamesPattern takes precedence (L43-55).
+
   const yaml::MiniYamlNode* node_pattern =
       FindFieldNode("TilesetFilenamesPattern", yaml_data, &yaml_defaults);
   if (node_pattern != nullptr) {
@@ -81,8 +74,7 @@ std::vector<DefaultSpriteSequence::ReservationInfo>
 TilesetSpecificSpriteSequence::ParseCombineFilenames(
     const std::string& str_tile_set, const std::optional<std::vector<std::int32_t>>& opt_vec_frames,
     const yaml::MiniYaml& yaml_data) {
-  // Combine 子节点的 TilesetFilenames 只看 data(L73-88)
-  // Combine's sub-node TilesetFilenames reads data only (L73-88).
+
   const yaml::MiniYamlNode* node_tileset_filenames =
       FindFieldNode("TilesetFilenames", yaml_data, nullptr);
   if (node_tileset_filenames != nullptr) {
@@ -116,4 +108,4 @@ TilesetSpecificSpriteSequence::ParseCombineFilenames(
   return DefaultSpriteSequence::ParseCombineFilenames(str_tile_set, opt_vec_frames, yaml_data);
 }
 
-}  // namespace ora::mods
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ProductionPaletteWidget.cs @1f594e320
-//          L28-650 全文
-//          The whole of ProductionPaletteWidget.cs L28-650.
 #pragma once
 import std;
 
@@ -32,7 +29,6 @@ class OrderManager;
 
 namespace ora::mods {
 
-/// ProductionIcon(L28-40)
 struct ProductionIcon {
   const game::ActorInfo* actor = nullptr;
   std::string name;
@@ -46,15 +42,12 @@ struct ProductionIcon {
   ProductionQueue* production_queue = nullptr;
 };
 
-/// ReadyTextStyleOptions(L44)
 enum class ReadyTextStyleOptions : std::uint8_t {
   Solid,
   AlternatingColor,
   Blinking,
 };
 
-/// TextAlign(上游 Widget 域同名枚举)
-/// TextAlign (upstream's same-named widget-domain enum).
 enum class TextAlign : std::uint8_t { Left, Center, Right };
 
 class ProductionPaletteWidget final : public ora::ui::Widget {
@@ -85,7 +78,6 @@ class ProductionPaletteWidget final : public ora::ui::Widget {
   Rectangle EventBounds() const override { return rect_event_bounds_; }
   const std::string* GetCursor(int2 pt_pos) const override;
 
-  // ———— 公有字段面(readonly 字段 + 属性)————
   ReadyTextStyleOptions kind_ready_text_style =
       ReadyTextStyleOptions::AlternatingColor;
   core::Color color_text{core::Color::FromArgb(255, 255, 255, 255)};
@@ -164,32 +156,25 @@ class ProductionPaletteWidget final : public ora::ui::Widget {
   }
 
  private:
-  /// L298-312 | L298-312.
+
   bool PickUpCompletedBuildingIcon(ProductionItemLike* item);
 
-  /// L319-365 | L319-365.
   bool HandleLeftClick(ProductionItemLike* item, ProductionIcon& icon,
                        int int4_handle_count, Modifiers modifiers);
 
-  /// L367-410 | L367-410.
   bool HandleRightClick(ProductionItemLike* item, ProductionIcon& icon,
                         int int4_handle_count);
 
-  /// L412-426 | L412-426.
   bool HandleMiddleClick(ProductionItemLike* item, ProductionIcon& icon,
                          int int4_handle_count);
 
-  /// L428-443 | L428-443.
   bool HandleEvent(ProductionIcon& icon, MouseButton btn,
                    Modifiers modifiers);
 
-  /// L461-481 | L461-481.
   bool SelectProductionBuilding();
 
-  /// L483-487 | L483-487.
   void UpdateCachedProductionIconOverlays();
 
-  /// L489-545 | L489-545.
   void RefreshIcons();
 
   void MaterializeTooltipContainer();
@@ -217,4 +202,4 @@ class ProductionPaletteWidget final : public ora::ui::Widget {
 
 void RegisterProductionPaletteWidget();
 
-}  // namespace ora::mods
+}

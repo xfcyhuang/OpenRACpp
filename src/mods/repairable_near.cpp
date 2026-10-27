@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/RepairableNear.cs @1f594e320
-//          L22-143 全文(实现部分)。
 #include "mods/repairable_near.hpp"
 
 #include "mods/air_activities.hpp"
@@ -21,7 +19,7 @@ std::optional<std::int64_t> FieldInt(const meta::RecordObject& rec,
   return sim::RecordFieldInt(rec, str_name);
 }
 
-}  // namespace
+}
 
 RepairableNearInfoData RepairableNearInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -193,4 +191,4 @@ bool RepairableNear::RepairNearEnterTargeter::CanTarget(
   return true;
 }
 
-}  // namespace ora::mods
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ServerCreationLogic.cs
-//          @1f594e320(实现;头注见 server_creation_logic.hpp)
-//          Implementation; the header notes live in server_creation_logic.hpp.
 #include "mods/server_creation_logic.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -78,7 +75,7 @@ std::string SanitizedServerNameLocal(std::string_view str_dirty,
   return settings_temp.SanitizedServerName(str_dirty, str_player_name);
 }
 
-}  // namespace
+}
 
 ServerCreationLogic::ServerCreationLogic(ora::ui::Widget& widget,
                                          game::ModData& mod_data,
@@ -426,4 +423,4 @@ void RegisterServerCreationLogic() {
       });
 }
 
-}  // namespace ora::mods
+}

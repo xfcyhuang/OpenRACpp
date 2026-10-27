@@ -1,16 +1,8 @@
-// UPSTREAM: OpenRA.Game/Graphics/PlatformInterfaces.cs @1f594e320(IVertexBuffer/IIndexBuffer 接口族)+
-//           OpenRA.Platforms.Default/VertexBuffer.cs @1f594e320 L17-125 +
-//           OpenRA.Platforms.Default/StaticIndexBuffer.cs @1f594e320
-// 实现(头文件携带完整 UPSTREAM 锚点与 OPT-A5/A6 论证)。
-// Implementations (the headers carry the full UPSTREAM anchors and the
-// OPT-A5/A6 arguments).
 #include "gfx/vertex_buffer.hpp"
 
 #include "platform/gl_types.hpp"
 
 namespace ora::gfx {
-
-// ———— IndexBuffer ————
 
 IndexBuffer::IndexBuffer(RenderThread& render, std::span<const std::uint32_t> vec_indices)
     : render_{render}, size_count_{vec_indices.size()} {
@@ -38,14 +30,10 @@ IndexBuffer::~IndexBuffer() {
   }
 }
 
-// ———— VertexBuffer ————
-
 VertexBuffer::VertexBuffer(RenderThread& render, std::span<const ShaderVertexAttribute> vec_attributes,
                            std::int32_t int4_stride)
     : render_{render} {
-  // 属性 index = 表内序号(Shader::Create 的 BindAttribLocation 循环同一约定)。
-  // The attribute index = the table position (the same convention as
-  // Shader::Create's BindAttribLocation loop).
+
   for (std::size_t i = 0; i < vec_attributes.size(); ++i) {
     const ShaderVertexAttribute& attribute = vec_attributes[i];
     vec_attributes_.push_back(VaoAttribDesc{
@@ -64,9 +52,7 @@ VertexBuffer::VertexBuffer(RenderThread& render, std::span<const ShaderVertexAtt
 VertexBuffer::~VertexBuffer() {
   if (uint4_buffer_ == 0 && map_vaos_.empty())
     return;
-  // 先撤 VAO 再撤缓冲(RAII 异步;命令序保证消费次序)。
-  // Retire the VAOs before the buffer (async RAII; command ordering
-  // guarantees the consumption order).
+
   if (!map_vaos_.empty()) {
     if (GfxCmd* ptr_cmd = render_.queue().Reserve(GfxCmdKind::DeleteVertexArrays,
                                                   static_cast<std::uint32_t>(map_vaos_.size() * 4));
@@ -165,9 +151,7 @@ void VertexBuffer::BindVao(const Shader& shader, const IndexBuffer* ptr_indices)
   const auto it_vao = map_vaos_.find(uint4_program);
   std::uint32_t uint4_vao = it_vao != map_vaos_.end() ? it_vao->second : 0;
   if (uint4_vao == 0) {
-    // OPT-A6:(顶点格式, program) 首配对:生成并一次性固化。
-    // OPT-A6: a first (vertex format, program) pairing — generate and bake
-    // once.
+
     render_.GenNames(GfxCmdKind::GenVertexArrays, 1, &uint4_vao);
     map_vaos_[uint4_program] = uint4_vao;
     const std::uint32_t uint4_payload =
@@ -197,4 +181,4 @@ void VertexBuffer::DrawElements(std::uint32_t uint4_count, std::uint32_t uint4_b
   }
 }
 
-}  // namespace ora::gfx
+}

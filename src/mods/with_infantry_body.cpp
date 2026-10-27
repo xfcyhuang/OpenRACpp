@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithInfantryBody.cs @1f594e320
-//          L21-225(实现部分;头注见 with_infantry_body.hpp)
-//          The implementation half of WithInfantryBody.cs L21-225 (the
-//          header note lives in with_infantry_body.hpp).
 #include "mods/with_infantry_body.hpp"
 
 #include "mods/armament.hpp"
@@ -25,7 +21,7 @@ std::vector<std::string> RecStringArray(const meta::RecordObject& rec,
   return vec_out;
 }
 
-}  // namespace
+}
 
 WithInfantryBodyInfoData WithInfantryBodyInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -69,7 +65,7 @@ WithInfantryBody::WithInfantryBody(const ActorInitializer& init,
                                    const WithInfantryBodyInfoData& info)
     : sim::ConditionalTraitCore<WithInfantryBody>(info.conditional),
       info_{info} {
-  // L90-101
+
   Actor& self = init.Self();
   auto* rs = self.Trait<RenderSprites>();
 
@@ -88,9 +84,7 @@ WithInfantryBody::WithInfantryBody(const ActorInitializer& init,
 }
 
 void WithInfantryBody::Created(Actor& self) {
-  // L103-110(基类 CoreCreated 前的 rsm 物化 + idleDelay 掷值)
-  // L103-110 (the rsm materialization + the idleDelay roll before the base
-  // CoreCreated).
+
   ptr_rsm_ = self.TraitOrDefault<sim::IRenderInfantrySequenceModifier>();
   const WithInfantryBodyInfoData& info = GetDisplayInfo();
   int4_idle_delay_ =
@@ -102,7 +96,7 @@ void WithInfantryBody::Created(Actor& self) {
 
 std::string WithInfantryBody::NormalizeInfantrySequence(
     Actor& self, std::string_view str_base_sequence) {
-  // L112-120
+
   const std::string str_prefix =
       IsModifyingSequence() ? std::string{ptr_rsm_->SequencePrefix()}
                             : std::string{};
@@ -114,15 +108,13 @@ std::string WithInfantryBody::NormalizeInfantrySequence(
   return std::string{str_base_sequence};
 }
 
-bool WithInfantryBody::AllowIdleAnimation(Actor& /*self*/) {
-  // L122-125
+bool WithInfantryBody::AllowIdleAnimation(Actor& ) {
+
   return !GetDisplayInfo().vec_idle_sequences.empty() && !IsModifyingSequence();
 }
 
 void WithInfantryBody::PlayStandAnimation(Actor& self) {
-  // L127-137:stand 择一 = Game.CosmeticRandom → LocalRandom 域(头注)
-  // L127-137: the stand pick = Game.CosmeticRandom → the LocalRandom domain
-  // (the header note).
+
   state_animation_ = AnimationState::Waiting;
 
   const std::string str_sequence = up_default_animation_->GetRandomExistingSequence(
@@ -136,7 +128,7 @@ void WithInfantryBody::PlayStandAnimation(Actor& self) {
 
 void WithInfantryBody::AttackingInner(Actor& self, Armament& armament,
                                       const Barrel* ptr_barrel) {
-  // L139-160
+
   const WithInfantryBodyInfoData& info = GetDisplayInfo();
   std::string str_sequence = info.str_default_attack_sequence;
 
@@ -150,10 +142,6 @@ void WithInfantryBody::AttackingInner(Actor& self, Armament& armament,
   if (ptr_sequences != nullptr && !ptr_sequences->empty()) {
     str_sequence = (*ptr_sequences)[0];
 
-    // barrel/burst 对应序列的定位(上游 a.Barrels[i] == barrel 的引用比较
-    // → 指针等价)
-    // Locating the sequence for this barrel/burst (upstream's
-    // a.Barrels[i] == barrel reference comparison → the pointer equivalent).
     if (ptr_barrel != nullptr && ptr_sequences->size() > 1)
       for (std::size_t i = 0; i < ptr_sequences->size(); ++i)
         if (&armament.vec_barrels[i] == ptr_barrel)
@@ -171,19 +159,10 @@ void WithInfantryBody::AttackingInner(Actor& self, Armament& armament,
 }
 
 void WithInfantryBody::PreparingAttack(Actor& self,
-                                       const sim::Target& /*target*/,
+                                       const sim::Target& ,
                                        Armament& armament,
                                        const Barrel& barrel) {
-  // L162-167:HACK —— 帧末任务保证本回调跑在 Tick() 之后,防 Tick 覆盖
-  // 停下攻击的步兵动画。上游闭包按引用捕获 barrel(GC 保活)且
-  // Attacking 以 a.Barrels[i]==barrel 的引用相等定位 —— 等价物 = 即时
-  // 解析索引快照(第五批 DelayedImpact 的悬垂教训)
-  // L162-167: HACK — the frame-end task keeps this after Tick(), stopping
-  // Tick from overriding the animation of an infantryman halting to attack.
-  // Upstream's closure captures barrel by reference (GC-kept) and Attacking
-  // locates it via the a.Barrels[i]==barrel reference identity — the
-  // equivalent = resolving the index snapshot now (the batch-5
-  // DelayedImpact dangling lesson).
+
   std::optional<std::size_t> opt_barrel_index;
   for (std::size_t i = 0; i < armament.vec_barrels.size(); ++i)
     if (&armament.vec_barrels[i] == &barrel) {
@@ -206,7 +185,7 @@ void WithInfantryBody::Tick(Actor& self) {
 }
 
 void WithInfantryBody::TickInner(Actor& self) {
-  // L176-196
+
   if (ptr_rsm_ != nullptr) {
     if (b_was_modifying_ != ptr_rsm_->IsModifyingSequence())
       b_dirty_ = true;
@@ -234,20 +213,14 @@ void WithInfantryBody::TickInner(Actor& self) {
 }
 
 void WithInfantryBody::TickIdle(Actor& self) {
-  // L198-215
+
   if (!AllowIdleAnimation(self))
     return;
 
   if (state_animation_ == AnimationState::Waiting) {
     state_animation_ = AnimationState::Idle;
     const WithInfantryBodyInfoData& info = GetDisplayInfo();
-    // IdleSequences.Random(SharedRandom)—— 同步域消耗(上游 SharedRandom)
-    // IdleSequences.Random (SharedRandom) — a synced consumption
-    // (upstream's SharedRandom).
-    // IdleSequences.Random(SharedRandom):Next(count)——count == 1 时
-    // diff<=1 不抽数(上游同形;第十二批 G2 修出)
-    // IdleSequences.Random (SharedRandom): Next(count) — count == 1
-    // draws nothing (diff <= 1; the upstream shape; the batch-12 G2 fix).
+
     str_idle_sequence_ = info.vec_idle_sequences[
         static_cast<std::size_t>(self.world().SharedRandom().Next(
             static_cast<std::int32_t>(
@@ -262,4 +235,4 @@ void WithInfantryBody::TickIdle(Actor& self) {
   }
 }
 
-}  // namespace ora::mods
+}

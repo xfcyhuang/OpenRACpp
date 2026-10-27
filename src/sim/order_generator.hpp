@@ -48,4 +48,4 @@ bool OrderGeneratorRegistered(const std::string& str_name);
 std::unique_ptr<IOrderGenerator> CreateOrderGenerator(
     const std::string& str_name, World& world);
 
-}  // namespace ora::sim
+}

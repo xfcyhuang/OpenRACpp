@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/LineBuild.cs @1f594e320
-//          (实现部分)+ Traits/Buildings/LineBuildNode.cs
-//          The implementation half + LineBuildNode.cs.
 #include "mods/line_build.hpp"
 
 #include "meta/generic_record.hpp"
@@ -100,4 +97,4 @@ void LineBuild::Killed(sim::Actor& self, const sim::AttackInfo& e) {
       s->Kill(const_cast<sim::Actor*>(e.Attacker));
 }
 
-}  // namespace ora::mods
+}

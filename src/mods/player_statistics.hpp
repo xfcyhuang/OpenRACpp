@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlayerStatistics.cs @1f594e320
-//          L22-311(观战统计账本 + ArmyUnit 的图标面 + 单位侧记账 trait)
-//          L22-311 (the observer statistics ledger, ArmyUnit's icon face,
-//          and the per-unit accounting trait).
 #pragma once
 import std;
 
@@ -26,9 +22,6 @@ using sim::TraitBase;
 
 class PlayerStatistics;
 
-/// ArmyUnit(L144-181):观战军队显示的单 actor 类型条目(icon/序/计数)
-/// ArmyUnit (L144-181): the per-actor-type entry of the observer army
-/// display (icon, orders, count).
 class ArmyUnit {
  public:
   ArmyUnit(const game::ActorInfo& actor_info, sim::Player& owner);
@@ -59,16 +52,10 @@ class ArmyUnit {
   std::optional<BuildableInfoData> opt_buildable_info_;
 };
 
-/// PlayerStatisticsInfo(L24-27)的解析面
-/// The parsed face of PlayerStatisticsInfo (L24-27).
 struct PlayerStatisticsInfoData {
   static PlayerStatisticsInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// PlayerStatistics(L29-142):观战统计的玩家侧账本(收入/军队采样 + 击杀
-/// 记账的聚合端)
-/// PlayerStatistics (L29-142): the player-side ledger of the observer
-/// statistics (income/army sampling plus the kill-accounting aggregate).
 class PlayerStatistics final : public TraitBase,
                                public sim::ITick,
                                public sim::IResolveOrder,
@@ -112,8 +99,6 @@ class PlayerStatistics final : public TraitBase,
   int ArmyValue = 0;
   int AssetsValue = 0;
 
-  /// Units(Cache<string, ArmyUnit> 的惰性 map 物化)
-  /// Units (the lazy map materialization of Cache<string, ArmyUnit>).
   ArmyUnit& Unit(const std::string& str_name) {
     const auto it = map_units_.find(str_name);
     if (it != map_units_.end())
@@ -158,20 +143,15 @@ class PlayerStatistics final : public TraitBase,
   std::map<std::string, std::unique_ptr<ArmyUnit>> map_units_;
 };
 
-/// UpdatesPlayerStatisticsInfo(L185-198)的解析面
-/// The parsed face of UpdatesPlayerStatisticsInfo (L185-198).
 struct UpdatesPlayerStatisticsInfoData {
-  bool b_add_to_army_value = false;  // L189
-  bool b_add_to_assets_value = true; // L192
-  std::string str_override_actor;    // L195
+  bool b_add_to_army_value = false;
+  bool b_add_to_assets_value = true;
+  std::string str_override_actor;
 
   static UpdatesPlayerStatisticsInfoData Parse(
       const meta::RecordObject& rec_info);
 };
 
-/// UpdatesPlayerStatistics(L200-311):单位侧记账(击杀/出生/换主/移除)
-/// UpdatesPlayerStatistics (L200-311): the per-unit accounting
-/// (killed/created/owner-changed/disposing).
 class UpdatesPlayerStatistics final : public TraitBase,
                                       public sim::INotifyKilled,
                                       public sim::INotifyCreated,
@@ -201,4 +181,4 @@ class UpdatesPlayerStatistics final : public TraitBase,
   bool b_included_in_assets_value_ = false;
 };
 
-}  // namespace ora::mods
+}

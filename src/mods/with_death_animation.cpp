@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDeathAnimation.cs @1f594e320
-//          L18-127(statement-by-statement;机制对照见 with_death_animation.hpp)
-//          Statement-by-statement; the mechanism mapping lives in
-//          with_death_animation.hpp.
 #include "mods/sprite_effect.hpp"
 #include "mods/with_death_animation.hpp"
 #include "sim/trait_registry.hpp"
@@ -11,9 +7,6 @@ namespace ora::mods {
 
 namespace {
 
-/// DeathTypes 值:单标量或字符串数组皆收为后缀数组
-/// A DeathTypes value: a lone scalar or a string array both become the
-/// suffix array.
 std::vector<std::string> ParseSequenceArray(const meta::GenericValue& gv_value) {
   std::vector<std::string> vec_out;
   if (const auto* str = std::get_if<std::string>(&gv_value.val)) {
@@ -28,7 +21,7 @@ std::vector<std::string> ParseSequenceArray(const meta::GenericValue& gv_value) 
   return vec_out;
 }
 
-}  // namespace
+}
 
 WithDeathAnimationInfoData WithDeathAnimationInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -89,9 +82,7 @@ void WithDeathAnimation::Killed(Actor& self, const sim::AttackInfo& e) {
 
   std::string str_sequence = info_.str_death_sequence;
   if (info_.b_use_death_type_suffix) {
-    // 首个命中伤害类型的键胜(键序 = 插入序)
-    // The first key hitting the damage type wins (the key order = the
-    // insertion order).
+
     const std::vector<std::string>* vec_suffixes = nullptr;
     for (const auto& [str_name, vec_seqs] : info_.vec_death_types)
       if (e.Damage->DamageTypes.Contains(str_name)) {
@@ -101,8 +92,6 @@ void WithDeathAnimation::Killed(Actor& self, const sim::AttackInfo& e) {
     if (vec_suffixes == nullptr)
       return;
 
-    // Random(SharedRandom) = 同步域消耗
-    // Random (SharedRandom) = a synced-domain consumption.
     str_sequence += (*vec_suffixes)[static_cast<std::size_t>(
         self.world().SharedRandom().Next(
             static_cast<std::int32_t>(vec_suffixes->size())))];
@@ -150,4 +139,4 @@ void WithDeathAnimation::OnCrush(Actor& self, Actor& crusher,
                       info_.int4_delay);
 }
 
-}  // namespace ora::mods
+}

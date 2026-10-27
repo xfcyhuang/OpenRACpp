@@ -26,4 +26,4 @@ class DefaultInputHandler : public IInputHandler {
   sim::World* ptr_world_;
 };
 
-}  // namespace ora::ui
+}

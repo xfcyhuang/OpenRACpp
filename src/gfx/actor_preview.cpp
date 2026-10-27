@@ -156,7 +156,7 @@ struct PreviewFaceRegistry {
   }
 };
 
-}  // namespace
+}
 
 void RegisterActorPreviewSprites(std::string str_type_name,
                                  ActorPreviewSpritesFn fn) {
@@ -189,4 +189,4 @@ std::vector<std::unique_ptr<IActorPreview>> RenderActorPreviewOf(
   return vec_out;
 }
 
-}  // namespace ora::gfx
+}

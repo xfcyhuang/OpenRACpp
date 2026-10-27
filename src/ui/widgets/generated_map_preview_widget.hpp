@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/GeneratedMapPreviewWidget.cs @1f594e320
-// L24-168(全文;自有 Sheet 的预览位图 + 出生点标签对)。
 #pragma once
 import std;
 
@@ -72,4 +70,4 @@ class GeneratedMapPreviewWidget : public Widget {
   std::vector<std::tuple<int2, std::string, int2>> vec_spawns_;
 };
 
-}  // namespace ora::ui
+}

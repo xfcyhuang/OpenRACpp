@@ -37,4 +37,4 @@ struct ReplayDiffReport {
 ReplayDiffReport DiffReplays(const ReplayFileData& replay_a,
                              const ReplayFileData& replay_b);
 
-}  // namespace ora::net
+}

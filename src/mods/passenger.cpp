@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Passenger.cs +
-//          Orders/EnterAlliedActorTargeter.cs @1f594e320
 #include "mods/passenger.hpp"
 
 #include "game/actor_info.hpp"
@@ -70,7 +68,7 @@ bool InfoHasCargoTrait(const Actor& target) {
   return false;
 }
 
-}  // namespace
+}
 
 PassengerInfoData PassengerInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -318,4 +316,4 @@ void Passenger::RequireForceMoveConditionChanged(
       info_.expr_require_force_move->EvaluateBool(vec_symbols);
 }
 
-}  // namespace ora::mods
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/AmmoPool.cs + Rearmable.cs +
-//          Repairable.cs + RepairsUnits.cs + Air/FallsToEarth.cs
-//          @1f594e320
 #pragma once
 import std;
 
@@ -19,7 +16,7 @@ namespace ora::game {
 class WeaponInfo;
 class ActorInfo;
 class Ruleset;
-}  // namespace ora::game
+}
 
 namespace ora::mods {
 
@@ -259,4 +256,4 @@ class FallsToEarth final : public TraitBase,
   sim::Player* p_effective_owner_ = nullptr;
 };
 
-}  // namespace ora::mods
+}

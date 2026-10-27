@@ -1,23 +1,8 @@
-// UPSTREAM: OpenRA.Mods.Common/Graphics/DefaultSpriteSequence.cs @1f594e320 L24-605
-//          (default_sprite_sequence.hpp 的实现)
-//          Implementation of default_sprite_sequence.hpp.
-// 形态偏离(COVERAGE 登记):resolved[f] 的越界 = 上游数组
-// IndexOutOfRangeException,C++ 以同文本 runtime_error 等价抛;ParseSequences
-// 包装异常的内层 {e} 为 C# ToString(),此处取 e.what()(信息等价,少类型前
-// 缀);PerfTimer 计时面不落地(名字保留)。
-// Registered shape deviations: resolved[f] out of range = upstream's array
-// IndexOutOfRangeException, thrown here as a runtime_error with the same
-// text; the inner {e} of ParseSequences' wrapper is C# ToString(), here
-// e.what() (information-equal, minus the type prefix); the PerfTimer timing
-// face is not ported (the name stays).
 import std;
 #include "mods/default_sprite_sequence.hpp"
 
 namespace ora::mods {
 
-// core::Vector3 的渲染运算在 ora::gfx(ADL 不达;显式引入)
-// core::Vector3's rendering arithmetic lives in ora::gfx (beyond ADL;
-// imported explicitly).
 using gfx::operator+;
 
 namespace {
@@ -26,12 +11,9 @@ const yaml::MiniYaml& NoDataInstance() {
   static const yaml::MiniYaml yaml_no_data{static_cast<const std::string*>(nullptr), {}};
   return yaml_no_data;
 }
-}  // namespace
+}
 
 const yaml::MiniYaml& DefaultSpriteSequence::NoData() { return NoDataInstance(); }
-
-// ———— DefaultSpriteSequenceLoader(L34-60)————
-// ———— DefaultSpriteSequenceLoader (L34-60) ————
 
 std::unique_ptr<gfx::ISpriteSequence> DefaultSpriteSequenceLoader::CreateSequence(
     gfx::SpriteCache& cache_sprites, const std::string& str_image, const std::string& str_sequence,
@@ -50,9 +32,6 @@ DefaultSpriteSequenceLoader::ParseSequences(gfx::SpriteCache& cache_sprites,
   const yaml::MiniYaml& yaml_defaults =
       node_defaults != nullptr ? node_defaults->Value : NoDataInstance();
 
-  // 剥离 Defaults 节点后的序列节点表(上游 Nodes.Remove)
-  // The sequence node table with the Defaults node removed (upstream's
-  // Nodes.Remove).
   std::vector<yaml::MiniYamlNode> vec_nodes;
   vec_nodes.reserve(node_image.Value.Nodes.size());
   for (const yaml::MiniYamlNode& node : node_image.Value.Nodes)
@@ -70,9 +49,7 @@ DefaultSpriteSequenceLoader::ParseSequences(gfx::SpriteCache& cache_sprites,
           ->ReserveSprites(str_tile_set, node_sequence.Value, yaml_defaults, cache_sprites);
       vec_sequences.emplace_back(str_sequence, std::move(seq_sequence));
     } catch (const std::exception& e) {
-      // Nodes[0] = 剥离 Defaults 后的首节点(上游照抄)
-      // Nodes[0] = the first node after the Defaults strip (upstream kept
-      // verbatim).
+
       throw std::runtime_error(std::format(
           "Failed to parse sequences for {}.{} at {}:\n{}", str_image, str_sequence,
           vec_nodes.empty() ? yaml::SourceLocation{}.ToString() : vec_nodes.front().Location.ToString(),
@@ -83,18 +60,13 @@ DefaultSpriteSequenceLoader::ParseSequences(gfx::SpriteCache& cache_sprites,
   return vec_sequences;
 }
 
-// ———— LoadField 族(L245-270)————
-// ———— The LoadField family (L245-270) ————
-
 std::string DefaultSpriteSequence::LoadString(std::string_view sv_key, const std::string* str_fallback,
                                               const yaml::MiniYaml& yaml_data,
                                               const yaml::MiniYaml* yaml_defaults) {
   const yaml::MiniYamlNode* node = FindFieldNode(sv_key, yaml_data, yaml_defaults);
   if (node == nullptr)
     return str_fallback != nullptr ? *str_fallback : std::string{};
-  // GetValue&lt;string&gt;:null/"" 合流(field_loader.hpp 登记偏离)
-  // GetValue<string>: null and "" conflate (the registered deviation in
-  // field_loader.hpp).
+
   return node->Value.Value != nullptr ? *node->Value.Value : std::string{};
 }
 
@@ -167,7 +139,7 @@ std::optional<std::vector<std::int32_t>> DefaultSpriteSequence::LoadFrames(
     std::string_view sv_key, const yaml::MiniYaml& yaml_data, const yaml::MiniYaml* yaml_defaults) {
   const yaml::MiniYamlNode* node = FindFieldNode(sv_key, yaml_data, yaml_defaults);
   if (node == nullptr)
-    return std::nullopt;  // 上游 ImmutableArray 默认 = null | upstream's default ImmutableArray = null
+    return std::nullopt;
   return meta::GetInt32ArrayValue(
       sv_key,
       node->Value.Value != nullptr ? std::string_view{*node->Value.Value} : std::string_view{});
@@ -261,14 +233,10 @@ std::optional<std::vector<std::int32_t>> DefaultSpriteSequence::CalculateFrameIn
     std::int32_t int4_start, const std::optional<std::int32_t>& opt_int4_length, std::int32_t int4_stride,
     std::int32_t int4_facings, const std::optional<std::vector<std::int32_t>>& opt_vec_frames,
     bool b_transpose, bool b_reverse_facings, std::int32_t int4_shadow_start) {
-  // length == null = 请求全部帧(调用方语义)
-  // length == null requests all frames (the caller's semantics).
+
   if (!opt_int4_length.has_value())
     return std::nullopt;
 
-  // 只请求实际需要的帧子集 —— 上游注释逐句
-  // Only request the subset of frames we actually need — the upstream
-  // comment verbatim.
   std::vector<std::int32_t> vec_used_frames;
   for (std::int32_t int4_facing{}; int4_facing < int4_facings; int4_facing++) {
     const std::int32_t int4_facing_inner =
@@ -293,9 +261,6 @@ std::optional<std::vector<std::int32_t>> DefaultSpriteSequence::CalculateFrameIn
   return vec_used_frames;
 }
 
-// ———— 构造(L346-412)————
-// ———— Construction (L346-412) ————
-
 DefaultSpriteSequence::DefaultSpriteSequence(gfx::SpriteCache& cache_sprites,
                                              gfx::ISpriteSequenceLoader& loader, std::string str_image,
                                              std::string str_sequence, const yaml::MiniYaml& yaml_data,
@@ -303,10 +268,6 @@ DefaultSpriteSequence::DefaultSpriteSequence(gfx::SpriteCache& cache_sprites,
     : str_image_{std::move(str_image)}, str_name_{std::move(str_sequence)}, ptr_loader_{&loader} {
   int4_start_ = LoadInt32("Start", 0, yaml_data, &yaml_defaults);
 
-  // Length 三态:键值 "*" → null(全帧);缺键 → 默认 1 —— 上游两段读的
-  // 怪癖照抄(L355-357)
-  // Length's three states: the value "*" → null (all frames); a missing key
-  // → the default 1 — upstream's two-read quirk kept (L355-357).
   opt_int4_length_ = std::nullopt;
   yaml::SourceLocation location_length{};
   const yaml::MiniYamlNode* node_length = FindFieldNode("Length", yaml_data, &yaml_defaults);
@@ -317,9 +278,6 @@ DefaultSpriteSequence::DefaultSpriteSequence(gfx::SpriteCache& cache_sprites,
     opt_int4_length_ =
         std::int32_t{LoadInt32Located("Length", 1, yaml_data, &yaml_defaults, location_length)};
 
-  // Stride 的回退 = length(int? 可空传递;键在时覆盖)
-  // Stride falls back to length (the nullable passes through; a present key
-  // overrides).
   yaml::SourceLocation location_stride_ignored{};
   if (FindFieldNode("Stride", yaml_data, &yaml_defaults) != nullptr)
     opt_int4_stride_ =
@@ -372,10 +330,6 @@ DefaultSpriteSequence::DefaultSpriteSequence(gfx::SpriteCache& cache_sprites,
     int4_facings_ = -int4_facings_;
   }
 
-  // Facings 须为 1024 的整因子(即幂二)使帧均匀映射整圈 —— 上游注释逐句
-  // Facings must be an integer factor of 1024 (i.e. a power of 2) for the
-  // frames to map uniformly over the full rotation — the upstream comment
-  // verbatim.
   if (int4_facings_ == 0 || int4_facings_ > 1024 || !gfx::IsPowerOf2(int4_facings_))
     throw yaml::YamlException(std::format(
         "{}: Facings must be within the (positive or negative) range of 1 to 1024, and a power of 2.",
@@ -462,7 +416,7 @@ void DefaultSpriteSequence::ReserveSprites(const std::string& str_tile_set,
 }
 
 std::vector<DefaultSpriteSequence::ReservationInfo> DefaultSpriteSequence::ParseFilenames(
-    const std::string& /*str_tile_set*/,
+    const std::string& ,
     const std::optional<std::vector<std::int32_t>>& opt_vec_frames, const yaml::MiniYaml& yaml_data,
     const yaml::MiniYaml& yaml_defaults) {
   std::vector<ReservationInfo> vec_infos;
@@ -474,9 +428,6 @@ std::vector<DefaultSpriteSequence::ReservationInfo> DefaultSpriteSequence::Parse
     const std::int32_t int4_pattern_start = LoadInt32("Start", 0, node_pattern->Value, nullptr);
     const std::int32_t int4_pattern_count = LoadInt32("Count", 1, node_pattern->Value, nullptr);
 
-    // FormatInvariant(i) = 不变文化十进制(pattern 为 "{0}" 形)
-    // FormatInvariant(i) = the invariant-culture decimal (the pattern uses
-    // the "{0}" form).
     for (std::int32_t int4_i = int4_pattern_start;
          int4_i < int4_pattern_start + int4_pattern_count; int4_i++) {
       ReservationInfo info;
@@ -494,8 +445,6 @@ std::vector<DefaultSpriteSequence::ReservationInfo> DefaultSpriteSequence::Parse
   const std::string str_filename =
       LoadString("Filename", nullptr, yaml_data, &yaml_defaults);
 
-  // stride ?? length ?? 0 —— 两级可空回退
-  // stride ?? length ?? 0 — the two-level nullable fallback.
   const std::int32_t int4_stride =
       opt_int4_stride_.has_value() ? *opt_int4_stride_
                                    : opt_int4_length_.value_or(0);
@@ -514,7 +463,7 @@ std::vector<DefaultSpriteSequence::ReservationInfo> DefaultSpriteSequence::Parse
 }
 
 std::vector<DefaultSpriteSequence::ReservationInfo> DefaultSpriteSequence::ParseCombineFilenames(
-    const std::string& /*str_tile_set*/,
+    const std::string& ,
     const std::optional<std::vector<std::int32_t>>& opt_vec_frames, const yaml::MiniYaml& yaml_data) {
   std::vector<ReservationInfo> vec_infos;
 
@@ -524,8 +473,7 @@ std::vector<DefaultSpriteSequence::ReservationInfo> DefaultSpriteSequence::Parse
     info.location_source = node_filename->Location;
 
   std::optional<std::vector<std::int32_t>> opt_vec_frames_local = opt_vec_frames;
-  // Length 值 "*" 时保持 null(全帧);键缺省走默认 1
-  // The value "*" keeps null (all frames); a missing key takes the default 1.
+
   const yaml::MiniYamlNode* node_length = FindFieldNode("Length", yaml_data, nullptr);
   const bool b_length_star = node_length != nullptr && node_length->Value.Value != nullptr &&
                              std::string_view{*node_length->Value.Value} == "*";
@@ -550,8 +498,7 @@ void DefaultSpriteSequence::ResolveSprites(gfx::SpriteCache& cache_sprites) {
 
   gfx::Sprite sprite_depth{};
   if (opt_int4_depth_sprite_reservation_.has_value()) {
-    // First(s != null):全空/未命中 → First 的等价抛
-    // First(s != null): all-null/no hit → First's equivalent throw.
+
     const std::vector<gfx::Sprite> vec_depth =
         cache_sprites.ResolveSprites(*opt_int4_depth_sprite_reservation_);
     const auto it_hit = std::ranges::find_if(
@@ -567,9 +514,7 @@ void DefaultSpriteSequence::ResolveSprites(gfx::SpriteCache& cache_sprites) {
     if (reservation_r.opt_vec_frames.has_value()) {
       std::vector<gfx::Sprite> vec_reindexed;
       for (const std::int32_t int4_f : *reservation_r.opt_vec_frames) {
-        // resolved[f] 的越界 = 上游数组索引越界(IndexOutOfRange)
-        // An out-of-range resolved[f] = upstream's array index overflow
-        // (IndexOutOfRange).
+
         if (int4_f < 0 || static_cast<std::size_t>(int4_f) >= vec_resolved.size())
           throw std::runtime_error("Index was outside the bounds of the array.");
         vec_reindexed.push_back(vec_resolved[static_cast<std::size_t>(int4_f)]);
@@ -640,14 +585,11 @@ void DefaultSpriteSequence::ResolveSprites(gfx::SpriteCache& cache_sprites) {
     opt_vec_alpha_ = std::move(vec_faded);
   }
 
-  // 重索引:面向逆时针排序 + 去未用帧 —— 上游注释逐句
-  // Reindexing: order facings anti-clockwise and drop unused frames — the
-  // upstream comment verbatim.
   std::optional<std::vector<std::int32_t>> opt_vec_index = CalculateFrameIndices(
       int4_start_, opt_int4_length_, opt_int4_stride_.value_or(*opt_int4_length_), int4_facings_,
       std::nullopt, b_transpose_, b_reverse_facings_, -1);
   if (b_reverses_) {
-    // index + index.Skip(1).Take(length-2).Reverse()
+
     std::vector<std::int32_t> vec_index = *opt_vec_index;
     const std::size_t st_take = static_cast<std::size_t>(*opt_int4_length_) - 2;
     std::vector<std::int32_t> vec_extra;
@@ -690,11 +632,6 @@ void DefaultSpriteSequence::ResolveSprites(gfx::SpriteCache& cache_sprites) {
     b_has_shadow_sprites_ = true;
   }
 
-  // sprites.Concat(shadowSprites).Select(OffsetSpriteBounds).Union() —— 空
-  // bounds 帧贡献 Empty(上游 OffsetSpriteBounds L541-550)
-  // sprites.Concat(shadowSprites).Select(OffsetSpriteBounds).Union() — an
-  // empty-bounds frame contributes Empty (upstream OffsetSpriteBounds
-  // L541-550).
   const auto offset_bounds = [](const gfx::Sprite& sprite_in) -> Rectangle {
     if (sprite_in.ptr_sheet == nullptr || sprite_in.Bounds.IsEmpty())
       return Rectangle::Empty();
@@ -712,9 +649,6 @@ void DefaultSpriteSequence::ResolveSprites(gfx::SpriteCache& cache_sprites) {
     rect_bounds = Rectangle::Union(rect_bounds, offset_bounds(sprite_in));
   opt_rect_bounds_ = rect_bounds;
 }
-
-// ———— 查询面(L219-242/552-604)————
-// ———— The query faces (L219-242/552-604) ————
 
 void DefaultSpriteSequence::ThrowIfUnresolved() const {
   if (!opt_rect_bounds_.has_value())
@@ -784,4 +718,4 @@ std::int32_t DefaultSpriteSequence::GetFacingFrameOffset(WAngle wangle_facing) {
   return gfx::IndexFacing(wangle_facing, int4_facings_);
 }
 
-}  // namespace ora::mods
+}

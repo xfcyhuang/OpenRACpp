@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Turreted.cs 实现部分
-//          The implementation half.
 #include "mods/turreted.hpp"
 
 #include "meta/field_loader.hpp"
@@ -13,8 +11,6 @@
 #include "sim/world.hpp"
 
 namespace ora::mods {
-
-// ———— TurretedInfoData(L21-127)————
 
 TurretedInfoData TurretedInfoData::Parse(const meta::RecordObject& rec_info) {
   TurretedInfoData data;
@@ -71,10 +67,7 @@ std::function<WAngle()> TurretedInfoData::WorldFacingFromInit(
 std::function<WAngle()> TurretedInfoData::WorldFacingFromInit(
     sim::TypeDictionary& dict, std::string_view info_instance_name,
     WAngle default_facing) {
-  // L58-82
-  // (Dynamic)TurretFacingInit is specified relative to the actor body.
-  // We need to add the body facing to return an absolute world angle.
-  // (上游注释)
+
   std::function<WAngle()> fn_body_facing;
   if (sim::FacingInit* facing_init =
           sim::FindInitByInstanceName<sim::FacingInit>(dict, {})) {
@@ -112,7 +105,7 @@ std::function<WAngle()> TurretedInfoData::WorldFacingFromInit(
 std::function<WAngle()> TurretedInfoData::LocalFacingFromInit(
     ActorInitializer& init,
     std::string_view info_instance_name) const {
-  // L89-103
+
   if (sim::TurretFacingInit* turret_facing_init =
           init.GetOrDefault<sim::TurretFacingInit>(
               info_instance_name)) {
@@ -129,24 +122,19 @@ std::function<WAngle()> TurretedInfoData::LocalFacingFromInit(
   return [initial]() { return initial; };
 }
 
-// ———— Turreted(L130-314)————
-
 Turreted::Turreted(ActorInitializer& init, const TurretedInfoData& info,
                    std::string str_info_instance_name)
     : sim::ConditionalTraitCore<Turreted>(info.conditional),
       info_{info},
       str_info_instance_name_{std::move(str_info_instance_name)},
       rot_local_orientation_{WRot::None()} {
-  // L175-179
+
   rot_local_orientation_ = WRot::FromYaw(
       info.LocalFacingFromInit(init, str_info_instance_name_)());
 }
 
 void Turreted::Created(Actor& self) {
-  // L181-187
-  // SingleOrDefault:多匹配即上游 Single 抛(文本逐字)
-  // SingleOrDefault: a multi-match throws as upstream's Single does (the
-  // text verbatim).
+
   AttackTurreted* match = nullptr;
   int match_count = 0;
   for (AttackTurreted* at : self.TraitsImplementing<AttackTurreted>())
@@ -169,28 +157,24 @@ void Turreted::Created(Actor& self) {
 }
 
 WRot Turreted::WorldOrientation() const {
-  // L153-165
+
   WRot world = p_facing_ != nullptr
                    ? LocalOrientation().Rotate(p_facing_->Orientation())
                    : LocalOrientation();
   if (QuantizedFacings() == 0)
     return world;
 
-  // Quantize orientation to match a rendered sprite
-  // Implies no pitch or roll(上游注释)
   return WRot::FromYaw(
       p_body_->QuantizeFacing(world.Yaw, QuantizedFacings()));
 }
 
 void Turreted::Tick(Actor& self) {
-  // L194-224
+
   if (IsTraitDisabled())
     return;
 
-  // NOTE: FaceTarget is called in AttackTurreted.CanAttack if the turret
-  // has a target.(上游注释)
   if (p_attack_ != nullptr) {
-    // Only realign while not attacking anything(上游注释)
+
     if (p_attack_->IsAiming()) {
       int4_realign_tick_ = 0;
       return;
@@ -211,28 +195,22 @@ void Turreted::Tick(Actor& self) {
 }
 
 WAngle Turreted::DesiredLocalFacing() const {
-  // L226-246
-  // A zero value means that we have a target, but it is on top of us
-  // (上游注释)
+
   if (vec_desired_direction_ == WVec{0, 0, 0})
     return LocalOrientation().Yaw;
 
   if (p_facing_ == nullptr)
     return vec_desired_direction_.Yaw();
 
-  // PERF: If the turret rotation axis is vertical we can directly take the
-  // difference in facing/yaw(上游注释)
   const WRot orientation = p_facing_->Orientation();
   if (orientation.Pitch == WAngle{0} && orientation.Roll == WAngle{0})
     return vec_desired_direction_.Yaw() - orientation.Yaw;
 
-  // If the turret rotation axis is not vertical we must transform the
-  // target direction into the turrets local coordinate system(上游注释)
   return vec_desired_direction_.Rotate(-orientation).Yaw();
 }
 
 void Turreted::MoveTurret() {
-  // L248-261
+
   const WAngle desired =
       b_realign_desired_ ? info_.angle_initial_facing : DesiredLocalFacing();
   if (desired == LocalOrientation().Yaw)
@@ -248,7 +226,7 @@ void Turreted::MoveTurret() {
 }
 
 bool Turreted::FaceTarget(Actor& self, const sim::Target& target) {
-  // L263-281
+
   if (IsTraitDisabled() || IsTraitPaused() || p_attack_ == nullptr ||
       p_attack_->IsTraitDisabled() || p_attack_->IsTraitPaused())
     return false;
@@ -268,31 +246,29 @@ bool Turreted::FaceTarget(Actor& self, const sim::Target& target) {
 }
 
 bool Turreted::HasAchievedDesiredFacing() const {
-  // L283-290
+
   const WAngle desired =
       b_realign_desired_ ? info_.angle_initial_facing : DesiredLocalFacing();
   return desired == LocalOrientation().Yaw;
 }
 
 WVec Turreted::Position(Actor& self) const {
-  // L293-297
+
   const WRot body_orientation =
       p_body_->QuantizeOrientation(self.Orientation());
   return p_body_->LocalToWorld(Offset().Rotate(body_orientation));
 }
 
-void Turreted::ModifyDeathActorInit(Actor& /*self*/,
+void Turreted::ModifyDeathActorInit(Actor& ,
                                     sim::TypeDictionary& init) {
-  // L299-302
+
   init.Add(std::make_unique<sim::TurretFacingInit>(LocalOrientation().Yaw,
                                               str_info_instance_name_));
 }
 
-void Turreted::ModifyActorPreviewInit(Actor& /*self*/,
+void Turreted::ModifyActorPreviewInit(Actor& ,
                                       sim::TypeDictionary& inits) {
-  // L304-307(闭包捕获 this —— actor 生存期内求值,与上游委托目标语义同)
-  // L304-307 (the closure captures this — evaluated within the actor's
-  // lifetime, the same as upstream's delegate target).
+
   Turreted* turreted = this;
   inits.Add(std::make_unique<sim::DynamicTurretFacingInit>(
       [turreted]() { return turreted->LocalOrientation().Yaw; },
@@ -300,14 +276,10 @@ void Turreted::ModifyActorPreviewInit(Actor& /*self*/,
 }
 
 void Turreted::TraitDisabledHookImpl(Actor& self) {
-  // L309-313
+
   if (p_attack_ != nullptr && p_attack_->IsAiming())
     p_attack_->OnStopOrder(self);
 }
-
-// ———— [VerifySync] 哈希注册(gen/sync_gen.cpp:Turreted {QuantizedFacings})————
-// ———— The [VerifySync] hash registration (gen/sync_gen.cpp: Turreted
-//      {QuantizedFacings}) ————
 
 namespace {
 
@@ -325,6 +297,6 @@ const bool b_turreted_sync_registered = [] {
 [[maybe_unused]] const bool* b_turreted_sync_registered_anchor =
     &b_turreted_sync_registered;
 
-}  // namespace
+}
 
-}  // namespace ora::mods
+}

@@ -135,15 +135,14 @@ std::optional<GoldenTable> ReadGoldenTable(const char* str_path) {
   return table;
 }
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
   if (argc < 4) {
     std::println("usage: golden_replay_test <upstream-root> <replay> <table>");
     return 1;
   }
-  // 无缓冲:管道下也逐行实时可见(ctest/重定向不丢进度)
-  // Unbuffered: lines stream live even under pipes (ctest/redirect).
+
   setvbuf(stdout, nullptr, _IONBF, 0);
   const char* str_root = argv[1];
   const char* str_replay_path = argv[2];
@@ -152,14 +151,7 @@ int main(int argc, char** argv) {
   game::RegisterGameLoaders();
   sim::RegisterWorldTraits();
   mods::RegisterCommonTraits();
-  // qboi facings 解析钩子:读真序列表的 Facings(上游
-  // QuantizeFacingsFromSequence.QuantizedBodyFacings 同语义;序列集由
-  // fn_prepare_map 后置注入 —— 与 C# oracle 的真序列装载同源)
-  // The qboi facings-resolution hook: reads the real sequence tables'
-  // Facings (the same semantics as upstream's
-  // QuantizeFacingsFromSequence.QuantizedBodyFacings; the sequence set is
-  // back-injected by fn_prepare_map — the same source as the C# oracle's
-  // real-sequence loading).
+
   mods::SetBodyOrientationFacingsResolver(
       [](const game::ActorInfo& ai, const std::string& str_faction) {
         return testfx::ResolveGoldenFacings(ai, str_faction);
@@ -245,11 +237,7 @@ int main(int argc, char** argv) {
         const int int4_frame_before = p_om->NetFrameNumber();
         if (!p_om->TryTick())
           continue;
-        // 仅在 ProcessOrders 刚跑完(net 帧推进)的时刻对表 —— 该时刻的
-        // 世界态与录像 Sync 包的取样点同拍
-        // Compare against the table only right after ProcessOrders ran
-        // (a net-frame advance) — the world state at that instant is the
-        // same sampling point as the replay's Sync packets.
+
         if (p_om->NetFrameNumber() != int4_frame_before &&
             p_om->NetFrameNumber() % 25 == 1)
           std::println("[golden-replay] net frame {}/{}",
@@ -287,12 +275,7 @@ int main(int argc, char** argv) {
         std::println(
             "  first divergent frame {}: local {} vs C# recorded {}",
             int4_diverge_frame, int4_diverge_local, int4_diverge_recorded);
-      // 末帧对表在 sync(150) 取样点(= 帧 150 ProcessOrders 后、其 3 个
-      // 本地 tick 前);循环尾的世界态比录像末包多 3 个 tick
-      // The final-frame comparison samples at sync(150)'s point (right
-      // after frame 150's ProcessOrders, before its three local ticks);
-      // the post-loop world state carries three more ticks than the
-      // replay's last packet.
+
       CheckEq(int4_hash_at_last_net_frame,
               table.vec_syncs.back().second,
               "C# replay final SyncHash parity");

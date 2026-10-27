@@ -69,4 +69,4 @@ class ResourceBarWidget : public Widget {
   gfx::Sprite sprite_indicator_;
 };
 
-}  // namespace ora::ui
+}

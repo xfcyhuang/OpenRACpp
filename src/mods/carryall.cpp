@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Carryall.cs + Carryable.cs +
-//          AutoCarryall.cs + AutoCarryable.cs + CarryableHarvester.cs @1f594e320
 #include "mods/carryall.hpp"
 
 #include "game/actor_info.hpp"
@@ -95,9 +93,7 @@ std::string ToLowerInvariant(std::string str_value) {
   return str_value;
 }
 
-}  // namespace
-
-// ———— Carryable(L45-148)————
+}
 
 CarryableInfoData CarryableInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -197,8 +193,6 @@ LockResponse Carryable::LockForPickup(Actor& self, Actor* carrier) {
 
   return LockResponse::Success;
 }
-
-// ———— AutoCarryable(L26-154)————
 
 AutoCarryableInfoData AutoCarryableInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -315,8 +309,6 @@ bool AutoCarryable::IsValidAutoCarryDistance(Actor& self, CPos destination) {
          !p_mobile_->PathFinder()->PathExistsForLocomotor(
              p_mobile_->Locomotor(), self.Location(), destination);
 }
-
-// ———— Carryall(L87-465)————
 
 CarryallInfoData CarryallInfoData::Parse(const meta::RecordObject& rec_info) {
   CarryallInfoData data;
@@ -710,8 +702,6 @@ bool Carryall::CarryallDeliverUnitTargeter::CanTarget(
   return true;
 }
 
-// ———— AutoCarryall(L31-150)————
-
 AutoCarryallInfoData AutoCarryallInfoData::Parse(
     const meta::RecordObject& rec_info) {
   AutoCarryallInfoData data;
@@ -745,7 +735,7 @@ Actor* ClosestToIgnoringPath(std::span<Actor* const> actors, WPos position) {
   return best;
 }
 
-}  // namespace
+}
 
 AutoCarryall::AutoCarryall(sim::ActorInitializer& init,
                            const AutoCarryallInfoData& info)
@@ -877,8 +867,6 @@ void AutoCarryall::AutoCarryConditionsChanged(
           sim::ConditionSymbols(conditions));
 }
 
-// ———— CarryableHarvester(L17-61)————
-
 CarryableHarvesterInfoData CarryableHarvesterInfoData::Parse(
     const meta::RecordObject& rec_info) {
   (void)rec_info;
@@ -916,9 +904,6 @@ void CarryableHarvester::MovingToDock(Actor& self, Actor& host_actor,
                         self.world().Map().CellContaining(host->DockPosition()));
 }
 
-// ———— [VerifySync] 哈希注册(gen/sync_gen.cpp 成员表:Carryall/
-//      AutoCarryall {Carryable})————
-
 namespace {
 
 int CarryallSyncHash(const sim::ISync* s) {
@@ -937,6 +922,6 @@ const bool b_registered_carryall_sync_hash = [] {
 [[maybe_unused]] const bool* b_registered_carryall_sync_hash_anchor =
     &b_registered_carryall_sync_hash;
 
-}  // namespace
+}
 
-}  // namespace ora::mods
+}

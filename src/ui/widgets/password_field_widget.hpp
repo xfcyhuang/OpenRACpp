@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/PasswordFieldWidget.cs @1f594e320 L15-23(全文)。
 #pragma once
 import std;
 
@@ -28,4 +27,4 @@ class PasswordFieldWidget : public TextFieldWidget {
   mutable std::string str_apparent_;
 };
 
-}  // namespace ora::ui
+}

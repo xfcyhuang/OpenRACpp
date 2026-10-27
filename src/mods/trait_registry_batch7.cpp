@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Conditions/GrantCondition.cs @1f594e320(第七批 mods trait 的
-//          注册表装配:Conditions 31 件 + ExternalCondition/Proximity +
-//          Cloak/DetectCloaked/IgnoresCloak + GainsExperience/GivesExperience/
-//          GainsExperienceMultiplier/PlayerExperience + CaptureManager/
-//          Capturable/Captures/GivesCashOnCapture + Selectable/Interactable +
-//          SpawnMapActors;与 RegisterCommonTraits 同形 —— Info 名 → 工厂 →
-//          WorldArena)
-//          The batch-7 mods-trait registry assembly (every file listed in
-//          the batch's headers; the same shape as RegisterCommonTraits —
-//          the Info name → factory → WorldArena).
-
 #include "core/color.hpp"
 #include "game/actor_info.hpp"
 #include "meta/generic_record.hpp"
@@ -32,9 +21,6 @@ namespace ora::mods {
 
 namespace {
 
-/// string 数组槽读取(ImmutableArray<string> / FrozenSet<string>)
-/// The string-array slot read (ImmutableArray<string> /
-/// FrozenSet<string>).
 std::vector<std::string> RecStringArray(const meta::RecordObject& rec,
                                         std::string_view str_name) {
   std::vector<std::string> out;
@@ -69,7 +55,6 @@ std::optional<std::int64_t> RecBits(const meta::RecordObject& rec,
   return std::nullopt;
 }
 
-/// WDist 元组槽读取 | the WDist tuple-slot read.
 std::optional<WDist> RecWDist(const meta::RecordObject& rec,
                               std::string_view str_name) {
   if (const auto* gv = sim::RecordFieldValue(rec, str_name))
@@ -86,13 +71,11 @@ std::optional<core::Color> RecColor(const meta::RecordObject& rec,
   return std::nullopt;
 }
 
-}  // namespace
+}
 
 void RegisterCommonTraitsBatch7() {
   static const bool b_registered = [] {
     sim::TraitRegistry& registry = sim::TraitRegistry::Instance();
-
-    // ———— Conditions 简单授予面 ————
 
     registry.Register(
         "GrantConditionInfo",
@@ -128,8 +111,6 @@ void RegisterCommonTraitsBatch7() {
               RecString(rec_info, "Condition").value_or(""));
         });
 
-    // ———— Conditions 伤害/生命/地形面 ————
-
     registry.Register(
         "GrantConditionOnDamageStateInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
@@ -159,9 +140,7 @@ void RegisterCommonTraitsBatch7() {
               RecInt(rec_info, "MinHP").value_or(0),
               RecInt(rec_info, "MaxHP").value_or(0),
               RecInt(rec_info, "GrantPermanently").value_or(0) != 0);
-          // RulesetLoaded 的 MinHP 校验 = 工厂时点(HealthInfo.MaxHP)
-          // The RulesetLoaded MinHP validation at factory time
-          // (HealthInfo.MaxHP).
+
           if (init.Self().Info() != nullptr)
             for (const meta::RecordObject* rec_trait :
                  init.Self().Info()->TraitsInConstructOrder())
@@ -184,8 +163,6 @@ void RegisterCommonTraitsBatch7() {
               RecString(rec_info, "Condition").value_or(""),
               RecStringArray(rec_info, "TerrainTypes"));
         });
-
-    // ———— Conditions 玩家/阵营面 ————
 
     registry.Register(
         "GrantConditionOnBotOwnerInfo",
@@ -228,7 +205,7 @@ void RegisterCommonTraitsBatch7() {
         "GrantConditionOnPowerStateInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
            ora::WorldArena& arena) -> TraitBase* {
-          std::int32_t valid_states = 2 | 4;  // Low | Critical
+          std::int32_t valid_states = 2 | 4;
           if (const auto bits =
                   RecBits(rec_info, "ValidPowerStates"))
             valid_states = static_cast<std::int32_t>(*bits);
@@ -237,8 +214,6 @@ void RegisterCommonTraitsBatch7() {
               valid_states,
               sim::ConditionalTraitData::Parse(rec_info));
         });
-
-    // ———— Conditions 移动/攻击/生产面 ————
 
     registry.Register(
         "GrantConditionOnMovementInfo",
@@ -298,7 +273,7 @@ void RegisterCommonTraitsBatch7() {
         "GrantConditionOnProductionInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
            ora::WorldArena& arena) -> TraitBase* {
-          // Color.Magenta 的上游常量值 | Color.Magenta's upstream value.
+
           core::Color bar_color =
               core::Color::FromArgb(0xFFFF00FFu);
           if (const auto color =
@@ -328,8 +303,6 @@ void RegisterCommonTraitsBatch7() {
           return arena.Create<GrantConditionOnPrerequisiteManager>(
               init);
         });
-
-    // ———— Conditions 扩散/外部授予/开关面 ————
 
     registry.Register(
         "SpreadsConditionInfo",
@@ -394,12 +367,6 @@ void RegisterCommonTraitsBatch7() {
               RecStringArray(rec_info, "DockClientNames"),
               RecInt(rec_info, "AfterDockDuration").value_or(0));
         });
-
-    // BodyOrientationInfo 已在第一批注册(minv 等地图 actor 的裸
-    // BodyOrientation 名直接命中);此处不重复 —— 注释锚定
-    // BodyOrientationInfo is registered since batch 1 (the bare
-    // BodyOrientation name of map actors like minv hits it directly);
-    // no duplicate here — the comment anchors the fact.
 
     registry.Register(
         "GrantConditionOnDeployInfo",
@@ -472,8 +439,6 @@ void RegisterCommonTraitsBatch7() {
               std::move(data));
         });
 
-    // ———— Conditions 自定义层触发面(ValidLayerType 注入恒 0 = 默认层域,
-    //      Subterranean/Tunnel 层 trait 随其宿主批)————
     registry.Register(
         "GrantConditionOnSubterraneanLayerInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
@@ -491,8 +456,6 @@ void RegisterCommonTraitsBatch7() {
               RecString(rec_info, "Condition").value_or(""), 0,
               sim::ConditionalTraitData::Parse(rec_info));
         });
-
-    // ———— ExternalCondition 双件 ————
 
     registry.Register(
         "ExternalConditionInfo",
@@ -525,8 +488,6 @@ void RegisterCommonTraitsBatch7() {
               sim::ConditionalTraitData::Parse(rec_info));
         });
 
-    // ———— Cloak 三件 ————
-
     registry.Register(
         "CloakInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
@@ -538,9 +499,7 @@ void RegisterCommonTraitsBatch7() {
         "DetectCloakedInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
            ora::WorldArena& arena) -> TraitBase* {
-          // 值袋默认槽 = BitSet("Cloak") 的 raw bits(schema 导出已物化)
-          // The bag's default slot = BitSet("Cloak")'s raw bits
-          // (materialized at schema export).
+
           core::BitSet<DetectionType> detection_types{};
           if (const auto bits =
                   RecBits(rec_info, "DetectionTypes"))
@@ -560,8 +519,6 @@ void RegisterCommonTraitsBatch7() {
            ora::WorldArena& arena) -> TraitBase* {
           return arena.Create<IgnoresCloak>();
         });
-
-    // ———— Experience 四件 ————
 
     registry.Register(
         "GainsExperienceInfo",
@@ -594,8 +551,6 @@ void RegisterCommonTraitsBatch7() {
            ora::WorldArena& arena) -> TraitBase* {
           return arena.Create<PlayerExperience>();
         });
-
-    // ———— Capture 四件 ————
 
     registry.Register(
         "CaptureManagerInfo",
@@ -630,8 +585,6 @@ void RegisterCommonTraitsBatch7() {
               sim::ConditionalTraitData::Parse(rec_info));
         });
 
-    // ———— Selectable/Interactable/SpawnMapActors ————
-
     registry.Register(
         "SelectableInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -655,31 +608,12 @@ void RegisterCommonTraitsBatch7() {
           return arena.Create<SpawnMapActors>();
         });
 
-    // InitRegistry 装配(from-yaml 工厂;ActorReference.LoadInit 面)
-    // InitRegistry's assembly (the from-yaml factories; the
-    // ActorReference.LoadInit face).
     RegisterCommonActorInits();
 
     return true;
   }();
   (void)b_registered;
 }
-
-// ———— 第七批 [VerifySync] 哈希注册(gen/sync_gen.cpp 成员表:
-//      Cloak {remainingTime} / GainsExperience {Experience,Level} /
-//      GrantChargedConditionOnToggle {chargeTick} /
-//      GrantConditionOnClientDock {Duration} /
-//      GrantConditionOnHostDock {Duration} /
-//      GrantConditionOnProduction {ticks} /
-//      ToggleConditionOnOrder {enabled} /
-//      PlayerExperience {Experience})————
-// ———— The batch-7 [VerifySync] hash registrations (the gen/sync_gen.cpp
-//      member tables: Cloak {remainingTime} / GainsExperience
-//      {Experience,Level} / GrantChargedConditionOnToggle {chargeTick} /
-//      GrantConditionOnClientDock {Duration} / GrantConditionOnHostDock
-//      {Duration} / GrantConditionOnProduction {ticks} /
-//      ToggleConditionOnOrder {enabled} / PlayerExperience
-//      {Experience}) ————
 
 namespace {
 
@@ -753,6 +687,6 @@ const bool b_registered_batch7_sync_hash = [] {
   return true;
 }();
 
-}  // namespace
+}
 
-}  // namespace ora::mods
+}

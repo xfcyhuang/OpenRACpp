@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/SupportPowersWidget.cs @1f594e320
-//          L24-297 全文(支持 power 图标列:充能钟面/READY·HOLD·剩余时
-//          间叠字/热键/tooltip 容器)
-//          The whole of SupportPowersWidget.cs L24-297 (the support-power
-//          icon column: charge clock, READY/HOLD/remaining-time overlay,
-//          hotkeys, the tooltip container).
 #pragma once
 import std;
 
@@ -26,7 +20,6 @@ class TooltipContainerWidget;
 
 namespace ora::mods {
 
-/// SupportPowerIcon(L124-132)
 struct SupportPowerIcon {
   SupportPowerInstance* ptr_power = nullptr;
   core::Vector2 pos;
@@ -119,4 +112,4 @@ class SupportPowersWidget : public ora::ui::Widget {
 
 void RegisterSupportPowersWidget();
 
-}  // namespace ora::mods
+}

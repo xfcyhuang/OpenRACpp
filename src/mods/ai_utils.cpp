@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/AIUtils.cs @1f594e320(实现部分)
-//          The implementation half.
 #include "mods/ai_utils.hpp"
 
 #include "mods/actor_exts.hpp"
@@ -15,8 +13,6 @@
 namespace ora::mods {
 namespace {
 
-/// Util.cs L192-195:ExpandFootprint(cells, allowDiagonal)
-/// Util.cs L192-195: ExpandFootprint (cells, allowDiagonal).
 void AppendNeighbours(std::vector<CPos>& vec_out, CPos cell,
                       bool b_allow_diagonal) {
   const int d = b_allow_diagonal ? 1 : 0;
@@ -28,7 +24,7 @@ void AppendNeighbours(std::vector<CPos>& vec_out, CPos cell,
     }
 }
 
-}  // namespace
+}
 
 namespace util {
 
@@ -46,7 +42,7 @@ std::vector<CPos> ExpandFootprintCells(std::span<const CPos> vec_cells,
   return vec_distinct;
 }
 
-}  // namespace util
+}
 
 std::vector<std::unique_ptr<net::Order>> ClearBlockersOrders(
     std::span<const CPos> vec_tiles,
@@ -96,4 +92,4 @@ std::vector<std::unique_ptr<net::Order>> ClearBlockersOrders(
   return vec_out;
 }
 
-}  // namespace ora::mods
+}

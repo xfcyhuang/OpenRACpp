@@ -1,19 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/DropDownButtonWidget.cs @1f594e320
-// L20-257(全文)。开面板三件套(AttachPanel 的全屏 MaskWidget + 边缘回退
-// 定位/RemovePanel 的退焦点与 tooltip 重置/ShowDropDown 双模板 —— 平面与
-// 分组头部形态);箭头与分隔条的状态图缓存(??= 惰性初建 → optional);
-// UsableWidth = Width - Height(上游 "This is crap" 注释照抄)。上游 clone
-// 不拷 PanelAlign(保护拷贝 ctor 的遗漏 quirk)保真。Game.Renderer.
-// Resolution/Game.Sound/Ui.Root/Ui.LoadWidget → Ui::Instance() 注入承载。
-// The whole of DropDownButtonWidget.cs L20-257. The open-panel trio
-// (AttachPanel's fullscreen MaskWidget + the edge-fallback positioning /
-// RemovePanel's focus yield + tooltip reset / ShowDropDown's two templates —
-// the flat and the grouped-header shapes); the marker and separator
-// stateful-image caches (??= lazy init → optional); UsableWidth = Width -
-// Height (upstream's "This is crap" comment kept). Upstream's clone not
-// copying PanelAlign (the protected copy-ctor's omission quirk) is kept
-// faithful. Game.Renderer.Resolution/Game.Sound/Ui.Root/Ui.LoadWidget go
-// through the Ui::Instance() injected carrier.
 #pragma once
 import std;
 
@@ -27,12 +11,6 @@ import std;
 
 namespace ora::ui {
 
-/// 模板项的所有权摘取(上游 RemoveChildren 后 itemTemplate 局部引用靠 GC
-/// 存活;C++ 侧先摘除保活 —— Removed() 通知与上游 RemoveChildren 同可观测)
-/// Ownership extraction of a template item (upstream's itemTemplate local
-/// reference outlives RemoveChildren through GC; the C++ side extracts it
-/// first — the Removed() notification stays as observable as upstream's
-/// RemoveChildren).
 inline std::unique_ptr<ScrollItemWidget> TakeItemTemplate(ScrollPanelWidget& panel_items,
                                                           ScrollItemWidget* ptr_template) {
   if (ptr_template == nullptr)
@@ -60,14 +38,13 @@ class DropDownButtonWidget : public ButtonWidget {
   std::string str_separators = "dropdown-separators";
   std::string str_separator_image = "separator";
   TextAlign kind_panel_align = TextAlign::Left;
-  std::string str_panel_root;  // 空 = C# null | null
+  std::string str_panel_root;
 
   bool HandleKeyPress(const KeyInput& e_input) override;
   bool YieldKeyboardFocus() override;
 
   void Draw() override;
 
-  // This is crap(上游注释)| This is crap (the upstream comment).
   int UsableWidth() const override {
     return bounds_widget.int4_width - bounds_widget.int4_height;
   }
@@ -77,14 +54,10 @@ class DropDownButtonWidget : public ButtonWidget {
 
   void RemovePanel();
 
-  /// AttachPanel(p)/AttachPanel(p, onCancel)(L154-201)。
-  /// AttachPanel(p)/AttachPanel(p, onCancel) (L154-201).
   void AttachPanel(std::unique_ptr<Widget> up_panel);
   void AttachPanel(std::unique_ptr<Widget> up_panel,
                    std::function<void()> fn_on_cancel);
 
-  /// ShowDropDown 平面形态(L204-226)。
-  /// ShowDropDown's flat shape (L204-226).
   template <class T>
   void ShowDropDown(const std::string& str_panel_template, int int4_max_height,
                     const std::vector<T>& vec_options,
@@ -98,7 +71,7 @@ class DropDownButtonWidget : public ButtonWidget {
         Ui::Instance().LoadWidget(str_panel_template, nullptr, std::move(args_panel));
     std::unique_ptr<Widget> up_panel = Ui::Instance().ReleaseWidget(ptr_loaded_panel);
     if (!up_panel)
-      up_panel.reset(ptr_loaded_panel);  // 未接线宿主:裸管(测试域)| an unwired host: raw ownership (the test domain)
+      up_panel.reset(ptr_loaded_panel);
     ScrollPanelWidget* ptr_panel = static_cast<ScrollPanelWidget*>(up_panel.get());
 
     std::unique_ptr<ScrollItemWidget> up_item_template =
@@ -120,9 +93,6 @@ class DropDownButtonWidget : public ButtonWidget {
     AttachPanel(std::move(up_panel));
   }
 
-  /// ShowDropDown 分组形态(L228-257):空组名不出 HEADER。
-  /// ShowDropDown's grouped shape (L228-257): an empty group name emits no
-  /// HEADER.
   template <class T>
   void ShowDropDown(const std::string& str_panel_template, int int4_height,
                     const std::vector<std::pair<std::string, std::vector<T>>>& vec_groups,
@@ -136,7 +106,7 @@ class DropDownButtonWidget : public ButtonWidget {
         Ui::Instance().LoadWidget(str_panel_template, nullptr, std::move(args_panel));
     std::unique_ptr<Widget> up_panel = Ui::Instance().ReleaseWidget(ptr_loaded_panel);
     if (!up_panel)
-      up_panel.reset(ptr_loaded_panel);  // 未接线宿主:裸管(测试域)| an unwired host: raw ownership (the test domain)
+      up_panel.reset(ptr_loaded_panel);
     ScrollPanelWidget* ptr_panel = static_cast<ScrollPanelWidget*>(up_panel.get());
 
     std::unique_ptr<ScrollItemWidget> up_header_template =
@@ -175,18 +145,13 @@ class DropDownButtonWidget : public ButtonWidget {
                            std::string_view str_value) override;
 
  private:
-  Widget* ptr_panel_ = nullptr;            // 非拥有(panelRoot 持有)| non-owning
-  Widget* ptr_fullscreen_mask_ = nullptr;  // 非拥有 | non-owning
-  Widget* ptr_panel_root_ = nullptr;       // 非拥有 | non-owning
+  Widget* ptr_panel_ = nullptr;
+  Widget* ptr_fullscreen_mask_ = nullptr;
+  Widget* ptr_panel_root_ = nullptr;
   std::optional<StatefulImageCache> cache_marker_image_;
   std::optional<StatefulImageCache> cache_separator_image_;
 };
 
-/// MaskWidget(L229-256):全屏遮罩,吞全部非 Move 鼠标输入;Down 广播
-/// OnMouseDown 多播表(AttachPanel 挂 click 音 + RemovePanel + onCancel)。
-/// MaskWidget (L229-256): the fullscreen mask swallowing every non-Move
-/// mouse input; Down broadcasts the OnMouseDown multicast table (AttachPanel
-/// hangs the click sound + RemovePanel + onCancel).
 class MaskWidget : public Widget {
  public:
   static constexpr std::string_view kWidgetTypeName = "MaskWidget";
@@ -207,4 +172,4 @@ class MaskWidget : public Widget {
   const std::string* GetCursor(int2) const override { return nullptr; }
 };
 
-}  // namespace ora::ui
+}

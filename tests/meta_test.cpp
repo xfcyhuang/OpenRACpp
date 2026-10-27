@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs + Support/VariableExpression.cs + Exts.cs
-//          的语义单测(PORTING_PLAN §Phase 2;断言文本与 C# 逐字)
-//          Semantics unit tests for the Phase 2 metadata framework (assertion
-//          texts verbatim against C#).
 import std;
 #include "meta/field_loader.hpp"
 #include "meta/parse.hpp"
@@ -15,26 +11,16 @@ import std;
 #include "core/wdist.hpp"
 #include "core/wvec.hpp"
 #include "yaml/mini_yaml.hpp"
-#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
+#include <cstdio>
 
 using namespace ora;
 using namespace ora::meta;
 
-// ————————————————————————————————————————————————
-// 测试记录类型(描述表驱动加载的端到端夹具)
-// ————————————————————————————————————————————————
-
-/// 容器元素/键值描述(类外静态,与 schema_dumper 生成布局一致)
-/// Container element/key/value descriptors (file-scope statics, matching the
-/// schema_dumper output layout).
 constexpr FieldDesc kElemString = ElemOf(FieldType::String);
 constexpr FieldDesc kElemInt32 = ElemOf(FieldType::Int32);
 constexpr FieldDesc kElemWDist = ElemOf(FieldType::WDist);
 constexpr FieldDesc kElemWAngle = ElemOf(FieldType::WAngle);
 
-/// 模拟上游 TraitInfo 派生类:字段名 = yaml 键,默认值 = C# 字段初始化器
-/// Mimics an upstream TraitInfo derivative: field names are yaml keys,
-/// defaults are the C# field initializers.
 class TestInfo final : public meta::RecordObject {
  public:
   std::int32_t HP = 0;
@@ -45,15 +31,15 @@ class TestInfo final : public meta::RecordObject {
   std::vector<std::string> Names{};
   std::vector<std::int32_t> Nums{};
   std::vector<WVec> Offsets{};
-  std::int32_t Relationship = 1;  // PlayerRelationship(枚举,底层 int32)
+  std::int32_t Relationship = 1;
   std::optional<WAngle> Maybe{};
   std::vector<std::pair<std::string, std::int32_t>> Dict{};
-  std::uint64_t Targets{};  // BitSet<struct TargetableType>(uint64 布局)
+  std::uint64_t Targets{};
   std::int32_t RequiredField = 0;
   std::string RequiredStr;
 
   static const meta::RecordDesc& Desc() {
-    // 字段顺序 = C# 声明序(基类字段在前的约定在加载链用基类体现)
+
     static constexpr std::array<FieldDesc, 14> kFields{{
         ORA_FIELD(TestInfo, HP, Int32, false),
         ORA_FIELD(TestInfo, Flag, Bool, false),
@@ -105,10 +91,6 @@ class TestInfo final : public meta::RecordObject {
   const meta::RecordDesc& record_desc() const override { return Desc(); }
 };
 
-// ————————————————————————————————————————————————
-// 断言工具
-// ————————————————————————————————————————————————
-
 int g_failures = 0;
 
 void Check(bool cond, std::string_view msg) {
@@ -127,10 +109,6 @@ std::string CatchWhat(const Fn& fn) {
   }
   return {};
 }
-
-// ————————————————————————————————————————————————
-// 1. 数字/bool 解析(Exts.TryParse* 语义)
-// ————————————————————————————————————————————————
 
 void TestNumericParse() {
   std::int32_t int4_v{};
@@ -164,10 +142,6 @@ void TestNumericParse() {
   Check(TryParseBoolNet(" false ", b_v) && !b_v, "bool false trimmed");
   Check(!TryParseBoolNet("yes", b_v), "bool junk");
 }
-
-// ————————————————————————————————————————————————
-// 2. 枚举解析/序列化(Enum.TryParse/ToString 语义)
-// —————————————————————————————————————————————————
 
 void TestEnums() {
   constexpr EnumMemberDesc kRel[] = {
@@ -206,10 +180,6 @@ void TestEnums() {
   Check(EnumToStringNet("OpenRA.Traits.PlayerRelationship", 4) == "Ally", "enum single");
 }
 
-// ————————————————————————————————————————————————
-// 3. 变量表达式(VariableExpression 语义)
-// ————————————————————————————————————————————————
-
 void TestExpressions() {
   const std::vector<std::pair<std::string, std::int32_t>> vec_syms{{"a", 1}, {"b", 0}, {"n", 7}};
 
@@ -239,14 +209,11 @@ void TestExpressions() {
     Check(e_intex.Evaluate(vec_syms) == ~7, "expr ones-complement");
   }
   {
-    // bool↔int 隐式转换(AstStack.Peek 语义)
-    // Implicit bool↔int conversion (AstStack.Peek semantics).
+
     const expr::IntegerExpression e_intex{"(a && true) + (b || false)"};
     Check(e_intex.Evaluate(vec_syms) == 1, "expr bool-to-int");
   }
 
-  // 构造期错误消息(逐字)
-  // Construction-time error messages (verbatim).
   Check(CatchWhat([] { expr::BooleanExpression{"1 +2"}; }) ==
             "Missing whitespace at index 3, after `+` operator.",
         "expr missing whitespace after");
@@ -279,18 +246,10 @@ void TestExpressions() {
         "expr mixed identifier end");
 }
 
-// ————————————————————————————————————————————————
-// 4. FieldLoader::Load 端到端
-// ————————————————————————————————————————————————
-
 void TestFieldLoader() {
-  // BitSet 标签注册(真实加载链由 mods 层注册)
-  // BitSet tag registration (the real loading chain registers from the mods
-  // layer).
+
   struct TargetableType {};
-  // 注册键 = 字段 str_type_name 的 C# Type.ToString() 形态(生成器同约定)
-  // The registry key equals the C# Type.ToString() form of the field's
-  // str_type_name (the generator follows the same convention).
+
   RegisterBitSet(
       "OpenRA.Primitives.BitSet`1[OpenRA.Traits.TargetableType]",
       [](std::span<const std::string> vec) {
@@ -303,8 +262,7 @@ void TestFieldLoader() {
   auto load = [](std::string_view sv_yaml) {
     auto info = std::make_unique<TestInfo>();
     auto nodes = yaml::MiniYaml::FromString(sv_yaml, "test");
-    // 单节点(键 TestInfo)直接取其值加载;顶层字段用节点值
-    // Load the value of the single top-level node (fields live under it).
+
     meta::Load(info.get(), nodes.at(0).Value);
     return info;
   };
@@ -333,8 +291,7 @@ void TestFieldLoader() {
   }
 
   {
-    // 未给出的字段保持默认值
-    // Untouched fields keep their defaults.
+
     auto info = load("t:\n\tHP: 5\n\tRequiredField: 1\n\tRequiredStr: r\n");
     Check(info->Flag, "default bool kept");
     Check(info->Name == "default", "default string kept");
@@ -344,8 +301,7 @@ void TestFieldLoader() {
   }
 
   {
-    // MissingFieldsException(无 header 形态;消息逐字)
-    // MissingFieldsException (headerless form; verbatim message).
+
     const std::string str_err = CatchWhat([] {
       auto info = std::make_unique<TestInfo>();
       auto nodes = yaml::MiniYaml::FromString("t:\n\tHP: 1\n", "test");
@@ -355,8 +311,7 @@ void TestFieldLoader() {
   }
 
   {
-    // InvalidValueAction 消息(逐字;fieldType = C# Type.ToString())
-    // InvalidValueAction message (verbatim; fieldType = C# Type.ToString()).
+
     const std::string str_err = CatchWhat([] {
       auto info = std::make_unique<TestInfo>();
       auto nodes = yaml::MiniYaml::FromString("t:\n\tHP: abc\n\tRequiredField: 1\n"
@@ -369,10 +324,7 @@ void TestFieldLoader() {
   }
 
   {
-    // 表达式字段的包装消息前缀(经 BooleanExpression 字段的字典场景外的
-    // 直接字段形态由 WeaponInfo 链覆盖;此处以字典值构造错误验证包装格式)
-    // The expression-field wrap prefix (verified via a dictionary-value
-    // construction error; direct fields are exercised by the WeaponInfo chain).
+
     const std::string str_err = CatchWhat([] {
       auto nodes = yaml::MiniYaml::FromString(
           "t:\n\tHP: 1\n\tRequiredField: 1\n\tRequiredStr: r\n", "test");
@@ -391,10 +343,6 @@ void TestFieldLoader() {
           "expression wrap message");
   }
 }
-
-// ————————————————————————————————————————————————
-// 5. Color / BitSet
-// ————————————————————————————————————————————————
 
 void TestColorAndBitSet() {
   core::Color color_v{};

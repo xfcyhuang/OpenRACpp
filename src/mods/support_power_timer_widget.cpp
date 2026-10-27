@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/SupportPowerTimerWidget.cs @1f594e320
-//          L23-97 的实现面
-//          The implementation face of L23-97.
 #include "mods/support_power_timer_widget.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -28,7 +25,7 @@ core::Vector2 Int2ToVector2(int2 v) {
   return core::Vector2{static_cast<float>(v.X), static_cast<float>(v.Y)};
 }
 
-}  // namespace
+}
 
 SupportPowerTimerWidget::SupportPowerTimerWidget(
     ora::ui::WidgetArgs& args_args) {
@@ -183,4 +180,4 @@ void RegisterSupportPowerTimerWidget() {
   (void)b_registered;
 }
 
-}  // namespace ora::mods
+}

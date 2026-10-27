@@ -1,37 +1,11 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/ShpRemasteredLoader.cs @1f594e320
-// L24-121(实现半;头文件为契约半)。两条上游正则 boost::regex 消费点
-// 直调(D235;原等价手写复刻 D67 由本批取代):
-//   - FilenameRegex ^(?<prefix>.+?[\-_])(?<frame>\d{4})\.tga$ 的惰性
-//     .+? = boost perl 语义的最左匹配(前缀含分隔符);
-//   - MetaRegex 的 {"size":[w,h],"crop":[l,t,r,b]} 六命名组捕获,
-//     regex_match 全串恰匹配。
-// boost::regex 替代 std/手写的选型理由:其匹配引擎性能优于 std::regex
-// (../cpp26.md §二 std 优先规则的性能豁免)。容器实现:ora::fs::
-// ReadOnlyZipFile(条目序 = 中央目录序)。
-// The implementation half (the contract half is in the header). The two
-// upstream regexes are consumed by direct boost::regex calls at the use
-// sites (D235; superseding the former equivalent hand-written parsers of
-// D67): FilenameRegex ^(?<prefix>.+?[\-_])(?<frame>\d{4})\.tga$ with its
-// lazy .+? = the leftmost match of boost's perl semantics (the prefix
-// includes the separator); MetaRegex's six named capture groups over
-// {"size":[w,h],"crop":[l,t,r,b]} with regex_match as the exact
-// full-string match. boost::regex over std/hand-written per the
-// performance exemption of ../cpp26.md §2: its matching engine outperforms
-// std::regex. The container: ora::fs::ReadOnlyZipFile (entry order =
-// central directory order).
 #include "formats/shp_remastered.hpp"
 
 #include "fs/zip_file.hpp"
-#include <boost/regex.hpp>  // 上游两条正则直调(性能选型;白名单头)| the two upstream regexes by direct call (a performance selection; a whitelisted header)
+#include <boost/regex.hpp>
 
 namespace ora::fmt {
 namespace {
 
-/// FilenameRegex(L51)直调:boost::regex 的惰性 .+?[\-_] 最左匹配。返回
-/// false = 不匹配;匹配时 str_prefix 含分隔符,int4_frame = 4 位数字值。
-/// The direct FilenameRegex (L51) call: boost::regex's leftmost lazy
-/// .+?[\-_] match. False means no match; on a match str_prefix includes
-/// the separator and int4_frame is the four-digit value.
 bool MatchFrameName(const std::string& str_name, std::string& str_prefix, std::int32_t& int4_frame) {
   static const boost::regex re_filename("^(?<prefix>.+?[-_])(?<frame>\\d{4})\\.tga$");
   boost::smatch m;
@@ -43,20 +17,11 @@ bool MatchFrameName(const std::string& str_name, std::string& str_prefix, std::i
   return true;
 }
 
-/// MetaRegex(L52)的承载结构(失配 = 上游 ParseGroup 的 FormatException
-/// 等价抛点,D67)。
-/// The carrier struct of MetaRegex (L52) (a mismatch hits the equivalent
-/// of upstream ParseGroup's FormatException, D67).
 struct MetaInfo {
   int2 int2_size;
   Rectangle rect_crop;
 };
 
-/// MetaRegex(L52)直调:六命名组捕获,regex_match 全串恰匹配(手写的
-/// st_pos==size 恰尽语义)。
-/// The direct MetaRegex (L52) call: six named capture groups with
-/// regex_match as the exact full-string match (the hand-written
-/// st_pos==size exact-consumption semantics).
 bool MatchMetaText(const std::string& str_text, MetaInfo& meta_out) {
   static const boost::regex re_meta(
       "\\{\"size\":\\[(?<w>\\d+),(?<h>\\d+)\\],"
@@ -88,7 +53,7 @@ std::span<const std::byte> CharSpanToByte(std::span<const char> vec_chars) {
   return std::span<const std::byte>{reinterpret_cast<const std::byte*>(vec_chars.data()), vec_chars.size()};
 }
 
-}  // namespace
+}
 
 bool IsShpRemastered(std::span<const std::byte> vec_file) {
   if (vec_file.size() < 4)
@@ -114,7 +79,7 @@ ShpRemasteredSprite::ShpRemasteredSprite(std::span<const std::byte> vec_file) {
       continue;
 
     if (str_frame_prefix.empty())
-      str_frame_prefix = str_prefix;  // framePrefix ??= prefix(L74)
+      str_frame_prefix = str_prefix;
 
     if (str_prefix != str_frame_prefix)
       throw std::runtime_error("Frame prefix mismatch: `" + str_prefix + "` != `" + str_frame_prefix + "`");
@@ -127,7 +92,7 @@ ShpRemasteredSprite::ShpRemasteredSprite(std::span<const std::byte> vec_file) {
     const auto str_tga_name = std::format("{}{:04}.tga", str_frame_prefix, int4_i);
     const auto vec_tga = container.GetStream(str_tga_name);
     if (!vec_tga.has_value()) {
-      // Blank frame(L88-91)。| The blank frame (L88-91).
+
       vec_frames_[static_cast<std::size_t>(int4_i)] = std::make_unique<TgaFrame>();
       continue;
     }
@@ -137,7 +102,7 @@ ShpRemasteredSprite::ShpRemasteredSprite(std::span<const std::byte> vec_file) {
     if (vec_meta.has_value()) {
       auto meta = MetaInfo{};
       if (!MatchMetaText(std::string{vec_meta->data(), vec_meta->size()}, meta))
-        throw std::runtime_error("FormatException: failed to parse remastered meta");  // ParseGroup 空捕获的等价抛点(D67)| the equivalent of ParseGroup's empty-capture throw (D67)
+        throw std::runtime_error("FormatException: failed to parse remastered meta");
 
       vec_frames_[static_cast<std::size_t>(int4_i)] = std::make_unique<TgaFrame>(
           CharSpanToByte(std::span<const char>{vec_tga->data(), vec_tga->size()}), meta.int2_size, meta.rect_crop);
@@ -161,4 +126,4 @@ bool TryParseShpRemastered(std::span<const std::byte> vec_file,
   return true;
 }
 
-}  // namespace ora::fmt
+}

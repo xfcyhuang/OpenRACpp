@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Wanders.cs 实现部分
-//          The implementation half.
 #include "mods/wands.hpp"
 
 #include "core/wrot.hpp"
@@ -11,9 +9,6 @@
 #include "sim/world.hpp"
 
 namespace ora::mods {
-
-// ———— WandersInfoData::Parse(L23-40 的字段面)————
-// ———— WandersInfoData::Parse (the L23-40 field face) ————
 
 WandersInfoData WandersInfoData::Parse(const meta::RecordObject& rec_info) {
   WandersInfoData data;
@@ -38,9 +33,7 @@ WandersInfoData WandersInfoData::Parse(const meta::RecordObject& rec_info) {
       const std::string_view name = fields[i]->str_name;
       const meta::GenericValue& v = generated->Slot(i);
       if (name == "AvoidTerrainTypes") {
-        // FrozenSet<string>:逗号分隔单串或集合节点(resource_layer 同形)
-        // FrozenSet<string>: a comma-separated single string or a
-        // collection node (the same shape as resource_layer's).
+
         if (auto* s = std::get_if<std::string>(&v.val)) {
           std::string str_current;
           for (const char ch : *s + ",") {
@@ -71,8 +64,6 @@ WandersInfoData WandersInfoData::Parse(const meta::RecordObject& rec_info) {
 
   return data;
 }
-
-// ———— Wanders(L42-118)————
 
 Wanders::Wanders(ActorInitializer& init, WandersInfoData&& info)
     : sim::ConditionalTraitCore<Wanders>(info.conditional),
@@ -115,13 +106,10 @@ std::optional<CPos> Wanders::PickTargetLocation(Actor& self) {
   const CPos target_cell = self.world().Map().CellContaining(target);
 
   if (!self.world().Map().Contains(target_cell)) {
-    // If MoveRadius is too big there might not be a valid cell to order
-    // the attack to (if actor is on a small island and can't leave)
+
     if (++int4_ticks_idle % info_.int4_reduce_move_radius_delay == 0)
       int4_effective_move_radius--;
 
-    // We'll be back the next tick; better to sit idle for a few seconds
-    // than prolong this tick indefinitely with a loop
     return std::nullopt;
   }
 
@@ -149,9 +137,6 @@ void Wanders::DoAction(Actor& self, const CPos& target_cell) {
       target_cell, -2, nullptr, true, color_target_line_));
 }
 
-// ———— 注册(RegisterCommonTraitsBatch12 的一部分)————
-// ———— Registration (part of RegisterCommonTraitsBatch12) ————
-
 void RegisterCommonTraitsBatch12() {
   auto& registry = sim::TraitRegistry::Instance();
   using sim::TraitBase;
@@ -167,4 +152,4 @@ void RegisterCommonTraitsBatch12() {
       });
 }
 
-}  // namespace ora::mods
+}

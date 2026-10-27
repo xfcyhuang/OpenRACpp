@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/ModCredits.cs @1f594e320(值面装载)。
 import std;
 
 #include "game/mod_credits.hpp"
@@ -26,4 +25,4 @@ ModCredits ModCreditsFromYaml(const yaml::MiniYaml* ptr_node) {
   return credits_result;
 }
 
-}  // namespace ora::game
+}

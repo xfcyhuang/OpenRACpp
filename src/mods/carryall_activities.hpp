@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/PickupUnit.cs + DeliverUnit.cs @1f594e320
 #pragma once
 import std;
 
@@ -94,4 +93,4 @@ class DeliverUnit final : public sim::Activity {
   sim::Target target_destination_;
 };
 
-}  // namespace ora::mods::activities
+}

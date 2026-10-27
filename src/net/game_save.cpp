@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Game/Network/GameSave.cs @1f594e320 L21-333(见 game_save.hpp)。
 #include "net/game_save.hpp"
 
 #include <cstdio>
@@ -30,10 +29,6 @@ std::string_view NodeText(const yaml::MiniYamlNode& node) {
                                      : std::string_view{};
 }
 
-/// ReadLengthPrefixedString(UTF-8)的等价面(ByteReader.ReadString =
-/// 7-bit 前缀;上游 Connection.MaxOrderLength 上限 = 读侧不设)
-/// The ReadLengthPrefixedString(UTF-8) equivalent (ByteReader.ReadString's
-/// 7-bit prefix; upstream's Connection.MaxOrderLength cap is writer-side).
 std::optional<std::string> ReadLengthPrefixedString(net::ByteReader& r) {
   if (r.Remaining() == 0)
     return std::nullopt;
@@ -58,7 +53,7 @@ std::vector<std::uint8_t> ReadFileBytes(const std::string& str_path) {
   return bytes;
 }
 
-}  // namespace
+}
 
 bool LoadGameSaveMapGenerationArgs(const yaml::MiniYaml& yaml_v,
                                    map::MapGenerationArgs& out) {
@@ -574,4 +569,4 @@ bool GameSave::Save(const std::string& str_path) const {
   return b_ok;
 }
 
-}  // namespace ora::net
+}

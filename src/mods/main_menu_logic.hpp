@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/MainMenuLogic.cs @1f594e320
-//          L25-566 全文。
 #pragma once
 import std;
 
@@ -107,4 +105,4 @@ class MainMenuLogic final : public ora::ui::ChromeLogic {
 
 void RegisterMainMenuLogic();
 
-}  // namespace ora::mods
+}

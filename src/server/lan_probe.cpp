@@ -23,7 +23,7 @@ std::int64_t SteadyNowMs() {
       .count();
 }
 
-}  // namespace
+}
 
 LanProbe::LanProbe(std::string str_beacon_type)
     : str_beacon_type_{std::move(str_beacon_type)} {
@@ -131,4 +131,4 @@ void LanProbe::Loop() {
   }
 }
 
-}  // namespace ora::server
+}

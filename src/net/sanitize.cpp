@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/Settings.cs @1f594e320 L500-538(实现全文;
-//          第十六批自 src/server/server_settings.cpp 迁入)
-//          The whole implementation (migrated from src/server/
-//          server_settings.cpp with batch 16).
 import std;
 
 #include "net/sanitize.hpp"
@@ -16,7 +12,7 @@ bool IsForbiddenName(std::string_view str_clean) {
   return str_clean == "Open" || str_clean == "Closed";
 }
 
-}  // namespace
+}
 
 std::string SanitizedName(std::string_view str_dirty) {
   if (str_dirty.empty())
@@ -53,4 +49,4 @@ std::string SanitizedPlayerName(std::string_view str_dirty,
   return str_clean;
 }
 
-}  // namespace ora::net
+}

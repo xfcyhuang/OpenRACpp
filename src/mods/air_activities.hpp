@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/Air/Fly.cs @1f594e320 +
-//          TakeOff.cs + Land.cs + FlyOffMap.cs + FlyIdle.cs +
-//          FlyForward.cs + FlyFollow.cs + ReturnToBase.cs + FallToEarth.cs
-//          + ../Resupply.cs
 #pragma once
 import std;
 
@@ -265,6 +261,6 @@ class Resupply final : public sim::Activity {
   sim::ResupplyType kind_active_resupply_types_ = sim::ResupplyType::None;
 };
 
-}  // namespace activities
+}
 
-}  // namespace ora::mods
+}

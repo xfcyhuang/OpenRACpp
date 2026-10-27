@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/Server/MapStatusCache.cs @1f594e320 L19-106
-//          (实现体)
-//          The implementation body.
 #include "server/map_status_cache.hpp"
 
 #include "map/map_players.hpp"
@@ -16,7 +13,7 @@ void LogLine(const std::function<void(std::string_view)>& fn_log,
     fn_log(str_line);
 }
 
-}  // namespace
+}
 
 MapStatusCache::MapStatusCache(
     MapStatusCacheDeps deps, StatusChangedFn fn_on_status_changed,
@@ -55,11 +52,7 @@ void MapStatusCache::RunLintTests(const map::MapPreview* p_map,
     for (const auto& fn_pass : deps_.vec_lint_passes)
       fn_pass(on_lint_failure, on_lint_warning, *p_map, *up_rules);
   } else {
-    // rules 装载失败的上游形态:各 pass 以 null rules 运行即抛,统一计入
-    // 失败(observable 等价 —— 状态 Incompatible;日志文本不展开)
-    // Upstream's rules-load-failure shape: every pass runs with null rules
-    // and throws, all counted failed (observably equivalent — the status is
-    // Incompatible; the log text stays unexpanded).
+
     b_failed = true;
   }
 
@@ -123,4 +116,4 @@ int MapStatusCache::StatusOf(const map::MapPreview& map) {
   return int4_status;
 }
 
-}  // namespace ora::server
+}

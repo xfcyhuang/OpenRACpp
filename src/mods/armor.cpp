@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Armor.cs 实现部分
-//          The implementation half.
 #include "mods/armor.hpp"
 
 namespace ora::mods {
@@ -12,4 +10,4 @@ ArmorInfoData ArmorInfoData::Parse(const meta::RecordObject& rec_info) {
   return data;
 }
 
-}  // namespace ora::mods
+}

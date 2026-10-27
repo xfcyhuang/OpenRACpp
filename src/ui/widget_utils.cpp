@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/WidgetUtils.cs @1f594e320(widget_utils.hpp
-// 的实现)
-// The implementation of widget_utils.hpp.
 import std;
 
 #include "ui/widget_utils.hpp"
@@ -372,7 +369,6 @@ std::string TruncateText(const std::string& str_text, int int4_width, gfx::Sprit
   return str_trimmed;
 }
 
-
 void TruncateLabelToTooltip(LabelWithTooltipWidget& label_target, const std::string& str_text) {
   const std::string str_truncated_text =
       TruncateText(str_text, label_target.bounds_widget.int4_width,
@@ -385,7 +381,6 @@ void TruncateLabelToTooltip(LabelWithTooltipWidget& label_target, const std::str
   else
     label_target.fn_get_tooltip_text = nullptr;
 }
-
 
 void TruncateButtonToTooltip(ButtonWidget& button_target, const std::string& str_text) {
   const std::string str_truncated_text =
@@ -555,4 +550,4 @@ void BindPlayerNameAndStatus(LabelWithTooltipWidget& label_target,
   label_target.fn_get_text();
 }
 
-}  // namespace ora::ui
+}

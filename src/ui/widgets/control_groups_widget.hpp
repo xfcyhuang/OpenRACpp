@@ -46,4 +46,4 @@ class ControlGroupsWidget : public Widget {
   std::vector<HotkeyReference> vec_jump_to_group_hotkeys_;
 };
 
-}  // namespace ora::ui
+}

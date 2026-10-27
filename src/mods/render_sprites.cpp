@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/RenderSprites.cs @1f594e320
-//          L24-302(实现部分;头注见 render_sprites.hpp)
-//          The implementation half of RenderSprites.cs L24-302 (the header
-//          note lives in render_sprites.hpp).
 #include "mods/render_sprites.hpp"
 
 #include "game/actor_info.hpp"
@@ -17,10 +13,6 @@ namespace ora::mods {
 
 namespace {
 
-/// (DamageState, Prefix)[] 的有序四档(L85-91;Critical 最先 —— state >= 档
-/// 位即取,后三档作回退)
-/// The ordered four tiers (L85-91; Critical first — a state >= the tier
-/// takes it, the rest are fallbacks).
 constexpr std::pair<sim::DamageState, std::string_view> kDamagePrefixes[] = {
     {sim::DamageState::Critical, "critical-"},
     {sim::DamageState::Heavy, "damaged-"},
@@ -35,10 +27,7 @@ std::optional<std::string> RecStringOpt(const meta::RecordObject& rec,
   return std::nullopt;
 }
 
-}  // namespace
-
-// ———— AnimationWrapper(L93-142)————
-// ———— AnimationWrapper (L93-142) ————
+}
 
 void RenderSprites::AnimationWrapper::CachePalette(
     gfx::WorldRenderer& wr, const sim::Player& owner) {
@@ -48,8 +37,7 @@ void RenderSprites::AnimationWrapper::CachePalette(
 }
 
 void RenderSprites::AnimationWrapper::OwnerChanged() {
-  // 下次绘制时重取调色板引用
-  // Re-fetch the palette reference on the next draw.
+
   if (b_is_player_palette)
     ptr_palette_reference = nullptr;
 }
@@ -78,9 +66,6 @@ bool RenderSprites::AnimationWrapper::Tick() {
   return b_updated;
 }
 
-// ———— Info 解析面(L30-45/74-80)————
-// ———— The Info parse face (L30-45/74-80) ————
-
 RenderSpritesInfoData RenderSpritesInfoData::Parse(
     const meta::RecordObject& rec_info) {
   RenderSpritesInfoData data;
@@ -100,16 +85,14 @@ RenderSpritesInfoData RenderSpritesInfoData::Parse(
 }
 
 namespace {
-/// ToLowerInvariant(ASCII 面;上游 GetImage 的恒小写面)
-/// ToLowerInvariant (the ASCII face; upstream GetImage's always-lowercase
-/// face).
+
 std::string ToLowerInvariant(std::string str_value) {
   for (char& c : str_value)
     if (c >= 'A' && c <= 'Z')
       c = static_cast<char>(c - 'A' + 'a');
   return str_value;
 }
-}  // namespace
+}
 
 std::string RenderSpritesInfoData::GetImage(
     const game::ActorInfo& actor, std::string_view str_faction) const {
@@ -121,9 +104,6 @@ std::string RenderSpritesInfoData::GetImage(
   return ToLowerInvariant(str_image.empty() ? std::string{actor.Name()}
                                             : str_image);
 }
-
-// ———— RenderSprites(L160-301)————
-// ———— RenderSprites (L160-301) ————
 
 gfx::Animation::Deps RenderSprites::MakeAnimationDeps(Actor& self) {
   return MakeAnimationDeps(self.world());
@@ -139,7 +119,7 @@ gfx::Animation::Deps RenderSprites::MakeAnimationDeps(sim::World& world) {
 }
 
 std::function<WAngle()> RenderSprites::MakeFacingFunc(Actor& self) {
-  // L151-158
+
   sim::IFacing* ptr_facing = self.TraitOrDefault<sim::IFacing>();
   if (ptr_facing == nullptr)
     return [] { return WAngle{}; };
@@ -150,10 +130,7 @@ std::function<WAngle()> RenderSprites::MakeFacingFunc(Actor& self) {
 RenderSprites::RenderSprites(const ActorInitializer& init,
                              const RenderSpritesInfoData& info_data)
     : info_data_(info_data) {
-  // L163:.GetValue<FactionInit, string>(self.Owner.Faction.InternalName)
-  // —— 缺省走 Owner 阵营(C++ 取 InternalName 与上游 GetString 的域一致)
-  // L163's GetValue falls back to the owner's faction (C++ takes the
-  // InternalName, the same domain as upstream's GetString).
+
   std::string str_faction =
       init.Self().Owner() != nullptr
           ? init.Self().Owner()->Faction().InternalName
@@ -178,19 +155,19 @@ void RenderSprites::UpdatePalette() {
     anim.OwnerChanged();
 }
 
-void RenderSprites::OnOwnerChanged(Actor& /*self*/, sim::Player&,
+void RenderSprites::OnOwnerChanged(Actor& , sim::Player&,
                                    sim::Player&) {
   UpdatePalette();
 }
 
-void RenderSprites::OnEffectiveOwnerChanged(Actor& /*self*/,
+void RenderSprites::OnEffectiveOwnerChanged(Actor& ,
                                             sim::Player&, sim::Player&) {
   UpdatePalette();
 }
 
 void RenderSprites::Render(Actor& self, gfx::WorldRenderer& wr,
                            std::vector<gfx::RenderItem>& vec_out) {
-  // L185-201
+
   if (b_should_refresh_palettes_) {
     b_should_refresh_palettes_ = false;
     for (auto& a : vec_anims_) {
@@ -209,7 +186,7 @@ void RenderSprites::Render(Actor& self, gfx::WorldRenderer& wr,
 
 void RenderSprites::RenderAnimations(Actor& self,
                                      std::vector<gfx::RenderItem>& vec_out) {
-  // L203-213
+
   for (auto& a : vec_anims_) {
     if (!a.IsVisible())
       continue;
@@ -225,7 +202,7 @@ void RenderSprites::RenderAnimations(Actor& self,
 
 std::vector<Rectangle> RenderSprites::ScreenBounds(Actor& self,
                                                    gfx::WorldRenderer& wr) {
-  // L215-220
+
   std::vector<Rectangle> vec_bounds;
   for (auto& a : vec_anims_)
     if (a.IsVisible())
@@ -236,7 +213,7 @@ std::vector<Rectangle> RenderSprites::ScreenBounds(Actor& self,
 }
 
 void RenderSprites::Tick(Actor& self) {
-  // L222-235
+
   bool b_updated = false;
   for (auto& a : vec_anims_)
     b_updated |= a.Tick();
@@ -248,10 +225,7 @@ void RenderSprites::Tick(Actor& self) {
 void RenderSprites::Add(gfx::AnimationWithOffset& anim,
                         std::string_view str_palette,
                         bool b_is_player_palette) {
-  // L237-248:缺省调色板 = Info.Palette ?? Info.PlayerPalette(且玩家域当且
-  // 仅当 Info.Palette 为 null)
-  // L237-248: the default palette = Info.Palette ?? Info.PlayerPalette (and
-  // the player domain iff Info.Palette is null).
+
   AnimationWrapper wrapper;
   wrapper.ptr_animation = &anim;
   if (str_palette.empty()) {
@@ -269,7 +243,7 @@ void RenderSprites::Add(gfx::AnimationWithOffset& anim,
 }
 
 void RenderSprites::Remove(gfx::AnimationWithOffset& anim) {
-  // L250-253
+
   std::erase_if(vec_anims_, [&anim](const AnimationWrapper& a) {
     return a.ptr_animation == &anim;
   });
@@ -277,7 +251,7 @@ void RenderSprites::Remove(gfx::AnimationWithOffset& anim) {
 
 std::string RenderSprites::UnnormalizeSequence(
     std::string_view str_sequence) {
-  // L255-268
+
   for (const auto& [state, prefix] : kDamagePrefixes) {
     if (str_sequence.starts_with(prefix)) {
       return std::string{
@@ -291,7 +265,7 @@ std::string RenderSprites::UnnormalizeSequence(
 std::string RenderSprites::NormalizeSequence(const gfx::Animation& anim,
                                              sim::DamageState state,
                                              std::string_view str_sequence) {
-  // L270-280
+
   std::string str_base = UnnormalizeSequence(str_sequence);
 
   for (const auto& [tier_state, prefix] : kDamagePrefixes) {
@@ -305,11 +279,7 @@ std::string RenderSprites::NormalizeSequence(const gfx::Animation& anim,
 }
 
 int2 RenderSprites::AutoRenderSize() const {
-  // L289-295:首可见且有序列者;尺寸 = Image.Size.AsVector2()×Scale 后
-  // int2.FromVector 的逐轴截断(上游 float 域乘法)
-  // L289-295: the first visible one with a live sequence; the size =
-  // Image.Size.AsVector2()×Scale fed through int2.FromVector's per-axis
-  // truncation (upstream's float-domain product).
+
   for (const auto& b : vec_anims_) {
     if (b.IsVisible() && b.ptr_animation->AnimationRef->CurrentSequence() !=
                              nullptr) {
@@ -325,13 +295,9 @@ int2 RenderSprites::AutoRenderSize() const {
   return int2{};
 }
 
-void RenderSprites::ModifyActorPreviewInit(Actor& /*self*/,
+void RenderSprites::ModifyActorPreviewInit(Actor& ,
                                            sim::TypeDictionary& inits) {
-  // L297-301:inits 无 FactionInit 时补 ctor 解析的阵营(init 的所有权 =
-  // 本 trait 成员,镜像上游 inits.Add;每 actor 构造至多一次)
-  // L297-301: seed the ctor-resolved faction when inits lacks a FactionInit
-  // (the init's ownership = a trait member, mirroring upstream's inits.Add;
-  // at most once per actor construction).
+
   if (!inits.WithInterface<sim::FactionInit>().empty())
     return;
 
@@ -339,4 +305,4 @@ void RenderSprites::ModifyActorPreviewInit(Actor& /*self*/,
   inits.Add(up_owned_faction_init_.get());
 }
 
-}  // namespace ora::mods
+}

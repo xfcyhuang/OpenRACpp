@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/SupportPowerManager.cs
-//          @1f594e320 L21-320 + SupportPower.cs L18-260 的实现面
-//          The implementation face of L21-320 + SupportPower.cs L18-260.
 #include "mods/support_powers.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -36,7 +33,7 @@ std::optional<bool> FieldBool(const meta::RecordObject& rec_info,
   return std::nullopt;
 }
 
-}  // namespace
+}
 
 SupportPowerInfoData SupportPowerInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -504,11 +501,7 @@ std::vector<std::unique_ptr<net::Order>> SelectGenericPowerTarget::Order(
 
 std::vector<std::unique_ptr<net::Order>> SelectGenericPowerTarget::OrderInner(
     sim::World& world, CPos cell, int2, const MouseInput&) {
-  // CancelInputMode 经 AdoptOrderGenerator 可能销毁 *this(注册表产物换
-  // 默认生成器)—— 成员读全部前置于取消
-  // CancelInputMode may destroy *this through AdoptOrderGenerator (the
-  // registry product swaps to the default generator) — every member read
-  // precedes the cancel.
+
   const std::string str_key = str_order_key_;
   sim::Actor* ptr_subject = manager_.Self();
   world.CancelInputMode();
@@ -535,4 +528,4 @@ std::string SelectGenericPowerTarget::GetCursor(sim::World& world, CPos cell,
                                     : info_.str_blocked_cursor;
 }
 
-}  // namespace ora::mods
+}

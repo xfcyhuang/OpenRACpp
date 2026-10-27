@@ -1,5 +1,3 @@
-// UPSTREAM: NONE —— 自有基础设施(见 udp_socket.hpp 头注)
-// NONE = in-house infrastructure (see udp_socket.hpp's header note).
 #include "platform/udp_socket.hpp"
 
 namespace ora::platform {
@@ -119,4 +117,4 @@ void UdpSocket::Close() {
     closesocket(h_socket);
 }
 
-}  // namespace ora::platform
+}

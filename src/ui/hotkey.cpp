@@ -1,11 +1,3 @@
-// UPSTREAM: OpenRA.Game/Input/Hotkey.cs + HotkeyReference.cs +
-//          HotkeyDefinition.cs + HotkeyManager.cs + Keycode.cs(KeycodeExts)+
-//          IInputHandler.cs(ModifiersExts) @1f594e320(hotkey.hpp 的实现;
-//          键名/fluent 名表 = platform/keycode.hpp 枚举体 × 上游
-//          KeycodeFluentKeys,238 项同源生成)
-// The implementation of hotkey.hpp (the key-name/fluent tables generated
-// from the platform/keycode.hpp enum body × the upstream KeycodeFluentKeys,
-// 238 entries from the same source).
 import std;
 
 #include "ui/hotkey.hpp"
@@ -20,7 +12,7 @@ namespace {
 struct KeycodeNameEntry {
   const char* str_name;
   Keycode key_kind;
-  const char* str_fluent;  // nullptr = fluent 表未收录 | absent upstream
+  const char* str_fluent;
 };
 
 constexpr std::array<KeycodeNameEntry, 238> kKeycodeNames{{
@@ -303,7 +295,7 @@ std::string GetMessageOrDefault(std::string_view str_key) {
   return fluent::FluentProvider::Instance().GetMessage(str_key);
 }
 
-}  // namespace
+}
 
 bool Hotkey::TryParse(std::string_view sv_s, Hotkey& result_out) {
   result_out = Invalid();
@@ -327,9 +319,7 @@ bool Hotkey::TryParse(std::string_view sv_s, Hotkey& result_out) {
 }
 
 std::string Hotkey::ToString() const {
-  // "{Key} {Modifiers:F}":[Flags] 枚举格式 = 枚举名(无值名组合回落数值)
-  // "{Key} {Modifiers:F}": the [Flags] enum format = the enum name (unnamed
-  // combinations fall to the numeric text)
+
   std::string str_modifiers;
   for (const auto& [str_entry_name, mods_entry] : kModifierNames)
     if (mods_entry == kind_modifiers) {
@@ -386,8 +376,7 @@ std::string keycode_exts::DisplayString(Keycode key_kind) {
 }
 
 bool modifiers_exts::TryParseModifiers(std::string_view sv_name, Modifiers& mods_out) {
-  // Enum.TryParse 的 [Flags] 面:逗号名按位或(IgnoreCase)
-  // Enum.TryParse's [Flags] face: comma-joined names ORed (ignoreCase)
+
   const auto parse_single = [](std::string_view sv_part, Modifiers& mods_part) {
     for (const auto& [str_entry_name, mods_entry] : kModifierNames)
       if (IEquals(sv_part, str_entry_name)) {
@@ -433,10 +422,7 @@ std::string modifiers_exts::DisplayString(Modifiers mods_kind) {
 }
 
 HotkeyReference HotkeyReferenceFromNameOrCode(std::string_view str_name) {
-  // GetHotkeyReference 尾段(HotkeyManager.cs L58-66):硬编码解析,失败 =
-  // Invalid
-  // GetHotkeyReference's tail (HotkeyManager.cs L58-66): the hardcoded
-  // parse, Invalid on failure.
+
   const std::string str_name_owned{str_name};
   return HotkeyReference([str_name_owned]() {
     Hotkey hk_key;
@@ -459,8 +445,6 @@ HotkeyDefinition::HotkeyDefinition(std::string str_name_in, const yaml::MiniYaml
         "FieldLoader: Cannot parse `{}` into field `value` of type `OpenRA.Hotkey`", sv_value));
   };
 
-  // HotkeyDefinition.cs L37-38:node.Value 非空 → GetValue<Hotkey>("value")
-  // HotkeyDefinition.cs L37-38: a non-empty node.Value → GetValue<Hotkey>("value")
   if (yaml_node.Value != nullptr && !yaml_node.Value->empty()) {
     if (!Hotkey::TryParse(*yaml_node.Value, hk_default))
       throw throw_invalid(*yaml_node.Value);
@@ -482,11 +466,6 @@ HotkeyDefinition::HotkeyDefinition(std::string str_name_in, const yaml::MiniYaml
         vec_contexts.push_back(std::string{kContextFluentPrefix} + "." + str_context);
   }
 
-  // Platform 覆盖(HotkeyDefinition.cs L52-56;Platform.CurrentPlatform 的
-  // C++ 固定面 = Windows,其他平台随打包批)
-  // The Platform override (HotkeyDefinition.cs L52-56; the fixed C++ face of
-  // Platform.CurrentPlatform = Windows, other platforms with the packaging
-  // batch).
   if (const yaml::MiniYamlNode* node_platform = yaml_node.NodeWithKeyOrDefault("Platform")) {
     if (const yaml::MiniYamlNode* node_override =
             node_platform->Value.NodeWithKeyOrDefault("Windows")) {
@@ -637,4 +616,4 @@ const HotkeyDefinition* HotkeyManager::GetFirstDuplicate(const HotkeyDefinition&
   return nullptr;
 }
 
-}  // namespace ora::ui
+}

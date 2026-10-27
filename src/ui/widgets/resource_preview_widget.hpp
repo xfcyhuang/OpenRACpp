@@ -49,4 +49,4 @@ class ResourcePreviewWidget : public Widget {
   Size size_ideal_preview_{0, 0};
 };
 
-}  // namespace ora::ui
+}

@@ -1,12 +1,7 @@
-// UPSTREAM: OpenRA.Platforms.Default/Sdl2HardwareCursor.cs @1f594e320 L20-73(实现)
-// + Sdl2PlatformWindow.cs L364-377(DoublePixelData 实现)
-// Implementation of the hardware cursor; the pixel masks
-// (0x00FF0000/0x0000FF00/0x000000FF/0xFF000000) and the 3-retry loop are
-// verbatim upstream.
 import std;
-#include <cstdio>  // stderr 为宏,不穿越 import 边界(规范允许的并用正形态) | stderr is a macro; the spec-sanctioned mixed form
+#include <cstdio>
 
-#include <SDL2/SDL.h>  // 第三方 C 头(std_import_check 白名单登记) | third-party C header (registered in the std_import_check whitelist)
+#include <SDL2/SDL.h>
 
 #include "platform/sdl2_hardware_cursor.hpp"
 
@@ -39,22 +34,13 @@ Sdl2HardwareCursor::Sdl2HardwareCursor(int int4_width, int int4_height,
     if (ptr_surface_ == nullptr)
       throw std::runtime_error{std::format("Failed to create surface: {}", SDL_GetError())};
 
-    // 上游 Marshal.PtrToStructure<SDL_Surface> + Marshal.Copy(data, 0,
-    // sur.pixels, len) 的真结构体直写形态。
-    // The real-struct form of upstream's Marshal.PtrToStructure<SDL_Surface>
-    // + Marshal.Copy(data, 0, sur.pixels, len).
     auto* const ptr_surface = static_cast<SDL_Surface*>(ptr_surface_);
     std::memcpy(ptr_surface->pixels, span_data.data(), span_data.size());
 
-    // Windows 上偶发失败、重试常成(上游注释照抄)。
-    // Very occasionally fails on Windows, but often works when retried
-    // (verbatim upstream comment).
     for (int int4_retries = 0; int4_retries < 3 && ptr_cursor_ == nullptr; int4_retries++)
       ptr_cursor_ = SDL_CreateColorCursor(ptr_surface, int2_hotspot.X, int2_hotspot.Y);
   } catch (...) {
-    // 上游 catch → Dispose → rethrow 的等价物(释放已建资源再抛)。
-    // The equivalent of upstream's catch → Dispose → rethrow (release the
-    // partially-built resources, then rethrow).
+
     if (ptr_cursor_ != nullptr) {
       SDL_FreeCursor(static_cast<SDL_Cursor*>(ptr_cursor_));
       ptr_cursor_ = nullptr;
@@ -85,4 +71,4 @@ Sdl2HardwareCursor::~Sdl2HardwareCursor() {
   }
 }
 
-}  // namespace ora::platform
+}

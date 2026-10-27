@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LogicKeyListenerWidget.cs @1f594e320 L19-36(全文)。
 import std;
 
 #include "ui/widgets/logic_key_listener_widget.hpp"
@@ -18,4 +17,4 @@ bool LogicKeyListenerWidget::HandleKeyPress(const KeyInput& e_input) {
   return false;
 }
 
-}  // namespace ora::ui
+}

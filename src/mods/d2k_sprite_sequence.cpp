@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.D2k/Graphics/D2kSpriteSequence.cs @1f594e320 L19-116
-//          (d2k_sprite_sequence.hpp 的实现)
-//          Implementation of d2k_sprite_sequence.hpp.
 import std;
 #include "mods/d2k_sprite_sequence.hpp"
 
@@ -8,9 +5,6 @@ import std;
 
 namespace ora::mods::d2k {
 
-// core::Vector3 的渲染运算在 ora::gfx(ADL 不达;显式引入)
-// core::Vector3's rendering arithmetic lives in ora::gfx (beyond ADL;
-// imported explicitly).
 using gfx::operator+;
 
 std::unique_ptr<gfx::ISpriteSequence> D2kSpriteSequenceLoader::CreateSequence(
@@ -46,15 +40,11 @@ void D2kSpriteSequence::ReserveSprites(const std::string& str_tile_set,
   const gfx::BlendMode kind_blend_mode =
       LoadBlendMode("BlendMode", gfx::BlendMode::Alpha, yaml_data, &yaml_defaults);
 
-  // 仅在需要重映射时挂 AdjustFrame(上游 null 委托语义)
-  // AdjustFrame attaches only when a remap is needed (upstream's null-
-  // delegate semantics).
   gfx::AdjustFrameFn fn_adjust_frame = nullptr;
   if (color_remap_.argb != core::Color{}.argb || b_convert_shroud_to_fog_)
     fn_adjust_frame = [this](const gfx::ISpriteFrame& frame_f, std::int32_t,
                            std::int32_t) -> const gfx::ISpriteFrame* {
-      // f is R8Loader.RemappableFrame → WithSequenceFlags;否则原帧
-      // f is R8Loader.RemappableFrame → WithSequenceFlags; else the input.
+
       if (const auto* frame_rf = dynamic_cast<const fmt::R8RemappableFrame*>(&frame_f))
         return &deque_wrapped_frames_.emplace_back(
             frame_rf->WithSequenceFlags(b_use_shadow_, b_convert_shroud_to_fog_, color_remap_));
@@ -109,4 +99,4 @@ void D2kSpriteSequence::ReserveSprites(const std::string& str_tile_set,
   }
 }
 
-}  // namespace ora::mods::d2k
+}

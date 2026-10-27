@@ -62,4 +62,4 @@ class LineGraphWidget : public Widget {
   void BindDefaultDelegates();
 };
 
-}  // namespace ora::ui
+}

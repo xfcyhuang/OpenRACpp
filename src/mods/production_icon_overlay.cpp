@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithProductionIconOverlay.cs +
-//          Traits/Render/ProductionIconOverlayManager.cs @1f594e320
-//          (实现部分)
-//          The implementation halves.
 #include "mods/production_icon_overlay.hpp"
 
 #include "game/actor_info.hpp"
@@ -116,4 +112,4 @@ std::string ProductionIconOverlayManager::MakeKey(
   return str_prefix_ + std::string{str_name};
 }
 
-}  // namespace ora::mods
+}

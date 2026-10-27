@@ -1,13 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/AudReader.cs @1f594e320 + AudLoader.cs
-// 的嗅探/try 面:逐句照抄;两解码流(ReadOnlyAdapterStream 的
-// BufferData 循环)物化为整段输出 —— Queue<byte> 逐字节 Enqueue 改
-// vector 追加,上游 return true(流尽)改循环退出,数据面逐字节等价。
-// [UPSTREAM continued] AudReader.cs + AudLoader.cs's sniff/try surface, copied
-// statement by statement; the two decode streams (the ReadOnlyAdapterStream
-// BufferData loops) materialize into one output — the byte-by-byte
-// Queue.Enqueue becomes a vector append and upstream's return true
-// (stream exhausted) becomes loop exit; the data plane stays byte-for-byte
-// equivalent.
 #include "formats/aud_reader.hpp"
 
 #include "formats/ima_adpcm.hpp"
@@ -16,9 +6,6 @@
 namespace ora::fmt {
 namespace {
 
-/// AudChunk.Read(AudReader.cs L36-49):8 字节块头;魔数失配逐字抛。
-/// AudChunk.Read (AudReader.cs L36-49): the 8-byte chunk header; a magic
-/// mismatch throws verbatim.
 struct AudChunk {
   std::int32_t int4_compressed_size;
   std::int32_t int4_output_size;
@@ -30,7 +17,7 @@ struct AudChunk {
   }
 };
 
-}  // namespace
+}
 
 bool LoadAudSound(std::span<const std::byte> vec_file, AudInfo& info) {
   auto reader = SpanReader{vec_file};
@@ -41,10 +28,6 @@ bool LoadAudSound(std::span<const std::byte> vec_file, AudInfo& info) {
   info.int4_sample_bits = (uint1_audio_flags & 0x2) == 0 ? 8 : 16;
   info.int4_channels = (uint1_audio_flags & 0x1) == 0 ? 1 : 2;
 
-  // (float)(outputSize * 8) / (channels * sampleBits * sampleRate):三段
-  // int 乘积均按 C# unchecked 回绕语义复刻。
-  // (float)(outputSize * 8) / (channels * sampleBits * sampleRate): all
-  // three int products keep C#'s unchecked wrap semantics.
   const auto uint4_numerator = static_cast<std::uint32_t>(info.int4_output_size) * 8u;
   const auto uint4_denominator = static_cast<std::uint32_t>(info.int4_channels) *
                                  static_cast<std::uint32_t>(info.int4_sample_bits) *
@@ -69,13 +52,7 @@ std::vector<std::byte> DecodeAudPcm(std::span<const std::byte> vec_file, const A
 
   switch (info.enum_format) {
     case AudSoundFormat::ImaAdpcm: {
-      // ImaAdpcmAudStream(L100-158):index/currentSample 跨块持久;
-      // 每输入字节先低半字节,baseOffset < outputSize 才取高半字节(末字
-      // 节可能只用一半)。
-      // ImaAdpcmAudStream (L100-158): index/currentSample persist across
-      // chunks; each input byte feeds the low nibble first, the high nibble
-      // only while baseOffset < outputSize (the final byte may be half
-      // used).
+
       auto int4_index = 0;
       auto int4_current_sample = 0;
       auto int4_base_offset = 0;
@@ -93,7 +70,7 @@ std::vector<std::byte> DecodeAudPcm(std::span<const std::byte> vec_file, const A
           int4_base_offset += 2;
 
           if (int4_base_offset < info.int4_output_size) {
-            /* possible that only half of the final byte is used! */
+
             int2_t = ima_adpcm::DecodeImaAdpcmSample(static_cast<std::uint8_t>(uint1_b >> 4), int4_index,
                                                      int4_current_sample);
             vec_out.push_back(static_cast<std::byte>(int2_t));
@@ -109,16 +86,7 @@ std::vector<std::byte> DecodeAudPcm(std::span<const std::byte> vec_file, const A
     }
 
     case AudSoundFormat::WestwoodCompressed: {
-      // WestwoodCompressedAudStream(L160-203):outputBuffer 的
-      // EnsureArraySize 为"增长 = 全新零数组"(new byte[n],旧内容丢弃;
-      // 不增长时保留 —— 短写块的 OutputSize 尾段 = 上一块残留,上游可观测
-      // 语义,照抄);sample 每块自 0x80 重起(Decode 局部量)。
-      // WestwoodCompressedAudStream (L160-203): the outputBuffer's
-      // EnsureArraySize means "growing = a fresh zeroed array" (new
-      // byte[n] discarding the old; kept as-is when not growing — a short
-      // decode block's OutputSize tail is the previous chunk's residue,
-      // upstream's observable semantics, kept); sample restarts at 0x80
-      // per chunk (a Decode local).
+
       auto vec_input_buffer = std::vector<std::byte>{};
       auto vec_output_buffer = std::vector<std::byte>{};
 
@@ -166,10 +134,9 @@ bool TryParseAud(std::span<const std::byte> vec_file, AudInfo& info, std::vector
     vec_pcm = DecodeAudPcm(vec_file, info);
     return true;
   } catch (...) {
-    // Not a supported AUD(上游 catch 面照抄)。
-    // Not a supported AUD (upstream's catch surface, kept).
+
     return false;
   }
 }
 
-}  // namespace ora::fmt
+}

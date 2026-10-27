@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/BackgroundWidget.cs @1f594e320 L18-43(全文)。
-// The whole of BackgroundWidget.cs L18-43.
 #pragma once
 import std;
 
@@ -28,4 +26,4 @@ class BackgroundWidget : public Widget {
   bool LoadFieldOrProperty(std::string_view str_key, std::string_view str_value) override;
 };
 
-}  // namespace ora::ui
+}

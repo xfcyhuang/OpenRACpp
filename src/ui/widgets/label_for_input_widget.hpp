@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelForInputWidget.cs @1f594e320 L20-48(全文)。
 #pragma once
 import std;
 
@@ -45,4 +44,4 @@ class LabelForInputWidget : public LabelWidget {
   core::CachedTransform<bool, core::Color> cache_text_color_;
 };
 
-}  // namespace ora::ui
+}

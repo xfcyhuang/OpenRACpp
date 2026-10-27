@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/IngameMenuLogic.cs
-//          @1f594e320 L23-647 全文(实现部分)。
 #include "mods/ingame_menu_logic.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -102,7 +100,7 @@ bool IsLoadPanelEnabled(const game::ModData& mod_data) {
   return false;
 }
 
-}  // namespace
+}
 
 bool IngameMenuLogic::b_last_game_editor_ = false;
 
@@ -512,4 +510,4 @@ void RegisterIngameMenuLogic() {
       });
 }
 
-}  // namespace ora::mods
+}

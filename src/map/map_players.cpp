@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Game/Map/PlayerReference.cs @1f594e320 + MapPlayers.cs
-//          (map_players.hpp 的实现) | The implementation of map_players.hpp.
 import std;
 
 #include "map/map_players.hpp"
@@ -16,12 +14,12 @@ std::string_view ValueOf(const yaml::MiniYamlNode& node) {
                                      : std::string_view{};
 }
 
-}  // namespace
+}
 
 PlayerReference::PlayerReference(const yaml::MiniYaml& my,
                                  core::Color color_default_fallback)
     : Color{color_default_fallback} {
-  // FieldLoader.Load(this, my)(L59):逐键,全默认非 Required
+
   if (const auto* node = my.NodeWithKeyOrDefault("Name")) {
     if (node->Value.Value != nullptr)
       Name = *node->Value.Value;
@@ -61,9 +59,7 @@ PlayerReference::PlayerReference(const yaml::MiniYaml& my,
   if (const auto* node = my.NodeWithKeyOrDefault("Color"))
     Color = meta::GetColorValue("Color", ValueOf(*node));
   if (const auto* node = my.NodeWithKeyOrDefault("HomeLocation")) {
-    // CPos 解析("x,y";与 Size/CPos 同形,FieldLoader 的 CPos 解析器)
-    // The CPos parse ("x,y"; the same shape as Size — FieldLoader's CPos
-    // parser).
+
     const int2 uv = meta::GetSizeValue("HomeLocation", ValueOf(*node));
     HomeLocation = CPos{uv.X, uv.Y};
   }
@@ -91,9 +87,7 @@ PlayerReference::PlayerReference(const yaml::MiniYaml& my,
 
 MapPlayers::MapPlayers(std::span<const yaml::MiniYamlNode> player_definitions,
                        core::Color color_default_fallback) {
-  // L23-27:每个节点 → PlayerReference(new MiniYaml(pr.Key, pr.Value.Nodes)),
-  // 以 Name 为字典键(ToDictionary 重复键抛语义 —— 上游 ToDictionary 遇重
-  // 复键抛 ArgumentException;此处等价抛)
+
   for (const yaml::MiniYamlNode& node : player_definitions) {
     yaml::MiniYaml value_yaml;
     value_yaml.Nodes = node.Value.Nodes;
@@ -113,4 +107,4 @@ const PlayerReference* MapPlayers::Find(std::string_view name) const {
   return nullptr;
 }
 
-}  // namespace ora::map
+}

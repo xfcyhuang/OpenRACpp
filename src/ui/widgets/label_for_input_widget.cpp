@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelForInputWidget.cs @1f594e320 L20-48(全文)。
 import std;
 
 #include "ui/widgets/label_for_input_widget.hpp"
@@ -18,7 +17,7 @@ core::CachedTransform<bool, core::Color> MakeTextColorTransform(LabelForInputWid
       });
 }
 
-}  // namespace
+}
 
 LabelForInputWidget::LabelForInputWidget(WidgetArgs& args_args) : LabelWidget(args_args) {
   color_text_disabled = RequireChromeMetrics().GetColor("TextDisabledColor");
@@ -60,4 +59,4 @@ bool LabelForInputWidget::LoadFieldOrProperty(std::string_view str_key,
   return LabelWidget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Carryall.cs + Carryable.cs +
-//          AutoCarryall.cs + AutoCarryable.cs + CarryableHarvester.cs
-//          (注册装配)
 #include "meta/generic_record.hpp"
 #include "mods/carryall.hpp"
 #include "sim/actor.hpp"
@@ -52,4 +49,4 @@ void RegisterCommonTraitsBatch16() {
       });
 }
 
-}  // namespace ora::mods
+}

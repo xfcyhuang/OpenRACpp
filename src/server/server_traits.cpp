@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/Server/TraitInterfaces.cs @1f594e320 L30-62
-//          (DebugServerTrait 全文)
-//          TraitInterfaces.cs L30-62 (the whole of DebugServerTrait).
 import std;
 
 #include "server/server_traits.hpp"
@@ -45,4 +42,4 @@ void DebugServerTrait::GameEnded(Server& server) {
   std::println("GameEnded()");
 }
 
-}  // namespace ora::server
+}

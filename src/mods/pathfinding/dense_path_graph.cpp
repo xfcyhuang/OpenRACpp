@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Pathfinder/DensePathGraph.cs @1f594e320 +
-//          MapPathGraph.cs + GridPathGraph.cs + SparsePathGraph.cs
-//          (实现部分)
-//          The implementation halves.
 import std;
 
 #include "mods/pathfinding/dense_path_graph.hpp"
@@ -14,35 +10,27 @@ namespace ora::mods::pathfinding {
 
 using sim::BlockedByActor;
 
-// ———— 邻居表(L75-105;逐项照抄)————
 const std::vector<std::vector<CVec>>& DensePathGraph::DirectedNeighbors() {
-  // Sets of neighbors for each incoming direction. These exclude the
-  // neighbors which are guaranteed to be reached more cheaply by a path
-  // through our parent cell which does not include the current cell.
-  // (上游注释)| (upstream comment)
+
   static const std::vector<std::vector<CVec>> vec = {
-      {CVec{-1, -1}, CVec{0, -1}, CVec{1, -1}, CVec{-1, 0}, CVec{-1, 1}},  // TL
-      {CVec{-1, -1}, CVec{0, -1}, CVec{1, -1}},                            // T
-      {CVec{-1, -1}, CVec{0, -1}, CVec{1, -1}, CVec{1, 0}, CVec{1, 1}},    // TR
-      {CVec{-1, -1}, CVec{-1, 0}, CVec{-1, 1}},                            // L
+      {CVec{-1, -1}, CVec{0, -1}, CVec{1, -1}, CVec{-1, 0}, CVec{-1, 1}},
+      {CVec{-1, -1}, CVec{0, -1}, CVec{1, -1}},
+      {CVec{-1, -1}, CVec{0, -1}, CVec{1, -1}, CVec{1, 0}, CVec{1, 1}},
+      {CVec{-1, -1}, CVec{-1, 0}, CVec{-1, 1}},
       {CVec{-1, -1}, CVec{0, -1}, CVec{1, -1}, CVec{-1, 0},
-       CVec{1, 0}, CVec{-1, 1}, CVec{0, 1}, CVec{1, 1}},  // CVec.Directions
-      {CVec{1, -1}, CVec{1, 0}, CVec{1, 1}},              // R
+       CVec{1, 0}, CVec{-1, 1}, CVec{0, 1}, CVec{1, 1}},
+      {CVec{1, -1}, CVec{1, 0}, CVec{1, 1}},
       {CVec{-1, -1}, CVec{-1, 0}, CVec{-1, 1}, CVec{0, 1},
-       CVec{1, 1}},                                        // BL
-      {CVec{-1, 1}, CVec{0, 1}, CVec{1, 1}},               // B
-      {CVec{1, -1}, CVec{1, 0}, CVec{-1, 1}, CVec{0, 1}, CVec{1, 1}},  // BR
+       CVec{1, 1}},
+      {CVec{-1, 1}, CVec{0, 1}, CVec{1, 1}},
+      {CVec{1, -1}, CVec{1, 0}, CVec{-1, 1}, CVec{0, 1}, CVec{1, 1}},
   };
   return vec;
 }
 
 const std::vector<std::vector<CVec>>&
 DensePathGraph::DirectedNeighborsConservative() {
-  // With height discontinuities between the parent and current cell, we
-  // cannot optimize the possible neighbors.(上游注释段;仅排除父元方向)
-  // With height discontinuities between the parent and current cell, we
-  // cannot optimize the possible neighbors. (upstream comment; only the
-  // parent directions are excluded)
+
   static const std::vector<std::vector<CVec>> vec = [] {
     const std::vector<CVec> directions = {
         CVec{-1, -1}, CVec{0, -1}, CVec{1, -1}, CVec{-1, 0},
@@ -55,21 +43,20 @@ DensePathGraph::DirectedNeighborsConservative() {
       return out;
     };
     return std::vector<std::vector<CVec>>{
-        exclude(CVec{1, 1}),   // TL
-        exclude(CVec{0, 1}),   // T
-        exclude(CVec{-1, 1}),  // TR
-        exclude(CVec{1, 0}),   // L
-        directions,            // (center)
-        exclude(CVec{-1, 0}),  // R
-        exclude(CVec{1, -1}),  // BL
-        exclude(CVec{0, -1}),  // B
-        exclude(CVec{-1, -1}),  // BR
+        exclude(CVec{1, 1}),
+        exclude(CVec{0, 1}),
+        exclude(CVec{-1, 1}),
+        exclude(CVec{1, 0}),
+        directions,
+        exclude(CVec{-1, 0}),
+        exclude(CVec{1, -1}),
+        exclude(CVec{0, -1}),
+        exclude(CVec{-1, -1}),
     };
   }();
   return vec;
 }
 
-// ———— DensePathGraph ctor(L40-54)————
 DensePathGraph::DensePathGraph(Locomotor* locomotor, Actor* actor,
                                sim::World& world, BlockedByActor check,
                                std::function<int(CPos)> custom_cost,
@@ -91,7 +78,6 @@ DensePathGraph::DensePathGraph(Locomotor* locomotor, Actor* actor,
   check_terrain_height_ = world.Map().Grid().MaximumTerrainHeight() > 0;
 }
 
-// ———— GetConnections(L107-172)————
 std::vector<GraphConnection>& DensePathGraph::GetConnections(
     CPos position, const std::function<bool(CPos)>& target_predicate) {
   const std::uint8_t layer = position.Layer();
@@ -109,9 +95,6 @@ std::vector<GraphConnection>& DensePathGraph::GetConnections(
           ? DirectedNeighborsConservative()[index]
           : DirectedNeighbors()[index];
 
-  // OPT-A2:成员暂存缓冲替代每展开一次的 List 分配(见头注)
-  // OPT-A2: the member scratch buffer replaces the per-expansion List
-  // allocation (see the header).
   vec_scratch_.clear();
   vec_scratch_.reserve(directions.size() +
                        static_cast<std::size_t>(
@@ -165,7 +148,6 @@ std::vector<GraphConnection>& DensePathGraph::GetConnections(
   return vec_scratch_;
 }
 
-// ———— CanEnterNode(L174-180)————
 bool DensePathGraph::CanEnterNode(
     CPos src_node, CPos dest_node,
     const std::function<bool(CPos)>& target_predicate) const {
@@ -175,15 +157,12 @@ bool DensePathGraph::CanEnterNode(
          (in_reverse_ && target_predicate(dest_node));
 }
 
-// ———— GetPathCostToNode(L182-195)————
 int DensePathGraph::GetPathCostToNode(
     CPos src_node, CPos dest_node, CVec direction,
     const std::function<bool(CPos)>& target_predicate) const {
   short movement_cost = locomotor_->MovementCostToEnterCell(
       actor_, src_node, dest_node, check_, ignore_actor_);
 
-  // When doing searches in reverse, we must allow movement onto an
-  // inaccessible target location.(上游注释)| (upstream comment)
   if (movement_cost == kMovementCostForUnreachableCell && in_reverse_ &&
       target_predicate(dest_node))
     movement_cost = 0;
@@ -194,7 +173,6 @@ int DensePathGraph::GetPathCostToNode(
   return kPathCostForInvalidPath;
 }
 
-// ———— CalculateCellPathCost(L197-226)————
 int DensePathGraph::CalculateCellPathCost(CPos neighbor_c_pos, CVec direction,
                                           short movement_cost) const {
   int cell_cost = direction.X * direction.Y != 0
@@ -209,7 +187,6 @@ int DensePathGraph::CalculateCellPathCost(CPos neighbor_c_pos, CVec direction,
     cell_cost += custom_cell_cost;
   }
 
-  // Directional bonuses for smoother flow!(上游注释)| (upstream comment)
   if (lane_bias_) {
     const int ux = (neighbor_c_pos.X() + (in_reverse_ ? 1 : 0)) & 1;
     const int uy = (neighbor_c_pos.Y() + (in_reverse_ ? 1 : 0)) & 1;
@@ -224,7 +201,6 @@ int DensePathGraph::CalculateCellPathCost(CPos neighbor_c_pos, CVec direction,
   return cell_cost;
 }
 
-// ———— MapPathGraph(MapPathGraph.cs L26-54)————
 MapPathGraph::MapPathGraph(CellInfoLayerPool& layer_pool,
                            Locomotor* locomotor, Actor* actor,
                            sim::World& world, BlockedByActor check,
@@ -236,8 +212,7 @@ MapPathGraph::MapPathGraph(CellInfoLayerPool& layer_pool,
                      std::move(custom_cost), ignore_actor, lane_bias,
                      in_reverse},
       pooled_layer_{layer_pool.Get()} {
-  // As we support a search over the whole map area, use the pool to grab
-  // the CellInfos we need to track the graph state.(上游注释)
+
   vec_cell_info_for_layer_.resize(custom_movement_layers_.size(), nullptr);
   vec_cell_info_for_layer_[0] = &pooled_layer_.GetLayer();
   for (auto* cml : custom_movement_layers_)
@@ -254,12 +229,10 @@ void MapPathGraph::Set(CPos pos, CellInfo info) {
 }
 
 void MapPathGraph::Dispose() {
-  // L48-54:pooledLayer.Dispose()(RAII 成员再保险)
-  // L48-54: pooledLayer.Dispose() (the RAII member double-guards).
+
   pooled_layer_.Dispose();
 }
 
-// ———— GridPathGraph(GridPathGraph.cs L27-53)————
 GridPathGraph::GridPathGraph(Locomotor* locomotor, Actor* actor,
                              sim::World& world, BlockedByActor check,
                              std::function<int(CPos)> custom_cost,
@@ -272,7 +245,7 @@ GridPathGraph::GridPathGraph(Locomotor* locomotor, Actor* actor,
       grid_{grid} {}
 
 bool GridPathGraph::IsValidNeighbor(CPos neighbor) const {
-  // Enforce that we only search within the grid bounds.(上游注释)
+
   return grid_.Contains(neighbor);
 }
 
@@ -289,4 +262,4 @@ void GridPathGraph::Set(CPos pos, CellInfo info) {
   vec_infos_[static_cast<std::size_t>(InfoIndex(pos))] = std::move(info);
 }
 
-}  // namespace ora::mods::pathfinding
+}

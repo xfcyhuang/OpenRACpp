@@ -71,7 +71,7 @@ int ParsePortOrFallback(std::string_view sv_input, int int4_fallback) {
   return int4_value;
 }
 
-}  // namespace
+}
 
 ServerExternalModData* CurrentServerExternalMod() {
   auto& opt_mod = OptServerExternalMod();
@@ -641,4 +641,4 @@ void RegisterConnectionLogics() {
       });
 }
 
-}  // namespace ora::mods
+}

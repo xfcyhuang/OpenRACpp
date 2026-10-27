@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Orders/PlaceBuildingOrderGenerator.cs @1f594e320
-//          (实现部分)
-//          The implementation half.
 #include "mods/place_building_order_generator.hpp"
 
 #include "game/actor_info.hpp"
@@ -34,7 +31,7 @@ PlaceBuildingCellType MakeCellType(bool b_valid, bool b_line_build = false) {
   return cell;
 }
 
-}  // namespace
+}
 
 PlaceBuildingOrderGenerator::VariantWrapper::VariantWrapper(
     gfx::WorldRenderer& wr, ProductionQueue& queue, const game::ActorInfo& ai)
@@ -375,4 +372,4 @@ PlaceBuildingOrderGenerator::ClearBlockersOrders(
       *ptr_queue_->Actor()->Owner());
 }
 
-}  // namespace ora::mods
+}

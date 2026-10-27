@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/MusicPlaylist.cs @1f594e320
-//          L22-254 全文。
 #pragma once
 import std;
 
@@ -95,4 +93,4 @@ class MusicPlaylist final : public TraitBase,
   const game::MusicInfo* ptr_current_background_song_ = nullptr;
 };
 
-}  // namespace ora::mods
+}

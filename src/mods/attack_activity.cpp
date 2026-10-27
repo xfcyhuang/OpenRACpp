@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Activities/Attack.cs 实现部分
-//          The implementation half.
 #include "mods/attack_activity.hpp"
 
 #include "core/wdist.hpp"
@@ -13,8 +11,6 @@ namespace ora::mods::activities {
 
 namespace {
 
-/// AttackStatus 的 [Flags] 组合/测试(上游 |= 与 >= 比较)
-/// AttackStatus's [Flags] composition/test (upstream's |= and >=).
 constexpr Attack::AttackStatus operator|(Attack::AttackStatus a,
                                          Attack::AttackStatus b) {
   return static_cast<Attack::AttackStatus>(
@@ -27,7 +23,7 @@ constexpr bool HasAttackStatus(Attack::AttackStatus a,
          0;
 }
 
-}  // namespace
+}
 
 Attack::Attack(sim::Actor& self, const sim::Target& target,
                bool allow_movement, bool force_attack,
@@ -36,7 +32,7 @@ Attack::Attack(sim::Actor& self, const sim::Target& target,
       opt_target_line_color_{target_line_color},
       move_cooldown_helper_{self.world(), nullptr},
       target_{target} {
-  // L49-89
+
   b_child_has_priority_ = false;
 
   for (AttackBaseFace* t : self.TraitsImplementing<AttackBaseFace>())
@@ -52,16 +48,12 @@ Attack::Attack(sim::Actor& self, const sim::Target& target,
 
   move_cooldown_helper_.SetMobile(mobile_);
 
-  // The target may become hidden between the initial order request and the
-  // first tick (e.g. if queued)(上游注释)
   if ((target.Type() == sim::TargetType::Actor &&
        target.ActorPtr->CanBeViewedByPlayer(self.Owner())) ||
       target.Type() == sim::TargetType::FrozenActor ||
       target.Type() == sim::TargetType::Terrain) {
     last_visible_target_ = sim::Target::FromPos(target.CenterPosition());
 
-    // Lambdas can't use 'in' variables, so capture a copy for later
-    // (上游注释)
     const sim::Target& range_target = target;
     WDist min_range = WDist::MaxValue();
     for (AttackBaseFace* attack : vec_attack_traits_) {
@@ -87,12 +79,12 @@ Attack::Attack(sim::Actor& self, const sim::Target& target,
 
 sim::Target Attack::RecalculateTarget(sim::Actor& self,
                                       bool& b_target_is_hidden_actor) {
-  // L91-94
+
   return target_.Recalculate(self.Owner(), b_target_is_hidden_actor);
 }
 
 bool Attack::Tick(sim::Actor& self) {
-  // L96-156
+
   if (!IsCanceling() && !HasArmamentsFor(target_))
     Cancel(self, true);
 
@@ -130,8 +122,6 @@ bool Attack::Tick(sim::Actor& self) {
   if (result.has_value())
     return *result;
 
-  // Target is hidden or dead, and we don't have a fallback position to
-  // move towards(上游注释)
   if (b_use_last_visible_target_ &&
       !last_visible_target_.IsValidFor(&self))
     return true;
@@ -140,16 +130,12 @@ bool Attack::Tick(sim::Actor& self) {
   const sim::Target& check_target =
       b_use_last_visible_target_ ? last_visible_target_ : target_;
 
-  // We don't know where the target actually is, so move to where we last
-  // saw it(上游注释)
   if (b_use_last_visible_target_) {
-    // We've reached the assumed position but it is not there or we can't
-    // move any further - give up(上游注释)
+
     if (check_target.IsInRange(pos, dist_last_visible_maximum_range_) ||
         move_ == nullptr || dist_last_visible_maximum_range_ == WDist{0})
       return true;
 
-    // Move towards the last known position
     move_cooldown_helper_.NotifyMoveQueued();
     QueueChild(move_->MoveWithinRange(
         target_, WDist{0}, dist_last_visible_maximum_range_,
@@ -172,15 +158,15 @@ bool Attack::Tick(sim::Actor& self) {
   return true;
 }
 
-void Attack::OnLastRun(sim::Actor& /*self*/) {
-  // L158-162
+void Attack::OnLastRun(sim::Actor& ) {
+
   for (AttackBaseFace* attack : vec_attack_traits_)
     attack->SetIsAiming(false);
 }
 
 Attack::AttackStatus Attack::TickAttack(sim::Actor& self,
                                         AttackBaseFace* attack) {
-  // L164-252
+
   if (!target_.IsValidFor(&self))
     return AttackStatus::UnableToAttack;
 
@@ -193,18 +179,16 @@ Attack::AttackStatus Attack::TickAttack(sim::Actor& self,
 
   if (!attack->TargetFrozenActors() && !b_force_attack_ &&
       target_.Type() == sim::TargetType::FrozenActor) {
-    // Try to move within range, drop the target otherwise(上游注释)
+
     if (move_ == nullptr)
       return AttackStatus::UnableToAttack;
 
-    // revealsShroud.Where(!disabled).MaxByOrDefault(Range)
     RevealsShroud* rs = nullptr;
     for (RevealsShroud* s : vec_reveals_shroud_)
       if (!s->IsTraitDisabled() && (rs == nullptr ||
                                     s->Range() > rs->Range()))
         rs = s;
 
-    // Default to 2 cells if there are no active traits(上游注释)
     const WDist sight_range =
         rs != nullptr ? rs->Range() : WDist{2 * 1024};
 
@@ -216,16 +200,11 @@ Attack::AttackStatus Attack::TickAttack(sim::Actor& self,
     return AttackStatus::NeedsToMove;
   }
 
-  // Drop the target once none of the weapons are effective against it
-  // (上游注释)
   const std::vector<Armament*> vec_armaments =
       attack->ChooseArmamentsForTarget(target_, b_force_attack_);
   if (vec_armaments.empty())
     return AttackStatus::UnableToAttack;
 
-  // Update ranges. Exclude paused armaments except when ALL weapons are
-  // paused (e.g. out of ammo), in which case use the paused, valid weapon
-  // with highest range.(上游注释)
   bool b_has_active = false;
   WDist max_of_min_range = WDist{0};
   WDist min_of_max_range = WDist::MaxValue();
@@ -254,7 +233,7 @@ Attack::AttackStatus Attack::TickAttack(sim::Actor& self,
       (dist_min_range_.Length != 0 &&
        target_.IsInRange(pos, dist_min_range_)) ||
       (mobile_ != nullptr && !mobile_->CanInteractWithGroundLayer(&self))) {
-    // Try to move within range, drop the target otherwise(上游注释)
+
     if (move_ == nullptr)
       return AttackStatus::UnableToAttack;
 
@@ -270,18 +249,15 @@ Attack::AttackStatus Attack::TickAttack(sim::Actor& self,
 
   if (!attack->TargetInFiringArc(self, target_,
                                  attack->FacingTolerance())) {
-    // Mirror Turn activity checks.(上游注释)
+
     if (mobile_ == nullptr ||
         (!mobile_->IsTraitDisabled() && !mobile_->IsTraitPaused())) {
-      // Don't queue a Turn activity: Executing a child takes an additional
-      // tick during which the target may have moved again.(上游注释)
+
       facing_->SetFacing(TickFacing(
           facing_->Facing(),
           (attack->GetTargetPosition(pos, target_) - pos).Yaw(),
           facing_->TurnSpeed()));
 
-      // Check again if we turned enough and directly continue attacking if
-      // we did.(上游注释)
       if (!attack->TargetInFiringArc(
               self, target_, attack->FacingTolerance())) {
         attack_status_ = attack_status_ | AttackStatus::NeedsToTurn;
@@ -301,7 +277,7 @@ Attack::AttackStatus Attack::TickAttack(sim::Actor& self,
 
 void Attack::DoAttack(sim::Actor& self, AttackBaseFace* attack,
                       const std::vector<Armament*>& vec_armaments) {
-  // L254-259
+
   if (!attack->IsTraitPaused())
     for (Armament* a : vec_armaments)
       a->CheckFire(&self, facing_, target_);
@@ -309,14 +285,10 @@ void Attack::DoAttack(sim::Actor& self, AttackBaseFace* attack,
 
 void Attack::StanceChanged(sim::Actor& self, AutoTarget* auto_target,
                            UnitStance old_stance, UnitStance new_stance) {
-  // L261-270
-  // Cancel non-forced targets when switching to a more restrictive stance
-  // if they are no longer valid for auto-targeting(上游注释)
+
   if (new_stance > old_stance || b_force_attack_)
     return;
 
-  // If lastVisibleTarget is invalid we could never view the target in the
-  // first place, so we just drop it here too(上游注释)
   if (!last_visible_target_.IsValidFor(&self) ||
       !auto_target->HasValidTargetPriority(
           self, p_last_visible_owner_, bitset_last_visible_target_types_))
@@ -324,7 +296,7 @@ void Attack::StanceChanged(sim::Actor& self, AutoTarget* auto_target,
 }
 
 bool Attack::HasArmamentsFor(const sim::Target& target) {
-  // L278-281
+
   for (AttackBaseFace* attack : vec_attack_traits_)
     if (!attack->ChooseArmamentsForTarget(target, b_force_attack_)
              .empty())
@@ -332,4 +304,4 @@ bool Attack::HasArmamentsFor(const sim::Target& target) {
   return false;
 }
 
-}  // namespace ora::mods::activities
+}

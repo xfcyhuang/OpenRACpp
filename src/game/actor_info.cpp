@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/GameRules/ActorInfo.cs @1f594e320(actor_info.hpp
-//          的实现;LoadTraitInfo/拓扑序逐语义,见 hpp 头注)
-//          Implementation of actor_info.hpp — LoadTraitInfo and the
-//          topological order verbatim; see the hpp header notes.
 import std;
 #include "game/actor_info.hpp"
 #include "meta/field_loader.hpp"
@@ -10,24 +6,17 @@ namespace ora::game {
 
 namespace {
 
-/// 类型是否实现给定接口(RecordDesc::interfaces 含基类链接口)
-/// Whether the type implements the given interface (RecordDesc::interfaces
-/// includes the base-chain interfaces).
 bool ImplementsInterface(const meta::RecordDesc& desc, std::string_view str_interface) {
   for (const std::string_view sv_i : desc.interfaces)
     if (sv_i == str_interface)
       return true;
-  // 泛型接口闭式比较:IRulesetLoaded`1[[OpenRA.ActorInfo,…]] 这类带程序集
-  // 限定的全名按 "`1[[OpenRA.ActorInfo" 前缀匹配 IRulesetLoaded<ActorInfo>
-  // Generic-interface closed match: assembly-qualified names like
-  // IRulesetLoaded`1[[OpenRA.ActorInfo,…]] match IRulesetLoaded<ActorInfo>
-  // by the "`1[[<arg-namespace>." prefix.
+
   const std::size_t int4_gen = str_interface.find('<');
   if (int4_gen == std::string_view::npos)
     return false;
-  const std::string_view sv_open = str_interface.substr(0, int4_gen);      // "IRulesetLoaded"
-  const std::string_view sv_arg = str_interface.substr(int4_gen + 1);      // "ActorInfo>"
-  const std::string_view sv_argName = sv_arg.substr(0, sv_arg.find_first_of(">,"));  // "ActorInfo"
+  const std::string_view sv_open = str_interface.substr(0, int4_gen);
+  const std::string_view sv_arg = str_interface.substr(int4_gen + 1);
+  const std::string_view sv_argName = sv_arg.substr(0, sv_arg.find_first_of(">,"));
   for (const std::string_view sv_i : desc.interfaces) {
     const std::size_t int4_tick = sv_i.find('`');
     if (int4_tick == std::string_view::npos || sv_i.substr(0, int4_tick) != sv_open)
@@ -35,9 +24,7 @@ bool ImplementsInterface(const meta::RecordDesc& desc, std::string_view str_inte
     const std::size_t int4_bracket = sv_i.find("[[");
     if (int4_bracket == std::string_view::npos)
       continue;
-    // 实参全名取 "...[[OpenRA.Mods….AttackBaseInfo," → 取末段类型名比较
-    // The argument full name "...[[OpenRA.Mods….AttackBaseInfo," — compare
-    // the trailing type name.
+
     const std::string_view sv_full = sv_i.substr(int4_bracket + 2);
     const std::size_t int4_comma = sv_full.find(',');
     const std::string_view sv_typeName =
@@ -51,20 +38,14 @@ bool ImplementsInterface(const meta::RecordDesc& desc, std::string_view str_inte
   return false;
 }
 
-}  // namespace
+}
 
 ActorInfo::ActorInfo(std::string str_name, const yaml::MiniYaml& node)
     : str_name_{std::move(str_name)} {
   try {
     for (const yaml::MiniYamlNode& node_trait : node.Nodes) {
       try {
-        // HACK 注记(上游 L48-50):linter 场景 trait 缺失时只报错不炸;
-        // C++ 侧未知 trait 抛 YamlException(非 linter 行为,与上游
-        // InvalidOperationException 的运行时路径消息不同 —— 登记偏离)
-        // HACK note (upstream L48-50): the linter only reports missing
-        // traits; the C++ side raises YamlException for unknown traits (the
-        // non-linter path; the message differs from the upstream
-        // InvalidOperationException — registered deviation).
+
         const std::string_view sv_traitName =
             node_trait.Key != nullptr ? std::string_view{*node_trait.Key}
                                       : std::string_view{};
@@ -79,8 +60,7 @@ ActorInfo::ActorInfo(std::string str_name, const yaml::MiniYaml& node)
       }
     }
   } catch (const yaml::YamlException& e_except) {
-    // L62-65:统一包上 actor 名
-    // L62-65: uniformly rewrap with the actor name.
+
     throw yaml::YamlException(
         std::format("Actor type {}: {}", str_name_, e_except.what()));
   }
@@ -91,14 +71,11 @@ ActorInfo::ActorInfo(std::string str_name) : str_name_{std::move(str_name)} {}
 std::unique_ptr<meta::RecordObject> ActorInfo::LoadTraitInfo(
     std::string_view sv_trait_name, const yaml::MiniYaml& my,
     std::string& str_instance_name_out) {
-  // L78-79:junk 值检查
-  // L78-79: the junk-value check.
+
   if (my.Value != nullptr && !my.Value->empty())
     throw yaml::YamlException(
         std::format("Junk value `{}` on trait node {}", *my.Value, sv_trait_name));
 
-  // L83-84:'@' 切分 + CreateObject<TraitInfo>(name + "Info")
-  // L83-84: the '@' split + CreateObject<TraitInfo>(name + "Info").
   const std::size_t int4_at = sv_trait_name.find(kTraitInstanceSeparator);
   const std::string_view sv_type = int4_at == std::string_view::npos
                                        ? sv_trait_name
@@ -114,8 +91,7 @@ std::unique_ptr<meta::RecordObject> ActorInfo::LoadTraitInfo(
   try {
     meta::Load(rec_info.get(), my);
   } catch (const meta::MissingFieldsException& e_except) {
-    // L95-99:头部 = "Trait name {traitName}: " + 单/复数文案
-    // L95-99: header = "Trait name {traitName}: " + the singular/plural text.
+
     const std::string str_header = std::format(
         "Trait name {}: {}",
         sv_trait_name,
@@ -152,27 +128,16 @@ bool ActorInfo::HasTraitInfoOfInterface(std::string_view str_interface) const {
 }
 
 std::vector<const meta::RecordObject*> ActorInfo::TraitsInConstructOrder() const {
-  // L109-167 逐语义:resolved = 无依赖起点;每轮把"全部依赖已满足"的未解析
-  // 项移入 resolved,直到空;剩余 = 环/缺依赖 → 异常文本逐字
-  // L109-167 verbatim: resolved starts with dependency-free entries; each
-  // pass moves every unresolved entry whose dependencies are all satisfied
-  // into resolved until none remain; leftovers (cycles/missing) raise with
-  // the verbatim exception text.
+
   struct Entry {
     const meta::RecordObject* rec;
     const meta::RecordDesc* desc;
-    std::vector<std::string_view> vec_deps;         // Requires(必依赖)
-    std::vector<std::string_view> vec_optDeps;      // NotBefore(可选依赖)
+    std::vector<std::string_view> vec_deps;
+    std::vector<std::string_view> vec_optDeps;
   };
 
   const auto are_resolvable = [](std::string_view sv_dep, const meta::RecordDesc& desc_other) {
-    // a.IsAssignableFrom(b):b 的类名链或实现接口集中出现 a(简单名比较;
-    // 上游 Requires<T> 的 T 含接口形态,如 Requires<IHealthInfo> —— 接口
-    // 全名的末段与依赖名比对)
-    // a.IsAssignableFrom(b): a appears on b's class chain or implemented
-    // interfaces (simple-name comparison; upstream Requires<T> arguments
-    // include interface shapes like Requires<IHealthInfo> — matched by the
-    // trailing segment of the interface full names).
+
     for (const meta::RecordDesc* desc_cur = &desc_other;;) {
       if (sv_dep == desc_cur->str_name)
         return true;
@@ -217,9 +182,7 @@ std::vector<const meta::RecordObject*> ActorInfo::TraitsInConstructOrder() const
     for (const Entry* entry : vec_unresolved) {
       const bool b_depsOk = std::all_of(
           entry->vec_deps.begin(), entry->vec_deps.end(), [&](std::string_view sv_d) {
-            // 依赖满足:存在已解析项满足之,且没有任何未解析项也满足之
-            // Satisfied: some resolved entry matches it and no unresolved
-            // entry does.
+
             const bool b_resolvedMatch =
                 std::any_of(vec_resolved.begin(), vec_resolved.end(),
                             [&](const Entry* r) { return are_resolvable(sv_d, *r->desc); });
@@ -251,10 +214,7 @@ std::vector<const meta::RecordObject*> ActorInfo::TraitsInConstructOrder() const
   }
 
   if (!vec_unresolved.empty()) {
-    // L146-162:异常文本逐字(Missing = 未被任何 source 满足的依赖;
-    // Unresolved = 依赖未解析项集合)
-    // L146-162: verbatim exception text (Missing = dependencies satisfied by
-    // no source entry; Unresolved = the unresolved-entry dependency sets).
+
     std::string str_ex = std::format(
         "ActorInfo(\"{}\") failed to initialize because of the following:\n",
         str_name_);
@@ -312,4 +272,4 @@ std::vector<const meta::RecordObject*> ActorInfo::TraitsInConstructOrder() const
   return vec_ret;
 }
 
-}  // namespace ora::game
+}

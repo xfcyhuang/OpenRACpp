@@ -1,8 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Cnc/SpriteLoaders/TmpRALoader.cs @1f594e320 L17-102
-// 实现文件:TmpRAFrame / IsTmpRA / ParseFrames 逐句照抄;Stream →
-// SpanReader。
-// Implementation file: TmpRAFrame / IsTmpRA / ParseFrames copied
-// statement by statement; Stream → SpanReader.
 #include "formats/tmp_ra.hpp"
 
 #include "formats/span_reader.hpp"
@@ -11,7 +6,6 @@ namespace ora::fmt {
 
 namespace {
 
-/// TmpRAFrame(L20-40)。
 class TmpRAFrame final : public gfx::ISpriteFrame {
  public:
   TmpRAFrame(std::span<const std::byte> vec_data, int2 int2_tile_size) : int2_frame_size_(int2_tile_size) {
@@ -34,7 +28,7 @@ class TmpRAFrame final : public gfx::ISpriteFrame {
   std::vector<std::byte> vec_data_;
 };
 
-}  // namespace
+}
 
 bool IsTmpRA(std::span<const std::byte> vec_file) {
   auto stream = SpanReader{vec_file};
@@ -51,7 +45,6 @@ bool IsTmpRA(std::span<const std::byte> vec_file) {
 
 namespace {
 
-/// ParseFrames(L63-90)。
 std::vector<std::unique_ptr<gfx::ISpriteFrame>> ParseFrames(std::span<const std::byte> vec_file) {
   auto stream = SpanReader{vec_file};
   const auto uint2_width = stream.ReadUInt16();
@@ -81,7 +74,7 @@ std::vector<std::unique_ptr<gfx::ISpriteFrame>> ParseFrames(std::span<const std:
   return vec_tiles;
 }
 
-}  // namespace
+}
 
 bool TryParseTmpRA(std::span<const std::byte> vec_file, std::vector<std::unique_ptr<gfx::ISpriteFrame>>& vec_frames) {
   if (!IsTmpRA(vec_file))
@@ -91,4 +84,4 @@ bool TryParseTmpRA(std::span<const std::byte> vec_file, std::vector<std::unique_
   return true;
 }
 
-}  // namespace ora::fmt
+}

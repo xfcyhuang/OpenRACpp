@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/SpriteLoaders/PngSheetLoader.cs @1f594e320 L36-164
-//          (png_sheet_loader.hpp 的实现;头注的形态适配说明适用)
-//          Implementation of png_sheet_loader.hpp; the shape-adaptation
-//          notes of the hpp header apply.
 import std;
 #include "formats/png_sheet_loader.hpp"
 #include "formats/png.hpp"
@@ -11,8 +7,6 @@ namespace ora::fmt {
 
 namespace {
 
-/// PngSheetFrame(L39-45):可变数据袋帧。
-/// PngSheetFrame (L39-45): a mutable data-bag frame.
 class PngSheetFrame : public gfx::ISpriteFrame {
  public:
   gfx::SpriteFrameType Type() const override { return type_frame_; }
@@ -29,9 +23,6 @@ class PngSheetFrame : public gfx::ISpriteFrame {
   std::vector<std::byte> vec_data_;
 };
 
-/// RegionsFromFrames(L94-111):Frame[i] 手工区("x,y,w,h;offsetX,offsetY")。
-/// RegionsFromFrames (L94-111): the manual Frame[i] regions ("x,y,w,h;
-/// offsetX,offsetY").
 void RegionsFromFrames(const Png& png_src, std::vector<Rectangle>& vec_regions,
                        std::vector<core::Vector2>& vec_offsets) {
   const Rectangle rect_png{0, 0, png_src.Width(), png_src.Height()};
@@ -45,7 +36,6 @@ void RegionsFromFrames(const Png& png_src, std::vector<Rectangle>& vec_regions,
       break;
     const std::string& str_frame = it_find->second;
 
-    // 格式:x,y,width,height;offsetX,offsetY | Format: x,y,width,height;offsetX,offsetY
     const std::size_t st_semi = str_frame.find(';');
     if (st_semi == std::string::npos)
       throw std::runtime_error(
@@ -61,11 +51,9 @@ void RegionsFromFrames(const Png& png_src, std::vector<Rectangle>& vec_regions,
   }
 }
 
-/// RegionsFromSlices(L113-162):FrameSize/FrameAmount/Offset 切片。
-/// RegionsFromSlices (L113-162): the FrameSize/FrameAmount/Offset slicing.
 void RegionsFromSlices(const Png& png_src, std::vector<Rectangle>& vec_regions,
                        std::vector<core::Vector2>& vec_offsets) {
-  // 默认:整图一帧 | Default: the whole image as one frame.
+
   int2 int2_frame_size{png_src.Width(), png_src.Height()};
   std::int32_t int4_frame_amount = 1;
 
@@ -77,9 +65,7 @@ void RegionsFromSlices(const Png& png_src, std::vector<Rectangle>& vec_regions,
   };
 
   if (const std::string* str_value = find_embedded("FrameSize")) {
-    // 有 FrameSize 则用之,并取 FrameAmount 或按整除计算
-    // With FrameSize given, take FrameAmount if present, else count how
-    // many times it fits.
+
     int2_frame_size = meta::GetSizeValue("FrameSize", *str_value);
     if ((str_value = find_embedded("FrameAmount")) != nullptr)
       int4_frame_amount = meta::GetInt32Value("FrameAmount", *str_value);
@@ -87,15 +73,11 @@ void RegionsFromSlices(const Png& png_src, std::vector<Rectangle>& vec_regions,
       int4_frame_amount = png_src.Width() / int2_frame_size.X *
                           (png_src.Height() / int2_frame_size.Y);
   } else if ((str_value = find_embedded("FrameAmount")) != nullptr) {
-    // 否则按 FrameAmount 水平等分
-    // Otherwise split horizontally by FrameAmount.
+
     int4_frame_amount = meta::GetInt32Value("FrameAmount", *str_value);
     int2_frame_size = int2{png_src.Width() / int4_frame_amount, png_src.Height()};
   }
 
-  // 有 Offset 用其值,否则帧居中(上游注释)—— 值恒 Zero,语义 = 默认 Zero
-  // An Offset value when present, else the frame centered (upstream
-  // comment) — the value is always Zero, i.e. the Zero default.
   core::Vector2 vec2_offset{};
   if (const std::string* str_value = find_embedded("Offset"))
     vec2_offset = meta::GetVector2Value("Offset", *str_value);
@@ -116,7 +98,7 @@ void RegionsFromSlices(const Png& png_src, std::vector<Rectangle>& vec_regions,
   }
 }
 
-}  // namespace
+}
 
 bool TryParsePngSheet(std::span<const std::byte> vec_file,
                       std::vector<std::unique_ptr<gfx::ISpriteFrame>>& vec_frames) {
@@ -130,8 +112,6 @@ bool TryParsePngSheet(std::span<const std::byte> vec_file,
   std::vector<Rectangle> vec_frame_regions;
   std::vector<core::Vector2> vec_frame_offsets;
 
-  // 手工 Frame[i] 区优先于自动切片 | Manual Frame[i] regions beat the
-  // auto-sliced ones.
   const bool b_has_frame_keys = std::ranges::any_of(png_src.EmbeddedData(), [](const auto& kv) {
     return kv.first.starts_with("Frame[");
   });
@@ -172,4 +152,4 @@ bool TryParsePngSheet(std::span<const std::byte> vec_file,
   return true;
 }
 
-}  // namespace ora::fmt
+}

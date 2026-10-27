@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ButtonTooltipLogic.cs @1f594e320 L17-68(全文)。
 import std;
 
 #include "ui/logic/button_tooltip_logic.hpp"
@@ -82,4 +81,4 @@ ButtonTooltipLogic::ButtonTooltipLogic(WidgetArgs& args_args) {
   }
 }
 
-}  // namespace ora::ui
+}

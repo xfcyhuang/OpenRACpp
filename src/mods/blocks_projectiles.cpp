@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/BlocksProjectiles.cs 实现部分
-//          The implementation half.
 #include "mods/blocks_projectiles.hpp"
 
 #include "meta/field_loader.hpp"
@@ -35,7 +33,7 @@ BlocksProjectilesInfoData BlocksProjectilesInfoData::Parse(
 
 bool BlocksProjectiles::AnyBlockingActorAt(sim::World& world,
                                            const WPos& pos) {
-  // L37-45
+
   const WDist dat = world.Map().DistanceAboveTerrain(pos);
 
   for (Actor* a :
@@ -54,7 +52,7 @@ bool BlocksProjectiles::AnyBlockingActorAt(sim::World& world,
 bool BlocksProjectiles::AnyBlockingActorsBetween(
     sim::World& world, sim::Player* owner, const WPos& start,
     const WPos& end, const WDist& width, WPos& hit) {
-  // L47-72
+
   const std::vector<Actor*> vec_actors =
       FindBlockingActorsOnLine(world, start, end, width);
   const std::int32_t length = (end - start).Length();
@@ -92,4 +90,4 @@ bool BlocksProjectiles::AnyBlockingActorsBetween(
   return false;
 }
 
-}  // namespace ora::mods
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ButtonWidget.cs @1f594e320(button_widget.hpp
-// 的实现)
-// The implementation of button_widget.hpp.
 import std;
 
 #include "ui/widgets/button_widget.hpp"
@@ -66,12 +63,7 @@ ButtonWidget::ButtonWidget(const ButtonWidget& widget_other)
       fn_on_double_click(widget_other.fn_on_double_click),
       fn_on_key_press(widget_other.fn_on_key_press),
       mod_rules(widget_other.mod_rules) {
-  // 上游 clone 拷贝 GetText 委托(闭包绑源体,源体存活期由树持有);C++ 侧
-  // 以自有缓存重建标准委托族 —— 模板面语义等价(缓存透明),偏离登记
-  // upstream's clone copies the GetText delegates (closures bound to the
-  // source, kept alive by the tree); the C++ side rebuilds the standard
-  // delegate family over its own caches — equivalent on the template face
-  // (the cache is transparent); registered.
+
   BindDefaults();
 }
 
@@ -110,11 +102,7 @@ bool ButtonWidget::HandleMouseInput(const MouseInput& mi_input) {
       return YieldMouseFocus(mi_input);
     }
   } else if (HasMouseFocus() && mi_input.Event == MouseInputEvent::Up) {
-    // Only fire the onMouseUp event if we successfully lost focus, and were
-    // pressed. The depressed state is snapshotted because YieldMouseFocus
-    // clears it, and the callback fires off a stack copy — a
-    // self-destroying OnClick (CloseWindow/RemoveChild) takes the widget
-    // (and this very std::function) with it.
+
     const bool b_was_depressed = b_depressed;
     const bool b_yielded = YieldMouseFocus(mi_input);
     if (b_was_depressed && !b_disabled) {
@@ -126,7 +114,7 @@ bool ButtonWidget::HandleMouseInput(const MouseInput& mi_input) {
   }
 
   if (mi_input.Event == MouseInputEvent::Down) {
-    // OnMouseDown returns false if the button shouldn't be pressed
+
     if (!b_disabled) {
       fn_on_mouse_down(mi_input);
       b_depressed = true;
@@ -421,4 +409,4 @@ TooltipContainerWidget* ButtonWidget::ResolveTooltipContainer() {
   return nullptr;
 }
 
-}  // namespace ora::ui
+}

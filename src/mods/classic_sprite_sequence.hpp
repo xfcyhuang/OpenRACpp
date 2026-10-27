@@ -1,11 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Cnc/Graphics/ClassicSpriteSequence.cs @1f594e320 L18-48 +
-//           OpenRA.Mods.Cnc/Util.cs @1f594e320 L18-67(SpriteRanges/SpriteFacings 表
-//           与 ClassicIndexFacing/ClassicQuantizeFacing)
-// 一代 Westwood 作品怪癖的序列:UseClassicFacings(仅 32 面向合法)启用
-// 非线性面向映射 ClassicIndexFacing。
-// The sequence carrying first-generation Westwood oddities: UseClassicFacings
-// (valid only with 32 facings) enables the non-linear facing map of
-// ClassicIndexFacing.
 #pragma once
 import std;
 
@@ -14,18 +6,10 @@ import std;
 
 namespace ora::mods::cnc {
 
-/// ClassicIndexFacing(Util.cs L44-58):32 面向走 SpriteRanges 非线性表,
-/// 其余回退 IndexFacing。
-/// ClassicIndexFacing (Util.cs L44-58): 32 facings take the non-linear
-/// SpriteRanges table; everything else falls back to IndexFacing.
 std::int32_t ClassicIndexFacing(WAngle wangle_facing, std::int32_t int4_num_frames);
 
-/// ClassicQuantizeFacing(Util.cs L61-67):32 面向查 SpriteFacings 表。
-/// ClassicQuantizeFacing (Util.cs L61-67): 32 facings read the SpriteFacings
-/// table.
 WAngle ClassicQuantizeFacing(WAngle wangle_facing, std::int32_t int4_steps);
 
-/// ClassicSpriteSequenceLoader(L18-25)。
 class ClassicSpriteSequenceLoader : public mods::DefaultSpriteSequenceLoader {
  public:
   std::unique_ptr<gfx::ISpriteSequence> CreateSequence(gfx::SpriteCache& cache_sprites,
@@ -35,7 +19,6 @@ class ClassicSpriteSequenceLoader : public mods::DefaultSpriteSequenceLoader {
                                                       const yaml::MiniYaml& yaml_defaults) override;
 };
 
-/// ClassicSpriteSequence(L28-48)。
 class ClassicSpriteSequence : public mods::DefaultSpriteSequence {
  public:
   ClassicSpriteSequence(gfx::SpriteCache& cache_sprites, gfx::ISpriteSequenceLoader& loader,
@@ -49,4 +32,4 @@ class ClassicSpriteSequence : public mods::DefaultSpriteSequence {
   bool b_use_classic_facings_ = false;
 };
 
-}  // namespace ora::mods::cnc
+}

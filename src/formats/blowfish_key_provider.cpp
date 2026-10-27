@@ -1,20 +1,12 @@
-// UPSTREAM: OpenRA.Mods.Cnc/FileFormats/BlowfishKeyProvider.cs @1f594e320 L19-491
 #include "formats/blowfish_key_provider.hpp"
 
 namespace ora::fmt {
 
 namespace {
 
-// PublicKeyString(L21):固定公钥的 base64 文本(上游逐字)。
-// PublicKeyString (L21): the fixed public key as base64 text (verbatim
-// from upstream).
 constexpr std::string_view kPublicKeyString =
     "AihRvNoIbTn85FZRYNZRcT+i6KpU+maCsEqr3Q5q+LDB5tH7Tz2qQ38V";
 
-/// Convert.FromBase64String 的最小等价(仅服务于上述固定串;标准 base64
-/// 字母表,无填充)。
-/// A minimal equivalent of Convert.FromBase64String (serving only the fixed
-/// string above; the standard alphabet, no padding).
 std::vector<std::uint8_t> FromBase64(std::string_view str_in) {
   constexpr std::string_view sv_alphabet =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -37,19 +29,12 @@ std::vector<std::uint8_t> FromBase64(std::string_view str_in) {
   return vec_out;
 }
 
-/// InitBigNum(L40-44):前 len 字清零,n[0] = val。
-/// InitBigNum (L40-44): zero the first len words, n[0] = val.
 void InitBigNum(std::uint32_t* arr_n, std::uint32_t uint4_val, std::uint32_t uint4_len) {
   for (std::uint32_t uint4_i = 0; uint4_i < uint4_len; uint4_i++)
     arr_n[uint4_i] = 0;
   arr_n[0] = uint4_val;
 }
 
-/// MoveKeyToBig(L46-63):DER 大端字节序列装入小端 uint32 数组(符号扩展;
-/// 上游 byte* 视图逐行)。
-/// MoveKeyToBig (L46-63): load the big-endian DER bytes into the
-/// little-endian uint32 array (sign-extended; the upstream byte* view line
-/// for line).
 void MoveKeyToBig(std::uint32_t* arr_n, const std::uint8_t* arr_key, std::uint32_t uint4_klen,
                   std::uint32_t uint4_blen) {
   const std::uint8_t uint1_sign = (arr_key[0] & 0x80) != 0 ? 0xff : 0x00;
@@ -62,8 +47,6 @@ void MoveKeyToBig(std::uint32_t* arr_n, const std::uint8_t* arr_key, std::uint32
     pn[int4_i - 1] = arr_key[uint4_klen - int4_i];
 }
 
-/// KeyToBigNum(L65-89):DER INTEGER 解包(类型 2 + 长度前缀)。
-/// KeyToBigNum (L65-89): DER INTEGER unwrapping (type 2 + length prefix).
 void KeyToBigNum(std::uint32_t* arr_n, const std::uint8_t* arr_key, std::uint32_t uint4_len) {
   std::uint32_t uint4_keylen;
   std::uint32_t uint4_j = 0;
@@ -86,8 +69,6 @@ void KeyToBigNum(std::uint32_t* arr_n, const std::uint8_t* arr_key, std::uint32_
     MoveKeyToBig(arr_n, arr_key + uint4_j, uint4_keylen, uint4_len);
 }
 
-/// LenBigNum(L91-102):有效字长(全零 = 0)。
-/// LenBigNum (L91-102): the used word length (all-zero = 0).
 std::uint32_t LenBigNum(const std::uint32_t* arr_n, std::uint32_t uint4_len) {
   if (uint4_len == 0)
     return 0;
@@ -95,12 +76,11 @@ std::uint32_t LenBigNum(const std::uint32_t* arr_n, std::uint32_t uint4_len) {
   auto uint4_i = uint4_len;
   while (arr_n[--uint4_i] == 0)
     if (uint4_i == 0)
-      return 0;  // all zero | 全零
+      return 0;
 
   return uint4_i + 1;
 }
 
-/// BitLenBigNum(L104-118)。
 std::uint32_t BitLenBigNum(const std::uint32_t* arr_n, std::uint32_t uint4_len) {
   const std::uint32_t uint4_ddlen = LenBigNum(arr_n, uint4_len);
   if (uint4_ddlen == 0)
@@ -114,8 +94,6 @@ std::uint32_t BitLenBigNum(const std::uint32_t* arr_n, std::uint32_t uint4_len) 
   return uint4_bitlen;
 }
 
-/// CompareBigNum(L128-138):高位向低位逐字比较。
-/// CompareBigNum (L128-138): word-by-word comparison from the top.
 int CompareBigNum(const std::uint32_t* arr_n1, const std::uint32_t* arr_n2, std::uint32_t uint4_len) {
   while (uint4_len > 0) {
     --uint4_len;
@@ -127,13 +105,10 @@ int CompareBigNum(const std::uint32_t* arr_n1, const std::uint32_t* arr_n2, std:
   return 0;
 }
 
-/// MoveBigNum(L140-143)。
 void MoveBigNum(std::uint32_t* arr_dest, const std::uint32_t* arr_src, std::uint32_t uint4_len) {
   std::memcpy(arr_dest, arr_src, uint4_len * 4);
 }
 
-/// ShrBigNum(L145-159):右移(跨字借位 + 位内移)。
-/// ShrBigNum (L145-159): right shift (whole-word then in-word).
 void ShrBigNum(std::uint32_t* arr_n, int int4_bits, int int4_len) {
   int int4_i;
   const int int4_i2 = int4_bits / 32;
@@ -153,8 +128,6 @@ void ShrBigNum(std::uint32_t* arr_n, int int4_bits, int int4_len) {
   arr_n[int4_i] >>= int4_bits;
 }
 
-/// ShlBigNum(L161-176):左移。
-/// ShlBigNum (L161-176): left shift.
 void ShlBigNum(std::uint32_t* arr_n, int int4_bits, int int4_len) {
   int int4_i;
   const int int4_i2 = int4_bits / 32;
@@ -174,11 +147,6 @@ void ShlBigNum(std::uint32_t* arr_n, int int4_bits, int int4_len) {
   arr_n[0] <<= int4_bits;
 }
 
-/// SubBigNum 指针版(L206-225):16 位 limb 借位减,返回最终借位。数组版
-/// (L178-204)只是同一循环的 fixed 包装 —— 直接走本实现。
-/// The pointer SubBigNum (L206-225): 16-bit-limb subtract with borrow,
-/// returning the final carry. The array form (L178-204) is the same loop
-/// under fixed pointers — served directly by this implementation.
 std::uint32_t SubBigNum(std::uint32_t* arr_dest, const std::uint32_t* arr_src1,
                         const std::uint32_t* arr_src2, std::uint32_t uint4_carry, int int4_len) {
   std::uint32_t uint4_i1, uint4_i2;
@@ -202,9 +170,6 @@ std::uint32_t SubBigNum(std::uint32_t* arr_dest, const std::uint32_t* arr_src1,
   return uint4_carry;
 }
 
-/// InvertBigNum(L227-260):长除法求 n2 的倒数位模式(n1)。
-/// InvertBigNum (L227-260): long division producing the reciprocal bit
-/// pattern (n1) of n2.
 void InvertBigNum(std::uint32_t* arr_n1, const std::uint32_t* arr_n2, std::uint32_t uint4_len) {
   auto arr_n_tmp = std::array<std::uint32_t, 64>{};
 
@@ -235,16 +200,12 @@ void InvertBigNum(std::uint32_t* arr_n1, const std::uint32_t* arr_n2, std::uint3
   InitBigNum(arr_n_tmp.data(), 0, uint4_len);
 }
 
-/// IncrementBigNum(L262-266)。
 void IncrementBigNum(std::uint32_t* arr_n, std::uint32_t uint4_len) {
   std::uint32_t uint4_i = 0;
   while ((++arr_n[uint4_i] == 0) && (--uint4_len > 0))
     uint4_i++;
 }
 
-/// MulBignumWord(L290-309):单字乘加(pn1 += n2 * mul,16 位 limb 链)。
-/// MulBignumWord (L290-309): multiply-accumulate by one word (pn1 += n2 *
-/// mul over 16-bit limbs).
 void MulBignumWord(std::uint16_t* pn1, const std::uint32_t* arr_n2, std::uint32_t uint4_mul,
                    std::uint32_t uint4_len) {
   const auto* pn2 = reinterpret_cast<const std::uint16_t*>(arr_n2);
@@ -261,8 +222,6 @@ void MulBignumWord(std::uint16_t* pn1, const std::uint32_t* arr_n2, std::uint32_
   *pn1 += static_cast<std::uint16_t>(uint4_tmp);
 }
 
-/// MulBigNum(L311-328):dest = src1 * src2(len 字长;dest 需 2*len)。
-/// MulBigNum (L311-328): dest = src1 * src2 (len words; dest needs 2*len).
 void MulBigNum(std::uint32_t* arr_dest, const std::uint32_t* arr_src1, const std::uint32_t* arr_src2,
                std::uint32_t uint4_len) {
   auto* psrc2 = reinterpret_cast<const std::uint16_t*>(arr_src2);
@@ -273,7 +232,6 @@ void MulBigNum(std::uint32_t* arr_dest, const std::uint32_t* arr_src1, const std
     MulBignumWord(pdest++, arr_src1, *psrc2++, uint4_len * 2);
 }
 
-/// NotBigNum(L330-334)/ NegBigNum(L336-340)。
 void NotBigNum(std::uint32_t* arr_n, std::uint32_t uint4_len) {
   for (std::uint32_t uint4_i = 0; uint4_i < uint4_len; uint4_i++)
     arr_n[uint4_i] = ~arr_n[uint4_i];
@@ -284,16 +242,14 @@ void NegBigNum(std::uint32_t* arr_n, std::uint32_t uint4_len) {
   IncrementBigNum(arr_n, uint4_len);
 }
 
-/// DecBigNum(L354-359)。
 void DecBigNum(std::uint32_t* arr_n, std::uint32_t uint4_len) {
   std::uint32_t uint4_i = 0;
   while ((--arr_n[uint4_i] == 0xffffffff) && (--uint4_len > 0))
     uint4_i++;
 }
 
-}  // namespace
+}
 
-// InitPublicKey(L120-126)。
 void BlowfishKeyProvider::InitPublicKey() {
   InitBigNum(rec_pubkey_.arr_keyTwo.data(), 0x10001, 64);
 
@@ -302,15 +258,11 @@ void BlowfishKeyProvider::InitPublicKey() {
   rec_pubkey_.uint4_len = BitLenBigNum(rec_pubkey_.arr_keyOne.data(), 64) - 1;
 }
 
-// InitTwoDw(L268-288):设置模数与倒数 globOne*。
-// InitTwoDw (L268-288): set up the modulus and reciprocal globals.
 void BlowfishKeyProvider::InitTwoDw(const std::uint32_t* arr_n, std::uint32_t uint4_len) {
   MoveBigNum(arr_globOne_.data(), arr_n, uint4_len);
   uint4_globOneBitLen_ = BitLenBigNum(arr_globOne_.data(), uint4_len);
   uint4_globOneLenXTwo_ = (uint4_globOneBitLen_ + 15) / 16;
 
-  // globOne.Skip(LenBigNum - 2) 的 2 字 = 顶部两个字。
-  // globOne.Skip(LenBigNum - 2)'s 2 words = the top two words.
   MoveBigNum(arr_globOneHigh_.data(),
              arr_globOne_.data() + LenBigNum(arr_globOne_.data(), uint4_len) - 2, 2);
   uint4_globOneHighBitLen_ = BitLenBigNum(arr_globOneHigh_.data(), 2) - 32;
@@ -328,19 +280,9 @@ void BlowfishKeyProvider::InitTwoDw(const std::uint32_t* arr_n, std::uint32_t ui
   uint4_globOneHighInvHigh_ = static_cast<std::uint16_t>(arr_globOneHighInv_[0] >> 16);
 }
 
-// GetMulWord(L342-352):商估计字(Knuth D;回看 wn-1/wn-2)。注意 C# 的
-// int * uint 提升为 long —— 全部中间量按 64 位无符号累积,仅最终截断
-// (C++ int * uint32 会中途回绕,不等价)。
-// GetMulWord (L342-352): the quotient-estimate word (Knuth D; looks back
-// through wn-1/wn-2). Note C#'s int * uint promotes to long — all
-// intermediates accumulate as 64-bit unsigned with a single final
-// truncation (a C++ int * uint32 would wrap mid-expression).
 std::uint32_t BlowfishKeyProvider::GetMulWord(const std::uint32_t* ptr_n) {
   const auto* wn = reinterpret_cast<const std::uint16_t*>(ptr_n);
 
-  // A/B/C/D 分解照上游嵌套括号;全部中间量 64 位。
-  // The A/B/C/D decomposition mirrors the upstream nesting; all
-  // intermediates are 64-bit.
   const std::uint64_t uint8_a = ((((wn[-1] ^ 0xffff) & 0xffff) * 1ULL * uint4_globOneHighInvLow_ + 0x10000) >> 1);
   const std::uint64_t uint8_b = (((wn[-2] ^ 0xffff) * 1ULL * uint4_globOneHighInvHigh_ + uint4_globOneHighInvHigh_) >> 1);
   const std::uint64_t uint8_c = ((uint8_a + uint8_b + 1) >> 16) +
@@ -354,11 +296,6 @@ std::uint32_t BlowfishKeyProvider::GetMulWord(const std::uint32_t* ptr_n) {
   return uint8_i & 0xffff;
 }
 
-// CalcBigNum(L361-399):n1 = n2 * n3 mod globOne(负数余数技巧 + 商估计
-// 归约)。esi/edi 游标照上游 ushort* 算术。
-// CalcBigNum (L361-399): n1 = n2 * n3 mod globOne (the negated-remainder
-// trick + quotient-estimate reduction). The esi/edi cursors follow the
-// upstream ushort* arithmetic.
 void BlowfishKeyProvider::CalcBigNum(std::uint32_t* arr_n1, const std::uint32_t* arr_n2,
                                      const std::uint32_t* arr_n3, std::uint32_t uint4_len) {
   std::uint32_t uint4_glob_two_x_two, uint4_len_diff;
@@ -395,7 +332,6 @@ void BlowfishKeyProvider::CalcBigNum(std::uint32_t* arr_n1, const std::uint32_t*
   MoveBigNum(arr_n1, g2, uint4_len);
 }
 
-// ClearTempVars(L401-412)。
 void BlowfishKeyProvider::ClearTempVars(std::uint32_t uint4_len) {
   InitBigNum(arr_globOne_.data(), 0, uint4_len);
   InitBigNum(arr_globTwo_.data(), 0, uint4_len);
@@ -408,9 +344,6 @@ void BlowfishKeyProvider::ClearTempVars(std::uint32_t uint4_len) {
   uint4_globOneHighInvHigh_ = 0;
 }
 
-// CalcKey(L414-456):n1 = n2 ^ n3 mod n4(平方乘,自高位第二位起)。
-// CalcKey (L414-456): n1 = n2 ^ n3 mod n4 (square-and-multiply, from the
-// second-highest bit).
 void BlowfishKeyProvider::CalcKey(std::uint32_t* arr_n1, const std::uint32_t* arr_n2,
                                   const std::uint32_t* arr_n3, const std::uint32_t* arr_n4,
                                   std::uint32_t uint4_len) {
@@ -445,8 +378,6 @@ void BlowfishKeyProvider::CalcKey(std::uint32_t* arr_n1, const std::uint32_t* ar
   ClearTempVars(uint4_len);
 }
 
-// ProcessPredata(L458-483):(55/a + 1) 块分组 RSA,输出 a 字节/块。
-// ProcessPredata (L458-483): (55/a + 1) RSA blocks, a output bytes each.
 std::array<std::uint8_t, 256> BlowfishKeyProvider::ProcessPredata(std::span<const std::byte> vec_src) {
   auto arr_dest = std::array<std::uint8_t, 256>{};
   auto arr_n2 = std::array<std::uint32_t, 64>{};
@@ -460,9 +391,6 @@ std::array<std::uint8_t, 256> BlowfishKeyProvider::ProcessPredata(std::span<cons
   while (int4_a + 1 <= int4_pre_len) {
     InitBigNum(arr_n2.data(), 0, 64);
 
-    // Buffer.BlockCopy(src, srcOffset, n2, 0, a + 1):字节直装小端视图。
-    // Buffer.BlockCopy(src, srcOffset, n2, 0, a + 1): raw bytes into the
-    // little-endian view.
     std::memcpy(arr_n2.data(), vec_src.data() + int4_src_offset, static_cast<std::size_t>(int4_a) + 1);
     CalcKey(arr_n3.data(), arr_n2.data(), rec_pubkey_.arr_keyTwo.data(),
             rec_pubkey_.arr_keyOne.data(), 64);
@@ -485,4 +413,4 @@ std::array<std::uint8_t, 56> BlowfishKeyProvider::DecryptKey(std::span<const std
   return arr_key;
 }
 
-}  // namespace ora::fmt
+}

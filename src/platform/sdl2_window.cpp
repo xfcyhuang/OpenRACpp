@@ -1,15 +1,7 @@
-// UPSTREAM: OpenRA.Platforms.Default/Sdl2PlatformWindow.cs @1f594e320 L124-215,270-353,538-587
-// 实现:窗口创建/模式切换式样、GL 属性序列(DOUBLEBUFFER=1,RGB888,ALPHA=0;Modern=3.2
-// Core / Embedded=3.0 ES)、HiDPI scale = drawable/window(Sdl2PlatformWindow.cs L270-276)、
-// 事件泵。几何快照为打包原子量(OPT-B5)。
-// Implementation: window creation/mode styles, the GL attribute sequence
-// (DOUBLEBUFFER=1, RGB888, ALPHA=0; Modern=3.2 Core / Embedded=3.0 ES), HiDPI
-// scale = drawable/window (Sdl2PlatformWindow.cs L270-276), and the event
-// pump. The geometry snapshot is a packed atomic (OPT-B5).
 import std;
-#include <cstdio>  // stderr 为宏,不穿越 import 边界(规范允许的并用正形态) | stderr is a macro; the spec-sanctioned mixed form
+#include <cstdio>
 
-#include <SDL2/SDL.h>  // 第三方 C 头(std_import_check 白名单登记) | third-party C header (registered in the std_import_check whitelist)
+#include <SDL2/SDL.h>
 
 #include "platform/sdl2_hardware_cursor.hpp"
 #include "platform/sdl2_window.hpp"
@@ -18,8 +10,6 @@ namespace ora::platform {
 
 namespace {
 
-/// 几何打包:int4_width(16)|int4_height(16)|scale 8.8 定点(16)|保留(16)
-/// Geometry packing: width(16) | height(16) | scale in 8.8 fixed point (16) | reserved (16).
 std::uint64_t PackGeom(std::int32_t int4_width, std::int32_t int4_height, float float_scale) {
   const std::uint16_t uint2_w = static_cast<std::uint16_t>(int4_width);
   const std::uint16_t uint2_h = static_cast<std::uint16_t>(int4_height);
@@ -45,7 +35,7 @@ SDL_WindowFlags ToSdlFlags(WindowMode mode_window, bool b_hidden) {
   return static_cast<SDL_WindowFlags>(uint4_flags);
 }
 
-}  // namespace
+}
 
 bool InitSdl2Video() {
   static std::int32_t int4_refs = 0;
@@ -60,9 +50,7 @@ bool InitSdl2Video() {
 }
 
 void ShutdownSdl2Video() {
-  // 引用计数与 InitSdl2Video 成对(规范:显式生命周期);进程退出由 SDL_Quit 收尾
-  // Reference counting pairs with InitSdl2Video (guideline: explicit
-  // lifetimes); SDL_Quit finalizes at process exit.
+
   SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
@@ -70,8 +58,6 @@ std::optional<Sdl2Window> Sdl2Window::Create(const Desc& desc) {
   if (!InitSdl2Video())
     return std::nullopt;
 
-  // GL 属性序列(Sdl2PlatformWindow.cs L538-542 + L548-559)
-  // The GL attribute sequence (Sdl2PlatformWindow.cs L538-542 + L548-559).
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
   SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
   SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
@@ -90,19 +76,11 @@ std::optional<Sdl2Window> Sdl2Window::Create(const Desc& desc) {
       break;
   }
 
-  // 目标显示器的域校验与居中(Sdl2PlatformWindow.cs L173-174 + L234:
-  // <0 或 >= DisplayCount 回落 0;窗口在该显示器居中)
-  // The target display's domain check and centering (Sdl2PlatformWindow.cs
-  // L173-174 + L234: <0 or >= DisplayCount falls back to 0; the window
-  // centers on that display).
   int int4_video_display = desc.int4_video_display;
   if (int4_video_display < 0 ||
       int4_video_display >= SDL_GetNumVideoDisplays())
     int4_video_display = 0;
 
-  // 0x0 请求 = 桌面分辨率(Sdl2PlatformWindow.cs L185-191 的 desktop 回落)
-  // A 0x0 request = the desktop resolution (Sdl2PlatformWindow.cs L185-191's
-  // desktop fallback).
   int int4_width = desc.int4_width;
   int int4_height = desc.int4_height;
   if (int4_width == 0 && int4_height == 0) {
@@ -125,9 +103,6 @@ std::optional<Sdl2Window> Sdl2Window::Create(const Desc& desc) {
   Sdl2Window window_result;
   window_result.ptr_window_ = ptr_window;
 
-  // 初始几何快照:drawable/window 比即 HiDPI scale(Sdl2PlatformWindow.cs L270-276)
-  // Initial geometry snapshot: drawable/window ratio is the HiDPI scale
-  // (Sdl2PlatformWindow.cs L270-276).
   int int4_win_w = 0, int4_win_h = 0, int4_draw_w = 0, int4_draw_h = 0;
   SDL_GetWindowSize(ptr_window, &int4_win_w, &int4_win_h);
   SDL_GL_GetDrawableSize(ptr_window, &int4_draw_w, &int4_draw_h);
@@ -155,11 +130,7 @@ void* Sdl2Window::CreateGlContext() {
     std::println(stderr, "SDL_GL_CreateContext 失败 | SDL_GL_CreateContext failed: {}", SDL_GetError());
     return nullptr;
   }
-  // 记录到成员:窗口析构时删除(第二批复核修正 —— 第一批漏存,上下文
-  // 泄漏悬挂于已销毁窗口,后续上下文创建时驱动崩)。
-  // Record on the member so the window destructor deletes it (second-batch
-  // review fix — the first batch never stored it; the leaked context dangled
-  // off a destroyed window and crashed the driver on later context creation).
+
   ptr_gl_context_ = ptr_context;
   return ptr_context;
 }
@@ -193,15 +164,14 @@ bool Sdl2Window::PumpEvents() {
         HandleWindowEvent(event_sdl.window.event);
         break;
       default:
-        break;  // 输入映射由 Sdl2Input::PumpInput 承担 | input mapping is Sdl2Input::PumpInput's job
+        break;
     }
   }
   return b_quit;
 }
 
 void Sdl2Window::HandleWindowEvent(std::uint8_t uint1_event_id) {
-  // Sdl2PlatformWindow.cs L81-112 的状态面(几何/焦点/挂起)
-  // The state plane of Sdl2PlatformWindow.cs L81-112 (geometry/focus/suspend).
+
   switch (uint1_event_id) {
     case SDL_WINDOWEVENT_FOCUS_LOST:
       b_input_focus_.store(false, std::memory_order_relaxed);
@@ -209,8 +179,7 @@ void Sdl2Window::HandleWindowEvent(std::uint8_t uint1_event_id) {
     case SDL_WINDOWEVENT_FOCUS_GAINED:
       b_input_focus_.store(true, std::memory_order_relaxed);
       break;
-    // 显示器间移动引发的 DPI 变化(Sdl2Input.cs L93-95)
-    // DPI changes from moving between displays (Sdl2Input.cs L93-95).
+
     case SDL_WINDOWEVENT_SIZE_CHANGED: {
       int int4_win_w = 0, int4_win_h = 0, int4_draw_w = 0, int4_draw_h = 0;
       SDL_GetWindowSize(static_cast<SDL_Window*>(ptr_window_), &int4_win_w, &int4_win_h);
@@ -321,11 +290,6 @@ std::optional<Sdl2HardwareCursor> Sdl2Window::CreateHardwareCursor(
     int int4_cur_height = int4_height;
     std::vector<std::uint8_t> vec_data{span_data.begin(), span_data.end()};
 
-    // 窗口 scale 足够大时像素倍增(macOS 由系统代劳,其余平台自做;
-    // Sdl2PlatformWindow.cs L386-392)。scale 取 OPT-B5 快照(D87)。
-    // Pixel-double when the window scale is large enough (macOS does it for
-    // us; every other platform does it itself — Sdl2PlatformWindow.cs
-    // L386-392). The scale reads the OPT-B5 snapshot (D87).
     if (Geom().float_scale > 1.5f) {
       vec_data = DoublePixelData(vec_data, int4_cur_width, int4_cur_height);
       int4_cur_width = 2 * int4_cur_width;
@@ -333,8 +297,6 @@ std::optional<Sdl2HardwareCursor> Sdl2Window::CreateHardwareCursor(
       int2_hotspot = int2{2 * int2_hotspot.X, 2 * int2_hotspot.Y};
     }
 
-    // 玩家请求时除"默认"光标外全部再倍增一次
-    // Scale all but the "default" cursor if requested by the player.
     if (b_pixel_double) {
       vec_data = DoublePixelData(vec_data, int4_cur_width, int4_cur_height);
       int4_cur_width = 2 * int4_cur_width;
@@ -344,8 +306,8 @@ std::optional<Sdl2HardwareCursor> Sdl2Window::CreateHardwareCursor(
 
     Sdl2HardwareCursor cursor{int4_cur_width, int4_cur_height, vec_data, int2_hotspot};
     if (cursor.Cursor() == nullptr)
-      return std::nullopt;  // D87:上游泄漏 surface 靠 GC;此处光标对象析构即释放
-    return cursor;           // D87: upstream leaks the surface to the GC; here the cursor object's destructor frees it
+      return std::nullopt;
+    return cursor;
   } catch (const std::exception& ex) {
     std::println(stderr, "Failed to create hardware cursor `{}` - {}", str_name, ex.what());
     return std::nullopt;
@@ -361,14 +323,12 @@ void Sdl2Window::SetHardwareCursor(const Sdl2HardwareCursor* ptr_cursor) {
 }
 
 void Sdl2Window::SetRelativeMouseMode(bool b_enabled) {
-  // Sdl2PlatformWindow.cs L423-425:SetRelativeMouseMode。
-  // Sdl2PlatformWindow.cs L423-425: SetRelativeMouseMode.
+
   SDL_SetRelativeMouseMode(b_enabled ? SDL_TRUE : SDL_FALSE);
 }
 
 std::string Sdl2Window::GetClipboardText() const {
-  // Sdl2Input.cs L23:SDL_GetClipboardText(null 返回 = 空串)。
-  // Sdl2Input.cs L23: SDL_GetClipboardText (a null return = empty).
+
   char* ptr_text = SDL_GetClipboardText();
   std::string str_ret{ptr_text != nullptr ? ptr_text : ""};
   SDL_free(ptr_text);
@@ -376,9 +336,8 @@ std::string Sdl2Window::GetClipboardText() const {
 }
 
 bool Sdl2Window::SetClipboardText(const std::string& str_text) const {
-  // Sdl2Input.cs L24:SDL_SetClipboardText 的 0 = 成功。
-  // Sdl2Input.cs L24: SDL_SetClipboardText's 0 is success.
+
   return SDL_SetClipboardText(str_text.c_str()) == 0;
 }
 
-}  // namespace ora::platform
+}

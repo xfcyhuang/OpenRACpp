@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/AssetBrowserLogic.cs
-//          @1f594e320(实现;头注见 asset_browser_logic.hpp)
-//          Implementation; the header notes live in asset_browser_logic.hpp.
 #include "mods/asset_browser_logic.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -77,7 +74,7 @@ std::vector<std::string> SplitCommaList(const yaml::MiniYamlNode& node_item) {
   return vec_values;
 }
 
-}  // namespace
+}
 
 AssetBrowserData AssetBrowserData::FromManifest(const game::ModData& mod_data) {
   AssetBrowserData data_browser;
@@ -1024,4 +1021,4 @@ void RegisterAssetBrowserLogic() {
       });
 }
 
-}  // namespace ora::mods
+}

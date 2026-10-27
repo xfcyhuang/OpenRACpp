@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/BulkProductionQueue.cs @1f594e320
-//          (实现部分)
-//          The implementation half.
 #include "mods/bulk_production_queue.hpp"
 
 #include "game/actor_info.hpp"
@@ -337,11 +334,7 @@ void BulkProductionQueue::StartDeliveryProcess() {
 }
 
 void BulkProductionQueue::DeliveryHasArrived() {
-  // ProductionBulkAirdrop 未移植:producers 恒空集(DeliveryHasArrived 的
-  // L283-291 无 trait 世界等价域;d2k 链随 Phase 8)
-  // ProductionBulkAirdrop unported: the producers stay the empty set
-  // (DeliveryHasArrived's L283-291 equivalent domain without the trait;
-  // the d2k chain rides Phase 8).
+
 }
 
 void BulkProductionQueue::ReturnOrder(std::string_view str_item_name,
@@ -397,4 +390,4 @@ void BulkProductionQueue::PlayDeliveryProgressNotifications() {
   int4_notification_interval_--;
 }
 
-}  // namespace ora::mods
+}

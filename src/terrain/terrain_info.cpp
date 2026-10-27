@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/Map/TerrainInfo.cs @1f594e320 + OpenRA.Mods.Common/
-//          Terrain/{TerrainInfo,DefaultTerrain}.cs @1f594e320(terrain_info.hpp
-//          的实现) | The implementation of terrain_info.hpp.
 import std;
 
 #include "terrain/terrain_info.hpp"
@@ -12,15 +9,13 @@ namespace ora::map {
 
 namespace {
 
-/// node 值文本(Node.Value 可空)| a node's value text (Node.Value nullable).
 std::string_view ValueOf(const yaml::MiniYamlNode& node) {
   return node.Value.Value != nullptr ? std::string_view{*node.Value.Value}
                                      : std::string_view{};
 }
 
-}  // namespace
+}
 
-// ———— Riser(TerrainInfo.cs L82-131)————
 Riser::Riser(const yaml::MiniYaml* my) {
   if (my == nullptr)
     return;
@@ -30,8 +25,6 @@ Riser::Riser(const yaml::MiniYaml* my) {
 
   const std::string_view s{*definition};
 
-  // 长式:逗号 8 段(L90-104)
-  // The long form: 8 comma parts (L90-104).
   const auto parts = meta::SplitComma(s);
   if (parts.size() == 8) {
     uint8_bits = 0;
@@ -45,8 +38,6 @@ Riser::Riser(const yaml::MiniYaml* my) {
     return;
   }
 
-  // 短式:"LU=6"(L106-128)
-  // The short form: "LU=6" (L106-128).
   const std::size_t pos_eq = s.find('=');
   if (pos_eq != std::string_view::npos) {
     std::uint8_t b = 0;
@@ -56,7 +47,6 @@ Riser::Riser(const yaml::MiniYaml* my) {
 
     uint8_bits = static_cast<std::uint64_t>(b) * 0x0101010101010101ull;
 
-    // TODO: make stricter(上游注释;大小写不敏感包含检查)
     std::string lower_key{s.substr(0, pos_eq)};
     std::ranges::transform(lower_key, lower_key.begin(), [](unsigned char c) {
       return static_cast<char>(std::tolower(c));
@@ -77,11 +67,8 @@ Riser::Riser(const yaml::MiniYaml* my) {
       std::format("`{}` is not a valid Riser definition", *definition));
 }
 
-// ———— TerrainTypeInfo(TerrainInfo.cs L189)————
 TerrainTypeInfo::TerrainTypeInfo(const yaml::MiniYaml& my) {
-  // FieldLoader.Load(this, my):Type/TargetTypes/AcceptsSmudgeType/Color/
-  // RestrictPlayerColor 全带默认(非 Required)
-  // FieldLoader.Load(this, my): every field defaulted (nothing Required).
+
   if (const auto* node = my.NodeWithKeyOrDefault("Type")) {
     if (node->Value.Value != nullptr)
       Type = *node->Value.Value;
@@ -108,10 +95,9 @@ TerrainTypeInfo::TerrainTypeInfo(const yaml::MiniYaml& my) {
   }
 }
 
-// ———— TerrainTemplateInfo(Mods.Common/Terrain/TerrainInfo.cs L38-96)————
 TerrainTemplateInfo::TerrainTemplateInfo(const ITerrainInfo& terrain_info,
                                          const yaml::MiniYaml& my) {
-  // FieldLoader.Load(this, my):Id/Size/PickAny/Categories
+
   if (const auto* node = my.NodeWithKeyOrDefault("Id"))
     Id = static_cast<std::uint16_t>(
         meta::GetInt32Value("Id", ValueOf(*node)));
@@ -179,7 +165,7 @@ TerrainTemplateInfo::TerrainTemplateInfo(const ITerrainInfo& terrain_info,
 
 std::unique_ptr<TerrainTileInfo> TerrainTemplateInfo::LoadTileInfo(
     const ITerrainInfo& terrain_info, const yaml::MiniYaml& my) const {
-  // L83-96:FieldLoader.Load + TerrainType 名换索引 + 颜色回落
+
   auto tile = std::make_unique<TerrainTileInfo>();
   if (const auto* node = my.NodeWithKeyOrDefault("Height"))
     tile->Height =
@@ -198,13 +184,10 @@ std::unique_ptr<TerrainTileInfo> TerrainTemplateInfo::LoadTileInfo(
   if (const auto* node = my.NodeWithKeyOrDefault("Riser"))
     tile->riser = Riser{&node->Value};
 
-  // Terrain type must be converted from a string to a
-  // n index(上游注释;LoadUsing LoadRiser 之外的反射面)
   const std::string_view tileset_name =
       my.Value != nullptr ? std::string_view{*my.Value} : std::string_view{};
   tile->TerrainType = terrain_info.GetTerrainIndex(tileset_name);
 
-  // Fall back to the terrain-type color if necessary(上游注释)
   const core::Color override_color =
       terrain_info.TerrainTypes()[tile->TerrainType].Color;
   if (tile->MinColor == core::Color::FromArgbRaw(0))
@@ -217,11 +200,7 @@ std::unique_ptr<TerrainTileInfo> TerrainTemplateInfo::LoadTileInfo(
 
 std::unique_ptr<TerrainTileInfo> DefaultTerrainTemplateInfo::LoadTileInfo(
     const ITerrainInfo& terrain_info, const yaml::MiniYaml& my) const {
-  // DefaultTerrain.cs L52-69:直接子类加载(FieldLoader.Load(tile, my) 的
-  // 字段集 = 基类四项 + ZOffset/ZRamp)+ TerrainType 换索引 + 颜色回落
-  // DefaultTerrain.cs L52-69: the direct subclass load (the FieldLoader
-  // field set = the base four + ZOffset/ZRamp) + the TerrainType index
-  // conversion + the color fallback.
+
   auto tile = std::make_unique<DefaultTerrainTileInfo>();
   if (const auto* node = my.NodeWithKeyOrDefault("Height"))
     tile->Height =
@@ -244,12 +223,10 @@ std::unique_ptr<TerrainTileInfo> DefaultTerrainTemplateInfo::LoadTileInfo(
   if (const auto* node = my.NodeWithKeyOrDefault("ZRamp"))
     tile->ZRamp = meta::GetFloatValue("ZRamp", ValueOf(*node));
 
-  // Terrain type must be converted from a string to an index(上游注释)
   const std::string_view tileset_name =
       my.Value != nullptr ? std::string_view{*my.Value} : std::string_view{};
   tile->TerrainType = terrain_info.GetTerrainIndex(tileset_name);
 
-  // Fall back to the terrain-type color if necessary(上游注释)
   const core::Color override_color =
       terrain_info.TerrainTypes()[tile->TerrainType].Color;
   if (tile->MinColor == core::Color::FromArgbRaw(0))
@@ -260,7 +237,6 @@ std::unique_ptr<TerrainTileInfo> DefaultTerrainTemplateInfo::LoadTileInfo(
   return tile;
 }
 
-// ———— DefaultTerrain(DefaultTerrain.cs L99-151)————
 DefaultTerrain::DefaultTerrain(const fs::FileSystem& file_system,
                                const std::string& str_filepath) {
   Parse(file_system.Open(str_filepath), str_filepath);
@@ -273,7 +249,7 @@ DefaultTerrain::DefaultTerrain(std::span<const char> yaml_bytes,
 
 void DefaultTerrain::Parse(std::span<const char> yaml_bytes,
                            const std::string& str_filepath) {
-  // MiniYaml.FromStream(...).ToDictionary(x => x.Key, x => x.Value)(L101-102)
+
   const std::vector<yaml::MiniYamlNode> nodes = yaml::MiniYaml::FromStream(
       std::string_view{yaml_bytes.data(), yaml_bytes.size()}, str_filepath);
 
@@ -288,7 +264,6 @@ void DefaultTerrain::Parse(std::span<const char> yaml_bytes,
     return nullptr;
   };
 
-  // General info(L105)
   const yaml::MiniYaml* general = find("General");
   if (general != nullptr) {
     if (const auto* node = general->NodeWithKeyOrDefault("Name")) {
@@ -300,8 +275,7 @@ void DefaultTerrain::Parse(std::span<const char> yaml_bytes,
         str_id_ = *node->Value.Value;
     }
     if (const auto* node = general->NodeWithKeyOrDefault("TileSize")) {
-      // Size("w,h") 经 int2 解析面(同形) | the Size ("w,h") parse rides
-      // the int2 face (same shape).
+
       const int2 sz = meta::GetSizeValue("TileSize", ValueOf(*node));
       size_ = Size{sz.X, sz.Y};
     }
@@ -344,8 +318,6 @@ void DefaultTerrain::Parse(std::span<const char> yaml_bytes,
     str_editor_palette_ = std::string{kTerrainPaletteInternalName};
   }
 
-  // TerrainTypes(L108-125):按 Type 名排序
-  // TerrainTypes (L108-125): ordered by the Type name.
   const yaml::MiniYaml* terrain = find("Terrain");
   if (terrain != nullptr) {
     for (const auto& [key, value] : terrain->ToDictionary())
@@ -367,9 +339,8 @@ void DefaultTerrain::Parse(std::span<const char> yaml_bytes,
   }
   map_terrain_index_by_type_ = std::move(tiby);
 
-  uint1_default_walkable_terrain_index_ = GetTerrainIndex("Clear");  // L127
+  uint1_default_walkable_terrain_index_ = GetTerrainIndex("Clear");
 
-  // Templates(L130-134)
   const yaml::MiniYaml* templates = find("Templates");
   if (templates != nullptr) {
     for (const auto& node : templates->Nodes) {
@@ -377,16 +348,14 @@ void DefaultTerrain::Parse(std::span<const char> yaml_bytes,
           std::make_unique<DefaultTerrainTemplateInfo>(*this, node.Value);
       vec_templates_in_definition_order_.push_back(std::move(tpl));
     }
-    // 模板所有权在定义序表(L89);字典视图持裸指针(上游两视图共享引用)
-    // Ownership stays in the definition-order vector (L89); the dictionary
-    // view holds raw pointers (upstream's two views share references).
+
     for (auto& tpl : vec_templates_in_definition_order_)
       map_templates_.emplace(tpl->Id, tpl.get());
   }
 }
 
 std::uint8_t DefaultTerrain::GetTerrainIndex(std::string_view str_type) const {
-  // L157-164:缺失 InvalidDataException 同文本
+
   const auto it = map_terrain_index_by_type_.find(std::string{str_type});
   if (it == map_terrain_index_by_type_.end())
     throw std::runtime_error(std::format(
@@ -395,7 +364,7 @@ std::uint8_t DefaultTerrain::GetTerrainIndex(std::string_view str_type) const {
 }
 
 std::uint8_t DefaultTerrain::GetTerrainIndex(TerrainTile r) const {
-  // L166-172
+
   const TerrainTileInfo* tile = GetTileInfo(r);
   if (tile->TerrainType != 255)
     return tile->TerrainType;
@@ -403,7 +372,7 @@ std::uint8_t DefaultTerrain::GetTerrainIndex(TerrainTile r) const {
 }
 
 std::vector<core::Color> DefaultTerrain::RestrictedPlayerColors() const {
-  // L211(TerrainInfo.Where(ti => ti.RestrictPlayerColor).Select(ti => ti.Color))
+
   std::vector<core::Color> out;
   for (const TerrainTypeInfo& ti : vec_terrain_info_)
     if (ti.b_restrict_player_color)
@@ -411,4 +380,4 @@ std::vector<core::Color> DefaultTerrain::RestrictedPlayerColors() const {
   return out;
 }
 
-}  // namespace ora::map
+}

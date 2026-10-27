@@ -1,11 +1,3 @@
-// UPSTREAM: OpenRA.Game/FluentBundle.cs @1f594e320 —— Fluent 资源解析的
-// 自研承载(Linguini.Syntax 的等价面;空白规范 = 公共缩进扣除 + 行尾修剪
-// + placeable 邻接修剪,Fluent 规范 Patterns 节;语料实测差异由
-// golden_fluent 对拍钉住)。
-// The self-written carrier of the Fluent resource parse (the Linguini.Syntax
-// equivalent face; the whitespace normalization = the common-indent deduction
-// + the per-line trailing trim + the placeable-adjacent trim, the Fluent
-// spec's Patterns section; measured divergences pinned by golden_fluent).
 #include "fluent/fluent_syntax.hpp"
 
 namespace ora::fluent {
@@ -24,9 +16,6 @@ std::size_t IndentOf(std::string_view str_line) {
   return uint_indent;
 }
 
-/// 行标识符匹配([A-Za-z][A-Za-z0-9_-]*);返回 = 号位置(不含则 npos)
-/// Matches the line identifier ([A-Za-z][A-Za-z0-9_-]*); returns the '='
-/// position (npos when absent).
 std::size_t IdentifierEnd(std::string_view str_line) {
   if (str_line.empty() ||
       !(std::isalpha(static_cast<unsigned char>(str_line[0])) != 0))
@@ -49,9 +38,6 @@ std::size_t IdentifierEnd(std::string_view str_line) {
   return std::string_view::npos;
 }
 
-/// 属性行(.name = …)在缩进 >0 处;返回属性名与 = 号位置
-/// The attribute line (.name = …) at indent > 0; returns the attribute name
-/// and the '=' position.
 bool ParseAttributeLine(std::string_view str_line, std::string& str_name,
                         std::size_t& uint_eq) {
   const std::size_t uint_len = str_line.size();
@@ -86,9 +72,6 @@ bool ParseAttributeLine(std::string_view str_line, std::string& str_name,
   return true;
 }
 
-/// 变体键行([key] / *[key] + 内联余文);返回键与余文起点
-/// The variant-key line ([key] / *[key] + the inline remainder); returns the
-/// key and the remainder offset.
 bool ParseVariantKey(std::string_view str_content, std::string& str_key,
                      bool& b_default, std::size_t& uint_rest) {
   b_default = false;
@@ -112,8 +95,6 @@ bool ParseVariantKey(std::string_view str_content, std::string& str_key,
   return true;
 }
 
-/// 十六进制码点(\\uXXXX / \\UXXXXXXXX)
-/// A hexadecimal code point (\\uXXXX / \\UXXXXXXXX).
 std::optional<char32_t> ParseHexCode(std::string_view str_digits) {
   if (str_digits.empty() || str_digits.size() > 8)
     return std::nullopt;
@@ -151,29 +132,20 @@ void AppendUtf8(std::string& str_out, char32_t ch_code) {
   }
 }
 
-/// 模式源行(原始缩进保留 —— 选择子的变体/闭合判定依赖层级)
-/// A pattern source line (the raw indent kept — the selector's
-/// variant/close detection depends on the hierarchy).
 struct PatternLine {
   std::string_view str_raw;
   std::size_t uint_indent = 0;
   bool b_blank = false;
 };
 
-/// 段:模式自其起始行(内联值或块首行)至下一属性行/块尾的行集
-/// A segment: the line set of one pattern from its opening line (the inline
-/// value or the block's first line) to the next attribute line/block end.
 struct Segment {
-  std::string str_name;  // 属性段名(主值段为空)| the attribute-segment
-                         // name (empty for the main-value segment).
+  std::string str_name;
+
   std::string str_inline;
   bool b_has_inline = false;
   std::vector<PatternLine> vec_lines;
 };
 
-/// 行集 → 公共缩进(内联起始 = 0,块起始 = 非空行最小缩进)
-/// The line set → the common indent (an inline start = 0; a block start =
-/// the minimum indent over non-blank lines).
 std::size_t CommonIndent(const Segment& seg_segment) {
   std::size_t uint_common = std::numeric_limits<std::size_t>::max();
   for (const PatternLine& line : seg_segment.vec_lines) {
@@ -184,8 +156,6 @@ std::size_t CommonIndent(const Segment& seg_segment) {
   return uint_common == std::numeric_limits<std::size_t>::max() ? 0 : uint_common;
 }
 
-/// 单行元素扫描目标(text/placeable 文本流)
-/// The per-line element-scan target (the text/placeable stream).
 class PatternBuilder {
  public:
   explicit PatternBuilder(Pattern& pattern_target) : pattern_(pattern_target) {}
@@ -215,17 +185,11 @@ class PatternBuilder {
   Pattern& pattern_;
 };
 
-/// 行文本直载(反斜杠字面 —— Linguini 0.8.1 的实测面;转义仅存在于
-/// 字符串字面量)
-/// The in-line text appended verbatim (a literal backslash — the measured
-/// Linguini 0.8.1 face; escapes live only inside string literals).
 void AppendTextWithEscapes(PatternBuilder& builder_target,
                            std::string_view str_text) {
   builder_target.AppendText(str_text);
 }
 
-/// {"…"} 字符串字面量的转义展开
-/// The escape expansion of the {"…"} string literal.
 bool ParseStringLiteral(std::string_view str_inner, std::string& str_out) {
   str_out.clear();
   const std::size_t uint_len = str_inner.size();
@@ -262,8 +226,6 @@ bool ParseStringLiteral(std::string_view str_inner, std::string& str_out) {
   return true;
 }
 
-/// 变量名([A-Za-z][A-Za-z0-9_-]*)
-/// The variable name ([A-Za-z][A-Za-z0-9_-]*).
 std::size_t VariableNameEnd(std::string_view str_line, std::size_t uint_start) {
   const std::size_t uint_len = str_line.size();
   if (uint_start >= uint_len ||
@@ -281,9 +243,6 @@ std::size_t VariableNameEnd(std::string_view str_line, std::size_t uint_start) {
   return uint_i;
 }
 
-/// 段 → 模式(递归下降:选择子以开启行缩进为基,变体更深、闭合同行级)
-/// The segment → the pattern (recursive descent: a selector keys on its
-/// opening line's indent; variants sit deeper, the close line at its level).
 struct PatternCursor {
   const std::vector<PatternLine>* ptr_lines;
   std::size_t uint_index = 0;
@@ -295,10 +254,6 @@ bool MaterializePattern(PatternCursor& cur_cursor, std::size_t uint_base_indent,
                         const ErrorSink& fn_on_error,
                         bool b_variant_scope = false);
 
-/// 单行元素扫描(text/placeable 流;uint_line_indent = 行原始缩进 —— 行内
-/// 选择子的基)
-/// The single-line element scan (the text/placeable stream; uint_line_indent
-/// = the line's raw indent — the base of an in-line selector).
 void ScanPatternLine(std::string_view str_content, std::size_t uint_line_indent,
                      PatternBuilder& builder_target, PatternCursor& cur_cursor,
                      const std::vector<PatternLine>& vec_lines,
@@ -309,9 +264,6 @@ bool MaterializeSelector(PatternCursor& cur_cursor, std::size_t uint_base_indent
                          std::string_view& str_close_remainder,
                          const ErrorSink& fn_on_error);
 
-
-/// 单行扫描体(供行内值与块行共用)
-/// The single-line scan body (shared by the inline value and block lines).
 void ScanPatternLine(std::string_view str_content, std::size_t uint_line_indent,
                      PatternBuilder& builder_target, PatternCursor& cur_cursor,
                      const std::vector<PatternLine>& vec_lines,
@@ -327,14 +279,14 @@ void ScanPatternLine(std::string_view str_content, std::size_t uint_line_indent,
       AppendTextWithEscapes(builder_target, str_content.substr(uint_run_start, uint_i - uint_run_start));
       continue;
     }
-    // placeable 开启 | a placeable opens.
+
     const std::size_t uint_open = uint_i;
     std::size_t uint_scan = uint_open + 1;
     while (uint_scan < str_content.size() &&
            (str_content[uint_scan] == ' ' || str_content[uint_scan] == '\t'))
       ++uint_scan;
     if (uint_scan < str_content.size() && str_content[uint_scan] == '-') {
-      // { -name }:术语引用 | { -name }: a term reference.
+
       const std::size_t uint_name_end = VariableNameEnd(str_content, uint_scan + 1);
       if (uint_name_end != std::string_view::npos) {
         std::size_t uint_after = uint_name_end;
@@ -370,8 +322,7 @@ void ScanPatternLine(std::string_view str_content, std::size_t uint_line_indent,
         }
         if (uint_after + 1 < str_content.size() &&
             str_content[uint_after] == '-' && str_content[uint_after + 1] == '>') {
-          // 选择子:变体起于后续行
-          // a selector: the variants start on the following lines.
+
           Placeable placeable_new;
           placeable_new.kind = Placeable::Kind::Selector;
           placeable_new.str_name =
@@ -381,9 +332,7 @@ void ScanPatternLine(std::string_view str_content, std::size_t uint_line_indent,
                                    str_close_remainder, fn_on_error))
             return;
           builder_target.AppendPlaceable(std::move(placeable_new));
-          // 闭合行 '}' 后的余文归外层流(同行,无断行)
-          // the remainder after the close line's '}' stays in the outer
-          // stream (same line, no break).
+
           AppendTextWithEscapes(builder_target, str_close_remainder);
           uint_i = str_content.size();
           continue;
@@ -419,8 +368,7 @@ void ScanPatternLine(std::string_view str_content, std::size_t uint_line_indent,
         }
       }
     }
-    // 未支持/畸形的 placeable:按解析错误上抛
-    // an unsupported/malformed placeable: raised as a parse error.
+
     if (fn_on_error)
       fn_on_error("fluent: unsupported placeable");
     return;
@@ -428,12 +376,6 @@ void ScanPatternLine(std::string_view str_content, std::size_t uint_line_indent,
 
 }
 
-/// 选择子体:自开启行下一行至同级 '}' 闭合行;变体行更深。闭合时游标
-/// 越过闭合行,余文(若有)经出参交还外层模式。
-/// The selector body: from the line after the opening one to the peer-level
-/// '}' close line; variant lines sit deeper. On the close the cursor moves
-/// past the close line; any remainder returns to the outer pattern through
-/// the out-parameter.
 bool MaterializeSelector(PatternCursor& cur_cursor, std::size_t uint_base_indent,
                          Placeable& placeable_selector,
                          std::string_view& str_close_remainder,
@@ -483,11 +425,6 @@ bool MaterializeSelector(PatternCursor& cur_cursor, std::size_t uint_base_indent
                                : str_variant_inline.substr(uint_first);
     }
 
-    // 空内联的多行变体:续行按自身公共缩进 dedent(变体键行缩进仅作
-    // 层级参考)
-    // a multiline variant with an empty inline: the continuation lines
-    // dedent by their own common indent (the variant-key line's indent is
-    // a hierarchy reference only).
     std::size_t uint_variant_base = uint_variant_indent;
     if (str_variant_inline.empty()) {
       std::size_t uint_common = std::numeric_limits<std::size_t>::max();
@@ -537,9 +474,7 @@ bool MaterializePattern(PatternCursor& cur_cursor, std::size_t uint_base_indent,
                         bool b_variant_scope) {
   const auto& vec_lines = *cur_cursor.ptr_lines;
   PatternBuilder builder(pattern_out);
-  // 行内值/首行走同一 placeable 扫描(无行首折行;选择子的基缩进取 0)
-  // the inline value/first line runs the same placeable scan (no leading
-  // line break; a selector keyed there bases its indent at 0).
+
   if (b_has_first)
     ScanPatternLine(str_first, 0, builder, cur_cursor, vec_lines, fn_on_error);
 
@@ -548,11 +483,7 @@ bool MaterializePattern(PatternCursor& cur_cursor, std::size_t uint_base_indent,
     if (!line.b_blank && line.uint_indent <= uint_stop_indent)
       break;
     if (b_variant_scope && !line.b_blank) {
-      // 变体域:任何变体键行/闭合行终结本变体的续行(变体键行缩进
-      // 可不一致 —— Linguini 的实测面)
-      // the variant scope: any variant-key/close line ends this variant's
-      // continuation (variant-key indents may disagree — the measured
-      // Linguini face).
+
       std::string_view str_peek = line.str_raw.substr(line.uint_indent);
       if (!str_peek.empty() && str_peek.front() == '}')
         break;
@@ -571,9 +502,6 @@ bool MaterializePattern(PatternCursor& cur_cursor, std::size_t uint_base_indent,
     const std::size_t uint_strip = std::min(uint_base_indent, str_content.size());
     str_content = str_content.substr(uint_strip);
 
-    // 行首换行(邻接 placeable 时由规范段统一修剪)
-    // the leading line break (the spec-stage pass trims it when adjacent to
-    // a placeable).
     builder.AppendText("\n");
     ScanPatternLine(str_content, line.uint_indent, builder, cur_cursor,
                     vec_lines, fn_on_error);
@@ -581,9 +509,6 @@ bool MaterializePattern(PatternCursor& cur_cursor, std::size_t uint_base_indent,
   return true;
 }
 
-/// 段物化(公共缩进扣除 + 递归扫描 + 规范化)
-/// The segment materialization (the common-indent deduction + the recursive
-/// scan + the normalization).
 bool MaterializeSegment(const Segment& seg_segment, Pattern& pattern_out,
                         const ErrorSink& fn_on_error) {
   const std::size_t uint_common = CommonIndent(seg_segment);
@@ -591,9 +516,7 @@ bool MaterializeSegment(const Segment& seg_segment, Pattern& pattern_out,
   if (!MaterializePattern(cur_cursor, uint_common, 0, seg_segment.str_inline,
                           seg_segment.b_has_inline, pattern_out, fn_on_error))
     return false;
-  // 块起始的首行行首 '\n' 去除(模式不以前导断行开头)
-  // drop the first line's leading '\n' (a pattern never starts with a
-  // leading break).
+
   if (!pattern_out.vec_elements.empty() && pattern_out.vec_elements.front().b_text &&
       !pattern_out.vec_elements.front().str_text.empty() &&
       pattern_out.vec_elements.front().str_text.front() == '\n')
@@ -601,7 +524,7 @@ bool MaterializeSegment(const Segment& seg_segment, Pattern& pattern_out,
   return true;
 }
 
-}  // namespace
+}
 
 FluentResource ParseResource(std::string_view str_text,
                              const ErrorSink& fn_on_error) {
@@ -644,8 +567,7 @@ FluentResource ParseResource(std::string_view str_text,
         IdentifierEnd(b_term ? str_line.substr(uint_id_start) : str_line);
     const std::size_t uint_eq = uint_eq_sub + uint_id_start;
     if (uint_eq == std::string_view::npos) {
-      // junk:跳至下一空行/合法条目/注释
-      // junk: skip to the next blank line/valid entry/comment.
+
       if (fn_on_error)
         fn_on_error("fluent: junk entry");
       ++resource_out.num_errors;
@@ -680,8 +602,6 @@ FluentResource ParseResource(std::string_view str_text,
                        : str_inline.substr(uint_trim);
     }
 
-    // 收集块:空行或缩进 >0 的行;尾随空行剪除
-    // collect the block: blank or indented lines; trailing blanks removed.
     std::size_t uint_block_end = uint_i + 1;
     while (uint_block_end < uint_count) {
       std::string_view str_next = vec_lines[uint_block_end];
@@ -703,9 +623,7 @@ FluentResource ParseResource(std::string_view str_text,
 
     const auto flush_segment = [&]() {
       if (seg_current.vec_lines.empty() && !seg_current.b_has_inline) {
-        // 空主段也关闭值槽(上游 `msg =` 仅属性行的合法形态)
-        // an empty main segment still closes the value slot (upstream's
-        // legal `msg =` attribute-only form).
+
         if (b_main_open)
           b_main_open = false;
         return;
@@ -765,4 +683,4 @@ FluentResource ParseResource(std::string_view str_text,
   return resource_out;
 }
 
-}  // namespace ora::fluent
+}

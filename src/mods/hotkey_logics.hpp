@@ -63,4 +63,4 @@ class MuteHotkeyLogic final : public SingleHotkeyBaseLogic {
 
 void RegisterHotkeyLogics();
 
-}  // namespace ora::mods
+}

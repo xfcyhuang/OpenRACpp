@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/DockClientManager.cs 实现部分
-//          The implementation half.
 #include "mods/dock_client.hpp"
 
 #include "meta/field_loader.hpp"
@@ -11,8 +9,6 @@
 #include "sim/world.hpp"
 
 namespace ora::mods {
-
-// ———— DockClientManagerInfoData(L25-58)————
 
 DockClientManagerInfoData DockClientManagerInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -67,8 +63,6 @@ DockClientManagerInfoData DockClientManagerInfoData::Parse(
   return data;
 }
 
-// ———— DockClientManager(L60-335)————
-
 DockClientManager::DockClientManager(ActorInitializer& init,
                                      const DockClientManagerInfoData& info)
     : sim::ConditionalTraitCore<DockClientManager>(info.conditional),
@@ -77,14 +71,13 @@ DockClientManager::DockClientManager(ActorInitializer& init,
 }
 
 void DockClientManager::Created(Actor& self) {
-  // L74-78
+
   vec_dock_clients_ = self.TraitsImplementing<sim::IDockClient>();
   CoreCreated(self);
 }
 
 std::vector<sim::VariableObserver> DockClientManager::GetVariableObservers() {
-  // L246-253(base 先;RequireForceMove 追加)
-  // L246-253 (the base first; RequireForceMove appended).
+
   std::vector<sim::VariableObserver> vec_observers = CollectObservers();
   if (info_.expr_require_force_move.has_value()) {
     sim::VariableObserver observer;
@@ -101,7 +94,7 @@ std::vector<sim::VariableObserver> DockClientManager::GetVariableObservers() {
 }
 
 sim::IDockHost* DockClientManager::LastReservedHost() {
-  // L83-98
+
   if (p_last_reserved_dock_host_ != nullptr) {
     if (!p_last_reserved_dock_host_->IsEnabledAndInWorld())
       p_last_reserved_dock_host_ = nullptr;
@@ -113,7 +106,7 @@ sim::IDockHost* DockClientManager::LastReservedHost() {
 }
 
 void DockClientManager::UnreserveHost() {
-  // L100-109
+
   if (p_reserved_host_ != nullptr) {
     p_last_reserved_dock_host_ = p_reserved_host_;
     p_reserved_host_ = nullptr;
@@ -124,7 +117,7 @@ void DockClientManager::UnreserveHost() {
 
 bool DockClientManager::ReserveHost(Actor* host_actor,
                                     sim::IDockHost* host) {
-  // L112-132
+
   if (host == nullptr)
     return false;
 
@@ -136,8 +129,6 @@ bool DockClientManager::ReserveHost(Actor* host_actor,
     p_reserved_host_ = host;
     p_reserved_host_actor_ = host_actor;
 
-    // After we have reserved a new Host we want to forget our old host.
-    // (上游注释)
     p_last_reserved_dock_host_ = nullptr;
     return true;
   }
@@ -147,14 +138,14 @@ bool DockClientManager::ReserveHost(Actor* host_actor,
 
 void DockClientManager::OnDockStarted(Actor& self, Actor& host_actor,
                                       sim::IDockHost* host) {
-  // L134-138
+
   for (sim::IDockClient* client : vec_dock_clients_)
     client->OnDockStarted(self, host_actor, host);
 }
 
 bool DockClientManager::OnDockTick(Actor& self, Actor& host_actor,
                                    sim::IDockHost* host) {
-  // L140-151
+
   if (IsTraitDisabled())
     return true;
 
@@ -168,7 +159,7 @@ bool DockClientManager::OnDockTick(Actor& self, Actor& host_actor,
 
 void DockClientManager::OnDockCompleted(Actor& self, Actor& host_actor,
                                         sim::IDockHost* host) {
-  // L153-159
+
   for (sim::IDockClient* client : vec_dock_clients_)
     client->OnDockCompleted(self, host_actor, host);
 
@@ -176,9 +167,7 @@ void DockClientManager::OnDockCompleted(Actor& self, Actor& host_actor,
 }
 
 std::vector<sim::IOrderTargeter*> DockClientManager::Orders() {
-  // L161-198(每次枚举新 targeter;游标判定闭包)
-  // L161-198 (a fresh targeter per enumeration; the cursor-predicate
-  // closure).
+
   vec_order_targeters_.clear();
   vec_order_targeters_.push_back(
       std::make_unique<DockActorTargeter>(6, [this](
@@ -238,7 +227,7 @@ std::vector<sim::IOrderTargeter*> DockClientManager::Orders() {
 std::unique_ptr<net::Order> DockClientManager::IssueOrder(
     Actor& self, sim::IOrderTargeter* order, const sim::Target& target,
     bool queued) {
-  // L238-244
+
   if (dynamic_cast<DockActorTargeter*>(order) != nullptr)
     return std::make_unique<net::Order>(order->OrderID(), &self, target,
                                         queued);
@@ -248,14 +237,11 @@ std::unique_ptr<net::Order> DockClientManager::IssueOrder(
 
 void DockClientManager::ResolveOrder(Actor& self,
                                      const net::Order& order) {
-  // L200-222
+
   if (order.str_order_string == "Dock" ||
       order.str_order_string == "ForceDock") {
     const sim::Target& target = order.target;
 
-    // Deliver orders are only valid for own/allied actors, which are
-    // guaranteed to never be frozen. TODO: support frozen actors
-    // (上游注释)
     if (target.Type() != sim::TargetType::Actor)
       return;
 
@@ -272,8 +258,8 @@ void DockClientManager::ResolveOrder(Actor& self,
 }
 
 std::string DockClientManager::VoicePhraseForOrder(
-    Actor& /*self*/, const net::Order& order) {
-  // L224-236
+    Actor& , const net::Order& order) {
+
   if (order.target.Type() != sim::TargetType::Actor ||
       IsTraitDisabled())
     return {};
@@ -291,8 +277,8 @@ std::string DockClientManager::VoicePhraseForOrder(
 }
 
 bool DockClientManager::CanDock(
-    const core::BitSet<sim::DockType>& type, bool /*force_enter*/) {
-  // L261-264
+    const core::BitSet<sim::DockType>& type, bool ) {
+
   if (IsTraitDisabled())
     return false;
   for (sim::IDockClient* client : vec_dock_clients_)
@@ -302,7 +288,7 @@ bool DockClientManager::CanDock(
 }
 
 bool DockClientManager::CanDock(Actor& target, bool force_enter) {
-  // L267-272
+
   if (IsTraitDisabled())
     return false;
   for (sim::IDockHost* host :
@@ -316,7 +302,7 @@ bool DockClientManager::CanDock(Actor& target, bool force_enter) {
 bool DockClientManager::CanDockAt(Actor& host_actor, sim::IDockHost* host,
                                   bool force_enter,
                                   bool ignore_occupancy) {
-  // L275-279
+
   if (IsTraitDisabled())
     return false;
   for (sim::IDockClient* client : vec_dock_clients_)
@@ -327,7 +313,7 @@ bool DockClientManager::CanDockAt(Actor& host_actor, sim::IDockHost* host,
 
 bool DockClientManager::CanDockAt(Actor& target, bool force_enter,
                                   bool ignore_occupancy) {
-  // L282-286
+
   if (IsTraitDisabled())
     return false;
   for (sim::IDockHost* host :
@@ -340,7 +326,7 @@ bool DockClientManager::CanDockAt(Actor& target, bool force_enter,
 
 bool DockClientManager::CanQueueDockAt(Actor& target, bool force_enter,
                                        bool is_queued) {
-  // L289-294
+
   if (IsTraitDisabled())
     return false;
   for (sim::IDockHost* host :
@@ -356,7 +342,7 @@ DockClientManager::ClosestDock(sim::IDockHost* ignore,
                                core::BitSet<sim::DockType> type,
                                bool force_enter,
                                bool ignore_occupancy) const {
-  // L304-312
+
   std::vector<sim::IDockClient*> vec_clients;
   if (type.IsEmpty())
     vec_clients = vec_dock_clients_;
@@ -378,9 +364,6 @@ DockClientManager::ClosestDock(sim::IDockHost* ignore,
         vec_docks.push_back(sim::TraitPair<sim::IDockHost>{actor, trait});
     }
 
-  // 成员名遮蔽:限定自由函数(DockExts.ClosestDock)
-  // The member name shadows: qualify the free function
-  // (DockExts.ClosestDock).
   return ora::mods::ClosestDock(vec_docks, *p_self_, *this);
 }
 
@@ -388,7 +371,7 @@ std::vector<sim::TraitPair<sim::IDockHost>>
 DockClientManager::AvailableDockHosts(
     Actor& target, core::BitSet<sim::DockType> type, bool force_enter,
     bool ignore_occupancy) const {
-  // L316-323
+
   std::vector<sim::IDockClient*> vec_clients =
       type.IsEmpty() ? vec_dock_clients_
                      : AvailableDockClients(type, force_enter);
@@ -408,7 +391,7 @@ DockClientManager::AvailableDockHosts(
 
 std::vector<sim::IDockClient*> DockClientManager::AvailableDockClients(
     const core::BitSet<sim::DockType>& type, bool force_enter) const {
-  // L327-330
+
   std::vector<sim::IDockClient*> vec_out;
   for (sim::IDockClient* client : vec_dock_clients_)
     if (client->CanDock(type, force_enter))
@@ -416,20 +399,20 @@ std::vector<sim::IDockClient*> DockClientManager::AvailableDockClients(
   return vec_out;
 }
 
-void DockClientManager::Killed(Actor& /*self*/,
-                               const sim::AttackInfo& /*e*/) {
-  // L332
+void DockClientManager::Killed(Actor& ,
+                               const sim::AttackInfo& ) {
+
   UnreserveHost();
 }
 
-void DockClientManager::Disposing(Actor& /*self*/) {
-  // L334
+void DockClientManager::Disposing(Actor& ) {
+
   UnreserveHost();
 }
 
 std::vector<sim::IDockHost*> DockClientManager::GetDockableHosts(
     Actor& target, bool force_enter, bool is_queued) const {
-  // L296-300
+
   std::vector<sim::IDockHost*> vec_out;
   for (sim::IDockHost* host :
        target.TraitsImplementing<sim::IDockHost>())
@@ -442,14 +425,12 @@ std::vector<sim::IDockHost*> DockClientManager::GetDockableHosts(
 }
 
 void DockClientManager::RequireForceMoveConditionChanged(
-    Actor& /*self*/, sim::ConditionCacheView conditions) {
-  // L255-258
+    Actor& , sim::ConditionCacheView conditions) {
+
   b_require_force_move_ =
       info_.expr_require_force_move->Evaluate(
           sim::ConditionSymbols(conditions));
 }
-
-// ———— DockActorTargeter(L337-394)————
 
 DockActorTargeter::DockActorTargeter(
     int priority,
@@ -457,18 +438,17 @@ DockActorTargeter::DockActorTargeter(
     : int4_priority_{priority}, fn_can_target_{std::move(fn_can_target)} {}
 
 bool DockActorTargeter::TargetOverridesSelection(
-    Actor& /*self*/, const sim::Target& /*target*/,
-    std::span<Actor* const> /*actors_at*/, CPos /*xy*/,
-    sim::TargetModifiers /*modifiers*/) {
+    Actor& , const sim::Target& ,
+    std::span<Actor* const> , CPos ,
+    sim::TargetModifiers ) {
   return true;
 }
 
-bool DockActorTargeter::CanTarget(Actor& /*self*/,
+bool DockActorTargeter::CanTarget(Actor& ,
                                   const sim::Target& target,
                                   sim::TargetModifiers& modifiers,
                                   std::string& cursor) {
-  // L352-366
-  // TODO: support frozen actors(上游注释)
+
   if (target.Type() != sim::TargetType::Actor)
     return false;
 
@@ -487,18 +467,13 @@ bool DockActorTargeter::CanTarget(Actor& /*self*/,
   return result.b_can_target;
 }
 
-// ———— DockExts.ClosestDock(L397-437)————
-
 std::optional<sim::TraitPair<sim::IDockHost>> ClosestDock(
     std::span<const sim::TraitPair<sim::IDockHost>> vec_docks,
     Actor& client_actor, const DockClientManager& client) {
-  // L399-436
+
   if (Mobile* mobile = client_actor.TraitOrDefault<Mobile>();
       mobile != nullptr) {
-    // Overlapping hosts can become hidden.(上游注释)
-    // AggregateBy(dock → CellContaining(dock.DockPosition)) → 首值 map
-    // AggregateBy (dock → CellContaining(dock.DockPosition)) → the
-    // first-value map.
+
     std::map<CPos, sim::TraitPair<sim::IDockHost>> map_lookup;
     for (const auto& dock : vec_docks) {
       const CPos cell = client_actor.world().Map().CellContaining(
@@ -506,7 +481,6 @@ std::optional<sim::TraitPair<sim::IDockHost>> ClosestDock(
       map_lookup.emplace(cell, dock);
     }
 
-    // Start a search from each client actor:(上游注释)
     std::vector<CPos> vec_targets;
     vec_targets.reserve(map_lookup.size());
     for (const auto& [cell, dock] : map_lookup)
@@ -522,9 +496,6 @@ std::optional<sim::TraitPair<sim::IDockHost>> ClosestDock(
               if (it_find == map_lookup.end())
                 return 0;
 
-              // Prefer docks with less occupancy (multiplier is to offset
-              // distance cost): TODO: add custom weights. E.g. owner vs
-              // allied.(上游注释)
               return it_find->second.trait->ReservationCount() *
                      occupancy_cost_modifier;
             });
@@ -535,8 +506,7 @@ std::optional<sim::TraitPair<sim::IDockHost>> ClosestDock(
         return it_find->second;
     }
   } else {
-    // OrderBy(...).FirstOrDefault 的稳定序单遍择优
-    // OrderBy(...).FirstOrDefault's stable-order single-pass pick.
+
     const sim::TraitPair<sim::IDockHost>* best = nullptr;
     std::int64_t best_cost = 0;
     for (const auto& dock : vec_docks) {
@@ -558,4 +528,4 @@ std::optional<sim::TraitPair<sim::IDockHost>> ClosestDock(
   return std::nullopt;
 }
 
-}  // namespace ora::mods
+}

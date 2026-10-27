@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ColorPickerLogic.cs @1f594e320 L22-191(全文)。
 #pragma once
 import std;
 
@@ -20,4 +19,4 @@ class ColorPickerLogic : public ChromeLogic {
   std::vector<core::Color> vec_terrain_colors_{};
 };
 
-}  // namespace ora::ui
+}

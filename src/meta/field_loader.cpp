@@ -1,23 +1,3 @@
-// UPSTREAM: OpenRA.Game/FieldLoader.cs @1f594e320 L27-1032(field_loader.hpp 的实现)
-//          Implementation of field_loader.hpp.
-// 分派结构 / Dispatch structure:
-//  - Load(L754-796):描述表字段循环 + MissingFieldsException;GeneratedRecord
-//    走值袋路径(LoadValueIntoValue 直写槽),手写类走 值解析 → AssignToMemory
-//    的两段路径
-//    Load (L754-796): the descriptor-field loop + MissingFieldsException;
-//    GeneratedRecord takes the bag path (LoadValueIntoValue writes slots
-//    directly), hand-written classes take the two-stage value-parse →
-//    AssignToMemory path.
-//  - 具体解析(ParseXxx 家族)全部在 generic_record.cpp 的 LoadValueIntoValue
-//    (唯一实现;错误消息与上游 GetValue/ParseXxx 逐字一致)
-//    The concrete parsing (the ParseXxx family) lives entirely in
-//    LoadValueIntoValue of generic_record.cpp (the single implementation;
-//    error messages verbatim from upstream GetValue/ParseXxx).
-//  - InvalidValueAction/UnknownFieldAction 可替换委托 → 全局函数
-//    (默认实现消息逐字;lint 侧替换行为随后续阶段接入)
-//    The replaceable InvalidValueAction/UnknownFieldAction delegates →
-//    global functions (verbatim default messages; linter replacements
-//    arrive with later phases).
 import std;
 #include "field_loader.hpp"
 #include "generic_record.hpp"
@@ -29,30 +9,25 @@ namespace ora::meta {
 
 namespace {
 
-/// 字段内存指针(手写类路径)/ Pointer to the field storage (hand-written
-/// class path).
 void* FieldPtr(RecordObject* obj_record, const FieldDesc& desc) {
   return static_cast<void*>(reinterpret_cast<char*>(obj_record) + desc.off_offset);
 }
 
-}  // namespace
-
-// ———— BitSet 标签注册表 / BitSet tag registry ————
+}
 
 namespace {
 struct BitSetOps {
   std::function<std::uint64_t(std::span<const std::string>)> fn_get_bits;
   std::function<std::vector<std::string>(std::uint64_t)> fn_get_strings;
-  /// 单名 no-alloc 位查询(分配器桥消费)
-  /// The single-name no-alloc bit query (the bridge consumes).
+
   std::function<std::optional<std::uint64_t>(std::string_view)> fn_bit_noalloc;
 };
 
 std::unordered_map<std::string, BitSetOps>& BitSetTable() {
-  static std::unordered_map<std::string, BitSetOps> map_table;  // 键拥有拷贝 / owning keys
+  static std::unordered_map<std::string, BitSetOps> map_table;
   return map_table;
 }
-}  // namespace
+}
 
 void RegisterBitSet(
     std::string_view str_tag,
@@ -70,7 +45,7 @@ void RegisterBitSet(
 std::uint64_t BitsOf(std::string_view str_tag, std::span<const std::string> vec_values) {
   const auto it_find = BitSetTable().find(std::string{str_tag});
   if (it_find == BitSetTable().end())
-    std::abort();  // 生成器保证注册 / the generator guarantees registration
+    std::abort();
   return it_find->second.fn_get_bits(vec_values);
 }
 
@@ -82,11 +57,7 @@ std::vector<std::string> StringsOfBits(std::string_view str_tag, std::uint64_t u
 }
 
 void RegisterRuntimeBitSet(std::string_view str_tag) {
-  // 运行时分配器:字符串→位首遇序分配(等价 BitSetAllocator<T> 的静态状态,
-  // 以字符串键承载;gen/ 的 RegisterGeneratedBitSets 调用)
-  // Runtime allocator: bits allocate in first-appearance order (the
-  // string-keyed equivalent of the static BitSetAllocator<T> state; invoked
-  // by RegisterGeneratedBitSets of gen/).
+
   auto map_bits = std::make_shared<std::unordered_map<std::string, std::size_t>>();
   auto vec_names = std::make_shared<std::vector<std::string>>();
   RegisterBitSet(
@@ -144,8 +115,6 @@ bool BitSetContainsString(std::string_view str_tag, std::uint64_t uint8_bits,
   return bit.has_value() && (uint8_bits & *bit) != 0;
 }
 
-// ———— 手写类 LoadUsing 注册表 / LoadUsing registry (hand-written classes) ————
-
 namespace {
 std::unordered_map<std::string_view,
                    std::function<void(void* field_ptr, const yaml::MiniYaml& trait_yaml)>>&
@@ -156,12 +125,12 @@ LoaderTable() {
       map_table;
   return map_table;
 }
-}  // namespace
+}
 
 void RegisterLoader(
     std::string_view str_loader,
     std::function<void(void* field_ptr, const yaml::MiniYaml& trait_yaml)> fn_load) {
-  // 驻留池键(防临时串悬垂)/ interned key (no dangling temporaries).
+
   static std::deque<std::string> deque_pool;
   LoaderTable().insert_or_assign(*deque_pool.emplace(deque_pool.end(), str_loader),
                                  std::move(fn_load));
@@ -173,8 +142,6 @@ void RegisterLoader(
       str_field));
 }
 
-// ———— 缺省动作 / Default actions ————
-
 [[noreturn]] void DefaultInvalidValue(std::string_view sv_value, std::string_view sv_field_type,
                                       std::string_view sv_field_name) {
   throw yaml::YamlException(std::format("FieldLoader: Cannot parse `{}` into field `{}` of type `{}`",
@@ -185,12 +152,8 @@ void RegisterLoader(
   throw yaml::YamlException(std::format("FieldLoader: Missing field `{}`", sv_field_name));
 }
 
-// ———— 描述表访问 / Descriptor access ————
-
 std::vector<const FieldDesc*> CollectFields(const RecordDesc& desc) {
-  // 沿 base 链收至根再倒序展开(最远基类字段在前 = C# GetFields 序)
-  // Walk the base chain to the root then unwind (base-most fields first = the
-  // C# GetFields order).
+
   std::vector<const RecordDesc*> vec_chain;
   const RecordDesc* desc_cur = &desc;
   while (desc_cur != nullptr) {
@@ -205,16 +168,11 @@ std::vector<const FieldDesc*> CollectFields(const RecordDesc& desc) {
   return vec_fields;
 }
 
-// ———— Load 主循环(L754-796)/ The Load loop ————
-
 void Load(RecordObject* obj_record, const yaml::MiniYaml& yaml_my) {
   const RecordDesc& desc = obj_record->record_desc();
   const std::vector<const FieldDesc*> vec_fields = CollectFields(desc);
   std::vector<std::string> vec_missing;
 
-  // 生成类型走值袋槽(GenericValue);手写类走 offset 内存 —— 两路在此分派
-  // Generated types address bag slots (GenericValue); hand-written classes
-  // address offset memory — the two paths fork here.
   auto* rec_generated = dynamic_cast<GeneratedRecord*>(obj_record);
 
   if (rec_generated != nullptr && rec_generated->Values().size() != vec_fields.size())
@@ -222,9 +180,6 @@ void Load(RecordObject* obj_record, const yaml::MiniYaml& yaml_my) {
         "GeneratedRecord slot mismatch: {} fields vs {} slots ({})",
         vec_fields.size(), rec_generated->Values().size(), desc.str_name));
 
-  // md = my.ToDictionary()(L765;重复键抛 YamlException,Phase 1 已逐字)
-  // md = my.ToDictionary() (L765; duplicate keys raise YamlException,
-  // verbatim since Phase 1).
   const std::vector<std::pair<std::string_view, const yaml::MiniYaml*>> vec_md =
       yaml_my.ToDictionary();
   const auto find_md = [&vec_md](std::string_view sv_key) -> const yaml::MiniYaml* {
@@ -238,9 +193,7 @@ void Load(RecordObject* obj_record, const yaml::MiniYaml& yaml_my) {
     const FieldDesc& desc_field = *vec_fields[int4_slot];
 
     if (!desc_field.str_loader.empty()) {
-      // LoadUsing(L766-776):required 时键必须在;loader 收到整个对象节点
-      // LoadUsing (L766-776): the key must exist when required; the loader
-      // receives the whole object node.
+
       const yaml::MiniYaml* yaml_found = find_md(desc_field.str_name);
       if (desc_field.b_required && yaml_found == nullptr) {
         vec_missing.push_back(std::string{desc_field.str_name});
@@ -262,9 +215,7 @@ void Load(RecordObject* obj_record, const yaml::MiniYaml& yaml_my) {
 
     const yaml::MiniYaml* yaml_found = find_md(desc_field.str_name);
     if (yaml_found == nullptr) {
-      // TryGetValueFromYaml miss(L779-787):Required 记缺失,否则保持默认
-      // TryGetValueFromYaml miss (L779-787): record required misses,
-      // otherwise keep the default.
+
       if (desc_field.b_required)
         vec_missing.push_back(std::string{desc_field.str_name});
       continue;
@@ -282,8 +233,6 @@ void Load(RecordObject* obj_record, const yaml::MiniYaml& yaml_my) {
   if (!vec_missing.empty())
     throw MissingFieldsException(std::move(vec_missing));
 }
-
-// ———— 便捷入口(L839-842)/ Convenience entries ————
 
 std::int32_t GetInt32Value(std::string_view str_field, std::string_view sv_value) {
   std::int32_t int4_v{};
@@ -310,10 +259,7 @@ bool GetBoolValue(std::string_view str_field, std::string_view sv_value) {
 }
 
 std::vector<std::string> GetStringArrayValue(std::string_view str_field, std::string_view sv_value) {
-  // FieldLoader.GetValue<ImmutableArray<string>>(L839-842 + ParseImmutableArray);
-  // 字段名取调用方参数(上游 GetValue<T>(field, value) 的 field 传播)
-  // The field name is the caller's argument (the field propagation of the
-  // upstream GetValue<T>(field, value)).
+
   static constexpr FieldDesc kElemStr = ElemOf(FieldType::String);
   const FieldDesc desc_arr{
       .str_name = str_field, .type = FieldType::ImmutableArray, .b_required = false,
@@ -333,9 +279,6 @@ std::vector<std::string> GetStringArrayValue(std::string_view str_field, std::st
 
 namespace {
 
-/// GetValue&lt;Tuple&gt; 的共同实现:临时 scratch 节点走主分派,失败消息逐字。
-/// The shared implementation of GetValue<Tuple>: a temporary scratch node
-/// through the main dispatch, failure messages verbatim.
 GenericTuple GetTupleValue(std::string_view str_field, std::string_view sv_value, FieldType type_field,
                            std::string_view str_type_name) {
   const FieldDesc desc_field{
@@ -349,7 +292,7 @@ GenericTuple GetTupleValue(std::string_view str_field, std::string_view sv_value
   return std::get<GenericTuple>(val_out.val);
 }
 
-}  // namespace
+}
 
 Rectangle GetRectangleValue(std::string_view str_field, std::string_view sv_value) {
   const GenericTuple t_v = GetTupleValue(str_field, sv_value, FieldType::Rectangle,
@@ -374,9 +317,6 @@ core::Vector2 GetVector2Value(std::string_view str_field, std::string_view sv_va
 
 namespace {
 
-/// 标量直读:临时 scratch 节点走主分派(错误消息逐字)。
-/// Scalar direct-read: a temporary scratch node through the main dispatch
-/// (verbatim error messages).
 GenericValue GetScalarValue(std::string_view str_field, std::string_view sv_value, FieldType type_field,
                             std::string_view str_type_name) {
   const FieldDesc desc_field{
@@ -390,9 +330,6 @@ GenericValue GetScalarValue(std::string_view str_field, std::string_view sv_valu
   return val_out;
 }
 
-/// 数组直读(elem 挂子描述;ImmutableArray 形态,非分组元素)。
-/// Array direct-read (elem carrying the sub-descriptor; the ImmutableArray
-/// shape, non-grouped elements).
 GenericValue GetArrayValue(std::string_view str_field, std::string_view sv_value,
                            const FieldDesc& desc_elem, std::string_view str_type_name) {
   const FieldDesc desc_arr{
@@ -406,10 +343,10 @@ GenericValue GetArrayValue(std::string_view str_field, std::string_view sv_value
   return val_out;
 }
 
-}  // namespace
+}
 
 std::int32_t GetWDistValue(std::string_view str_field, std::string_view sv_value) {
-  // GenericValue 槽 = .Length(int64)| the GenericValue slot = .Length (int64).
+
   return static_cast<std::int32_t>(
       std::get<std::int64_t>(GetScalarValue(str_field, sv_value, FieldType::WDist, "OpenRA.WDist").val));
 }
@@ -421,7 +358,7 @@ core::Vector3 GetVector3Value(std::string_view str_field, std::string_view sv_va
 }
 
 core::Color GetColorValue(std::string_view str_field, std::string_view sv_value) {
-  // 槽 = ToArgb 的 int64(argb 位形)| the slot = ToArgb as int64 (the argb bits).
+
   return core::Color::FromArgbRaw(
       static_cast<std::uint32_t>(std::get<std::int64_t>(
           GetScalarValue(str_field, sv_value, FieldType::Color, "OpenRA.Primitives.Color").val)));
@@ -453,9 +390,7 @@ std::vector<float> GetFloatArrayValue(std::string_view str_field, std::string_vi
 
 std::vector<std::pair<std::string, std::string>> GetStringDictionaryValue(
     const yaml::MiniYaml& yaml_node, std::string_view str_field) {
-  // 节点表 → GenericDict(键/值均 String;插入序保持)
-  // The node table → GenericDict (both key and value String; the insertion
-  // order kept).
+
   static constexpr FieldDesc kElemString = ElemOf(FieldType::String);
   const FieldDesc desc_dict{
       .str_name = str_field, .type = FieldType::FrozenDictionary, .b_required = false,
@@ -474,12 +409,11 @@ std::vector<std::pair<std::string, std::string>> GetStringDictionaryValue(
 
 std::int32_t GetEnumValue(std::string_view str_field, std::string_view sv_value,
                           std::string_view str_enum_full_name) {
-  // 枚举名进 desc.str_type_name(注册表键)| the enum name enters
-  // desc.str_type_name (the registry key).
+
   return static_cast<std::int32_t>(
       std::get<std::int64_t>(GetScalarValue(str_field, sv_value, FieldType::Enum,
                                             str_enum_full_name)
                                  .val));
 }
 
-}  // namespace ora::meta
+}

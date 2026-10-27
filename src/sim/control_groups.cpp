@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/ControlGroups.cs @1f594e320
-//          (实现部分)
-//          The implementation half of ControlGroups.cs.
 import std;
 
 #include "sim/control_groups.hpp"
@@ -16,8 +13,7 @@ namespace ora::sim {
 namespace {
 
 std::uint32_t ParseUIntInvariant(std::string_view sv) {
-  // uint.Parse(NumberStyles.Integer):两侧空白允许,禁止负号(与
-  // Selection 侧同一形态)| the same shape as Selection's helper.
+
   while (!sv.empty() &&
          (sv.front() == ' ' || sv.front() == '\t' || sv.front() == '\n' ||
           sv.front() == '\r'))
@@ -41,18 +37,16 @@ std::uint32_t ParseUIntInvariant(std::string_view sv) {
   return static_cast<std::uint32_t>(v);
 }
 
-}  // namespace
+}
 
 ControlGroups::ControlGroups(World& world, std::vector<std::string> groups)
     : world_{world}, groups_{std::move(groups)} {
-  // Enumerable.Range(0, Groups.Length).Select(_ => new List<Actor>())
-  // (L40)| (L40).
+
   vec_control_groups_.resize(groups_.size());
 }
 
 void ControlGroups::SelectControlGroup(int group) {
-  // world.Selection.Combine(world, GetActorsInControlGroup(group), false,
-  // false)(L45)| (L45).
+
   const std::vector<Actor*> group_actors = GetActorsInControlGroup(group);
   if (ISelection* selection = world_.Selection())
     selection->Combine(world_, group_actors, false, false);
@@ -60,26 +54,26 @@ void ControlGroups::SelectControlGroup(int group) {
 
 void ControlGroups::CreateControlGroup(int group) {
   ISelection* selection = world_.Selection();
-  if (selection == nullptr || selection->Actors().empty())  // L50
+  if (selection == nullptr || selection->Actors().empty())
     return;
 
-  vec_control_groups_[static_cast<std::size_t>(group)].clear();  // L53
+  vec_control_groups_[static_cast<std::size_t>(group)].clear();
 
-  RemoveActorsFromAllControlGroups(selection->Actors());  // L55
+  RemoveActorsFromAllControlGroups(selection->Actors());
 
-  for (Actor* a : selection->Actors())  // L57
+  for (Actor* a : selection->Actors())
     if (a->Owner() == world_.LocalPlayer())
       vec_control_groups_[static_cast<std::size_t>(group)].push_back(a);
 }
 
 void ControlGroups::AddSelectionToControlGroup(int group) {
   ISelection* selection = world_.Selection();
-  if (selection == nullptr || selection->Actors().empty())  // L62
+  if (selection == nullptr || selection->Actors().empty())
     return;
 
-  RemoveActorsFromAllControlGroups(selection->Actors());  // L65
+  RemoveActorsFromAllControlGroups(selection->Actors());
 
-  for (Actor* a : selection->Actors())  // L67
+  for (Actor* a : selection->Actors())
     if (a->Owner() == world_.LocalPlayer())
       vec_control_groups_[static_cast<std::size_t>(group)].push_back(a);
 }
@@ -92,7 +86,7 @@ void ControlGroups::CombineSelectionWithControlGroup(int group) {
 
 void ControlGroups::AddToControlGroup(Actor* a, int group) {
   auto& cg = vec_control_groups_[static_cast<std::size_t>(group)];
-  // Contains 线性 + Add(L76-79)| the linear Contains + Add (L76-79).
+
   const std::uint32_t id = a->ActorID();
   const bool present = std::any_of(cg.begin(), cg.end(), [&](Actor* x) {
     return x->ActorID() == id;
@@ -141,7 +135,7 @@ void ControlGroups::RemoveActorsFromAllControlGroups(
 }
 
 std::vector<Actor*> ControlGroups::GetActorsInControlGroup(int group) {
-  // Where(a => a.IsInWorld)(L105)| (L105).
+
   std::vector<Actor*> out;
   for (Actor* a : vec_control_groups_[static_cast<std::size_t>(group)])
     if (a->IsInWorld())
@@ -151,8 +145,7 @@ std::vector<Actor*> ControlGroups::GetActorsInControlGroup(int group) {
 
 void ControlGroups::Tick(Actor&) {
   for (auto& cg : vec_control_groups_) {
-    // note: NOT `!a.IsInWorld`, since that would remove things that are in
-    // transports.(上游注释)| (upstream comment).
+
     cg.erase(std::remove_if(cg.begin(), cg.end(),
                             [&](Actor* a) {
                               return a->Disposed() ||
@@ -163,10 +156,7 @@ void ControlGroups::Tick(Actor&) {
 }
 
 std::vector<yaml::MiniYamlNode> ControlGroups::IssueTraitData(Actor&) {
-  // L117-134:FieldSaver.FormatValue(actorIds) 的逗号列表形态(与
-  // Selection::IssueTraitData 同约定)
-  // L117-134: the comma-list shape of FieldSaver.FormatValue(actorIds)
-  // (the same convention as Selection::IssueTraitData).
+
   yaml::StringPool& pool = yaml::MiniYaml::GlobalPool();
   std::vector<yaml::MiniYamlNode> groups;
   for (std::size_t i = 0; i < vec_control_groups_.size(); i++) {
@@ -190,7 +180,7 @@ std::vector<yaml::MiniYamlNode> ControlGroups::IssueTraitData(Actor&) {
 }
 
 void ControlGroups::ResolveTraitData(Actor& self, const yaml::MiniYaml& data) {
-  // L136-148
+
   const yaml::MiniYamlNode* groups_node = data.NodeWithKeyOrDefault("Groups");
   if (groups_node == nullptr)
     return;
@@ -199,9 +189,7 @@ void ControlGroups::ResolveTraitData(Actor& self, const yaml::MiniYaml& data) {
     const std::string_view sv_value =
         n.Value.Value != nullptr ? std::string_view{*n.Value.Value}
                                  : std::string_view{};
-    // FieldLoader.GetValue<uint[]> 的逗号列表解析(失败段 = uint.Parse 抛)
-    // The comma-list parse of FieldLoader.GetValue<uint[]> (a failing
-    // segment = the uint.Parse throw).
+
     const std::string_view sv_key = n.Key != nullptr ? std::string_view{*n.Key}
                                                      : std::string_view{};
     const int group = meta::GetInt32Value("group", sv_key);
@@ -213,4 +201,4 @@ void ControlGroups::ResolveTraitData(Actor& self, const yaml::MiniYaml& data) {
   }
 }
 
-}  // namespace ora::sim
+}

@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Air/Aircraft.cs + AmmoPool.cs +
-//          Rearmable.cs + Repairable.cs + RepairsUnits.cs +
-//          Air/FallsToEarth.cs + Air/AttackAircraft.cs + AttackBomber.cs +
-//          SupportPowers/AirstrikePower.cs(注册装配)
 #include "meta/generic_record.hpp"
 #include "mods/air_support.hpp"
 #include "mods/aircraft.hpp"
@@ -89,4 +85,4 @@ void RegisterCommonTraitsBatch14() {
       });
 }
 
-}  // namespace ora::mods
+}

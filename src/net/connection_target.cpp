@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/Network/ConnectionTarget.cs @1f594e320 L19-62(实现;
-//          头文件同条目)
-//          The implementation; the header carries the same tag.
 #include "net/connection_target.hpp"
 
 namespace ora::net {
@@ -31,4 +28,4 @@ std::string ConnectionTarget::ToString() const {
   return str_out;
 }
 
-}  // namespace ora::net
+}

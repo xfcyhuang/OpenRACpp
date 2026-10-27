@@ -1,13 +1,7 @@
-// UPSTREAM: NONE(测试设施:真 ra 序列表 + 合成资产副本的序列装配;
-//          Phase 5 第八批起,渲染 trait 构造依赖 Map::Sequences —— 各
-//          sim 测试共用此夹具装配)
-//          Test facility (the real ra sequence tables + synthetic asset
-//          copies; from Phase 5 batch 8 the render traits' construction
-//          depends on Map::Sequences — the sim tests share this fixture).
 #pragma once
 import std;
 
-#include <process.h>  // _getpid(ctest 并行的临时目录隔离;白名单头)| _getpid (the parallel ctest temp-dir isolation; a whitelisted header)
+#include <process.h>
 
 #include "formats/lcw.hpp"
 #include "formats/shp_td.hpp"
@@ -26,8 +20,6 @@ namespace ora::testfx {
 
 namespace {
 
-/// 合成 shpTD(seq_test 的 MakeFramesShpTD 同形;64B 帧)
-/// The synthetic shpTD (seq_test's MakeFramesShpTD shape; 64-byte frames).
 std::vector<std::byte> MakeFramesShpTD(std::uint8_t uint1_seed,
                                        std::int32_t int4_frame_count) {
   auto vec_encoded_all = std::vector<std::byte>{};
@@ -58,15 +50,14 @@ std::vector<std::byte> MakeFramesShpTD(std::uint8_t uint1_seed,
   put_u16(0, static_cast<std::uint16_t>(int4_frame_count));
   put_u16(6, 8);
   put_u16(8, 8);
-  // 逐帧偏移:LCW 编码长累进
-  // Per-frame offsets: the LCW-encoded lengths accumulate.
+
   std::size_t st_off = st_data_base;
   std::size_t st_encoded = 0;
   for (auto int4_f = 0; int4_f < int4_frame_count; int4_f++) {
     put_u32(14 + 8 * static_cast<std::size_t>(int4_f),
             static_cast<std::uint32_t>(st_off) | (0x80u << 24));
-    st_off += st_encoded;  // 占位;下方按实际编码长复写 | placeholder;
-                           // rewritten below with real lengths
+    st_off += st_encoded;
+
   }
   st_off = st_data_base;
   st_encoded = 0;
@@ -90,41 +81,20 @@ std::vector<std::byte> MakeFramesShpTD(std::uint8_t uint1_seed,
   return vec_file;
 }
 
-/// ModFiles 读小文本(Open → 全字节;序列 yaml 仅几十 KB)
-/// Read a small text off ModFiles (Open → all bytes; the sequence yamls
-/// are only tens of KB).
 std::string ModFilesReadAll(ora::fs::FileSystem& fs_files,
                             const std::string& str_name) {
   const std::vector<char> vec_bytes = fs_files.Open(str_name);
   return std::string{vec_bytes.begin(), vec_bytes.end()};
 }
 
-}  // namespace
+}
 
-/// 真序列表 + 合成资产副本装载到 map。ra 的序列引用 content|*.mix 的
-/// 原版资产 —— 无 content 环境按序列表逐 Filename 生成合成 shpTD 副本,
-/// Classic 加载器链全真;真资产物化随 Phase 6 的 content 装配。
-/// Loads the real sequence tables + synthetic asset copies onto the map.
-/// ra's sequences reference the vanilla assets inside content|*.mix — this
-/// content-less environment generates a synthetic shpTD copy per
-/// referenced Filename while the Classic loader chain stays real; the
-/// real-asset materialization rides Phase 6's content assembly.
-/// golden 对拍的 qboi facings 解析(QuantizeFacingsFromSequence.
-/// QuantizedBodyFacings 同语义):qboi 记录的 Sequence 名(缺省 idle)
-/// + RenderSprites 的 GetImage → Map.Sequences 的 Facings。序列集指针
-/// 由 InstallSyntheticSequences 装载后注入。
-/// The golden differential's qboi facings resolution (the same semantics
-/// as QuantizeFacingsFromSequence.QuantizedBodyFacings): the qboi
-/// record's Sequence name (idle by default) + RenderSprites' GetImage →
-/// the Map.Sequences' Facings. The sequence-set pointer is injected after
-/// InstallSyntheticSequences loads it.
 inline gfx::SequenceSet* g_ptr_golden_sequences = nullptr;
 
 inline int ResolveGoldenFacings(const ora::game::ActorInfo& actor,
                                 const std::string& str_faction) {
   if (g_ptr_golden_sequences == nullptr)
     return 8;
-
 
   std::string str_sequence = "idle";
   const meta::RecordObject* rec_render_sprites = nullptr;
@@ -158,9 +128,7 @@ inline void InstallSyntheticSequences(map::Map& map_world,
                                       const game::Manifest& manifest,
                                       game::ModData& mod_data,
                                       const char* str_upstream_root) {
-  // 静态生命周期:SequenceSet/SpriteCache 挂 Map 后仍可能惰性触 FS
-  // Static lifetime: the SequenceSet/SpriteCache may still touch the FS
-  // lazily after being mounted on the Map.
+
   static fs::FileSystem file_system_sequences;
   std::vector<std::string> vec_sequence_files = [&] {
     std::vector<std::string> vec_files;
@@ -170,9 +138,7 @@ inline void InstallSyntheticSequences(map::Map& map_world,
     return vec_files;
   }();
   {
-    // 目录名带进程 id:ctest 并行时各测试互不踩踏(曾致 0xc0000409 竞态)
-    // The directory name carries the process id: parallel ctest runs stay
-    // out of each other's way (a 0xc0000409 race once lived here).
+
     const std::filesystem::path dir_sequences =
         std::filesystem::temp_directory_path() /
         (std::string{"ora_render_test_"} +
@@ -186,9 +152,6 @@ inline void InstallSyntheticSequences(map::Map& map_world,
     std::filesystem::remove_all(dir_sequences);
     std::filesystem::create_directories(dir_sequences);
 
-    // 收集序列表引用的全部文件名(Filename + TilesetFilenames 值)
-    // Collect every filename the sequence tables reference (the Filename
-    // + TilesetFilenames values).
     yaml::StringPool pool_yaml;
     std::vector<std::string> vec_referenced;
     for (const std::string& str_file : vec_sequence_files) {
@@ -220,9 +183,6 @@ inline void InstallSyntheticSequences(map::Map& map_world,
         std::unique(vec_referenced.begin(), vec_referenced.end()),
         vec_referenced.end());
 
-    // 单份合成字节共享(所有引用文件同内容 —— 引用存在性即所测面)
-    // One synthetic byte set shared (every referenced file carries the
-    // same content — the reference's existence is the tested face).
     const std::vector<std::byte> vec_shp_shared = MakeFramesShpTD(3, 1024);
     const auto write_shared = [&](const std::string& str_asset) {
       const auto path_out = dir_sequences / str_asset;
@@ -234,19 +194,12 @@ inline void InstallSyntheticSequences(map::Map& map_world,
     };
     for (const std::string& str_asset : vec_referenced) {
       const std::size_t sz_pipe = str_asset.find('|');
-      // 带前缀引用(lores|/content|…)以前缀名挂载的同一合成目录承载
-      // A prefixed reference (lores|/content|...) is carried by the same
-      // synthetic directory mounted under the prefix name.
+
       write_shared(sz_pipe == std::string::npos
                        ? str_asset
                        : str_asset.substr(sz_pipe + 1));
     }
 
-    // 合成目录优先(裸文件名);ra|/common| 前缀挂载承载序列 yaml;引用
-    // 前缀(lores 等)逐名挂载同目录
-    // The synthetic directory first (the bare filenames); the ra|/common|
-    // prefixed mounts carry the sequence yamls; each referenced prefix
-    // (lores etc.) mounts the same directory under its name.
     std::vector<std::string> vec_prefixes;
     for (const std::string& str_asset : vec_referenced) {
       const std::size_t sz_pipe = str_asset.find('|');
@@ -283,4 +236,4 @@ inline void InstallSyntheticSequences(map::Map& map_world,
   std::println("sequences loaded (tileset {})", map_world.Tileset());
 }
 
-}  // namespace ora::testfx
+}

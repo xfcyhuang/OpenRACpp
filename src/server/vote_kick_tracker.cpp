@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/Server/VoteKickTracker.cs @1f594e320 L18-223
-//          (实现体)
-//          The implementation body.
 #include "server/vote_kick_tracker.hpp"
 
 #include "net/fluent_message.hpp"
@@ -30,7 +27,7 @@ std::int64_t ElapsedMs(const std::chrono::steady_clock::time_point& start) {
       .count();
 }
 
-}  // namespace
+}
 
 VoteKickTracker::VoteKickTracker(Server& server) : server_(server) {}
 
@@ -224,4 +221,4 @@ void VoteKickTracker::EndKickVote(bool b_send_message) {
   map_vote_tracker_.clear();
 }
 
-}  // namespace ora::server
+}

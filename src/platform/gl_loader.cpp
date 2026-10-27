@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Platforms.Default/OpenGL.cs @1f594e320 L506-669(Bind<T> 加载段)
-// 表驱动单次加载;KHR_debug 双候选探测(无后缀 core 4.3 / KHR / ARB 后缀),
-// 对应上游 OpenGL.cs L550-562 的后缀拼接探测。
-// Table-driven one-shot loading; KHR_debug probes two candidates (the
-// suffixless core-4.3 form and the KHR/ARB-suffixed forms), mirroring the
-// suffix concatenation of upstream OpenGL.cs L550-562.
 import std;
 
 #include "platform/gl_loader.hpp"
@@ -18,16 +12,13 @@ struct Entry {
   T* ptr_slot;
 };
 
-/// 逐条加载;核心入口缺失返回其名字(致命),KHR_debug 例外(可选)。
-/// Loads entry by entry; a missing core entry reports its name (fatal),
-/// with KHR_debug the exception (optional).
 template <typename T>
 const char* LoadOne(void* (*fn_load)(const char*), const Entry<T>& entry) {
   *entry.ptr_slot = reinterpret_cast<T*>(fn_load(entry.str_name));
   return *entry.ptr_slot == nullptr ? entry.str_name : nullptr;
 }
 
-}  // namespace
+}
 
 GlLoadResult LoadGl(void* (*fn_load)(const char* name)) {
   const char* str_missing = nullptr;
@@ -127,14 +118,9 @@ GlLoadResult LoadGl(void* (*fn_load)(const char* name)) {
 
 #undef ORA_GL_LOAD
 
-  // 桌面 GL 专属入口:缺失不算致命(GLES3 profile 无此二者)
-  // Desktop-GL-only entries: their absence is not fatal (absent under GLES3).
   GetTexImage = reinterpret_cast<decltype(GetTexImage)>(fn_load("glGetTexImage"));
   BindFragDataLocation = reinterpret_cast<decltype(BindFragDataLocation)>(fn_load("glBindFragDataLocation"));
 
-  // KHR_debug 可选探测(OpenGL.cs L555-562 的后缀序列:无后缀 → KHR → ARB)
-  // Optional KHR_debug probing (the suffix sequence of OpenGL.cs L555-562:
-  // suffixless → KHR → ARB).
   if (auto* ptr = fn_load("glDebugMessageCallback"); ptr != nullptr)
     DebugMessageCallback = reinterpret_cast<decltype(DebugMessageCallback)>(ptr);
   else
@@ -153,4 +139,4 @@ GlLoadResult LoadGl(void* (*fn_load)(const char* name)) {
   return GlLoadResult{str_missing == nullptr, str_missing};
 }
 
-}  // namespace ora::gl
+}

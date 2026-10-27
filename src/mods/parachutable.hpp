@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Parachutable.cs @1f594e320
 #pragma once
 import std;
 
@@ -55,4 +54,4 @@ class Parachutable final : public TraitBase,
   int int4_parachuting_token = sim::Actor::InvalidConditionToken;
 };
 
-}  // namespace ora::mods
+}

@@ -37,4 +37,4 @@ std::vector<sim::Actor*> SelectActorsInBoxWithDeadzone(sim::World& world, int2 a
 
 std::vector<sim::Player*> GetPlayersToIncludeInSelection(sim::World& world);
 
-}  // namespace ora::ui
+}

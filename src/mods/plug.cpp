@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Plug.cs + Traits/Pluggable.cs
-//          @1f594e320(实现部分)
-//          The implementation halves.
 #include "mods/plug.hpp"
 
 #include "meta/generic_record.hpp"
@@ -23,7 +20,7 @@ std::vector<std::pair<std::string, std::string>> ParseStringDict(
   return vec_out;
 }
 
-}  // namespace
+}
 
 PlugInfoData PlugInfoData::Parse(const meta::RecordObject& rec_info) {
   PlugInfoData data;
@@ -135,4 +132,4 @@ std::vector<sim::VariableObserver> Pluggable::GetVariableObservers() {
   return vec_observers;
 }
 
-}  // namespace ora::mods
+}

@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/AmmoPool.cs + Rearmable.cs +
-//          Repairable.cs + RepairsUnits.cs + Air/FallsToEarth.cs 的实现面
 #include "mods/air_support.hpp"
 
 #include "game/ruleset.hpp"
@@ -52,7 +50,7 @@ std::vector<std::string> FieldStringArray(const meta::RecordObject& rec_info,
   return vec_out;
 }
 
-}  // namespace
+}
 
 AmmoPoolInfoData AmmoPoolInfoData::Parse(const meta::RecordObject& rec_info) {
   AmmoPoolInfoData data;
@@ -434,4 +432,4 @@ void FallsToEarth::Created(Actor& self) {
       false, self.world().Arena().Create<activities::FallToEarth>(self, info_));
 }
 
-}  // namespace ora::mods
+}

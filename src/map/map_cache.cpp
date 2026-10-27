@@ -89,7 +89,7 @@ std::shared_ptr<const game::ActorInfo> BorrowActorInfo(
       ptr, [](const game::ActorInfo*) {});
 }
 
-}  // namespace
+}
 
 MapPreview::MapPreview(game::ModData* mod_data, std::string str_uid,
                        std::optional<MapGridType> grid_type,
@@ -99,11 +99,7 @@ MapPreview::MapPreview(game::ModData* mod_data, std::string str_uid,
       str_uid_{std::move(str_uid)},
       opt_grid_type_{grid_type},
       ptr_inner_{std::make_shared<InnerData>()} {
-  // 上游 ctor 直取 modData.ModFiles(Install/CompleteRemoteSearch 的后台
-  // 面不再依赖装载路径的后置 SetOpenContext)
-  // Upstream's ctor takes modData.ModFiles directly (the Install/
-  // CompleteRemoteSearch background faces no longer depend on the loading
-  // path's later SetOpenContext).
+
   if (ptr_mod_data_ != nullptr)
     ptr_mod_files_ = &ptr_mod_data_->ModFiles();
 }
@@ -222,10 +218,7 @@ std::string MapPreview::GetMessage(std::string_view str_key) const {
 
 bool MapPreview::TryGetMessage(std::string_view str_key,
                                std::string& out_message) const {
-  // mod 级 bundle 复用(FluentProvider.TryGetModMessage)→ 预览自有 bundle
-  // (MapPreview.cs L272-284)
-  // the mod-level bundle reuse (FluentProvider.TryGetModMessage) → this
-  // preview's own bundle (MapPreview.cs L272-284).
+
   if (fluent::FluentProvider::Instance().TryGetModMessage(
           str_key, {}, out_message))
     return true;
@@ -349,10 +342,7 @@ void MapPreview::SetCustomRules(
       LoadRuleSection(yaml, "FluentMessages");
 
   try {
-    // FluentBundle(MapPreview.cs L133-155):文件表 + base64 文本;无定义
-    // 节点 = null bundle
-    // FluentBundle (MapPreview.cs L133-155): the file list + the base64
-    // text; no definitions node = the null bundle.
+
     if (data_new.opt_fluent_message_definitions.has_value() &&
         ptr_mod_data_ != nullptr) {
       const yaml::MiniYaml& yaml_fluent = *data_new.opt_fluent_message_definitions;
@@ -586,11 +576,7 @@ bool MapPreview::UpdateFromMap(
 
   fluent::FileOpenFn fn_fluent_open =
       [&p, this](const std::string& str_name) -> std::optional<std::vector<char>> {
-        // IReadOnlyFileSystem.Open 的前转(MapPreview.cs L744-750):map 包
-        // 优先,mod 文件系兜底;'|' 显式包路径不查 map 包
-        // the IReadOnlyFileSystem.Open forward (MapPreview.cs L744-750):
-        // the map package first, the mod file system as fallback; '|'
-        // explicit package paths skip the map package.
+
         if (str_name.find('|') == std::string::npos) {
           const std::optional<std::vector<char>> opt_stream =
               p.GetStream(str_name);
@@ -884,18 +870,6 @@ void MapPreview::SetStatus(MapStatus kind_status) {
   ptr_inner_ = std::make_shared<const InnerData>(std::move(data_new));
 }
 
-/// Install(L655-714):DownloadError/DownloadAvailable 之外不动;后台
-/// GET {repository}{Uid} → Content-Disposition 文件名 → 进度读全 → 写
-/// User 位置的可写包 → OpenPackage → UpdateFromMapWithoutOwningPackage。
-/// Task.Run 的闭包态(上游 GC 常青)以值拷承载 —— ptr_cache_/ptr_mod_data_
-/// 的悬垂窗口与 QueryRemoteMapDetails 同(D 登记)。
-/// Install (L655-714): no-op outside DownloadError/DownloadAvailable;
-/// the background GET {repository}{Uid} → the Content-Disposition filename
-/// → the progress read-through → writing the User-location writable
-/// package → OpenPackage → UpdateFromMapWithoutOwningPackage. Task.Run's
-/// closure state (upstream's GC evergreen liveness) is carried by value —
-/// the ptr_cache_/ptr_mod_data_ dangling window matches
-/// QueryRemoteMapDetails's (registered as a deviation).
 void MapPreview::Install(const std::string& str_map_repository_url) {
   const auto kind_status = Status();
   if ((kind_status != MapStatus::DownloadError &&
@@ -1168,9 +1142,7 @@ void MapCache::QueryRemoteMapDetails(
     const std::vector<std::string>& vec_uids,
     const std::function<void(MapPreview&)>& fn_map_details_received,
     const std::function<void(MapPreview&)>& fn_map_query_failed) {
-  // queryUids:Distinct() 的去重保序 + 非空 + Unavailable 态筛(L227-232)
-  // queryUids: Distinct()'s order-preserving dedup + non-null + the
-  // Unavailable-status filter (L227-232).
+
   std::vector<std::string> vec_query_uids;
   for (const auto& str_uid : vec_uids) {
     if (str_uid.empty() ||
@@ -1181,16 +1153,6 @@ void MapCache::QueryRemoteMapDetails(
       vec_query_uids.push_back(str_uid);
   }
 
-  // 启动集快照(上游 previews[uid] 的惰性构造面在主线程先行物化);
-  // 后台线程不再触达 this —— 上游 Task.Run 的闭包由 GC 保活,此处以
-  // 快照指针 + 值拷成员承载(D 登记:响应键超出查询集时离线构造,
-  // cache=nullptr → CacheMinimap 不跑)。
-  // The startup-set snapshot (upstream's previews[uid] lazy construction
-  // materialized up front on the main thread); the background thread never
-  // touches this — upstream's Task.Run closure is kept alive by the GC,
-  // here carried by snapshot pointers + by-value members (registered
-  // deviation: a response key outside the query set constructs an
-  // offline preview, cache=nullptr → no CacheMinimap).
   std::map<std::string, MapPreview*> map_previews;
   for (const auto& str_uid : vec_query_uids)
     map_previews[str_uid] = &At(str_uid);
@@ -1205,12 +1167,6 @@ void MapCache::QueryRemoteMapDetails(
       fn_debug_log(sv_line);
   };
 
-  // Task.Run(L234):批查线程;每批 50(请求体量限),GET
-  // {repository}/hash/{uids}/yaml;批次间共享 stringPool = 全局池的
-  // 进程级超集。
-  // Task.Run (L234): the batch-query thread; 50 per batch (the request-
-  // size limit), GET {repository}/hash/{uids}/yaml; the batch-spanning
-  // stringPool = a process-wide superset via the global pool.
   std::thread{[map_previews = std::move(map_previews), str_repository_url,
               vec_query_uids, fn_map_details_received, fn_map_query_failed,
               ptr_mod_data, kind_grid, debug_log]() mutable {
@@ -1241,9 +1197,7 @@ void MapCache::QueryRemoteMapDetails(
 
       const net::HttpResult result_get = net::HttpGetSync(str_url);
       if (result_get.b_ok) {
-        // 空 body = FromStream 无节点(上游静默,批尾按 Searching 处理)
-        // An empty body = FromStream yields no nodes (upstream stays
-        // silent; the batch tail handles them as Searching).
+
         try {
           const auto vec_nodes = yaml::MiniYaml::FromString(
               result_get.str_body, str_url, true,
@@ -1260,10 +1214,6 @@ void MapCache::QueryRemoteMapDetails(
         debug_log("URL was: " + str_url);
       }
 
-      // 批尾:仍 Searching = 服务器未答此图 → CompleteRemoteSearch(null)
-      // (L253-257)
-      // Batch tail: still Searching = the server left this map unanswered
-      // → CompleteRemoteSearch(null) (L253-257).
       for (std::size_t st_i = st_begin; st_i < st_end; ++st_i) {
         MapPreview& preview = preview_at(vec_query_uids[st_i]);
         if (preview.Status() == MapStatus::Searching)
@@ -1478,4 +1428,4 @@ void MapCache::LoadAsyncInternal() {
   }
 }
 
-}  // namespace ora::map
+}

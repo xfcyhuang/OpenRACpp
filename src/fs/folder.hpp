@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Game/FileSystem/Folder.cs @1f594e320 L19-110(逐语义重写)
-// 目录包:Contents 顺序影响哈希(上游注释 L34),此处按字节序排序——
-// mods 的 ASCII 文件名集合下与 C# .Order()(culture 序)等价,已登记 COVERAGE。
-// Directory package: the Contents order matters for hashing (upstream comment
-// L34); we sort bytewise — equivalent to the C# .Order() (culture order) over
-// the ASCII filename set of the mods, as registered in COVERAGE.
 #pragma once
 import std;
 
@@ -11,9 +5,6 @@ import std;
 
 namespace ora::fs {
 
-/// Folder(Folder.cs L19):以真实目录为包;目录不存在则创建
-/// Folder (Folder.cs L19): a real filesystem directory as a package; the
-/// directory is created if missing.
 class Folder final : public IReadWritePackage {
  public:
   explicit Folder(const std::string& path);
@@ -32,4 +23,4 @@ class Folder final : public IReadWritePackage {
   std::string str_name_;
 };
 
-}  // namespace ora::fs
+}

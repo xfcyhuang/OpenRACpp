@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithParachute.cs @1f594e320
 #include "mods/with_parachute.hpp"
 
 #include "gfx/renderable.hpp"
@@ -58,7 +57,7 @@ std::optional<core::Color> FieldColor(const meta::RecordObject& rec_info,
   return std::nullopt;
 }
 
-}  // namespace
+}
 
 WithParachuteInfoData WithParachuteInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -228,4 +227,4 @@ void WithParachute::TraitDisabledHook(sim::Actor&) {
         [this]() { b_render_prolonged_ = false; });
 }
 
-}  // namespace ora::mods
+}

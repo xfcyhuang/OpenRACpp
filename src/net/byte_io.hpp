@@ -1,17 +1,8 @@
-// UPSTREAM: OpenRA.Game/Network/Order.cs @1f594e320 L345-487(BinaryWriter/Reader 字节协议的 Order 序列化消费面)
-//          字节协议)—— 兼容层,行为对齐(MSDN 语义):
-//          - 整型/浮点:小端
-//          - string:7-bit 变长长度前缀(每字节低 7 位,高位继续)+ UTF-8 字节
-//          The .NET BinaryWriter/BinaryReader byte protocol — a
-//          behavior-aligned shim (MSDN semantics): little-endian scalars;
-//          strings as a 7-bit variable-length prefix + UTF-8 bytes.
 #pragma once
 import std;
 
 namespace ora::net {
 
-/// BinaryWriter 兼容(写侧)
-/// The BinaryWriter shim (write side).
 class ByteWriter {
  public:
   void WriteByte(std::uint8_t v) { vec_out_.push_back(v); }
@@ -29,7 +20,6 @@ class ByteWriter {
     Write(bits);
   }
 
-  /// BinaryWriter.Write(string):7-bit 前缀 + UTF-8(str 按 UTF-8 字节计长)
   void Write(std::string_view sv) {
     Write7BitEncoded64(sv.size());
     vec_out_.insert(vec_out_.end(), sv.begin(), sv.end());
@@ -63,11 +53,6 @@ class ByteWriter {
   std::vector<std::uint8_t> vec_out_;
 };
 
-/// BinaryReader 兼容(读侧;越界/损坏输入抛 —— 对应 .NET EndOfStreamException
-/// 上游 Order.Deserialize 捕获后返回 null 的语义)
-/// The BinaryReader shim (read side; out-of-bounds/corrupt input throws —
-/// the .NET EndOfStreamException counterpart that upstream's
-/// Order.Deserialize catches to return null).
 class ByteReader {
  public:
   ByteReader(const std::uint8_t* data, std::size_t size)
@@ -99,7 +84,6 @@ class ByteReader {
     return v;
   }
 
-  /// BinaryReader.ReadString:7-bit 前缀 + UTF-8
   std::string ReadString() {
     const auto len = Read7BitEncoded64();
     if (len > static_cast<std::uint64_t>(Remaining()))
@@ -151,4 +135,4 @@ class ByteReader {
   std::size_t sz_pos_ = 0;
 };
 
-}  // namespace ora::net
+}

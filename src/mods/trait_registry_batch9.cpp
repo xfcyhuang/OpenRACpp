@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/SelectionDecorations.cs @1f594e320
-//          第九批 mods trait 注册表装配(SelectionDecorations/
-//          WithDecoration/WithDeathAnimation/WithDamageOverlay/
-//          ProductionBar + pips 装饰;Info 名 → 工厂 → WorldArena)。
-//          The batch-9 registry assembly (Info name → factory → WorldArena).
-
 #include "meta/generic_record.hpp"
 #include "mods/production_bar.hpp"
 #include "mods/selection_decorations.hpp"
@@ -97,4 +91,4 @@ void RegisterCommonTraitsBatch9() {
       });
 }
 
-}  // namespace ora::mods
+}

@@ -33,7 +33,7 @@ std::string HexDump(std::span<const std::uint8_t> bytes, std::size_t max_n) {
   return str_out;
 }
 
-}  // namespace
+}
 
 std::optional<ReplayFileData> ParseReplayFile(
     const std::vector<std::uint8_t>& vec_bytes) {
@@ -209,4 +209,4 @@ ReplayDiffReport DiffReplays(const ReplayFileData& replay_a,
   return report;
 }
 
-}  // namespace ora::net
+}

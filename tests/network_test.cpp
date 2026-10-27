@@ -134,9 +134,6 @@ struct FakeServer {
     return WriteAll(buf, sizeof(buf));
   }
 
-  /// 服务端 → 客户端:from 字段 + 载荷(Connection.Receive 的读线程格式)
-  /// Server → client: the from field + payload (the reader-thread format
-  /// of Connection.Receive).
   bool SendToClient(std::int32_t int4_from,
                     const std::vector<std::uint8_t>& vec_payload) {
     return WriteInt32(static_cast<std::int32_t>(vec_payload.size())) &&
@@ -148,8 +145,6 @@ struct FakeServer {
     return tcp_accepted.ReadInt32(int4_out);
   }
 
-  /// 客户端 → 服务端:len + 载荷(SendRaw 的写格式)
-  /// Client → server: len + payload (SendRaw's write format).
   bool ReadFromClient(std::vector<std::uint8_t>& vec_payload) {
     auto int4_len = std::int32_t{0};
     if (!ReadInt32(int4_len) || int4_len < 0)
@@ -177,7 +172,7 @@ std::vector<std::uint8_t> MakeSyncPayload(int int4_frame, int int4_hash,
   return vec;
 }
 
-}  // namespace
+}
 
 int main() {
   setvbuf(stdout, nullptr, _IONBF, 0);
@@ -293,9 +288,7 @@ int main() {
 
     if (!server.ReadFromClient(vec_payload))
       return server.Fail("ping response read");
-    // 响应比请求多一尾字节 queueLen(服务端 13,客户端响应 14)
-    // The response carries one extra trailing queueLen byte (the
-    // server-side request is 13, the client response 14).
+
     if (vec_payload.size() != 14 || vec_payload[4] != 0x20 ||
         ReadInt64At(vec_payload, 5) != 0x0123456789ABCDEFLL)
       server.Fail("ping response payload mismatch");
@@ -352,9 +345,6 @@ int main() {
 
   auto om = net::OrderManager{std::move(up_connection)};
 
-  // 溢出 Ack 可能被任一驱动循环消费 —— 统一安全 tick,首异常即捕获
-  // The overflow Ack may be consumed by any driving loop — one safe
-  // tick helper captures the first exception.
   auto b_overflow_threw = false;
   auto str_overflow_msg = std::string{};
   std::function<void()> tick = [&] {
@@ -368,12 +358,6 @@ int main() {
     }
   };
 
-  // 上游装配语义:StartGame 把大厅非 bot 客户端登记进 pendingOrders,
-  // 否则 ReceiveOrders 视为 disconnected client 抛出(OrderManager.cs L98-116)
-  // The upstream assembly semantics: StartGame registers the lobby's
-  // non-bot clients into pendingOrders — otherwise ReceiveOrders treats
-  // the sender as a disconnected client and throws (OrderManager.cs
-  // L98-116).
   for (auto int4_index = 1; int4_index <= 4; ++int4_index) {
     auto client = net::SessionClient{};
     client.Index = int4_index;

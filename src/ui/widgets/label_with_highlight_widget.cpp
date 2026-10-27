@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWithHighlightWidget.cs @1f594e320 L20-86(全文)。
 import std;
 
 #include "ui/widgets/label_with_highlight_widget.hpp"
@@ -86,4 +85,4 @@ bool LabelWithHighlightWidget::LoadFieldOrProperty(std::string_view str_key,
   return LabelWidget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

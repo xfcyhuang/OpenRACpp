@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Orders/DeployOrderTargeter.cs @1f594e320
-//          L18-46 全文
-//          The whole of DeployOrderTargeter.cs L18-46.
 #pragma once
 import std;
 
@@ -9,7 +6,6 @@ import std;
 
 namespace ora::mods {
 
-/// DeployOrderTargeter(L18-45)
 class DeployOrderTargeter final : public sim::IOrderTargeter {
  public:
   DeployOrderTargeter(std::string str_order, int int4_priority,
@@ -48,4 +44,4 @@ class DeployOrderTargeter final : public sim::IOrderTargeter {
   bool b_is_queued_ = false;
 };
 
-}  // namespace ora::mods
+}

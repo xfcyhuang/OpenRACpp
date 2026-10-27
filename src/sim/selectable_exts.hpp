@@ -27,4 +27,4 @@ FrozenActor* WithHighestSelectionPriority(
 std::vector<Actor*> SubsetWithHighestSelectionPriority(
     std::span<Actor* const> actors, Modifiers modifiers);
 
-}  // namespace ora::sim
+}

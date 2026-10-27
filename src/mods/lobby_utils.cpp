@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Lobby/LobbyUtils.cs
-//          @1f594e320(实现;头注见 lobby_utils.hpp)
-//          Implementation; the header notes live in lobby_utils.hpp.
 #include "mods/lobby_utils.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -181,7 +178,7 @@ void ClearPlayerSpawnPoint(net::OrderManager& order_manager,
         std::format("clear_spawn {}", int4_selected_spawn)));
 }
 
-}  // namespace
+}
 
 void ShowSlotDropDown(ora::ui::DropDownButtonWidget& dropdown,
                       const ora::net::SessionSlot& slot,
@@ -1152,4 +1149,4 @@ void HideChildWidget(ora::ui::Widget& parent, std::string_view str_widget_id) {
     ptr_widget->fn_is_visible = [] { return false; };
 }
 
-}  // namespace ora::mods
+}

@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Game/Server/OrderBuffer.cs @1f594e320 L42-137 全文
-//          (the whole of OrderBuffer.cs L42-137)
 import std;
 
 #include "server/order_buffer.hpp"
@@ -14,7 +12,7 @@ std::int64_t ElapsedMsSince(std::chrono::steady_clock::time_point time_start) {
       .count();
 }
 
-}  // namespace
+}
 
 void OrderBuffer::AddOrderTimestamp(int int4_player_index) {
   if (!b_started_)
@@ -140,4 +138,4 @@ void OrderBuffer::RemovePlayer(int int4_player) {
   map_deltas.erase(int4_player);
 }
 
-}  // namespace ora::server
+}

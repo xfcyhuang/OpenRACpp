@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithSpriteTurret.cs @1f594e320
-//          L21-144(实现部分;头注见 with_sprite_turret.hpp)
-//          The implementation half of WithSpriteTurret.cs L21-144 (the
-//          header note lives in with_sprite_turret.hpp).
 #include "mods/with_sprite_turret.hpp"
 
 #include "game/actor_info.hpp"
@@ -36,7 +32,7 @@ WithSpriteTurret::WithSpriteTurret(Actor& self,
                                    const WithSpriteTurretInfoData& info)
     : sim::ConditionalTraitCore<WithSpriteTurret>(info.conditional),
       info_{info} {
-  // L82-101
+
   auto* rs = self.Trait<RenderSprites>();
   ptr_body_ = self.Trait<BodyOrientation>();
   for (auto* tt : self.TraitsImplementing<Turreted>())
@@ -64,14 +60,12 @@ WithSpriteTurret::WithSpriteTurret(Actor& self,
                             : std::string_view{info.str_palette},
           info.b_is_player_palette);
 
-  // 炮塔朝向限定到精灵
-  // Restrict the turret facings to match the sprite.
   ptr_turreted_->SetQuantizedFacings(
       up_default_animation_->CurrentSequence()->Facings());
 }
 
 WVec WithSpriteTurret::TurretOffset(Actor& self) {
-  // L103-113
+
   if (!info_.b_recoils)
     return ptr_turreted_->Position(self);
 
@@ -85,20 +79,20 @@ WVec WithSpriteTurret::TurretOffset(Actor& self) {
 
 std::string WithSpriteTurret::NormalizeSequence(
     Actor& self, std::string_view str_sequence) {
-  // L115-118
+
   return RenderSprites::NormalizeSequence(*up_default_animation_,
                                           render::GetDamageState(self),
                                           str_sequence);
 }
 
 void WithSpriteTurret::DamageStateChanged(Actor& self,
-                                          const sim::AttackInfo& /*e*/) {
-  // L126-129
+                                          const sim::AttackInfo& ) {
+
   DamageStateChangedInner(self);
 }
 
 void WithSpriteTurret::DamageStateChangedInner(Actor& self) {
-  // L120-124
+
   if (up_default_animation_->CurrentSequence() != nullptr)
     up_default_animation_->ReplaceAnim(NormalizeSequence(
         self, up_default_animation_->CurrentSequence()->Name()));
@@ -107,7 +101,7 @@ void WithSpriteTurret::DamageStateChangedInner(Actor& self) {
 void WithSpriteTurret::PlayCustomAnimation(Actor& self,
                                            std::string_view str_name,
                                            std::function<void()> fn_after) {
-  // L131-138
+
   up_default_animation_->PlayThen(
       NormalizeSequence(self, str_name), [this, &self, fn_after]() {
         CancelCustomAnimation(self);
@@ -117,9 +111,9 @@ void WithSpriteTurret::PlayCustomAnimation(Actor& self,
 }
 
 void WithSpriteTurret::CancelCustomAnimation(Actor& self) {
-  // L140-143
+
   up_default_animation_->PlayRepeating(
       NormalizeSequence(self, info_.str_sequence));
 }
 
-}  // namespace ora::mods
+}

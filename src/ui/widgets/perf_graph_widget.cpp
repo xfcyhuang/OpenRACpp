@@ -202,4 +202,4 @@ void PerfGraphWidget::Draw() {
   }
 }
 
-}  // namespace ora::ui
+}

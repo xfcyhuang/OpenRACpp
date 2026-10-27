@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/SliderWidget.cs @1f594e320 L20-146(全文)。
-// 左键拖拽取值(ValueFromPx/PxFromValue 的 thumb 半宽补偿)/UpdateValue 的
-// Clamp + OnChange 变更通知/thumb 命中即消费;Draw 的刻度条(GetImage 直
-// 取)/轨道九宫格/ButtonWidget.DrawBackground 静态 thumb。ChromeProvider →
-// Ui::Instance() 注入承载。
-// The whole of SliderWidget.cs L20-146. The left-drag value taking
-// (ValueFromPx/PxFromValue's thumb half-width compensation) / UpdateValue's
-// Clamp + OnChange change notification / consuming while over the thumb;
-// Draw's tick marks (GetImage direct) / the nine-slice track /
-// ButtonWidget.DrawBackground's static thumb. ChromeProvider goes through
-// the Ui::Instance() injected carrier.
 #pragma once
 import std;
 
@@ -54,19 +43,14 @@ class SliderWidget : public InputWidget {
   void Draw() override;
 
  protected:
-  /// ValueFromPx(L89-92;thumb 半宽补偿)。
-  /// ValueFromPx (L89-92; the thumb half-width compensation).
+
   virtual float ValueFromPx(int int4_x) const;
 
-  /// PxFromValue(L94-97)。
-  /// PxFromValue (L94-97).
   virtual int PxFromValue(float fp4_x) const;
 
-  /// ThumbRect(L107-121);测试可见面。
-  /// ThumbRect (L107-121); the test-visible face.
   Rectangle ThumbRect() const;
 
   bool b_is_moving_ = false;
 };
 
-}  // namespace ora::ui
+}

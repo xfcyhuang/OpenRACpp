@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/SelectionDecorationsBase.cs
-//          @1f594e320
 #include "gfx/renderer.hpp"
 #include "gfx/sprite_renderer.hpp"
 #include "gfx/world_renderer.hpp"
@@ -15,9 +13,6 @@ namespace ora::mods {
 
 namespace {
 
-/// StatusBars provider(缺省 Standard;Settings 实体随 Phase 6)
-/// The StatusBars provider (Standard by default; the Settings entity rides
-/// Phase 6).
 std::function<StatusBarsType()>& StatusBarsProvider() {
   static std::function<StatusBarsType()> fn_provider = [] {
     return StatusBarsType::Standard;
@@ -25,8 +20,6 @@ std::function<StatusBarsType()>& StatusBarsProvider() {
   return fn_provider;
 }
 
-/// Vector2.Lerp(SelectionBarsAnnotationRenderable.cs 的条值端点)
-/// Vector2.Lerp (the bar-value endpoint).
 core::Vector2 Lerp(core::Vector2 v_a, core::Vector2 v_b, float fp4_amount) {
   return core::Vector2{v_a.X + (v_b.X - v_a.X) * fp4_amount,
                        v_a.Y + (v_b.Y - v_a.Y) * fp4_amount};
@@ -36,9 +29,6 @@ core::Vector2 AddOffset(core::Vector2 v, core::Vector2 v_offset) {
   return core::Vector2{v.X + v_offset.X, v.Y + v_offset.Y};
 }
 
-/// Vector3 无运算符(POD);注释框四角的分量加减
-/// Vector3 carries no operators (a POD); the corner component math of the
-/// annotation box.
 core::Vector3 AddV(core::Vector3 v_a, core::Vector3 v_b) {
   return core::Vector3{v_a.X + v_b.X, v_a.Y + v_b.Y, v_a.Z + v_b.Z};
 }
@@ -47,16 +37,11 @@ core::Vector3 SubV(core::Vector3 v_a, core::Vector3 v_b) {
   return core::Vector3{v_a.X - v_b.X, v_a.Y - v_b.Y, v_a.Z - v_b.Z};
 }
 
-/// Color.FromArgb(255, r/2, g/2, b/2)(值色减半)
-/// Color.FromArgb(255, r/2, g/2, b/2) (the halved value color).
 core::Color HalveColor(core::Color color_c) {
   return core::Color::FromArgb(255, color_c.R() / 2, color_c.G() / 2,
                                color_c.B() / 2);
 }
 
-/// ISelectionBar 的通用 Custom 槽项构造
-/// The generic Custom-slot item construction for the annotation
-/// renderables.
 template <class AnnotationT>
 gfx::RenderItem MakeCustomItem(AnnotationT& r_annotation) {
   gfx::RenderItem item{};
@@ -68,20 +53,16 @@ gfx::RenderItem MakeCustomItem(AnnotationT& r_annotation) {
   return item;
 }
 
-}  // namespace
+}
 
 void SetStatusBarsProvider(std::function<StatusBarsType()> fn_provider) {
   StatusBarsProvider() = std::move(fn_provider);
 }
 
-// ———— SelectionBoxAnnotationRenderable ————
-
 void SelectionBoxAnnotationRenderable::Render(gfx::WorldRenderer& wr) {
   gfx::Renderer* ptr_renderer = wr.RendererPtr();
   if (ptr_renderer == nullptr)
-    return;  // 无头装配跳过绘制(上游 Game.Renderer 恒在)
-             // A headless assembly skips the draw (upstream's
-             // Game.Renderer always exists).
+    return;
 
   const core::Vector3 vec_tl{
       static_cast<float>(wr.Viewport()->WorldToViewPx(int2{
@@ -114,8 +95,6 @@ void SelectionBoxAnnotationRenderable::Render(gfx::WorldRenderer& wr) {
   cr.DrawLine(arr_l3, 1, color_c_, true);
   cr.DrawLine(arr_l4, 1, color_c_, true);
 }
-
-// ———— SelectionBarsAnnotationRenderable ————
 
 void SelectionBarsAnnotationRenderable::DrawExtraBars(
     gfx::WorldRenderer& wr, core::Vector2 vec_start, core::Vector2 vec_end) {
@@ -168,10 +147,10 @@ void SelectionBarsAnnotationRenderable::DrawSelectionBar(
 core::Color SelectionBarsAnnotationRenderable::GetHealthColor(
     sim::IHealth* ptr_health) {
   return ptr_health->DamageState() == sim::DamageState::Critical
-             ? core::Color::FromArgb(255, 255, 0, 0)  // Red
+             ? core::Color::FromArgb(255, 255, 0, 0)
          : ptr_health->DamageState() == sim::DamageState::Heavy
-             ? core::Color::FromArgb(255, 255, 255, 0)  // Yellow
-             : core::Color::FromArgb(255, 50, 205, 50);  // LimeGreen
+             ? core::Color::FromArgb(255, 255, 255, 0)
+             : core::Color::FromArgb(255, 50, 205, 50);
 }
 
 void SelectionBarsAnnotationRenderable::DrawHealthBar(
@@ -212,10 +191,8 @@ void SelectionBarsAnnotationRenderable::DrawHealthBar(
   cr.DrawLine(AddOffset(vec_start, vec_r), AddOffset(vec_z, vec_r), 1,
               color_health2);
 
-  // DisplayHP 漂移段 = 伤害预告
-  // The DisplayHP drift segment = the damage forecast.
   if (ptr_health->DisplayHP() != ptr_health->HP()) {
-    const core::Color color_delta = core::Color::FromArgb(255, 255, 69, 0);  // OrangeRed
+    const core::Color color_delta = core::Color::FromArgb(255, 255, 69, 0);
     const core::Color color_delta2 = HalveColor(color_delta);
     const core::Vector2 vec_zz =
         Lerp(vec_start, vec_end,
@@ -253,8 +230,6 @@ void SelectionBarsAnnotationRenderable::Render(gfx::WorldRenderer& wr) {
   if (b_display_extra_)
     DrawExtraBars(wr, vec_start, vec_end);
 }
-
-// ———— SelectionDecorationsBase ————
 
 SelectionDecorationsBaseInfoData SelectionDecorationsBaseInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -333,8 +308,6 @@ void SelectionDecorationsBase::DrawDecorations(
   bool b_display_extra =
       b_selected || (b_regular_world && status_bars != StatusBarsType::Standard);
 
-  // 仅需要时查 rollover;命中则两局部同置真
-  // The rollover lookup only when needed; a hit sets both locals true.
   if (!b_display_health || !b_display_extra)
     if (self.world().Selection()->RolloverContains(&self))
       b_display_health = b_display_extra = true;
@@ -367,8 +340,6 @@ void SelectionDecorationsBase::DrawDecorations(
     decoration->RenderDecoration(self, wr, *this, vec_out);
 }
 
-// ———— SelectionDecorations ————
-
 SelectionDecorations::SelectionDecorations(
     const ActorInitializer& init,
     const SelectionDecorationsBaseInfoData& info_data)
@@ -396,7 +367,7 @@ int2 SelectionDecorations::GetDecorationPosition(Actor& self,
 
 int2 SelectionDecorations::GetDecorationMargin(std::string_view pos,
                                                int2 margin) {
-  // L49-63
+
   if (pos == "TopLeft")
     return margin;
   if (pos == "TopRight")
@@ -414,7 +385,7 @@ int2 SelectionDecorations::GetDecorationOriginImpl(Actor& self,
                                                    gfx::WorldRenderer& wr,
                                                    std::string_view pos,
                                                    int2 margin) {
-  // L74-76
+
   const int2 int2_px = wr.Viewport()->WorldToViewPx(
       GetDecorationPosition(self, wr, pos));
   return int2_px + GetDecorationMargin(pos, margin);
@@ -432,8 +403,7 @@ void SelectionDecorations::RenderSelectionBox(
 void SelectionDecorations::RenderSelectionBars(
     Actor& self, gfx::WorldRenderer& wr, bool b_display_health,
     bool b_display_extra, std::vector<gfx::RenderItem>& vec_out) {
-  // 非 Selectable 不画条(上游 is-Selectable 判定)
-  // Non-Selectable draws no bars (upstream's is-Selectable test).
+
   if (dynamic_cast<Selectable*>(ptr_interactable_) == nullptr ||
       (!b_display_health && !b_display_extra))
     return;
@@ -450,4 +420,4 @@ std::vector<Rectangle> SelectionDecorations::ScreenBounds(
   return {ptr_interactable_->DecorationBounds(self, wr)};
 }
 
-}  // namespace ora::mods
+}

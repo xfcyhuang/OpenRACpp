@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/GameInfoLogic.cs
-//          @1f594e320(实现;头注见 game_info_logics.hpp)
-//          Implementation; the header notes live in game_info_logics.hpp.
 #include "mods/game_info_logics.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -80,7 +77,7 @@ std::pair<std::string_view, std::string_view> PanelOf(IngameInfoPanel panel) {
   }
 }
 
-}  // namespace
+}
 
 GameInfoLogic::GameInfoLogic(ora::ui::Widget& widget, game::ModData& mod_data,
                              sim::World& world, IngameInfoPanel initial_panel,
@@ -1059,4 +1056,4 @@ void RegisterGameInfoLogics() {
       });
 }
 
-}  // namespace ora::mods
+}

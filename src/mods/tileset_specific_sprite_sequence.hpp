@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Graphics/TilesetSpecificSpriteSequence.cs @1f594e320 L20-93
-// 带地形集变体的序列:TilesetFilenames/TilesetFilenamesPattern 命中当前
-// tileset 时覆盖 Filename/FilenamePattern,未命中回退 Default 的解析。
-// A sequence with tileset-specific variants: a TilesetFilenames/
-// TilesetFilenamesPattern hit for the active tileset overrides Filename/
-// FilenamePattern, and a miss falls back to the Default parsing.
 #pragma once
 import std;
 
@@ -11,7 +5,6 @@ import std;
 
 namespace ora::mods {
 
-/// TilesetSpecificSpriteSequenceLoader(L20-27)。
 class TilesetSpecificSpriteSequenceLoader : public DefaultSpriteSequenceLoader {
  public:
   std::unique_ptr<gfx::ISpriteSequence> CreateSequence(gfx::SpriteCache& cache_sprites,
@@ -21,7 +14,6 @@ class TilesetSpecificSpriteSequenceLoader : public DefaultSpriteSequenceLoader {
                                                       const yaml::MiniYaml& yaml_defaults) override;
 };
 
-/// TilesetSpecificSpriteSequence(L30-93)。
 class TilesetSpecificSpriteSequence : public DefaultSpriteSequence {
  public:
   using DefaultSpriteSequence::DefaultSpriteSequence;
@@ -37,4 +29,4 @@ class TilesetSpecificSpriteSequence : public DefaultSpriteSequence {
       const yaml::MiniYaml& yaml_data) override;
 };
 
-}  // namespace ora::mods
+}

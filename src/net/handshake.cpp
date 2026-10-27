@@ -1,8 +1,3 @@
-// UPSTREAM: OpenRA.Game/Network/Handshake.cs @1f594e320 L17-90(字段装载/
-//          序列化全文;FieldLoader/FieldSaver → 按名手写表,与 Session 同形)
-//          Handshake.cs L17-90 (the whole load/serialize text; FieldLoader/
-//          FieldSaver → the by-name hand-written tables, the same shape as
-//          Session's).
 import std;
 
 #include "net/handshake.hpp"
@@ -50,7 +45,7 @@ bool LoadHandshakeFields(const yaml::MiniYaml& yaml_v,
   return true;
 }
 
-}  // namespace
+}
 
 std::optional<HandshakeRequest> HandshakeRequest::Deserialize(
     std::string_view str_data, std::string_view str_name) {
@@ -136,4 +131,4 @@ std::string HandshakeResponse::Serialize() const {
   return yaml::WriteToString(vec_root);
 }
 
-}  // namespace ora::net
+}

@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Production.cs + OpenRA.Mods.Common/Traits/Player/ProductionQueue.cs + OpenRA.Mods.Common/Traits/Buildings/Exit.cs 实现部分
-//          The implementation half.
 #include "mods/primary_building.hpp"
 #include "mods/production.hpp"
 #include "mods/power.hpp"
@@ -74,11 +72,6 @@ std::vector<std::string> RecStringArray(const meta::RecordObject& rec,
   return vec_out;
 }
 
-/// 上游 producee.TraitInfoOrDefault<IFacingInfo>() 的 fi?.GetInitialFacing
-/// 查询(FacingInfo 按记录全名;GetInitialFacing = WAngle(InitialFacing))
-/// Upstream's producee.TraitInfoOrDefault<IFacingInfo>() fi?.
-/// GetInitialFacing query (FacingInfo by record full name;
-/// GetInitialFacing = WAngle(InitialFacing)).
 std::optional<WAngle> InitialFacingOf(const game::ActorInfo& ai) {
   for (const meta::RecordObject* rec_trait :
        ai.TraitsInConstructOrder())
@@ -89,14 +82,6 @@ std::optional<WAngle> InitialFacingOf(const game::ActorInfo& ai) {
   return std::nullopt;
 }
 
-/// 上游 producee.HasTraitInfo<IOccupySpaceInfo>() 的记录接口集判定
-/// (gen 的接口名表:BuildingInfo 实现集含 IOccupySpaceInfo;MobileInfo
-/// 经 IPositionableInfo 链 —— 接口闭包,MobileInfo 直接实现
-/// IPositionableInfo : IOccupySpaceInfo)
-/// Upstream's producee.HasTraitInfo<IOccupySpaceInfo>() record-interface
-/// test (gen's interface tables: BuildingInfo's implements-set carries
-/// IOccupySpaceInfo; MobileInfo via the IPositionableInfo chain — the
-/// interface closure).
 bool HasOccupySpaceInfo(const game::ActorInfo& ai) {
   for (const meta::RecordObject* rec_trait :
        ai.TraitsInConstructOrder()) {
@@ -112,8 +97,6 @@ bool HasOccupySpaceInfo(const game::ActorInfo& ai) {
   return false;
 }
 
-/// BuildingInfo 记录判定(上游 HasTraitInfo<BuildingInfo>)
-/// The BuildingInfo record test (upstream's HasTraitInfo<BuildingInfo>).
 bool HasBuildingInfo(const game::ActorInfo& ai) {
   for (const meta::RecordObject* rec_trait :
        ai.TraitsInConstructOrder())
@@ -124,9 +107,6 @@ bool HasBuildingInfo(const game::ActorInfo& ai) {
   return false;
 }
 
-/// BuildableInfo 的解析(BuildableInfoData 已有;此处按记录查找)
-/// The BuildableInfo parse (BuildableInfoData exists; looked up by
-/// record here).
 std::optional<BuildableInfoData> FindBuildable(
     const game::ActorInfo& ai) {
   for (const meta::RecordObject* rec_trait :
@@ -138,14 +118,11 @@ std::optional<BuildableInfoData> FindBuildable(
   return std::nullopt;
 }
 
-}  // namespace
-
-// ———— Exit 扩展(ExitExts.cs)————
-// ———— The Exit extensions (ExitExts.cs) ————
+}
 
 std::vector<Exit*> ActorExits(sim::Actor& actor,
                               const std::string& production_type) {
-  // L61-73
+
   std::vector<Exit*> vec_out;
   if (!actor.IsInWorld() || actor.Disposed())
     return vec_out;
@@ -172,10 +149,7 @@ std::vector<Exit*> ActorExits(sim::Actor& actor,
 Exit* NearestExitOrDefault(sim::Actor& actor, const WPos& pos,
                            const std::string& production_type,
                            const std::function<bool(Exit*)>& p) {
-  // L44-59(OrderByDescending(Priority).ThenBy(dist²) 的稳定序 =
-  // std::stable_sort 的 (priority 降, dist² 升) 复合键)
-  // (OrderByDescending(Priority).ThenBy(dist²)'s stable order = the
-  // composite key of std::stable_sort (priority desc, dist² asc)).
+
   std::vector<Exit*> vec_all = ActorExits(actor, production_type);
   std::stable_sort(vec_all.begin(), vec_all.end(),
                    [&](Exit* a, Exit* b) {
@@ -202,15 +176,12 @@ Exit* NearestExitOrDefault(sim::Actor& actor, const WPos& pos,
 Exit* RandomExitOrDefault(sim::Actor& actor, sim::World& world,
                           const std::string& production_type,
                           const std::function<bool(Exit*)>& p) {
-  // L75-93
+
   if (!actor.IsInWorld() || actor.Disposed())
     return nullptr;
 
   std::vector<Exit*> vec_all = ActorExits(actor, production_type);
 
-  // GroupBy(Priority) 的首遇组序(保持原序分段)
-  // GroupBy(Priority)'s first-encounter order (order-preserving
-  // segmentation).
   std::vector<std::vector<Exit*>> vec_groups;
   std::vector<int> vec_keys;
   for (Exit* e : vec_all) {
@@ -229,8 +200,7 @@ Exit* RandomExitOrDefault(sim::Actor& actor, sim::World& world,
   }
 
   for (std::vector<Exit*>& vec_group : vec_groups) {
-    // Shuffle(SharedRandom) 的 RNG 序保真(Fisher-Yates)
-    // The Shuffle(SharedRandom) RNG order (Fisher-Yates).
+
     ShuffleSpan(vec_group, world.SharedRandom());
     if (p == nullptr) {
       if (!vec_group.empty())
@@ -246,8 +216,6 @@ Exit* RandomExitOrDefault(sim::Actor& actor, sim::World& world,
   return nullptr;
 }
 
-// ———— Production ————
-
 ProductionInfoData ProductionInfoData::Parse(
     const meta::RecordObject& rec_info) {
   ProductionInfoData data;
@@ -261,21 +229,21 @@ ProductionInfoData ProductionInfoData::Parse(
 Production::Production(sim::ActorInitializer& init, ProductionInfoData info)
     : sim::ConditionalTraitCore<Production>{info.conditional},
       info_{std::move(info)} {
-  // L45-52
+
   p_self_ = &init.Self();
   str_faction_ = init.GetValue<sim::FactionInit>(
       init.Self().Owner()->Faction().InternalName);
 }
 
 void Production::Created(sim::Actor& self) {
-  // L54-59
+
   p_rally_point_ = self.TraitOrDefault<RallyPoint>();
   sim::ConditionalTraitCore<Production>::CoreCreated(self);
 }
 
 void Production::OnOwnerChanged(sim::Actor& self, sim::Player&,
                                 sim::Player&) {
-  // L151-155
+
   if (info_.b_update_faction_on_owner_change)
     str_faction_ = self.Owner()->Faction().Name;
 }
@@ -285,11 +253,10 @@ void Production::DoProduction(sim::Actor& self,
                               const ExitInfoData* exit_info,
                               const std::string& production_type,
                               sim::TypeDictionary& inits) {
-  // L61-108
+
   CPos exit{0, 0};
   std::vector<CPos> vec_exit_locations;
 
-  // Clone the initializer dictionary for the new actor(上游注释)
   sim::TypeDictionary td = inits;
 
   if (exit_info != nullptr && self.OccupiesSpace() != nullptr &&
@@ -349,7 +316,7 @@ Exit* Production::SelectExitImpl(
     sim::Actor& self, const game::ActorInfo& producee,
     const std::string& production_type,
     const std::function<bool(Exit*)>& p) {
-  // L110-122
+
   if (p_rally_point_ == nullptr || p_rally_point_->Path.empty())
     return RandomExitOrDefault(self, self.world(), production_type, p);
 
@@ -361,7 +328,7 @@ Exit* Production::SelectExitImpl(
 Exit* Production::SelectExit(sim::Actor& self,
                              const game::ActorInfo& producee,
                              const std::string& production_type) {
-  // L124-126
+
   return SelectExitImpl(self, producee, production_type,
                         [this, &self, &producee](Exit* e) {
                           return CanUseExit(self, producee, e->Info());
@@ -372,13 +339,11 @@ bool Production::Produce(sim::Actor& self,
                          const game::ActorInfo& producee,
                          const std::string& production_type,
                          sim::TypeDictionary& inits, int refundable_value) {
-  // L128-140(Reservable.IsReserved 前置)
-  // (the Reservable.IsReserved precondition).
+
   if (IsTraitDisabled() || IsTraitPaused() ||
       Reservable::IsReserved(self))
     return false;
 
-  // Pick a spawn/exit point pair(上游注释)
   Exit* exit = SelectExit(self, producee, production_type);
   if (exit != nullptr || self.OccupiesSpace() == nullptr ||
       !HasOccupySpaceInfo(producee)) {
@@ -394,8 +359,7 @@ bool Production::Produce(sim::Actor& self,
 bool Production::CanUseExit(sim::Actor& self,
                             const game::ActorInfo& producee,
                             const ExitInfoData& s) {
-  // L142-146(MobileInfo 解析:Exit/ExitCell 的可入格判定)
-  // (the MobileInfo parse: the exit-cell enterability test).
+
   std::optional<MobileInfoData> mobile_info;
   for (const meta::RecordObject* rec_trait :
        producee.TraitsInConstructOrder())
@@ -414,8 +378,6 @@ bool Production::CanUseExit(sim::Actor& self,
                                    sim::SubCell::Any, &self,
                                    sim::BlockedByActor::Immovable);
 }
-
-// ———— ProductionQueue ————
 
 ProductionQueueInfoData ProductionQueueInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -475,7 +437,7 @@ ProductionQueueInfoData ProductionQueueInfoData::Parse(
 ProductionQueue::ProductionQueue(sim::ActorInitializer& init,
                                  ProductionQueueInfoData info)
     : info_{std::move(info)} {
-  // L164-175
+
   p_actor_ = &init.Self();
 
   str_faction_ = init.GetValue<sim::FactionInit>(
@@ -489,7 +451,7 @@ ProductionQueue::ProductionQueue(sim::ActorInitializer& init,
 }
 
 void ProductionQueue::Created(sim::Actor& self) {
-  // L177-186(PowerManager 第六批接线)
+
   p_player_power_ =
       self.Owner()->PlayerActor()->TraitOrDefault<PowerManager>();
   p_player_resources_ =
@@ -507,7 +469,7 @@ void ProductionQueue::Created(sim::Actor& self) {
 }
 
 void ProductionQueue::ClearQueue() {
-  // L188-203
+
   for (auto& item : vec_queue_) {
     if (item->ResourcesPaid > 0) {
       p_player_resources_->RefundResources(item->ResourcesPaid);
@@ -524,7 +486,7 @@ void ProductionQueue::ClearQueue() {
 void ProductionQueue::OnOwnerChanged(sim::Actor& self,
                                      sim::Player& old_owner,
                                      sim::Player& new_owner) {
-  // L205-224
+
   ClearQueue();
 
   p_player_power_ =
@@ -543,7 +505,6 @@ void ProductionQueue::OnOwnerChanged(sim::Actor& self,
                   str_faction_) != info_.vec_factions.end();
   }
 
-  // Regenerate the producibles and tech tree state(上游注释)
   old_owner.PlayerActor()->Trait<TechTree>()->RemoveElement(this);
   CacheProducibles();
   p_tech_tree_->Update();
@@ -551,7 +512,7 @@ void ProductionQueue::OnOwnerChanged(sim::Actor& self,
 
 void ProductionQueue::Killed(sim::Actor& killed,
                              const sim::AttackInfo& e) {
-  // L226
+
   if (&killed == p_actor_) {
     ClearQueue();
     b_enabled_ = false;
@@ -559,19 +520,19 @@ void ProductionQueue::Killed(sim::Actor& killed,
 }
 
 void ProductionQueue::Selling(sim::Actor&) {
-  // L227
+
   ClearQueue();
   b_enabled_ = false;
 }
 
 void ProductionQueue::BeforeTransform(sim::Actor&) {
-  // L230
+
   ClearQueue();
   b_enabled_ = false;
 }
 
 void ProductionQueue::CacheProducibles() {
-  // L234-247
+
   vec_producible_.clear();
   if (!b_enabled_)
     return;
@@ -587,10 +548,7 @@ void ProductionQueue::CacheProducibles() {
 
 std::vector<const game::ActorInfo*> ProductionQueue::AllBuildables(
     const std::string& category) const {
-  // L249-255(Actors.Values 的字典序 = ActorInfoDictionary 键序;
-  // '^' 抽象过滤 + Queue 包含)
-  // (Actors.Values' dictionary order = ActorInfoDictionary's key order;
-  // the '^' abstract filter + the Queue containment).
+
   std::vector<const game::ActorInfo*> vec_out;
   for (const auto& [name, actor_ptr] :
        p_actor_->world().Map().Rules().Actors()) {
@@ -610,38 +568,38 @@ std::vector<const game::ActorInfo*> ProductionQueue::AllBuildables(
 }
 
 void ProductionQueue::PrerequisitesAvailable(const std::string& key) {
-  // L258-260
+
   if (ProducibleEntry* entry = FindProducibleByName(key))
     entry->b_buildable = true;
 }
 
 void ProductionQueue::PrerequisitesUnavailable(const std::string& key) {
-  // L262-264
+
   if (ProducibleEntry* entry = FindProducibleByName(key))
     entry->b_buildable = false;
 }
 
 void ProductionQueue::PrerequisitesItemHidden(const std::string& key) {
-  // L266-268
+
   if (ProducibleEntry* entry = FindProducibleByName(key))
     entry->b_visible = false;
 }
 
 void ProductionQueue::PrerequisitesItemVisible(const std::string& key) {
-  // L270-272
+
   if (ProducibleEntry* entry = FindProducibleByName(key))
     entry->b_visible = true;
 }
 
 bool ProductionQueue::IsProducing(
     const ProductionItemLike& item) const {
-  // L278-281
+
   return !vec_queue_.empty() && vec_queue_[0].get() == &item;
 }
 
 bool ProductionQueue::IsInQueue(
     const game::ActorInfo& actor) const {
-  // L283-286
+
   for (auto& i : vec_queue_)
     if (i->Item == actor.Name())
       return true;
@@ -649,13 +607,12 @@ bool ProductionQueue::IsInQueue(
 }
 
 ProductionItemLike* ProductionQueue::CurrentItem() {
-  // L288-290
+
   return vec_queue_.empty() ? nullptr : vec_queue_[0].get();
 }
 
 std::vector<const game::ActorInfo*> ProductionQueue::AllItems() {
-  // L298-306(allProducibles 的消费时物化)
-  // (allProducibles' per-consumption materialization).
+
   if (!vec_production_traits_.empty()) {
     bool all_disabled = true;
     for (const Production* p : vec_production_traits_)
@@ -679,8 +636,7 @@ std::vector<const game::ActorInfo*> ProductionQueue::AllItems() {
 }
 
 std::vector<const game::ActorInfo*> ProductionQueue::BuildableItems() {
-  // L308-321(buildableProducibles 的消费时物化)
-  // (buildableProducibles' per-consumption materialization).
+
   if (!vec_production_traits_.empty()) {
     bool all_disabled = true;
     for (const Production* p : vec_production_traits_)
@@ -718,7 +674,7 @@ std::vector<const game::ActorInfo*> ProductionQueue::BuildableItems() {
 }
 
 bool ProductionQueue::AnyItemsToBuild() {
-  // L323-328
+
   bool any_enabled = vec_production_traits_.empty();
   for (const Production* p : vec_production_traits_)
     if (!p->IsTraitDisabled())
@@ -738,7 +694,7 @@ bool ProductionQueue::AnyItemsToBuild() {
 }
 
 bool ProductionQueue::CanBuild(const game::ActorInfo& actor) {
-  // L330-336
+
   const ProducibleEntry* ps = FindProducible(&actor);
   if (ps == nullptr)
     return false;
@@ -752,7 +708,7 @@ void ProductionQueue::Tick(sim::Actor& self) {
 }
 
 void ProductionQueue::TickImpl(sim::Actor& self) {
-  // L343-359
+
   bool any_enabled_production = false;
   bool any_unpaused_production = false;
   for (const Production* p : vec_production_traits_) {
@@ -769,7 +725,7 @@ void ProductionQueue::TickImpl(sim::Actor& self) {
 
 void ProductionQueue::TickInner(sim::Actor& self,
                                 bool all_production_paused) {
-  // L361-367
+
   CancelUnbuildableItems();
 
   if (!vec_queue_.empty() && !all_production_paused)
@@ -777,7 +733,7 @@ void ProductionQueue::TickInner(sim::Actor& self,
 }
 
 void ProductionQueue::CancelUnbuildableItems() {
-  // L369-402
+
   if (vec_queue_.empty())
     return;
 
@@ -787,39 +743,32 @@ void ProductionQueue::CancelUnbuildableItems() {
   for (const game::ActorInfo* b : vec_buildable)
     vec_buildable_names.push_back(b->Name());
 
-  // EndProduction removes the item from the queue, so we enumerate by
-  // index in reverse to avoid issues with index reassignment(上游注释)
   bool cancelled_an_item = false;
   for (std::size_t i = vec_queue_.size(); i-- > 0;) {
     if (std::find(vec_buildable_names.begin(), vec_buildable_names.end(),
                   vec_queue_[i]->Item) != vec_buildable_names.end())
       continue;
 
-    // Refund spent resources(上游注释)
     if (vec_queue_[i]->ResourcesPaid > 0) {
       p_player_resources_->RefundResources(vec_queue_[i]->ResourcesPaid);
       vec_queue_[i]->RemainingCost += vec_queue_[i]->ResourcesPaid;
     }
 
-    // Refund what's been paid so far(上游注释)
     p_player_resources_->RefundCash(vec_queue_[i]->TotalCost -
                                     vec_queue_[i]->RemainingCost);
     EndProduction(*vec_queue_[i]);
     cancelled_an_item = true;
   }
 
-  // CancelledAudio 的声音/文本通知随注入面(通知不可观测)
-  // (the CancelledAudio sound/text notification rides the injection
-  // face; the notification is unobservable here).
   (void)cancelled_an_item;
 }
 
 bool ProductionQueue::CanQueue(const game::ActorInfo& actor,
                                std::string& notification_audio,
                                std::string& notification_text) {
-  // L404-445
+
   notification_audio = info_.str_blocked_audio;
-  notification_text.clear();  // BlockedTextNotification(文本面随 UI 批)
+  notification_text.clear();
 
   const std::optional<BuildableInfoData> bi = FindBuildable(actor);
   if (!bi.has_value())
@@ -876,7 +825,7 @@ bool ProductionQueue::CanQueue(const game::ActorInfo& actor,
 
 void ProductionQueue::ResolveOrder(sim::Actor& self,
                                    const ora::net::Order& order) {
-  // L447-539
+
   if (!b_enabled_)
     return;
 
@@ -888,13 +837,11 @@ void ProductionQueue::ResolveOrder(sim::Actor& self,
       return;
     const std::optional<BuildableInfoData> bi = FindBuildable(*unit);
 
-    // Not built by this queue(上游注释)
     if (!bi.has_value() ||
         std::find(bi->vec_queue.begin(), bi->vec_queue.end(),
                   info_.str_type) == bi->vec_queue.end())
       return;
 
-    // You can't build that(上游注释)
     const std::vector<const game::ActorInfo*> vec_buildable =
         BuildableItems();
     bool buildable = false;
@@ -906,8 +853,6 @@ void ProductionQueue::ResolveOrder(sim::Actor& self,
     if (!buildable)
       return;
 
-    // Check if the player is trying to build more units that they are
-    // allowed(上游注释)
     const bool all_tech =
         p_developer_mode_ != nullptr && p_developer_mode_->AllTech;
     int from_limit = std::numeric_limits<int>::max();
@@ -953,11 +898,6 @@ void ProductionQueue::ResolveOrder(sim::Actor& self,
           cost > p_player_resources_->GetCashAndResources())
         return;
 
-      // OnComplete 的帧末闭包(上游捕获 notified 局部 → item->b_notified
-      // 成员承载;声音/文本通知随注入面)
-      // The OnComplete frame-end closure (upstream captures the notified
-      // local → the item->b_notified member; the sound/text
-      // notifications ride the injection face).
       const std::string unit_name = unit->Name();
       ProductionQueue* queue_this = this;
       auto item = std::make_unique<ProductionItemLike>(
@@ -971,9 +911,7 @@ void ProductionQueue::ResolveOrder(sim::Actor& self,
             w.AddFrameEndTask([queue_this, unit_name, time,
                                is_building,
                                self_item](sim::World&) {
-              // Make sure the item hasn't been invalidated between the
-              // ProductionItem ticking and this FrameEndTask running
-              // (上游注释)
+
               bool any_done = false;
               bool b_self_alive = false;
               for (auto& i : queue_this->AllQueued()) {
@@ -984,14 +922,7 @@ void ProductionQueue::ResolveOrder(sim::Actor& self,
                   break;
                 }
               }
-              // 上游闭包对已出队 item 的字段写在 GC 域不可观测;C++ 侧
-              // 悬垂指针不触(放置路径的本 tick 配对任务可晚于
-              // EndProduction 运行 —— 第十批建筑放置暴露)
-              // Upstream's closure writes a dequeued item's field in the
-              // GC domain unobservably; the C++ dangling pointer stays
-              // untouched (this tick's paired task can run after
-              // EndProduction — exposed by the batch-10 building
-              // placement).
+
               if (!b_self_alive)
                 return;
               if (!any_done) {
@@ -1001,7 +932,7 @@ void ProductionQueue::ResolveOrder(sim::Actor& self,
               }
 
               if (is_building) {
-                // ReadyAudio 通知随注入面
+
                 if (self_item != nullptr && !self_item->b_notified)
                   self_item->b_notified = true;
               } else {
@@ -1010,7 +941,7 @@ void ProductionQueue::ResolveOrder(sim::Actor& self,
                         unit_name);
                 if (unit_info != nullptr &&
                     queue_this->BuildUnit(*unit_info)) {
-                  // ReadyAudio 随注入面
+
                 } else if (self_item != nullptr && !self_item->b_notified &&
                            time > 0) {
                   self_item->b_notified = true;
@@ -1031,8 +962,7 @@ void ProductionQueue::ResolveOrder(sim::Actor& self,
 }
 
 int ProductionQueue::GetBuildTime(const game::ActorInfo& unit) {
-  // L541-556(FastBuild = 0;IProductionTimeModifierInfo 空集)
-  // (FastBuild = 0; the IProductionTimeModifierInfo set is empty).
+
   if (p_developer_mode_ != nullptr && p_developer_mode_->FastBuild)
     return 0;
 
@@ -1051,8 +981,7 @@ int ProductionQueue::GetBuildTime(const game::ActorInfo& unit) {
 
 int ProductionQueue::GetProductionCost(
     const game::ActorInfo& unit) {
-  // L558-568(IProductionCostModifierInfo 空集 → Valued 原值)
-  // (the IProductionCostModifierInfo set is empty → the raw Valued).
+
   for (const meta::RecordObject* rec_trait :
        unit.TraitsInConstructOrder())
     if (rec_trait->record_desc().str_full_name ==
@@ -1063,7 +992,7 @@ int ProductionQueue::GetProductionCost(
 
 void ProductionQueue::PauseProduction(const std::string& item_name,
                                        bool paused) {
-  // L570-572
+
   for (auto& a : vec_queue_)
     if (a->Item == item_name) {
       a->Pause(paused);
@@ -1073,14 +1002,14 @@ void ProductionQueue::PauseProduction(const std::string& item_name,
 
 void ProductionQueue::CancelProduction(const std::string& item_name,
                                        std::uint32_t number_to_cancel) {
-  // L574-580
+
   for (std::uint32_t i = 0; i < number_to_cancel; i++)
     if (!CancelProductionInner(item_name))
       break;
 }
 
 bool ProductionQueue::CancelProductionInner(const std::string& item_name) {
-  // L582-611
+
   ProductionItemLike* item = nullptr;
   for (auto it = vec_queue_.rbegin(); it != vec_queue_.rend(); ++it)
     if ((*it)->Item == item_name) {
@@ -1096,7 +1025,7 @@ bool ProductionQueue::CancelProductionInner(const std::string& item_name) {
             *this, item->Item, item->TotalCost, p_player_power_,
             std::function<void(ProductionItemLike*)>{}));
     } else {
-      // Refund what has been paid(上游注释)
+
       if (item->ResourcesPaid > 0) {
         p_player_resources_->RefundResources(item->ResourcesPaid);
         item->RemainingCost += item->ResourcesPaid;
@@ -1114,9 +1043,7 @@ bool ProductionQueue::CancelProductionInner(const std::string& item_name) {
 }
 
 void ProductionQueue::EndProduction(ProductionItemLike& item) {
-  // L613-619(erase 触发 unique_ptr 析构 —— 先快照重建字段)
-  // (the erase destroys the unique_ptr — snapshot the rebuild fields
-  // first).
+
   const bool infinite = item.Infinite;
   const std::string rebuild_name = item.Item;
   const int rebuild_cost = item.TotalCost;
@@ -1130,14 +1057,14 @@ void ProductionQueue::EndProduction(ProductionItemLike& item) {
     auto rebuilt = std::make_unique<ProductionItemLike>(
         *this, rebuild_name, rebuild_cost, p_player_power_,
         std::move(rebuild_on_complete));
-    rebuilt->Infinite = true;  // 上游对象初始化器 { Infinite = true }
+    rebuilt->Infinite = true;
     vec_queue_.push_back(std::move(rebuilt));
   }
 }
 
 void ProductionQueue::BeginProduction(
     std::unique_ptr<ProductionItemLike> item, bool has_priority) {
-  // L621-663
+
   if (info_.b_pay_up_front) {
     if (p_player_resources_->Resources > 0 &&
         p_player_resources_->Resources <= item->TotalCost)
@@ -1174,7 +1101,7 @@ void ProductionQueue::BeginProduction(
   vec_queued[0]->Infinite = true;
 
   for (std::size_t i = 1; i < vec_queued.size(); i++) {
-    // Refund what has been paid(上游注释)
+
     if (vec_queued[i]->ResourcesPaid > 0) {
       p_player_resources_->RefundResources(vec_queued[i]->ResourcesPaid);
       vec_queued[i]->RemainingCost += vec_queued[i]->ResourcesPaid;
@@ -1188,13 +1115,12 @@ void ProductionQueue::BeginProduction(
 
 int ProductionQueue::RemainingTimeActual(
     const ProductionItemLike& item) const {
-  // L665-668
+
   return item.RemainingTimeActual();
 }
 
 Production* ProductionQueue::MostLikelyProducer() {
-  // L671-678(OrderBy(IsTraitPaused) 稳定序首项)
-  // (OrderBy(IsTraitPaused)'s stable-order first).
+
   Production* best = nullptr;
   bool best_paused = true;
   for (Production* p : vec_production_traits_) {
@@ -1215,10 +1141,9 @@ Production* ProductionQueue::MostLikelyProducer() {
 }
 
 bool ProductionQueue::BuildUnit(const game::ActorInfo& unit) {
-  // L680-709
+
   Production* most_likely_producer_trait = MostLikelyProducer();
 
-  // Cannot produce if I'm dead or trait is disabled(上游注释)
   if (!p_actor_->IsInWorld() || p_actor_->IsDead() ||
       most_likely_producer_trait == nullptr) {
     CancelProduction(unit.Name(), 1);
@@ -1273,11 +1198,8 @@ ProductionQueue::ProducibleEntry* ProductionQueue::FindProducibleByName(
   return nullptr;
 }
 
-// ———— ClassicProductionQueue(L58-139)————
-// ———— ClassicProductionQueue (L58-139) ————
-
 void ClassicProductionQueue::TickImpl(sim::Actor& self) {
-  // L58-83(上游 PERF 注释:避 LINQ)
+
   b_enabled_ = false;
   bool is_active = false;
   for (auto& [actor, trait] :
@@ -1302,24 +1224,20 @@ void ClassicProductionQueue::TickImpl(sim::Actor& self) {
 }
 
 std::vector<const game::ActorInfo*> ClassicProductionQueue::AllItems() {
-  // L85-88
+
   return Enabled() ? ProductionQueue::AllItems()
                    : std::vector<const game::ActorInfo*>{};
 }
 
 std::vector<const game::ActorInfo*>
 ClassicProductionQueue::BuildableItems() {
-  // L80-83
+
   return Enabled() ? ProductionQueue::BuildableItems()
                    : std::vector<const game::ActorInfo*>{};
 }
 
 Production* ClassicProductionQueue::MostLikelyProducer() {
-  // L85-99(OrderBy(paused).ThenByDescending(IsPrimaryBuilding).
-  // ThenByDescending(ActorID) —— 第十批 PrimaryBuilding 落地后的真形)
-  // (OrderBy(paused).ThenByDescending(IsPrimaryBuilding).
-  // ThenByDescending(ActorID) — the true shape after the batch-10
-  // PrimaryBuilding landing).
+
   struct Candidate {
     Production* trait;
     bool b_paused;
@@ -1349,8 +1267,7 @@ Production* ClassicProductionQueue::MostLikelyProducer() {
       best = c.trait;
       continue;
     }
-    // (paused asc, primary desc, ActorID desc) 的逐项择优
-    // The per-item pick of (paused asc, primary desc, ActorID desc).
+
     const bool p_paused = c.b_paused;
     const bool b_paused = best->IsTraitPaused();
     if (p_paused != b_paused) {
@@ -1375,12 +1292,9 @@ Production* ClassicProductionQueue::MostLikelyProducer() {
 }
 
 bool ClassicProductionQueue::BuildUnit(const game::ActorInfo& unit) {
-  // L101-139
-  // Find a production structure to build this actor(上游注释)
+
   const std::optional<BuildableInfoData> bi = FindBuildable(unit);
 
-  // Some units may request a specific production type, which is ignored
-  // if the AllTech cheat is enabled(上游注释)
   const bool all_tech =
       p_developer_mode_ != nullptr && p_developer_mode_->AllTech;
   const std::string type =
@@ -1401,9 +1315,7 @@ bool ClassicProductionQueue::BuildUnit(const game::ActorInfo& unit) {
       continue;
     vec_producers.push_back(trait);
   }
-  // ThenByDescending(IsPrimaryBuilding) 的退化序 = ActorID 降(登记)
-  // ThenByDescending(IsPrimaryBuilding)'s degraded order = ActorID
-  // descending (registered).
+
   std::stable_sort(vec_producers.begin(), vec_producers.end(),
                    [](Production* a, Production* b) {
                      return a->HostActor().ActorID() >
@@ -1443,8 +1355,6 @@ bool ClassicProductionQueue::BuildUnit(const game::ActorInfo& unit) {
   return false;
 }
 
-// ———— ProductionItem ————
-
 ProductionItemLike::ProductionItemLike(
     ProductionQueue& queue, std::string item, int cost, PowerManager* pm,
     std::function<void(ProductionItemLike*)> on_complete)
@@ -1453,7 +1363,7 @@ ProductionItemLike::ProductionItemLike(
       RemainingCost{cost},
       Queue{&queue},
       OnComplete{std::move(on_complete)} {
-  // L743-756
+
   p_pm_ = pm;
   int4_remaining_time_ = int4_total_time_ = 1;
   p_ai_ = queue.Actor()->world().Map().Rules().FindActor(Item);
@@ -1465,8 +1375,7 @@ ProductionItemLike::ProductionItemLike(
 }
 
 int ProductionItemLike::RemainingTimeActual() const {
-  // L728-731(第六批 PowerManager 接线)
-  // L728-731 (wired with batch 6's PowerManager).
+
   return (p_pm_ == nullptr ||
           p_pm_->GetPowerState() == sim::PowerState::Normal)
              ? int4_remaining_time_
@@ -1475,7 +1384,7 @@ int ProductionItemLike::RemainingTimeActual() const {
 }
 
 void ProductionItemLike::Tick(PlayerResources& pr) {
-  // L758-809
+
   if (!b_started_) {
     const int time = Queue->GetBuildTime(*p_ai_);
     if (time > 0)
@@ -1492,8 +1401,6 @@ void ProductionItemLike::Tick(PlayerResources& pr) {
   if (b_paused_)
     return;
 
-  // L774-784:PowerManager 的 Slowdown 面(第六批接线)
-  // L774-784: PowerManager's Slowdown face (wired with batch 6).
   if (p_pm_ != nullptr &&
       p_pm_->GetPowerState() != sim::PowerState::Normal) {
     int4_slowdown_ -= 100;
@@ -1530,4 +1437,4 @@ void ProductionItemLike::Tick(PlayerResources& pr) {
   b_done_ = true;
 }
 
-}  // namespace ora::mods
+}

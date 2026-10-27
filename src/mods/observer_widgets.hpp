@@ -1,8 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ObserverArmyIconsWidget.cs @1f594e320
-//          L24-211 + ObserverProductionIconsWidget.cs L25-281 +
-//          ObserverSupportPowerIconsWidget.cs L23-199(观战三图标条)
-//          The three observer icon strips (army composition, in-progress
-//          production, support powers).
 #pragma once
 import std;
 
@@ -25,7 +20,6 @@ class TooltipContainerWidget;
 
 namespace ora::mods {
 
-/// ArmyIcon(ObserverArmyIconsWidget.cs L206-210)
 struct ArmyIcon {
   Rectangle rect_bounds = Rectangle::Empty();
   ArmyUnit* ptr_unit = nullptr;
@@ -80,10 +74,6 @@ class ObserverArmyIconsWidget final : public ora::ui::Widget {
   int int4_current_tooltip_token_ = 0;
 };
 
-/// ProductionIcon(ObserverProductionIconsWidget.cs L41-42 消费的复用面 =
-/// mods::ProductionIcon)
-/// The production icon reuse (the consumer face of L41-42 = mods::
-/// ProductionIcon).
 class ObserverProductionIconsWidget final : public ora::ui::Widget {
  public:
   static constexpr std::string_view kWidgetTypeName =
@@ -190,4 +180,4 @@ class ObserverSupportPowerIconsWidget final : public ora::ui::Widget {
 
 void RegisterObserverWidgets();
 
-}  // namespace ora::mods
+}

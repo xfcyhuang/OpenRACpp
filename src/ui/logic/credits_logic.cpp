@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/CreditsLogic.cs @1f594e320(实现)。
 import std;
 
 #include "ui/logic/credits_logic.hpp"
@@ -42,7 +41,7 @@ std::vector<char> ReadFileBytes(const std::string& str_path) {
                            std::istreambuf_iterator<char>{}};
 }
 
-}  // namespace
+}
 
 CreditsLogic::CreditsLogic(WidgetArgs& args_args) {
   Widget* ptr_widget = std::get<Widget*>(args_args.At("widget"));
@@ -119,4 +118,4 @@ void CreditsLogic::ShowCredits(bool b_mod_credits) {
   ptr_scroll_panel_->AddChild(std::move(up_label));
 }
 
-}  // namespace ora::ui
+}

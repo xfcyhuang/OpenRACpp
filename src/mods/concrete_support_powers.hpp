@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/NukePower.cs @1f594e320 L23-243 +
-//          SpawnActorPower.cs L22-163 + ProduceActorPower.cs L19-113 +
-//          GrantExternalConditionPower.cs L23-178
 #pragma once
 import std;
 
@@ -330,4 +327,4 @@ class SelectConditionTarget final : public sim::IOrderGenerator {
   float fp4_alpha_ = 1.0f;
 };
 
-}  // namespace ora::mods
+}

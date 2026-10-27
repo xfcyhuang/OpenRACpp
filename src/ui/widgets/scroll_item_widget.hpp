@@ -1,11 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ScrollItemWidget.cs @1f594e320 L19-97(全文)。
-// IsVisible 恒 false 模板 + VisualHeight 0 + Initialize 的
-// IgnoreChildMouseOver 翻转 HACK;Setup 三静态模板装配方;面板图缓存走
-// GetCachedStatefulPanelImages。
-// The whole of ScrollItemWidget.cs L19-97. The IsVisible-always-false
-// template + VisualHeight 0 + Initialize's IgnoreChildMouseOver flip HACK;
-// the three static Setup template binders; the panel-image cache through
-// GetCachedStatefulPanelImages.
 #pragma once
 import std;
 
@@ -29,7 +21,7 @@ class ScrollItemWidget : public ButtonWidget {
   }
   std::string_view TypeName() const override { return kWidgetTypeName; }
 
-  std::string str_background = "scrollitem";  // new 隐藏 | hides the base field
+  std::string str_background = "scrollitem";
   bool b_enable_child_mouse_over = false;
   std::string str_item_key;
 
@@ -56,4 +48,4 @@ class ScrollItemWidget : public ButtonWidget {
   StatefulPanelCache cache_panel_;
 };
 
-}  // namespace ora::ui
+}

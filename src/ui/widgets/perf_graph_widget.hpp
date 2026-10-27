@@ -35,4 +35,4 @@ class PerfGraphWidget : public Widget {
   std::string str_builder_;
 };
 
-}  // namespace ora::ui
+}

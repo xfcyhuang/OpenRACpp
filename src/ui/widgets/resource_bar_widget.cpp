@@ -145,4 +145,4 @@ void ResourceBarWidget::Draw() {
   }
 }
 
-}  // namespace ora::ui
+}

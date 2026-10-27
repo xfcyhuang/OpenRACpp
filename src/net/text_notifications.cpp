@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Game/TextNotificationsManager.cs @1f594e320 L26-117
-//          (实现全文)
-//          (the whole implementation).
 import std;
 
 #include "net/text_notifications.hpp"
@@ -14,18 +11,13 @@ namespace ora::net {
 
 namespace {
 
-/// HashCode.Combine(Prefix, Text, (int)Pool) 的等价复合(展开序 = 上游
-/// Combine 的种子链:hash(Prefix) → 混入 hash(Text) → 混入 Pool)
-/// The equivalent composite of HashCode.Combine(Prefix, Text, (int)Pool)
-/// (the expansion order = upstream Combine's seed chain: hash(Prefix) →
-/// fold hash(Text) → fold Pool).
 std::size_t CombineHash(std::size_t seed, std::size_t value) {
   const std::size_t int8_rotl = 5;
   return seed ^ (value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2) +
                  (seed << int8_rotl));
 }
 
-}  // namespace
+}
 
 TextNotification::TextNotification(
     TextNotificationPool kind_pool_new, int int4_client_id_new,
@@ -61,9 +53,7 @@ std::string TextNotificationsManager::FluentGetMessage(
     std::string_view str_key, std::span<const FluentArgument> vec_args) const {
   if (fn_fluent_)
     return fn_fluent_(str_key, vec_args);
-  // 上游直调 FluentProvider.GetMessage;未初始化 = 恒未中 → 键回落
-  // upstream calls FluentProvider.GetMessage directly; uninitialized =
-  // never a hit → the key fallback.
+
   std::vector<std::pair<std::string, fluent::FluentValue>> vec_fluent_args;
   vec_fluent_args.reserve(vec_args.size());
   for (const FluentArgument& arg : vec_args) {
@@ -83,10 +73,7 @@ std::string TextNotificationsManager::FluentGetMessage(
 
 bool TextNotificationsManager::IsPoolEnabled(
     TextNotificationPool kind_pool) const {
-  // TextNotificationPoolFilters 的 Transients/Feedback 位(Settings.cs
-  // L43-48);其余池恒放行
-  // The Transients/Feedback bits of TextNotificationPoolFilters
-  // (Settings.cs L43-48); every other pool always passes.
+
   switch (kind_pool) {
     case TextNotificationPool::Transients:
       return (int4_pool_filters_ & kPoolFilterTransients) != 0;
@@ -115,9 +102,7 @@ void TextNotificationsManager::AddTextNotification(
 
 void TextNotificationsManager::AddTransientLine(sim::Player* p_player,
                                                 std::string_view str_text) {
-  // L34-40:空文本直返;null/本地玩家才上屏
-  // L34-40: empty text returns; only null/the local player reaches the
-  // screen.
+
   if (str_text.empty())
     return;
 
@@ -193,4 +178,4 @@ void TextNotificationsManager::ResetForTest() {
   fn_clock_ = [] { return std::int64_t{0}; };
 }
 
-}  // namespace ora::net
+}

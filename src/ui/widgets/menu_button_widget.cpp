@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/MenuButtonWidget.cs @1f594e320 L19-33(全文)。
 import std;
 
 #include "ui/widgets/menu_button_widget.hpp"
@@ -37,4 +36,4 @@ bool MenuButtonWidget::LoadFieldOrProperty(std::string_view str_key,
   return WorldButtonWidget::LoadFieldOrProperty(str_key, str_value);
 }
 
-}  // namespace ora::ui
+}

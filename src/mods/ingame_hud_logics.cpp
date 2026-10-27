@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/Ingame/ 的 HUD 第一组
-//          (实现部分;头注见 ingame_hud_logics.hpp)
-//          The HUD group one under Ingame/ (the implementation half; the
-//          header note lives in ingame_hud_logics.hpp).
 #include "mods/ingame_hud_logics.hpp"
 
 #include "fluent/fluent_provider.hpp"
@@ -54,9 +50,7 @@ fluent::FluentValue FluentString(const std::string& str_value) {
   return fluent::FluentValue{str_value};
 }
 
-}  // namespace
-
-// ———— IngameRadarDisplayLogic ————
+}
 
 IngameRadarDisplayLogic::IngameRadarDisplayLogic(ora::ui::Widget& widget,
                                                  sim::World& world) {
@@ -102,8 +96,6 @@ IngameRadarDisplayLogic::IngameRadarDisplayLogic(ora::ui::Widget& widget,
     ptr_block->fn_get_color = [this] { return color_block_; };
   }
 }
-
-// ———— ClassicProductionLogic ————
 
 ClassicProductionLogic::ClassicProductionLogic(ora::ui::Widget& widget,
                                                sim::World& world)
@@ -313,8 +305,6 @@ void ClassicProductionLogic::SetMaximumVisibleRows(
       std::min(int4_max_icon_row_offset, palette.int4_maximum_rows);
 }
 
-// ———— ProductionTabsLogic ————
-
 ProductionTabsLogic::ProductionTabsLogic(ora::ui::Widget& widget,
                                          sim::World& world)
     : ptr_world_{&world} {
@@ -417,8 +407,6 @@ void ProductionTabsLogic::SetupProductionGroupButton(
       };
 }
 
-// ———— IngameCashCounterLogic ————
-
 IngameCashCounterLogic::IngameCashCounterLogic(ora::ui::Widget& widget,
                                                sim::World& world)
     : ptr_world_{&world},
@@ -473,8 +461,6 @@ void IngameCashCounterLogic::Tick() {
   ptr_cash_label_->fn_get_text =
       [str_display_resources_text] { return str_display_resources_text; };
 }
-
-// ———— IngamePowerCounterLogic ————
 
 IngamePowerCounterLogic::IngamePowerCounterLogic(ora::ui::Widget& widget,
                                                  sim::World& world) {
@@ -534,8 +520,6 @@ IngamePowerCounterLogic::IngamePowerCounterLogic(ora::ui::Widget& widget,
       };
 }
 
-// ———— IngameSiloBarLogic ————
-
 IngameSiloBarLogic::IngameSiloBarLogic(ora::ui::Widget& widget,
                                        sim::World& world) {
   auto* ptr_player_resources =
@@ -573,8 +557,6 @@ IngameSiloBarLogic::IngameSiloBarLogic(ora::ui::Widget& widget,
     return core::Color::FromArgb(255, 50, 205, 50);
   };
 }
-
-// ———— GameTimerLogic ————
 
 GameTimerLogic::GameTimerLogic(ora::ui::Widget& widget,
                                net::OrderManager& order_manager,
@@ -667,8 +649,6 @@ GameTimerLogic::GameTimerLogic(ora::ui::Widget& widget,
   }
 }
 
-// ———— 注册 ————
-
 void RegisterIngameHudLogics() {
   auto& registry_logics = ora::ui::ChromeLogicRegistry::Instance();
   registry_logics.Register(
@@ -730,4 +710,4 @@ void RegisterIngameHudLogics() {
       });
 }
 
-}  // namespace ora::mods
+}

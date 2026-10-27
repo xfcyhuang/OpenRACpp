@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ScrollItemWidget.cs @1f594e320
-// (scroll_item_widget.hpp 的实现)
-// The implementation of scroll_item_widget.hpp.
 import std;
 
 #include "ui/widgets/scroll_item_widget.hpp"
@@ -14,11 +11,7 @@ namespace ora::ui {
 
 ScrollItemWidget::ScrollItemWidget(WidgetArgs& args_args)
     : ButtonWidget(args_args),
-      // 上游 ctor 以 Background 字段当前值(默认 "scrollitem")急建缓存;
-      // yaml 后置覆写不重建(quirk 保真)
-      // upstream's ctor eagerly builds the cache from Background's current
-      // value (the "scrollitem" default); a later yaml override does not
-      // rebuild (the quirk kept).
+
       cache_panel_(GetCachedStatefulPanelImages(str_background)) {
   fn_is_visible = [] { return false; };
   int4_visual_height = 0;
@@ -38,8 +31,6 @@ ScrollItemWidget::ScrollItemWidget(const ScrollItemWidget& widget_other)
 void ScrollItemWidget::Initialize(WidgetArgs& args_args) {
   ButtonWidget::Initialize(args_args);
 
-  // HACK: We want to default IgnoreChildMouseOver to true in this widget
-  // but still allow it to be disabled(上游注释)| the upstream comment
   b_ignore_child_mouse_over = !b_enable_child_mouse_over;
 }
 
@@ -47,8 +38,6 @@ void ScrollItemWidget::Draw() {
   if (str_background.empty())
     return;
 
-  // PERF: Only check for ourself or our direct children(上游注释)|
-  // PERF: only check ourself or our direct children (upstream's comment)
   bool b_hover = Ui::Instance().MouseOverWidget() == this;
   if (!b_ignore_child_mouse_over && !b_hover)
     b_hover = [this]() {
@@ -107,4 +96,4 @@ std::unique_ptr<ScrollItemWidget> ScrollItemWidget::Setup(
   return up_widget;
 }
 
-}  // namespace ora::ui
+}

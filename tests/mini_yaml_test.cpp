@@ -1,17 +1,5 @@
-// UPSTREAM: OpenRA.Test/OpenRA.Game/MiniYamlTest.cs @7d57605 L26-997(全用例移植;
-// FromStreamAsEnumerable 并发流式用例不移植——IEnumerable 惰性属实现细节)
-// All upstream cases ported; the FromStreamAsEnumerable concurrent-streaming case is
-// not ported (IEnumerable laziness is an implementation detail).
-// 断言文本与上游逐字一致(含异常消息),作为 Merge/继承/弱删除语义的回归契约。
-// Assertion texts match upstream verbatim (including exception messages), serving as
-// the regression contract for merge/inheritance/weak-removal semantics.
-// 多行 yaml 字面量由 tools/fill_yaml_test_literals.py 从上游源码按字节注入
-// ("函数.常量" 双花括号占位符),杜绝缩进层级的手抄偏差。
-// Multi-line yaml literals are injected byte-exactly from the upstream source by
-// tools/fill_yaml_test_literals.py (Func.Const double-brace placeholders),
-// eliminating hand-transcription indent errors.
 #include "yaml/mini_yaml.hpp"
-#include <cstdio>  // setvbuf(白名单头)| setvbuf (a whitelisted header)
+#include <cstdio>
 
 namespace {
 
@@ -41,8 +29,6 @@ void CheckEq(const std::string& name, const std::string& actual, const std::stri
     Fail(name, std::format("输出不一致\n  期望: [{}]\n  实际: [{}]", expected, actual));
 }
 
-// 单一字符串池贯穿全部用例(合并路径的池化不变量)
-// One string pool threads through every case (pooling invariant for merge paths).
 StringPool& Pool() {
   static StringPool pool;
   return pool;
@@ -64,7 +50,7 @@ bool HasKey(std::span<const MiniYamlNode> nodes, std::string_view key) {
   return FindNode(nodes, key) != nullptr;
 }
 
-std::string ValueOf(const MiniYamlNode* n) {  // C# .Value.Value(null → "<null>")
+std::string ValueOf(const MiniYamlNode* n) {
   return n != nullptr && n->Value.Value != nullptr ? *n->Value.Value : std::string{"<null>"};
 }
 
@@ -79,9 +65,6 @@ void CheckThrowsYaml(const std::string& name, F&& fn, const std::string& expecte
       Fail(name, std::format("异常消息不一致\n  期望: [{}]\n  实际: [{}]", expectedMsg, e.what()));
   }
 }
-
-// ———— 用例(MiniYamlTest.cs 同名直译)————
-// ———— Cases (direct ports of the MiniYamlTest.cs counterparts) ————
 
 void TestParseRoundtrip() {
   CheckEq("Parse tree roundtrips", WriteToString(FromStr("1:\n2: Test\n3: # Test\n4:\n\t4.1:\n5: Test\n\t5.1:\n6: # Test\n\t6.1:\n7:\n\t7.1.1:\n\t7.1.2: Test\n\t7.1.3: # Test\n8: Test\n\t8.1.1:\n\t8.1.2: Test\n\t8.1.3: # Test\n9: # Test\n\t9.1.1:\n\t9.1.2: Test\n\t9.1.3: # Test\n", "", false)),
@@ -233,10 +216,6 @@ void InheritedChildCanBeOverriddenThenRemoved() {
   }
 }
 
-// 返回的 fieldSub 指向 outMerged 内部,outMerged 须在调用方存活
-// (避免悬垂:合并树与返回指针同生命周期)
-// The returned fieldSub points inside outMerged, which must outlive the pointer
-// (no dangling: the merged tree and the returned pointer share a lifetime).
 const MiniYamlNode* SingleChildFieldSubNodes(const std::string& name,
                                              std::vector<std::vector<MiniYamlNode>> sources,
                                              std::vector<MiniYamlNode>& outMerged) {
@@ -339,8 +318,7 @@ void InheritanceWorksForNestedNodes() {
 }
 
 void EmptyLinesShouldCountTowardLineNumbers() {
-  // 树须存活到断言之后(FindNode(FromStr(...)) 的临时穿透会悬垂)
-  // The tree must outlive the assertions (piping a temporary into FindNode dangles).
+
   auto nodes = FromStr("\nTestA:\n\tNothing:\n\nTestB:\n\tNothing:\n");
   const MiniYamlNode* b = FindNode(nodes, "TestB");
   CheckTrue("Empty lines should count toward line numbers", b != nullptr, "缺 TestB");
@@ -501,7 +479,7 @@ void TestMergeConflictsMultiSourceSecondParent() {
 }
 
 void TestMergeComments() {
-  checks++;  // Assert.That(Merge, Throws.Nothing)
+  checks++;
   try {
     (void)MiniYaml::Merge({FromStr("\n# Random comment\nT:\n\tTest2:\n\t\tMockString:\n\t\t\tMockString2:\n\t\t\tMockString3:\n\t\t\t\tChild1:\n\t\t\t\t# Random comment\n\t\t# Random comment\n\t\tMockString4:\n\t# Random comment\n# Random comment\nT:\n\tTest2:\n\t\tMockString:\n\t\t\t-MockString2:\n\t\t\tMockString3:\n\t\t\t\t# Random comment\n\t\t\t\t-Child1:\n\t\t# Random comment\n\t\tMockString4:\n\t# Random comment\n# Random comment\n", "test-filename", false)});
   } catch (const YamlException& e) {
@@ -585,8 +563,7 @@ void CommentsShouldCountTowardLineNumbers() {
 }
 
 void CommentsSurviveRoundTrip() {
-  // 上游以 .Replace("\r\n","\n") 归一;提取器已按 LF 提取,语义一致
-  // Upstream normalises via .Replace("\r\n","\n"); the extractor already yields LF.
+
   CheckEq("Comments should survive a round trip intact",
           WriteToString(FromStr("\n# Top level comment node\n#\nParent: # comment without value\n\t# Indented comment node\n\t#\n\t\t# Double Indented comment node\n\t\t#\n\t\t\t# Triple Indented comment node\n\t\t\t#\n\tFirst: value containing a \\# character\n\tSecond: value # node with inline comment\n\tThird: value #\n\tFourth: #\n\tFifth# embedded comment:\n\tSixth# embedded comment: still a comment\n\tSeventh# embedded comment: still a comment # more comment\n", "", false)),
           "\n# Top level comment node\n#\nParent: # comment without value\n\t# Indented comment node\n\t#\n\t\t# Double Indented comment node\n\t\t#\n\t\t\t# Triple Indented comment node\n\t\t\t#\n\tFirst: value containing a \\# character\n\tSecond: value # node with inline comment\n\tThird: value #\n\tFourth: #\n\tFifth: # embedded comment:\n\tSixth: # embedded comment: still a comment\n\tSeventh: # embedded comment: still a comment # more comment\n");
@@ -598,7 +575,7 @@ void CommentsShouldntSurviveRoundTrip() {
           "Parent:\n\tFirst: value containing a \\# character\n\tSecond: value\n\tThird: value\n\tFourth:\n\tFifth:\n\tSixth:\n\tSeventh:\n");
 }
 
-}  // namespace
+}
 
 int main() {
   setvbuf(stdout, nullptr, _IONBF, 0);

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Cargo.cs + Passenger.cs +
-//          ParaDrop.cs + Parachutable.cs + Render/WithParachute.cs +
-//          SupportPowers/ParatroopersPower.cs(注册装配)
 #include "game/actor_info.hpp"
 #include "meta/generic_record.hpp"
 #include "mods/cargo.hpp"
@@ -72,4 +69,4 @@ void RegisterCommonTraitsBatch15() {
       });
 }
 
-}  // namespace ora::mods
+}

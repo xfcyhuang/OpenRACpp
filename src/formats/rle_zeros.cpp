@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/FileFormats/RLEZerosCompression.cs @1f594e320 L19-36
-// 实现文件:逐句照抄;byte[] → span。
-// Implementation file: copied statement by statement; byte[] → span.
 #include "formats/rle_zeros.hpp"
 
 #include "formats/fast_byte_reader.hpp"
@@ -27,4 +24,4 @@ void DecodeInto(std::span<const std::byte> vec_src, std::span<std::byte> vec_des
   }
 }
 
-}  // namespace ora::fmt::rle_zeros
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Modifiers/FrozenUnderFog.cs +
-//          HiddenUnderShroud.cs + ShroudExts.cs L19-32(实现部分)
-//          The implementation half.
 #include "mods/frozen_under_fog.hpp"
 
 #include "game/actor_info.hpp"
@@ -35,8 +32,6 @@ std::optional<std::int64_t> RecInt(const meta::RecordObject& rec,
   return std::nullopt;
 }
 
-/// ShroudExts.cs L19-26:AnyExplored((CPos, SubCell)[])
-/// ShroudExts.cs L19-26: AnyExplored((CPos, SubCell)[]).
 bool ShroudAnyExplored(const sim::Shroud& shroud,
                        const std::vector<std::pair<CPos, SubCell>>& cells) {
   for (const auto& [cell, sub] : cells)
@@ -45,8 +40,6 @@ bool ShroudAnyExplored(const sim::Shroud& shroud,
   return false;
 }
 
-/// ShroudExts.cs L28-35:AnyExplored(PPos[])
-/// ShroudExts.cs L28-35: AnyExplored(PPos[]).
 bool ShroudAnyExplored(const sim::Shroud& shroud,
                        const std::vector<PPos>& vec_puvs) {
   for (const PPos puv : vec_puvs)
@@ -55,8 +48,6 @@ bool ShroudAnyExplored(const sim::Shroud& shroud,
   return false;
 }
 
-/// World.Players() 的 IndexOf(Player)(PlayerDictionary 的索引面)
-/// World.Players()' IndexOf(Player) (PlayerDictionary's index face).
 int PlayerIndexOf(const sim::World& world, const sim::Player* player) {
   const std::vector<sim::Player*>& vec_players = world.Players();
   for (std::size_t i = 0; i < vec_players.size(); i++)
@@ -65,11 +56,6 @@ int PlayerIndexOf(const sim::World& world, const sim::Player* player) {
   return -1;
 }
 
-/// ActorInfo 的 BuildingInfo 查询(上游 TraitInfoOrDefault<
-/// BuildingInfo>;按记录全名匹配 —— HealthInfo 工厂同形)
-/// The ActorInfo BuildingInfo query (upstream's TraitInfoOrDefault<
-/// BuildingInfo>; matched by record full name — HealthInfo's factory
-/// shape).
 const meta::RecordObject* FindBuildingInfo(const game::ActorInfo& ai) {
   for (const auto& rec_trait : ai.TraitsInConstructOrder())
     if (rec_trait->record_desc().str_full_name ==
@@ -79,10 +65,7 @@ const meta::RecordObject* FindBuildingInfo(const game::ActorInfo& ai) {
   return nullptr;
 }
 
-}  // namespace
-
-// ———— FrozenUnderFogInfo(L21-31)————
-// ———— FrozenUnderFogInfo (L21-31) ————
+}
 
 FrozenUnderFogInfoData FrozenUnderFogInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -94,23 +77,14 @@ FrozenUnderFogInfoData FrozenUnderFogInfoData::Parse(
   return data;
 }
 
-// ———— FrozenUnderFog(L35-188)————
-// ———— FrozenUnderFog (L35-188) ————
-
 FrozenUnderFog::FrozenUnderFog(sim::ActorInitializer& init,
                                FrozenUnderFogInfoData info)
     : info_{std::move(info)} {
-  // L44-55
+
   sim::Actor& self = init.Self();
   sim::World& world = self.world();
   map::Map& map = world.Map();
 
-  // Explore map-placed actors if the "Explore Map" option is enabled
-  // (上游注释)。exploredMap 读 = Shroud::Created 同式(玩家 Shroud 的
-  // lobby 合成结果)
-  // Explore map-placed actors if the "Explore Map" option is enabled
-  // (upstream's comment). The exploredMap read takes Shroud::Created's
-  // same shape (the player Shroud's lobby-synthesized result).
   bool explored_map = false;
   if (!world.Players().empty()) {
     if (const sim::Shroud* shroud = world.Players()[0]->GetShroud())
@@ -137,7 +111,7 @@ FrozenUnderFog::FrozenUnderFog(sim::ActorInitializer& init,
 }
 
 void FrozenUnderFog::Created(sim::Actor& self) {
-  // L57-80
+
   sim::World& world = self.world();
   vec_frozen_states_.clear();
   for (sim::Player* player : world.Players()) {
@@ -148,10 +122,6 @@ void FrozenUnderFog::Created(sim::Actor& self) {
         FrozenState{frozen_actor, !frozen_actor->Visible()});
   }
 
-  // Set the initial visibility state. This relies on
-  // actor.GetTargetablePositions(), which is also setup up in Created.
-  // Since we can't be sure whether our method will run after theirs,
-  // defer by a frame.(上游注释)
   world.AddFrameEndTask([this](sim::World& w) {
     (void)w;
     for (std::size_t player_index = 0;
@@ -170,19 +140,16 @@ void FrozenUnderFog::Created(sim::Actor& self) {
 
 void FrozenUnderFog::UpdateFrozenActor(sim::FrozenActor& frozen_actor,
                                        int player_index) {
-  // L101-102
+
   VisibilityHash |= 1 << (player_index % 32);
   frozen_actor.RefreshState();
 }
 
 void FrozenUnderFog::OnVisibilityChanged(sim::FrozenActor& frozen) {
-  // L82-99
-  // Ignore callbacks during initial setup(上游注释)
+
   if (!b_created_)
     return;
 
-  // Update state visibility to match the frozen actor to ensure
-  // consistency(上游注释)
   FrozenState& state = vec_frozen_states_[PlayerIndexOf(
       frozen.Viewer()->GetWorld(), frozen.Viewer())];
   const bool is_visible = !frozen.Visible();
@@ -196,8 +163,7 @@ void FrozenUnderFog::OnVisibilityChanged(sim::FrozenActor& frozen) {
 }
 
 bool FrozenUnderFog::IsVisibleInner(sim::Player& by_player) {
-  // L106-109
-  // If fog is disabled visibility is determined by shroud(上游注释)
+
   if (!by_player.GetShroud()->FogEnabled())
     return ShroudAnyExplored(*by_player.GetShroud(), vec_footprint_);
 
@@ -207,7 +173,7 @@ bool FrozenUnderFog::IsVisibleInner(sim::Player& by_player) {
 }
 
 bool FrozenUnderFog::IsVisible(sim::Actor& self, sim::Player* by_player) {
-  // L114-121
+
   if (by_player == nullptr)
     return true;
 
@@ -219,12 +185,7 @@ bool FrozenUnderFog::IsVisible(sim::Actor& self, sim::Player* by_player) {
 }
 
 void FrozenUnderFog::TickRender(sim::Actor& self) {
-  // L104-112(结构面;renderables/bounds/mouseBounds 的渲染物化随渲染批
-  // —— 此处保留 NeedRenderables 的消费与 ScreenMap 冻结面,物化空)
-  // L104-112 (the structural face; the renderables/bounds/mouseBounds
-  // materialization rides the render batch — the NeedRenderables
-  // consumption and the ScreenMap frozen face are kept, the
-  // materialization stays empty).
+
   for (std::size_t player_index = 0;
        player_index < vec_frozen_states_.size(); player_index++) {
     sim::FrozenActor* frozen =
@@ -240,11 +201,9 @@ void FrozenUnderFog::TickRender(sim::Actor& self) {
 }
 
 void FrozenUnderFog::OnOwnerChanged(sim::Actor& self,
-                                    sim::Player& /*old_owner*/,
-                                    sim::Player& /*new_owner*/) {
-  // L134-141
-  // Force a state update for the old owner so the tooltip etc doesn't
-  // show them as the owner(上游注释)
+                                    sim::Player& ,
+                                    sim::Player& ) {
+
   const int old_owner_index = PlayerIndexOf(self.world(), self.Owner());
   if (old_owner_index < 0 ||
       old_owner_index >= static_cast<int>(vec_frozen_states_.size()))
@@ -256,18 +215,13 @@ void FrozenUnderFog::OnOwnerChanged(sim::Actor& self,
 }
 
 void FrozenUnderFog::Disposing(sim::Actor& self) {
-  // L143-148
-  // Invalidate the frozen actor (which exists if this actor was captured
-  // from an enemy) for the current owner(上游注释)
+
   const int owner_index = PlayerIndexOf(self.world(), self.Owner());
   if (owner_index < 0 ||
       owner_index >= static_cast<int>(vec_frozen_states_.size()))
     return;
   vec_frozen_states_[owner_index].frozen_actor->Invalidate();
 }
-
-// ———— HiddenUnderShroud(L39-72)————
-// ———— HiddenUnderShroud (L39-72) ————
 
 HiddenUnderShroudInfoData HiddenUnderShroudInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -283,7 +237,7 @@ HiddenUnderShroudInfoData HiddenUnderShroudInfoData::Parse(
 
 bool HiddenUnderShroud::IsVisibleInner(sim::Actor& self,
                                        sim::Player& by_player) {
-  // L46-56
+
   if (info_.type == VisibilityType::Footprint)
     return ShroudAnyExplored(*by_player.GetShroud(),
                              self.OccupiesSpace()->OccupiedCells());
@@ -298,7 +252,7 @@ bool HiddenUnderShroud::IsVisibleInner(sim::Actor& self,
 
 bool HiddenUnderShroud::IsVisible(sim::Actor& self,
                                   sim::Player* by_player) {
-  // L58-66
+
   if (by_player == nullptr)
     return true;
 
@@ -309,4 +263,4 @@ bool HiddenUnderShroud::IsVisible(sim::Actor& self,
          IsVisibleInner(self, *by_player);
 }
 
-}  // namespace ora::mods
+}

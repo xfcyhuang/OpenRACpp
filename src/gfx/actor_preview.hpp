@@ -161,4 +161,4 @@ ActorPreviewSpritesFaces();
 std::vector<std::unique_ptr<IActorPreview>> RenderActorPreviewOf(
     const game::ActorInfo& actor, ActorPreviewInitializer& init);
 
-}  // namespace ora::gfx
+}

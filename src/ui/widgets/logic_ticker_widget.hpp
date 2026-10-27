@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LogicTickerWidget.cs @1f594e320 L19-22(全文)。
 #pragma once
 import std;
 
@@ -26,4 +25,4 @@ class LogicTickerWidget : public Widget {
   void Tick() override { fn_on_tick(); }
 };
 
-}  // namespace ora::ui
+}

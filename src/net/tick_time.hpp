@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Game/Network/TickTime.cs @1f594e320 L16-60(逐语义重写;
-//          Game.TimestepJankThreshold 常量随值内联 = 250,Game.RunTime 时钟
-//          经回调注入 —— Game 静态面 Phase 5)
-//          Verbatim-semantics rewrite; the Game.TimestepJankThreshold
-//          constant inlined as 250 and the Game.RunTime clock injected via
-//          callback — the Game statics land in Phase 5.
 #pragma once
 import std;
 
@@ -11,7 +5,7 @@ namespace ora::net {
 
 class TickTime {
  public:
-  static constexpr std::int64_t kTimestepJankThreshold = 250;  // Game.cs L37
+  static constexpr std::int64_t kTimestepJankThreshold = 250;
 
   TickTime(std::function<int()> fn_timestep, std::int64_t last_tick_time)
       : fn_timestep_(std::move(fn_timestep)), value_(last_tick_time) {}
@@ -46,4 +40,4 @@ class TickTime {
   std::int64_t value_ = 0;
 };
 
-}  // namespace ora::net
+}

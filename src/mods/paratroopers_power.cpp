@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/ParatroopersPower.cs
-//          @1f594e320
 #include "mods/paratroopers_power.hpp"
 
 #include "game/actor_info.hpp"
@@ -90,7 +88,7 @@ const game::ActorInfo* FindActorInfo(const sim::World& world,
   return nullptr;
 }
 
-}  // namespace
+}
 
 ParatroopersPowerInfoData ParatroopersPowerInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -376,4 +374,4 @@ void ParatroopersPower::RemoveBeacon(Beacon* beacon) {
       [beacon_cap](sim::World& w) { w.Remove(beacon_cap); });
 }
 
-}  // namespace ora::mods
+}

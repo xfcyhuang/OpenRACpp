@@ -1,14 +1,3 @@
-// UPSTREAM: OpenRA.Game/Input/Keycode.cs @1f594e320 L24-257(枚举体逐值照搬)
-// 上游注释:"Duplicated from SDL 2.0.1, with the addition of MOUSE4 and
-// MOUSE5" —— 值域与 SDL_Keycode 完全一致(platform_test 以 SDL 头常量对照
-// 断言)。Fluent 键名表(KeycodeExts.KeycodeFluentKeys)属 Phase 6 本地化,
-// 随 Fluent 落地。KeycodeExts 部分未移植。
-// The enum body is reproduced value-for-value from upstream (whose own
-// comment reads "Duplicated from SDL 2.0.1, with the addition of MOUSE4 and
-// MOUSE5") — the values coincide with SDL_Keycode (platform_test asserts
-// against the SDL header constants). The fluent key-name table
-// (KeycodeExts.KeycodeFluentKeys) belongs to Phase 6 localization and lands
-// with Fluent. The KeycodeExts part is not ported.
 #pragma once
 import std;
 
@@ -21,9 +10,6 @@ import std;
 
 namespace ora {
 
-/// SDL 2.0.1 键码克隆 + MOUSE4/MOUSE5 扩展(值 = SDL_Keycode | 1<<30 段)。
-/// The SDL 2.0.1 keycode clone plus MOUSE4/MOUSE5 extensions (the
-/// SDL_Keycode | 1<<30 range).
 enum class Keycode : std::int32_t {
   UNKNOWN = 0,
   RETURN = '\r',
@@ -265,9 +251,6 @@ enum class Keycode : std::int32_t {
   MOUSE5 = 284 | (1 << 30),
 };
 
-/// 键码转字符(上游 KeyInput.UnicodeChar = (char)keysym.sym 的语义面)。
-/// Keycode to char (the semantics of upstream's KeyInput.UnicodeChar =
-/// (char)keysym.sym).
 inline char ToUnicodeChar(Keycode key) { return static_cast<char>(static_cast<std::int32_t>(key)); }
 
-}  // namespace ora
+}

@@ -86,4 +86,4 @@ void ActorPreviewWidget::Tick() {
     preview->Tick();
 }
 
-}  // namespace ora::ui
+}

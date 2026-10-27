@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ProductionTabsWidget.cs @1f594e320
-//          L24-371 全文
-//          The whole of ProductionTabsWidget.cs L24-371.
 #pragma once
 import std;
 
@@ -17,13 +14,11 @@ namespace ora::mods {
 
 class ProductionPaletteWidget;
 
-/// ProductionTab(L24-28)
 struct ProductionTab {
   std::string name;
   ProductionQueue* queue = nullptr;
 };
 
-/// ProductionTabGroup(L30-65)
 class ProductionTabGroup {
  public:
   std::vector<ProductionTab> vec_tabs;
@@ -32,7 +27,6 @@ class ProductionTabGroup {
 
   bool Alert() const;
 
-  /// L37-64 | L37-64.
   void Update(std::span<ProductionQueue* const> vec_all_queues);
 };
 
@@ -55,10 +49,8 @@ class ProductionTabsWidget final : public ora::ui::Widget {
                            std::string_view str_value) override;
   void Initialize(ora::ui::WidgetArgs& args_args) override;
 
-  /// L138-154 | L138-154.
   bool SelectNextTab(bool reverse);
 
-  /// L156-160 | L156-160.
   void PickUpCompletedBuilding();
 
   void Tick() override;
@@ -101,8 +93,6 @@ class ProductionTabsWidget final : public ora::ui::Widget {
   ProductionQueue* CurrentQueue() const;
   void SetCurrentQueue(ProductionQueue* ptr_queue);
 
-  /// L245-273(ActorChanged;world.ActorAdded 订阅侧)
-  /// L245-273 (ActorChanged; the world.ActorAdded subscription side).
   void ActorChanged(sim::Actor& a);
 
   const std::map<std::string, ProductionTabGroup>& Groups() const {
@@ -119,7 +109,7 @@ class ProductionTabsWidget final : public ora::ui::Widget {
   float ListOffsetForTest() const { return fp4_list_offset; }
 
  private:
-  /// L238-242 | L238-242.
+
   void Scroll(int int4_amount);
 
   void MaterializePaletteWidget() const;
@@ -146,4 +136,4 @@ class ProductionTabsWidget final : public ora::ui::Widget {
 
 void RegisterProductionTabsWidget();
 
-}  // namespace ora::mods
+}

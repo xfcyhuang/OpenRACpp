@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/PerfDebugLogic.cs @1f594e320(实现)。
 import std;
 
 #include "ui/logic/perf_debug_logic.hpp"
@@ -34,7 +33,7 @@ std::string FormatF1(double fp8_value) {
   return std::format("{:.1f}", fp8_rounded);
 }
 
-}  // namespace
+}
 
 PerfDebugLogic::PerfDebugLogic(WidgetArgs& args_args) {
   Widget* ptr_widget = std::get<Widget*>(args_args.At("widget"));
@@ -152,4 +151,4 @@ PerfDebugLogic::~PerfDebugLogic() {
     fn_unsubscribe_();
 }
 
-}  // namespace ora::ui
+}

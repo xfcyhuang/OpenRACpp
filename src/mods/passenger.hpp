@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Passenger.cs +
-//          Orders/EnterAlliedActorTargeter.cs @1f594e320
 #pragma once
 import std;
 
@@ -119,4 +117,4 @@ class Passenger final : public TraitBase,
   std::unique_ptr<EnterTransportTargeter> ptr_order_targeter_;
 };
 
-}  // namespace ora::mods
+}

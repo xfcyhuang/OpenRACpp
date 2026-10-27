@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/DirectionalSupportPower.cs
-//          + AirstrikePower.cs + SelectDirectionalTarget.cs @1f594e320
 #pragma once
 import std;
 
@@ -136,4 +134,4 @@ class SelectDirectionalTarget final : public sim::IOrderGenerator {
   Arrow arrow_current_;
 };
 
-}  // namespace ora::mods
+}

@@ -35,4 +35,4 @@ class MouseAttachmentWidget : public Widget {
   int2 int2_location_{};
 };
 
-}  // namespace ora::ui
+}

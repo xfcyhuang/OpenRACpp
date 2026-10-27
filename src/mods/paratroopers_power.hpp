@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/SupportPowers/ParatroopersPower.cs
-//          @1f594e320
 #pragma once
 import std;
 
@@ -49,4 +47,4 @@ class ParatroopersPower final : public DirectionalSupportPower {
   ParatroopersPowerInfoData paratroopers_info_;
 };
 
-}  // namespace ora::mods
+}

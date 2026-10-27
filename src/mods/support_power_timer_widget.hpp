@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/SupportPowerTimerWidget.cs @1f594e320
-//          L23-97 全文(观战的支持 power 充能倒计时列)
-//          The whole of SupportPowerTimerWidget.cs L23-97 (the observer's
-//          support-power charge countdown list).
 #pragma once
 import std;
 
@@ -14,7 +10,6 @@ import std;
 
 namespace ora::mods {
 
-/// TimerOrder(L96)
 enum class TimerOrder : std::int8_t { Ascending = -1, Descending = 1 };
 
 class SupportPowerTimerWidget final : public ora::ui::Widget {
@@ -58,4 +53,4 @@ class SupportPowerTimerWidget final : public ora::ui::Widget {
 
 void RegisterSupportPowerTimerWidget();
 
-}  // namespace ora::mods
+}

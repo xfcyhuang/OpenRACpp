@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Harvester.cs 实现部分
-//          The implementation half.
 #include "mods/harvester.hpp"
 
 #include "meta/field_loader.hpp"
@@ -13,8 +11,6 @@
 #include "yaml/mini_yaml.hpp"
 
 namespace ora::mods {
-
-// ———— HarvesterInfoData(L22-89)————
 
 HarvesterInfoData HarvesterInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -111,15 +107,10 @@ HarvesterInfoData HarvesterInfoData::Parse(
 
 void HarvesterInfoData::ValidateResources(
     const game::ActorInfo& info) const {
-  // L80-88(工厂时点;异常文本逐字)
-  // L80-88 (factory time; the exception texts verbatim).
+
   if (vec_resources.empty())
     throw yaml::YamlException("Harvester.Resources is empty.");
 
-  // info.TraitInfos<IStoresResourcesInfo>().SelectMany(ResourceTypes)
-  // (集合槽的值袋形态:逗号分隔串或列表 —— 两种都收)
-  // (the collection slot's bag forms: a comma-separated string or a
-  // list — both taken)
   std::vector<std::string> vec_stored;
   const auto append_split = [&vec_stored](const std::string& str_list) {
     std::string str_current;
@@ -169,12 +160,10 @@ void HarvesterInfoData::ValidateResources(
   }
 }
 
-// ———— Harvester(L91-329)————
-
 Harvester::Harvester(ActorInitializer& init, const HarvesterInfoData& info)
     : DockClientBaseCore<Harvester>(init.Self(), info.conditional),
       info_{info} {
-  // L106-113
+
   for (sim::IStoresResources* sr :
        init.Self().TraitsImplementing<sim::IStoresResources>()) {
     bool b_has_type = false;
@@ -194,7 +183,7 @@ Harvester::Harvester(ActorInitializer& init, const HarvesterInfoData& info)
 }
 
 void Harvester::Created(Actor& self) {
-  // L115-124
+
   p_mobile_ = self.TraitOrDefault<Mobile>();
   UpdateCondition(self);
 
@@ -206,7 +195,7 @@ void Harvester::Created(Actor& self) {
 }
 
 bool Harvester::IsFull() const {
-  // L126
+
   for (const sim::IStoresResources* sr : vec_stores_resources_)
     if (sr->ContentsSum() < sr->Capacity())
       return false;
@@ -214,7 +203,7 @@ bool Harvester::IsFull() const {
 }
 
 bool Harvester::IsEmpty() const {
-  // L127
+
   for (const sim::IStoresResources* sr : vec_stores_resources_)
     if (sr->ContentsSum() != 0)
       return false;
@@ -222,7 +211,7 @@ bool Harvester::IsEmpty() const {
 }
 
 int Harvester::Fullness() const {
-  // L128
+
   int sum = 0;
   for (const sim::IStoresResources* sr : vec_stores_resources_)
     sum += sr->ContentsSum() * 100 / sr->Capacity();
@@ -231,14 +220,14 @@ int Harvester::Fullness() const {
 
 bool Harvester::CanDock(const core::BitSet<sim::DockType>& type,
                         bool force_enter) {
-  // L130-133
+
   return DockClientBaseCore<Harvester>::CanDock(type, force_enter) &&
          (force_enter || !IsEmpty());
 }
 
 bool Harvester::CanDockAt(Actor& host_actor, sim::IDockHost* host,
                           bool force_enter, bool ignore_occupancy) {
-  // L135-139
+
   return DockClientBaseCore<Harvester>::CanDockAt(host_actor, host,
                                                   force_enter,
                                                   ignore_occupancy) &&
@@ -249,14 +238,14 @@ bool Harvester::CanDockAt(Actor& host_actor, sim::IDockHost* host,
 
 bool Harvester::CanQueueDockAt(Actor& host_actor, sim::IDockHost* host,
                                bool force_enter, bool is_queued) {
-  // L141-145
+
   return DockClientBaseCore<Harvester>::CanQueueDockAt(
              host_actor, host, force_enter, is_queued) &&
          p_self_->Owner()->IsAlliedWith(host_actor.Owner());
 }
 
 void Harvester::UpdateCondition(Actor& self) {
-  // L147-158
+
   if (info_.str_empty_condition.empty())
     return;
 
@@ -273,7 +262,7 @@ void Harvester::UpdateCondition(Actor& self) {
 
 void Harvester::AddResource(Actor& self,
                             const std::string& resource_type) {
-  // L161-167
+
   for (sim::IStoresResources* sr : vec_stores_resources_)
     if (sr->AddResource(resource_type, 1) == 0)
       break;
@@ -281,20 +270,19 @@ void Harvester::AddResource(Actor& self,
   UpdateCondition(self);
 }
 
-void Harvester::OnDockStarted(Actor& /*self*/, Actor& host_actor,
+void Harvester::OnDockStarted(Actor& , Actor& host_actor,
                               sim::IDockHost* host) {
-  // L170-174
+
   if (DockClientBaseCore<Harvester>::CanDock(host->GetDockType()))
     p_accept_resources_ = host_actor.TraitOrDefault<sim::IAcceptResources>();
 }
 
-bool Harvester::OnDockTick(Actor& self, Actor& /*host_actor*/,
-                           sim::IDockHost* /*host*/) {
-  // L176-202
+bool Harvester::OnDockTick(Actor& self, Actor& ,
+                           sim::IDockHost* ) {
+
   if (p_accept_resources_ == nullptr || IsTraitDisabled())
     return true;
 
-  // Wait until the next bale is ready(上游注释)
   if (--current_unload_ticks > 0)
     return false;
 
@@ -317,13 +305,11 @@ bool Harvester::OnDockTick(Actor& self, Actor& /*host_actor*/,
   return IsEmpty();
 }
 
-void Harvester::OnDockCompleted(Actor& self, Actor& /*host_actor*/,
+void Harvester::OnDockCompleted(Actor& self, Actor& ,
                                 sim::IDockHost* dock) {
-  // L204-215
+
   p_accept_resources_ = nullptr;
 
-  // After having docked at a refinery make sure we are running
-  // FindAndDeliverResources activity.(上游注释)
   if (GetDockType().Overlaps(dock->GetDockType())) {
     sim::Activity* current_activity = self.CurrentActivity();
     const activities::FindAndDeliverResources* current_find =
@@ -339,8 +325,7 @@ void Harvester::OnDockCompleted(Actor& self, Actor& /*host_actor*/,
 }
 
 bool Harvester::CanHarvestCell(CPos cell) const {
-  // L217-229
-  // Resources only exist in the ground layer(上游注释)
+
   if (cell.Layer() != 0)
     return false;
 
@@ -349,47 +334,37 @@ bool Harvester::CanHarvestCell(CPos cell) const {
   if (str_resource_type.empty())
     return false;
 
-  // Can the harvester collect this kind of resource?(上游注释)
   return std::find(info_.vec_resources.begin(), info_.vec_resources.end(),
                    str_resource_type) != info_.vec_resources.end();
 }
 
 std::vector<sim::IOrderTargeter*> Harvester::Orders() {
-  // L231-240
+
   std::vector<sim::IOrderTargeter*> vec_out;
   if (IsTraitDisabled() || p_mobile_ == nullptr)
     return vec_out;
 
-  // HarvestOrderTargeter(L294-328;IResourceRenderer 未移植 → CanTarget
-  // 恒 false 的上游等价域;COVERAGE 登记)
-  // HarvestOrderTargeter (L294-328; IResourceRenderer is unported →
-  // upstream's constantly-false CanTarget domain; registered in COVERAGE).
   class HarvestOrderTargeter final : public sim::IOrderTargeter {
    public:
     std::string OrderID() const override { return "Harvest"; }
     int OrderPriority() const override { return 10; }
     bool IsQueued() const override { return b_is_queued_; }
     bool TargetOverridesSelection(
-        Actor& /*self*/, const sim::Target& /*target*/,
-        std::span<Actor* const> /*actors_at*/, CPos /*xy*/,
-        sim::TargetModifiers /*modifiers*/) override {
+        Actor& , const sim::Target& ,
+        std::span<Actor* const> , CPos ,
+        sim::TargetModifiers ) override {
       return true;
     }
-    bool CanTarget(Actor& /*self*/, const sim::Target& target,
+    bool CanTarget(Actor& , const sim::Target& target,
                    sim::TargetModifiers& modifiers,
                    std::string& cursor) override {
-      // L302-327
+
       if (target.Type() != sim::TargetType::Terrain)
         return false;
 
       if (sim::HasModifier(modifiers, sim::TargetModifiers::ForceMove))
         return false;
 
-      // IResourceRenderer 空集:res == null → return false(上游等价域;
-      // 渲染器查询未接 —— GetRenderedResourceType 随渲染批)
-      // The IResourceRenderer empty set: res == null → return false
-      // (upstream's equivalent domain; the renderer query —
-      // GetRenderedResourceType — rides the render batch).
       cursor.clear();
       return false;
     }
@@ -406,7 +381,7 @@ std::vector<sim::IOrderTargeter*> Harvester::Orders() {
 std::unique_ptr<net::Order> Harvester::IssueOrder(
     Actor& self, sim::IOrderTargeter* order,
     const sim::Target& target, bool queued) {
-  // L242-248
+
   if (order->OrderID() == "Harvest")
     return std::make_unique<net::Order>(order->OrderID(), &self, target,
                                         queued);
@@ -414,9 +389,9 @@ std::unique_ptr<net::Order> Harvester::IssueOrder(
   return nullptr;
 }
 
-std::string Harvester::VoicePhraseForOrder(Actor& /*self*/,
+std::string Harvester::VoicePhraseForOrder(Actor& ,
                                            const net::Order& order) {
-  // L250-256
+
   if (order.str_order_string == "Harvest" && p_mobile_ != nullptr)
     return info_.str_harvest_voice;
 
@@ -424,12 +399,11 @@ std::string Harvester::VoicePhraseForOrder(Actor& /*self*/,
 }
 
 void Harvester::ResolveOrder(Actor& self, const net::Order& order) {
-  // L258-279
+
   if (order.str_order_string == "Harvest" && p_mobile_ != nullptr) {
     CPos loc;
     if (order.target.Type() != sim::TargetType::Invalid) {
-      // Find the nearest claimable cell to the order location (useful for
-      // group-select harvest):(上游注释)
+
       const CPos cell =
           self.world().Map().CellContaining(order.target.CenterPosition());
       loc = p_mobile_->NearestCell(
@@ -441,12 +415,10 @@ void Harvester::ResolveOrder(Actor& self, const net::Order& order) {
           },
           1, 6);
     } else {
-      // A bot order gives us a CPos.Zero TargetLocation.(上游注释)
+
       loc = self.Location();
     }
 
-    // FindResources takes care of calling INotifyHarvesterAction
-    // (上游注释)
     self.QueueActivity(
         order.b_queued,
         activities::NewActivity<activities::FindAndDeliverResources>(
@@ -456,21 +428,16 @@ void Harvester::ResolveOrder(Actor& self, const net::Order& order) {
 }
 
 int Harvester::GetSpeedModifier() {
-  // L281-284
+
   return 100 - (100 - info_.int4_fully_loaded_speed) * Fullness() / 100;
 }
 
 void Harvester::TraitDisabledHook(Actor& self) {
-  // L286-292
+
   if (int4_condition_token_ != Actor::InvalidConditionToken)
     int4_condition_token_ =
         self.RevokeCondition(int4_condition_token_);
 }
-
-// ———— [VerifySync] 哈希注册(gen/sync_gen.cpp:Harvester
-//      {currentUnloadTicks})————
-// ———— The [VerifySync] hash registration (gen/sync_gen.cpp: Harvester
-//      {currentUnloadTicks}) ————
 
 namespace {
 
@@ -487,6 +454,6 @@ const bool b_harvester_sync_registered = [] {
 [[maybe_unused]] const bool* b_harvester_sync_registered_anchor =
     &b_harvester_sync_registered;
 
-}  // namespace
+}
 
-}  // namespace ora::mods
+}

@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/WorldButtonWidget.cs @1f594e320 L19-49(全文)。
 import std;
 
 #include "ui/widgets/world_button_widget.hpp"
@@ -32,4 +31,4 @@ void WorldButtonWidget::MouseEntered() {
   ptr_container->SetTooltip(str_tooltip_template, std::move(args_tooltip));
 }
 
-}  // namespace ora::ui
+}

@@ -181,4 +181,4 @@ class MultiplayerLogic final : public ora::ui::ChromeLogic {
 
 void RegisterServerListLogics();
 
-}  // namespace ora::mods
+}

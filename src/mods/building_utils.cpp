@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/BuildingUtils.cs @1f594e320
-//          (实现部分)
-//          The implementation half.
 #include "mods/building_utils.hpp"
 
 #include "game/ruleset.hpp"
@@ -195,4 +192,4 @@ std::vector<std::pair<CPos, sim::Actor*>> GetLineBuildCells(
   return vec_out;
 }
 
-}  // namespace ora::mods
+}

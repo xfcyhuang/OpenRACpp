@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/HitShapes/IHitShape.cs + Circle.cs +
-//          Capsule.cs + Polygon.cs + Rectangle.cs 实现部分
-//          The implementation half.
 #include "mods/hit_shapes.hpp"
 
 #include "core/exts_math.hpp"
@@ -13,8 +10,6 @@ namespace ora::mods {
 
 namespace {
 
-/// int2 字段读取(Int2 槽 = GenericTuple 二分量)
-/// The int2 field read (an Int2 slot = a two-component GenericTuple).
 std::optional<int2> RecordFieldInt2(const meta::RecordObject& rec,
                                     std::string_view str_name) {
   if (const auto* generated =
@@ -79,12 +74,10 @@ std::optional<WAngle> RecordFieldWAngle(const meta::RecordObject& rec,
   return std::nullopt;
 }
 
-}  // namespace
-
-// ———— CircleShape ————
+}
 
 void CircleShape::Initialize() {
-  // L38-42
+
   if (VerticalTopOffset < VerticalBottomOffset)
     throw yaml::YamlException(
         "VerticalTopOffset must be equal to or higher than "
@@ -92,13 +85,13 @@ void CircleShape::Initialize() {
 }
 
 WDist CircleShape::DistanceFromEdge(const WVec& v) const {
-  // L44-46
+
   return WDist{std::max(0, v.Length() - Radius.Length)};
 }
 
 WDist CircleShape::DistanceFromEdge(const WPos& pos, const WPos& origin,
-                                    const WRot& /*orientation*/) const {
-  // L48-60
+                                    const WRot& ) const {
+
   if (pos.Z > origin.Z + VerticalTopOffset)
     return DistanceFromEdge(pos - (origin + WVec{0, 0, VerticalTopOffset}));
 
@@ -110,10 +103,8 @@ WDist CircleShape::DistanceFromEdge(const WPos& pos, const WPos& origin,
       pos - WPos{origin.X, origin.Y, pos.Z});
 }
 
-// ———— CapsuleShape ————
-
 void CapsuleShape::Initialize() {
-  // L51-63
+
   ab_ = PointB - PointA;
   ab_len_sq_ = ab_.LengthSquared() / 1024;
 
@@ -131,7 +122,7 @@ void CapsuleShape::Initialize() {
 }
 
 WDist CapsuleShape::DistanceFromEdge(const WVec& v) const {
-  // L65-83
+
   const int2 p{v.X, v.Y};
 
   const int t = int2::Dot(p - PointA, ab_) / ab_len_sq_;
@@ -151,7 +142,7 @@ WDist CapsuleShape::DistanceFromEdge(const WVec& v) const {
 
 WDist CapsuleShape::DistanceFromEdge(const WPos& pos, const WPos& origin,
                                      const WRot& orientation) const {
-  // L85-94
+
   if (pos.Z > origin.Z + VerticalTopOffset)
     return DistanceFromEdge(
         (pos - (origin + WVec{0, 0, VerticalTopOffset}))
@@ -166,10 +157,8 @@ WDist CapsuleShape::DistanceFromEdge(const WPos& pos, const WPos& origin,
       (pos - WPos{origin.X, origin.Y, pos.Z}).Rotate(-orientation));
 }
 
-// ———— PolygonShape ————
-
 void PolygonShape::Initialize() {
-  // L48-60
+
   if (VerticalTopOffset < VerticalBottomOffset)
     throw yaml::YamlException(
         "VerticalTopOffset must be equal to or higher than "
@@ -195,34 +184,28 @@ void PolygonShape::Initialize() {
 
 int PolygonShape::DistanceSquaredFromLineSegment(int2 c, int2 a, int2 b,
                                                  int ab2) {
-  // L62-84
+
   const int2 ac = c - a;
   const int ac2 = ac.LengthSquared();
   const int bc2 = (c - b).LengthSquared();
 
-  // c is closest to point a
   if (ac2 + ab2 <= bc2)
     return ac2;
 
-  // c is closest to point b
   if (bc2 + ab2 <= ac2)
     return bc2;
 
-  // c is closest to its unknown orthogonal projection (p) onto the line
-  // spanned by b with a as the origin(上游注释;long 防溢出照抄)
-  // (the upstream comment; the long overflow guard kept).
   const int2 ab = b - a;
   const int ap2 = ac.X * ab.X + ac.Y * ab.Y;
   const int2 ap{
       static_cast<int>(static_cast<std::int64_t>(ab.X) * ap2 / ab2),
       static_cast<int>(static_cast<std::int64_t>(ab.Y) * ap2 / ab2)};
 
-  // Length of vector pc squared.
   return (ac - ap).LengthSquared();
 }
 
 WDist PolygonShape::DistanceFromEdge(const WVec& v) const {
-  // L86-102
+
   const int2 p{v.X, v.Y};
   const int z = std::abs(v.Z);
   if (PolygonContains(std::span<const int2>{Points}, p))
@@ -243,7 +226,7 @@ WDist PolygonShape::DistanceFromEdge(const WVec& v) const {
 
 WDist PolygonShape::DistanceFromEdge(const WPos& pos, const WPos& origin,
                                      const WRot& orientation) const {
-  // L104-115
+
   const WRot rotated = orientation + WRot::FromYaw(LocalYaw);
 
   if (pos.Z > origin.Z + VerticalTopOffset)
@@ -260,10 +243,8 @@ WDist PolygonShape::DistanceFromEdge(const WPos& pos, const WPos& origin,
       (pos - WPos{origin.X, origin.Y, pos.Z}).Rotate(-rotated));
 }
 
-// ———— RectangleShape ————
-
 void RectangleShape::Initialize() {
-  // L58-105
+
   if (TopLeft.X >= BottomRight.X || TopLeft.Y >= BottomRight.Y)
     throw yaml::YamlException("TopLeft and BottomRight points are invalid.");
 
@@ -286,7 +267,7 @@ void RectangleShape::Initialize() {
 }
 
 WDist RectangleShape::DistanceFromEdge(const WVec& v) const {
-  // L107-114
+
   const WVec r{std::max(std::abs(v.X - center_.X) - quadrant_size_.X, 0),
                std::max(std::abs(v.Y - center_.Y) - quadrant_size_.Y, 0),
                0};
@@ -296,7 +277,7 @@ WDist RectangleShape::DistanceFromEdge(const WVec& v) const {
 
 WDist RectangleShape::DistanceFromEdge(const WPos& pos, const WPos& origin,
                                        const WRot& orientation) const {
-  // L116-127
+
   const WRot rotated = orientation + WRot::FromYaw(LocalYaw);
 
   if (pos.Z > origin.Z + VerticalTopOffset)
@@ -312,8 +293,6 @@ WDist RectangleShape::DistanceFromEdge(const WPos& pos, const WPos& origin,
   return DistanceFromEdge(
       (pos - WPos{origin.X, origin.Y, pos.Z}).Rotate(-rotated));
 }
-
-// ———— LoadShape 产物解析 ————
 
 std::unique_ptr<IHitShape> ParseHitShape(const meta::RecordObject& rec_type) {
   const std::string_view str_full = rec_type.record_desc().str_full_name;
@@ -379,4 +358,4 @@ std::unique_ptr<IHitShape> ParseHitShape(const meta::RecordObject& rec_type) {
   return nullptr;
 }
 
-}  // namespace ora::mods
+}

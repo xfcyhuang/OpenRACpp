@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/ServerTraits/PlayerPinger.cs @1f594e320
-//          L18-104(实现体)
-//          The implementation body.
 #include "server/player_pinger.hpp"
 
 #include "net/fluent_message.hpp"
@@ -20,7 +17,7 @@ constexpr std::string_view kConnectionProblems =
 constexpr std::string_view kTimeout = "notification-timeout-dropped";
 constexpr std::string_view kTimeoutIn = "notification-timeout-dropped-in";
 
-}  // namespace
+}
 
 void PlayerPinger::Tick(Server& server) {
   const auto i8_now = server.RunTimeMs();
@@ -96,4 +93,4 @@ void PlayerPinger::Tick(Server& server) {
   }
 }
 
-}  // namespace ora::server
+}

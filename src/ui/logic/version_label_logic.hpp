@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/VersionLabelLogic.cs @1f594e320 L17-25(全文)。
 #pragma once
 import std;
 
@@ -11,4 +10,4 @@ class VersionLabelLogic : public ChromeLogic {
   explicit VersionLabelLogic(WidgetArgs& args_args);
 };
 
-}  // namespace ora::ui
+}

@@ -1,10 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits 第十一批 mods trait 注册表装配
-//          (RadarPings/PlayerRadarTerrain/AppearsOnRadar/ProvidesRadar/
-//          RadarColorFromTerrain/SupportPowerManager/Tooltip/
-//          PlayerStatistics/UpdatesPlayerStatistics;Info 名 → 工厂 →
-//          WorldArena)
-//          The batch-11 registry assembly (Info name → factory →
-//          WorldArena).
 #include "meta/generic_record.hpp"
 #include "mods/player_statistics.hpp"
 #include "mods/radar.hpp"
@@ -90,4 +83,4 @@ void RegisterCommonTraitsBatch11() {
       });
 }
 
-}  // namespace ora::mods
+}

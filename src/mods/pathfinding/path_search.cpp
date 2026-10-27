@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Pathfinder/PathSearch.cs @1f594e320(实现部分)
-//          The implementation half of PathSearch.cs.
 import std;
 
 #include "mods/pathfinding/path_search.hpp"
@@ -14,16 +12,11 @@ using sim::Actor;
 using sim::BlockedByActor;
 using sim::World;
 
-/// AddInitialCells(L97-110;PathSearch 的友元 —— 不入匿名命名空间,链路
-/// 连接性须与友元声明一致)| AddInitialCells (L97-110; a PathSearch
-/// friend — kept out of the anonymous namespace so its linkage matches the
-/// friend declaration).
 void AddInitialCells(World& world, Locomotor* locomotor, Actor* self,
                      std::span<const CPos> froms, BlockedByActor check,
                      const std::function<int(CPos)>& custom_cost,
                      Actor* ignore_actor, bool in_reverse, PathSearch& search) {
-  // A source cell is allowed to have an unreachable movement cost.
-  // (上游注释段)| (upstream comment)
+
   for (const CPos& sl : froms)
     if (PathSearch::CellAllowsMovement(world, locomotor, sl, custom_cost) &&
         (!in_reverse ||
@@ -33,7 +26,6 @@ void AddInitialCells(World& world, Locomotor* locomotor, Actor* self,
       search.AddInitialCell(sl, custom_cost);
 }
 
-// ———— ToTargetCellByPredicate(L38-52)————
 std::unique_ptr<PathSearch> PathSearch::ToTargetCellByPredicate(
     World& world, Locomotor* locomotor, Actor* self,
     std::span<const CPos> froms,
@@ -53,7 +45,6 @@ std::unique_ptr<PathSearch> PathSearch::ToTargetCellByPredicate(
   return search;
 }
 
-// ———— ToTargetCell(L54-77)————
 std::unique_ptr<PathSearch> PathSearch::ToTargetCell(
     World& world, Locomotor* locomotor, Actor* self,
     std::span<const CPos> froms, CPos target, BlockedByActor check,
@@ -72,7 +63,6 @@ std::unique_ptr<PathSearch> PathSearch::ToTargetCell(
         CellInfoLayerPool::LayerPoolForWorld(&world, &world.Map()), locomotor,
         self, world, check, custom_cost, ignore_actor, lane_bias, in_reverse);
 
-  // heuristic ??= DefaultCostEstimator(locomotor, target)(L71)
   std::function<int(CPos, bool)> fn_heuristic = heuristic;
   if (fn_heuristic == nullptr)
     fn_heuristic = DefaultCostEstimatorForTarget(locomotor, target);
@@ -88,7 +78,6 @@ std::unique_ptr<PathSearch> PathSearch::ToTargetCell(
   return search;
 }
 
-// ———— CellAllowsMovement(L90-95)————
 bool PathSearch::CellAllowsMovement(World& world, Locomotor* locomotor,
                                     CPos cell,
                                     const std::function<int(CPos)>& custom_cost) {
@@ -102,7 +91,6 @@ bool PathSearch::CellAllowsMovement(World& world, Locomotor* locomotor,
           custom_cost(cell) != kPathCostForInvalidPath);
 }
 
-// ———— ToTargetCellOverGraph(L112-122)————
 std::unique_ptr<PathSearch> PathSearch::ToTargetCellOverGraph(
     SparsePathGraph::EdgesFn edges, Locomotor* locomotor, CPos from,
     CPos target, int estimated_search_size, IRecorder* recorder) {
@@ -122,7 +110,6 @@ std::unique_ptr<PathSearch> PathSearch::ToTargetCellOverGraph(
   return search;
 }
 
-// ———— DefaultCostEstimator(L132-161)————
 std::function<int(CPos, bool)> PathSearch::DefaultCostEstimatorForTarget(
     Locomotor* locomotor, CPos destination) {
   auto estimator = DefaultCostEstimator(locomotor);
@@ -133,9 +120,7 @@ std::function<int(CPos, bool)> PathSearch::DefaultCostEstimatorForTarget(
 
 std::function<int(CPos, CPos)> PathSearch::DefaultCostEstimator(
     Locomotor* locomotor) {
-  // Determine the minimum possible cost for moving horizontally between
-  // cells based on terrain speeds.(上游注释段)
-  // TerrainSpeeds.Values.Min(ti => ti.Cost)(L149):空集 = Min() 等价抛
+
   const auto& speeds = locomotor->Info().TerrainSpeeds();
   if (speeds.empty())
     throw std::runtime_error("Sequence contains no elements");
@@ -149,13 +134,10 @@ std::function<int(CPos, CPos)> PathSearch::DefaultCostEstimator(
     const int straight = std::abs(here.X() - destination.X()) +
                          std::abs(here.Y() - destination.Y());
 
-    // According to the information link, this is the shape of the
-    // function.(上游注释)| (upstream comment)
     return cell_cost * straight + (diagonal_cell_cost - 2 * cell_cost) * diag;
   };
 }
 
-// ———— ctor(L188-196)————
 PathSearch::PathSearch(std::unique_ptr<IPathGraph> graph,
                        std::function<int(CPos, bool)> heuristic,
                        int heuristic_weight_percentage,
@@ -167,7 +149,6 @@ PathSearch::PathSearch(std::unique_ptr<IPathGraph> graph,
       heuristic_weight_percentage_{heuristic_weight_percentage},
       recorder_{recorder} {}
 
-// ———— AddInitialCell(L198-216)————
 void PathSearch::AddInitialCell(CPos location,
                                 const std::function<int(CPos)>& custom_cost) {
   int initial_cost = 0;
@@ -189,10 +170,8 @@ void PathSearch::AddInitialCell(CPos location,
   open_queue_.Add(connection);
 }
 
-// ———— CanExpand(L222-240)————
 bool PathSearch::CanExpand() {
-  // Connections to a cell can appear more than once if a search discovers
-  // a lower cost route to the cell.(上游注释段)
+
   CellStatus status;
   do {
     if (open_queue_.Empty())
@@ -206,7 +185,6 @@ bool PathSearch::CanExpand() {
   return true;
 }
 
-// ———— Expand(L247-292)————
 CPos PathSearch::Expand() {
   const CPos current_min_node = open_queue_.Pop().destination;
 
@@ -219,30 +197,25 @@ CPos PathSearch::Expand() {
   auto& connections =
       graph_->GetConnections(current_min_node, fn_target_predicate_);
   for (const GraphConnection& connection : connections) {
-    // Calculate the cost up to that point(L256)| (L256).
+
     const int cost_so_far_to_neighbor =
         current_info.cost_so_far + connection.cost;
 
     const CPos neighbor = connection.destination;
     const CellInfo neighbor_info = graph_->At(neighbor);
 
-    // Cost is even higher; next direction:(上游注释)
     if (neighbor_info.status == CellStatus::Closed ||
         (neighbor_info.status == CellStatus::Open &&
          cost_so_far_to_neighbor >= neighbor_info.cost_so_far))
       continue;
 
-    // Now we may seriously consider this direction using heuristics.
-    // (上游注释)
     int estimated_remaining_cost_to_target;
     if (neighbor_info.status == CellStatus::Open) {
-      // If the cell has already been processed, we can reuse the result
-      // (upstream comment)| (upstream comment).
+
       estimated_remaining_cost_to_target =
           neighbor_info.estimated_total_cost - neighbor_info.cost_so_far;
     } else {
-      // If the heuristic reports the cell is unreachable, we won't
-      // consider it.(上游注释)| (upstream comment)
+
       const int heuristic_cost = fn_heuristic_(neighbor, true);
       if (heuristic_cost == kPathCostForInvalidPath)
         continue;
@@ -265,7 +238,6 @@ CPos PathSearch::Expand() {
   return current_min_node;
 }
 
-// ———— ExpandToTarget(L302-309)————
 bool PathSearch::ExpandToTarget() {
   while (CanExpand())
     if (fn_target_predicate_(Expand()))
@@ -273,7 +245,6 @@ bool PathSearch::ExpandToTarget() {
   return false;
 }
 
-// ———— ExpandAll(L315-321)————
 std::vector<CPos> PathSearch::ExpandAll() {
   std::vector<CPos> considered_cells;
   while (CanExpand())
@@ -281,7 +252,6 @@ std::vector<CPos> PathSearch::ExpandAll() {
   return considered_cells;
 }
 
-// ———— FindPath(L327-337)————
 std::vector<CPos> PathSearch::FindPath() {
   while (CanExpand()) {
     const CPos p = Expand();
@@ -291,9 +261,8 @@ std::vector<CPos> PathSearch::FindPath() {
   return NoPathVector();
 }
 
-// ———— MakePath(L341-354)————
 std::vector<CPos> PathSearch::MakePath(IPathGraph& graph, CPos destination) {
-  // Build the path from the destination.(上游注释)| (upstream comment)
+
   std::vector<CPos> ret;
   CPos current_node = destination;
 
@@ -306,20 +275,17 @@ std::vector<CPos> PathSearch::MakePath(IPathGraph& graph, CPos destination) {
   return ret;
 }
 
-// ———— FindBidiPath(L360-380)————
 std::vector<CPos> PathSearch::FindBidiPath(PathSearch& first,
                                            PathSearch& second) {
-  // Expands both path searches until they intersect, and returns the
-  // path.(上游注释)| (upstream comment)
+
   while (first.CanExpand() && second.CanExpand()) {
-    // make some progress on the first search(上游注释)
+
     const CPos p = first.Expand();
     const CellInfo p_info = second.graph_->At(p);
     if (p_info.status == CellStatus::Closed &&
         p_info.cost_so_far != kPathCostForInvalidPath)
       return MakeBidiPath(first, second, p);
 
-    // make some progress on the second search(上游注释)
     const CPos q = second.Expand();
     const CellInfo q_info = first.graph_->At(q);
     if (q_info.status == CellStatus::Closed &&
@@ -330,11 +296,10 @@ std::vector<CPos> PathSearch::FindBidiPath(PathSearch& first,
   return NoPathVector();
 }
 
-// ———— MakeBidiPath(L384-414)————
 std::vector<CPos> PathSearch::MakeBidiPath(PathSearch& first,
                                            PathSearch& second,
                                            CPos confluence_node) {
-  // Build the path from the destination of each search.(上游注释)
+
   IPathGraph& ca = *first.graph_;
   IPathGraph& cb = *second.graph_;
 
@@ -362,4 +327,4 @@ std::vector<CPos> PathSearch::MakeBidiPath(PathSearch& first,
   return ret;
 }
 
-}  // namespace ora::mods::pathfinding
+}

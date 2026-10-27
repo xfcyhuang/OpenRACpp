@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/Locomotor.cs @1f594e320(实现部分)
-//          The implementation half of Locomotor.cs.
 import std;
 
 #include "mods/pathfinding/locomotor.hpp"
@@ -19,9 +17,6 @@ using sim::BlockedByActor;
 using sim::ICrushable;
 using sim::PlayerRelationship;
 
-// ———— ParseLocomotorInfo(TraitRegistry 工厂面;值袋槽位 → 运行时 Info)
-// ———— ParseLocomotorInfo (the TraitRegistry factory face; bag slots → the
-// runtime Info).
 LocomotorInfo ParseLocomotorInfo(const meta::RecordObject& rec_info) {
   std::string name{"default"};
   int wait_average = 40;
@@ -82,16 +77,10 @@ LocomotorInfo ParseLocomotorInfo(const meta::RecordObject& rec_info) {
     }
   }
 
-  // ctor 的地形索引展开(L158-162):按规则表 TerrainTypes 序对齐,
-  // 未命中 = Impassable
-  // The ctor's terrain-index expansion (L158-162): aligned to the rules
-  // table's TerrainTypes order, misses = Impassable.
   std::vector<LocomotorInfo::TerrainInfo> terrain_infos;
   const game::Ruleset* rules = nullptr;
   if (rules != nullptr) {}
-  // (地形索引在 Locomotor ctor 内展开 —— Parse 仅承载字段面)
-  // (the terrain-index expansion happens inside the Locomotor ctor —
-  // Parse only carries the field face.)
+
   return LocomotorInfo{std::move(name),
                        wait_average,
                        wait_spread,
@@ -104,7 +93,6 @@ LocomotorInfo ParseLocomotorInfo(const meta::RecordObject& rec_info) {
                        disable_domain_passability_check};
 }
 
-// ———— ctor(L152-163)————
 Locomotor::Locomotor(Actor& self, LocomotorInfo info)
     : info_{std::move(info)}, world_{&self.world()} {
   shares_cell_ = info_.SharesCell();
@@ -114,8 +102,7 @@ Locomotor::Locomotor(Actor& self, LocomotorInfo info)
   vec_terrain_infos_.resize(terrain_types.size(),
                             LocomotorInfo::TerrainInfo::Impassable());
   for (std::size_t i = 0; i < terrain_types.size(); i++) {
-    // !info.TerrainSpeeds.TryGetValue(terrainType.Type, out terrainInfos[i])
-    // 的命中覆盖(L161)| the hit override (L161).
+
     for (const auto& [key, ti] : info_.TerrainSpeeds())
       if (key == terrain_types[i].Type) {
         vec_terrain_infos_[i] = ti;
@@ -124,12 +111,10 @@ Locomotor::Locomotor(Actor& self, LocomotorInfo info)
   }
 }
 
-// ———— MovementCostForCell(L165-184)————
 short Locomotor::MovementCostForCell(CPos cell, const CPos* from_cell) const {
   if (!world_->Map().Contains(cell))
     return kMovementCostForUnreachableCell;
 
-  // Prevent units from jumping over height discontinuities.(上游注释)
   if (from_cell != nullptr && cell.Layer() == 0 && from_cell->Layer() == 0 &&
       world_->Map().Grid().MaximumTerrainHeight() > 0) {
     const auto& height_layer = world_->Map().Height();
@@ -141,7 +126,6 @@ short Locomotor::MovementCostForCell(CPos cell, const CPos* from_cell) const {
   return vec_cells_cost_[cell.Layer()]->Get(cell);
 }
 
-// ———— MovementSpeedForCell(L186-192)————
 int Locomotor::MovementSpeedForCell(CPos cell) const {
   std::uint8_t index;
   if (cell.Layer() == 0) {
@@ -154,7 +138,6 @@ int Locomotor::MovementSpeedForCell(CPos cell) const {
   return vec_terrain_infos_[index].Speed();
 }
 
-// ———— MovementCostToEnterCell(L194-216)————
 short Locomotor::MovementCostToEnterCell(Actor* actor, CPos dest_node,
                                          BlockedByActor check,
                                          Actor* ignore_actor, bool ignore_self,
@@ -183,64 +166,47 @@ short Locomotor::MovementCostToEnterCell(Actor* actor, CPos src_node,
   return cell_cost;
 }
 
-// ———— CanMoveFreelyInto(L219-297)————
 bool Locomotor::CanMoveFreelyInto(Actor* actor, CPos cell, SubCell sub_cell,
                                   BlockedByActor check, Actor* ignore_actor,
                                   bool ignore_self) {
-  // If the check allows: We are not blocked by other actors.(上游注释)
+
   if (check == BlockedByActor::None)
     return true;
 
   const CellCache cell_cache = GetCache(cell);
   const CellFlag cell_flag = cell_cache.cell_flag;
 
-  // No actor in the cell or free SubCell.(上游注释)
   if (cell_flag == CellFlag::HasFreeSpace)
     return true;
 
-  // If actor is null we're just checking what would happen theoretically.
-  // (上游注释段)| (upstream comment)
   if (actor == nullptr)
     return false;
 
-  // All actors that may be in the cell can be crushed.(上游注释)
   if (cell_cache.crushable.Overlaps(actor->Owner()->PlayerMask))
     return true;
 
-  // If the check allows: We are not blocked by moving units.(上游注释)
   if (check <= BlockedByActor::Stationary &&
       !HasCellFlag(cell_flag, CellFlag::HasStationaryActor))
     return true;
 
-  // If the check allows: We are not blocked by units that we can force to
-  // move out of the way.(上游注释)| (upstream comment)
   if (check <= BlockedByActor::Immovable &&
       !cell_cache.immovable.Overlaps(actor->Owner()->PlayerMask))
     return true;
 
-  // Cache doesn't account for ignored actors, subcells, temporary blockers
-  // or transit only actors.(上游注释段)| (upstream comment)
   if (ignore_actor == nullptr && !ignore_self &&
       sub_cell == SubCell::FullCell &&
       !HasCellFlag(cell_flag, CellFlag::HasTemporaryBlocker) &&
       !HasCellFlag(cell_flag, CellFlag::HasTransitOnlyActor)) {
-    // We already know there are uncrushable actors in the cell so we are
-    // always blocked.(上游注释)| (upstream comment)
+
     if (check == BlockedByActor::All)
       return false;
 
-    // We already know there are either immovable or stationary actors
-    // which the check does not allow.(上游注释)| (upstream comment)
     if (!HasCellFlag(cell_flag, CellFlag::HasCrushableActor))
       return false;
 
-    // All actors in the cell are immovable and some cannot be crushed.
-    // (上游注释)| (upstream comment)
     if (!HasCellFlag(cell_flag, CellFlag::HasMovableActor))
       return false;
 
-    // All actors in the cell are stationary and some cannot be crushed.
-    // (上游注释)| (upstream comment)
     if (check == BlockedByActor::Stationary &&
         !HasCellFlag(cell_flag, CellFlag::HasMovingActor))
       return false;
@@ -252,8 +218,7 @@ bool Locomotor::CanMoveFreelyInto(Actor* actor, CPos cell, SubCell sub_cell,
           : actor_map_->GetActorsAt(cell, sub_cell);
 
   if (ignore_self) {
-    // Any actor blocking us will prevent our movement, *unless* we are one
-    // of those actors.(上游注释)| (upstream comment)
+
     bool is_blocked = false;
     for (Actor* other_actor : other_actors) {
       if (actor == other_actor)
@@ -267,7 +232,6 @@ bool Locomotor::CanMoveFreelyInto(Actor* actor, CPos cell, SubCell sub_cell,
     return !is_blocked;
   }
 
-  // Any actor blocking us will prevent our movement.(上游注释)
   for (Actor* other_actor : other_actors)
     if (IsBlockedBy(actor, other_actor, ignore_actor, cell, check, cell_flag))
       return false;
@@ -275,7 +239,6 @@ bool Locomotor::CanMoveFreelyInto(Actor* actor, CPos cell, SubCell sub_cell,
   return true;
 }
 
-// ———— CanStayInCell(L299-305)————
 bool Locomotor::CanStayInCell(CPos cell) {
   if (!world_->Map().Contains(cell))
     return false;
@@ -284,7 +247,6 @@ bool Locomotor::CanStayInCell(CPos cell) {
                       CellFlag::HasTransitOnlyActor);
 }
 
-// ———— GetAvailableSubCell(L307-326)————
 SubCell Locomotor::GetAvailableSubCell(Actor* self, CPos cell,
                                        BlockedByActor check,
                                        SubCell preferred_sub_cell,
@@ -313,61 +275,38 @@ SubCell Locomotor::GetAvailableSubCell(Actor* self, CPos cell,
   return actor_map_->FreeSubCell(cell, preferred_sub_cell);
 }
 
-// ———— IsBlockedBy(L331-376)————
 bool Locomotor::IsBlockedBy(Actor* actor, Actor* other_actor,
                             Actor* ignore_actor, CPos cell,
                             BlockedByActor check, CellFlag cell_flag) {
   if (other_actor == ignore_actor)
     return false;
 
-  // Mobile 挂点(L336-337):Mobile 批落地前 `as Mobile` 恒 null →
-  // otherIsMovable/otherIsMoving 恒 false(部分覆盖装配面;COVERAGE)
-  // The Mobile hooks (L336-337): `as Mobile` stays null before that batch
-  // → otherIsMovable/otherIsMoving stay false (the partial-coverage
-  // assembly face; COVERAGE).
   const bool other_is_movable = false;
   const bool other_is_moving = false;
   (void)other_is_moving;
 
-  // If the check allows: We are not blocked by allied units that we can
-  // force to move out of the way.(上游注释)| (upstream comment)
   if (check <= BlockedByActor::Immovable &&
       HasCellFlag(cell_flag, CellFlag::HasMovableActor) && other_is_movable &&
       actor->Owner()->RelationshipWith(other_actor->Owner()) ==
           PlayerRelationship::Ally)
     return false;
 
-  // If the check allows: we are not blocked by moving units.(上游注释)
   if (check <= BlockedByActor::Stationary &&
       HasCellFlag(cell_flag, CellFlag::HasMovingActor) && other_is_moving)
     return false;
 
-  // ITemporaryBlocker 挂点(L349-355):门控面下无注册实现 → 不触发
-  // (world.RulesContainTemporaryBlocker 为 false;同 COVERAGE 面)
-  // The ITemporaryBlocker hook (L349-355): no registered implementation
-  // under the gated face → never fires (RulesContainTemporaryBlocker is
-  // false; the same COVERAGE face).
   if (HasCellFlag(cell_flag, CellFlag::HasTemporaryBlocker)) {
-    // If there is a temporary blocker in our path, but we can remove it,
-    // we are not blocked.(上游注释)| (upstream comment)
+
   }
 
-  // Building 的 TransitOnlyCells 挂点(L357-362):Building trait 随
-  // Building 批 —— 同部分覆盖面
-  // The Building TransitOnlyCells hook (L357-362): the Building trait
-  // lands with that batch — the same partial face.
   if (HasCellFlag(cell_flag, CellFlag::HasTransitOnlyActor)) {
-    // Transit only tiles should not block movement(上游注释)
+
   }
 
-  // If we cannot crush the other actor in our way, we are blocked.
-  // (上游注释)| (upstream comment)
   if (!HasCellFlag(cell_flag, CellFlag::HasCrushableActor) ||
       info_.Crushes().IsEmpty())
     return true;
 
-  // If the other actor in our way cannot be crushed, we are blocked.
-  // (上游注释;PERF: Avoid LINQ)| (upstream comment)
   for (auto* crushable : other_actor->TraitsImplementing<ICrushable>())
     if (crushable->CrushableBy(*other_actor, *actor, info_.Crushes()))
       return false;
@@ -375,7 +314,6 @@ bool Locomotor::IsBlockedBy(Actor* actor, Actor* other_actor,
   return true;
 }
 
-// ———— WorldLoaded(L378-420)————
 void Locomotor::WorldLoaded(sim::World& w, gfx::WorldRenderer*) {
   map::Map& map = w.Map();
   actor_map_ = w.ActorMapFace();
@@ -394,8 +332,6 @@ void Locomotor::WorldLoaded(sim::World& w, gfx::WorldRenderer*) {
     UpdateCellBlocking(cell);
   }
 
-  // NotBefore<> ensures all custom movement layers have been initialized.
-  // (上游注释)| (upstream comment)
   const auto custom_movement_layers = w.CustomMovementLayers();
   vec_cells_cost_.resize(custom_movement_layers.size());
   vec_blocking_cache_.resize(custom_movement_layers.size());
@@ -420,10 +356,8 @@ void Locomotor::WorldLoaded(sim::World& w, gfx::WorldRenderer*) {
   }
 }
 
-// ———— GetCache(L422-430)————
 Locomotor::CellCache Locomotor::GetCache(CPos cell) {
-  // dirtyCells.Remove(cell) 的位图判重形态 | the bitmap form of the
-  // dirtyCells.Remove(cell) probe.
+
   std::size_t dirty_index = SIZE_MAX;
   if (cell.Layer() == 0) {
     const MPos uv = cell.ToMPos(world_->Map().Grid().Type);
@@ -438,9 +372,7 @@ Locomotor::CellCache Locomotor::GetCache(CPos cell) {
     }
   }
   if (dirty_index != SIZE_MAX) {
-    // 移除插入序表中的该格(O(1) 位图 + O(n) 表清位 —— 一次性)
-    // Erase the cell from the insertion-ordered vector (the O(1) bitmap +
-    // a one-time O(n) vector sweep).
+
     const CPos dirty_cell = cell;
     std::erase_if(vec_dirty_cells_, [&](const CPos& c) { return c == dirty_cell; });
     UpdateCellBlocking(cell);
@@ -449,12 +381,10 @@ Locomotor::CellCache Locomotor::GetCache(CPos cell) {
   return vec_blocking_cache_[cell.Layer()]->Get(cell);
 }
 
-// ———— CellUpdated(L432-435)————
 void Locomotor::CellUpdated(CPos cell) {
   if (cell.Layer() != 0)
-    return;  // 位图面只覆盖地面层;高层阻挡缓存走整层重建面(随 CML 批)
-             // The bitmap face covers the ground layer; upper layers ride
-             // the whole-layer rebuild face (with the CML batch).
+    return;
+
   const MPos uv = cell.ToMPos(world_->Map().Grid().Type);
   const Size size = world_->Map().MapSize();
   if (uv.U < 0 || uv.V < 0 || uv.U >= size.Width || uv.V >= size.Height)
@@ -469,7 +399,6 @@ void Locomotor::CellUpdated(CPos cell) {
   }
 }
 
-// ———— UpdateCellCost(L437-458)————
 void Locomotor::UpdateCellCost(CPos cell) {
   std::uint8_t index;
   if (cell.Layer() == 0) {
@@ -501,9 +430,8 @@ void Locomotor::UpdateCellCost(CPos cell) {
   }
 }
 
-// ———— UpdateCellBlocking(L463-524)————
 void Locomotor::UpdateCellBlocking(CPos cell) {
-  // using (new PerfSample("locomotor_cache"))(B13:采样编译期开关面)
+
   auto& cache = *vec_blocking_cache_[cell.Layer()];
   CellFlag cell_flag = CellFlag::HasFreeSpace;
   PlayerMaskSet cell_immovable_players{};
@@ -519,9 +447,6 @@ void Locomotor::UpdateCellBlocking(CPos cell) {
     PlayerMaskSet actor_immovable_players = world_->AllPlayersMask;
     PlayerMaskSet actor_crushable_players = world_->NoPlayersMask;
 
-    // Mobile/Building 挂点(L484-488):同 IsBlockedBy 的部分覆盖面
-    // The Mobile/Building hooks (L484-488): the same partial face as
-    // IsBlockedBy.
     const bool is_movable = false;
     const bool is_moving = false;
     const bool is_transit_only = false;
@@ -553,17 +478,13 @@ void Locomotor::UpdateCellBlocking(CPos cell) {
       cell_flag = static_cast<CellFlag>(
           static_cast<std::uint8_t>(cell_flag) |
           static_cast<std::uint8_t>(CellFlag::HasMovableActor));
-      // actorImmovablePlayers.Except(actor.Owner.AlliedPlayersMask)(L507)
+
       actor_immovable_players =
           actor_immovable_players.Except(actor->Owner()->AlliedPlayersMask);
     }
 
-    // PERF: Only perform ITemporaryBlocker trait look-up if mod/map rules
-    // contain any actors that are temporary blockers(上游注释)
-    // (门控面下恒 false —— 同 COVERAGE)| (always false under the gated
-    // face — the same COVERAGE face).
     if (world_->RulesContainTemporaryBlocker()) {
-      // if (actor.TraitOrDefault<ITemporaryBlocker>() != null) ...
+
     }
 
     cell_crushable_players =
@@ -576,4 +497,4 @@ void Locomotor::UpdateCellBlocking(CPos cell) {
             CellCache{cell_immovable_players, cell_flag, cell_crushable_players});
 }
 
-}  // namespace ora::mods::pathfinding
+}

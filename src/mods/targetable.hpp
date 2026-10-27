@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Targetable.cs @1f594e320 L18-55 全文
-//          (逐语义重写;Cloak trait 未移植 → cloaks 空集的等价面,
-//          COVERAGE 登记)
-//          The whole of Targetable.cs L18-55 (verbatim-semantics rewrite;
-//          the Cloak trait is unported → the empty-cloaks equivalent face,
-//          registered in COVERAGE).
 #pragma once
 import std;
 
@@ -18,17 +12,14 @@ namespace ora::mods {
 using sim::Actor;
 using sim::TraitBase;
 
-/// TargetableInfo 的解析面(L21-30)
-/// The parsed face of TargetableInfo (L21-30).
 struct TargetableInfoData {
-  core::BitSet<sim::TargetableType> bitset_target_types;  // L24
-  bool b_requires_force_fire = false;                     // L28
+  core::BitSet<sim::TargetableType> bitset_target_types;
+  bool b_requires_force_fire = false;
   sim::ConditionalTraitData conditional;
 
   static TargetableInfoData Parse(const meta::RecordObject& rec_info);
 };
 
-/// Targetable(L32-55;ITargetable)
 class Targetable : public TraitBase,
                    public sim::ConditionalTraitCore<Targetable>,
                    public sim::IObservesVariables,
@@ -56,26 +47,24 @@ class Targetable : public TraitBase,
     return CollectObservers();
   }
 
-  /// L40-49:TargetableBy(Cloak 空集 → 非禁用即真)
-  /// L40-49: TargetableBy (the empty Cloak set → true unless disabled).
   bool TargetableBy(Actor& self, Actor& viewer) override;
 
   core::BitSet<sim::TargetableType> TargetTypes() const override {
-    return info_.bitset_target_types;  // L51
+    return info_.bitset_target_types;
   }
 
   bool RequiresForceFire() const override {
-    return info_.b_requires_force_fire;  // L53
+    return info_.b_requires_force_fire;
   }
 
-  void TraitEnabledHook(Actor& /*self*/) {}
-  void TraitDisabledHook(Actor& /*self*/) {}
-  void TraitResumedHook(Actor& /*self*/) {}
-  void TraitPausedHook(Actor& /*self*/) {}
+  void TraitEnabledHook(Actor& ) {}
+  void TraitDisabledHook(Actor& ) {}
+  void TraitResumedHook(Actor& ) {}
+  void TraitPausedHook(Actor& ) {}
 
  protected:
   friend class sim::ConditionalTraitCore<Targetable>;
   TargetableInfoData info_;
 };
 
-}  // namespace ora::mods
+}

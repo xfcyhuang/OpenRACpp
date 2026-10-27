@@ -197,4 +197,4 @@ class NukeLaunch final : public sim::IProjectile,
   std::shared_ptr<float> ptr_fraction_ = std::make_shared<float>(0.0f);
 };
 
-}  // namespace ora::mods
+}

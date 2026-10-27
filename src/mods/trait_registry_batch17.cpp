@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/CustomSellValue.cs + Sellable.cs +
-//          RepairableNear.cs + RepairableBuilding.cs @1f594e320
-//          (注册装配)
 #include "meta/generic_record.hpp"
 #include "mods/repairable_building.hpp"
 #include "mods/repairable_near.hpp"
@@ -47,4 +44,4 @@ void RegisterCommonTraitsBatch17() {
       });
 }
 
-}  // namespace ora::mods
+}

@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/LoadScreens/LogoStripeLoadScreen.cs @1f594e320
 import std;
 
 #include "mods/load_screens.hpp"
@@ -48,7 +47,7 @@ std::vector<std::uint8_t> ReadAllBytes(const std::string& str_path) {
                                    std::istreambuf_iterator<char>{}};
 }
 
-}  // namespace
+}
 
 void BlankLoadScreen::Init(const game::Manifest&,
                            const fs::FileSystem& file_system) {
@@ -301,4 +300,4 @@ std::unique_ptr<game::ILoadScreen> CreateLoadScreen(
   throw std::runtime_error("Unknown LoadScreen type: " + str_name);
 }
 
-}  // namespace ora::mods
+}

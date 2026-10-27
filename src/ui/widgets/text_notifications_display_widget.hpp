@@ -48,4 +48,4 @@ class TextNotificationsDisplayWidget : public Widget {
   Rectangle rect_overflow_draw_bounds_{};
 };
 
-}  // namespace ora::ui
+}

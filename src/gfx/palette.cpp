@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/Graphics/Palette.cs @1f594e320 L20-160 +
-//           OpenRA.Game/Graphics/PaletteReference.cs @1f594e320 L14-31(实现)
-// Implementations of the palette family (headers in palette.hpp carry the
-// full UPSTREAM anchors and deviation notes).
 #include "gfx/palette.hpp"
 
 #include "gfx/hardware_palette.hpp"
@@ -9,15 +5,11 @@
 namespace ora::gfx {
 
 namespace {
-/// uint32 数组 → 字节视图(BlockCopy 的等价物;全局 -fno-strict-aliasing)。
-/// A byte view over uint32 storage (the BlockCopy equivalent; global
-/// -fno-strict-aliasing).
+
 std::span<const std::byte> AsBytes(const std::array<std::uint32_t, kPaletteSize>& arr_colors) {
   return std::span<const std::byte>{reinterpret_cast<const std::byte*>(arr_colors.data()), arr_colors.size() * 4};
 }
-}  // namespace
-
-// ———— ImmutablePalette ————
+}
 
 ImmutablePalette::ImmutablePalette(const IPalette& palette_p) {
   for (auto i = 0; i < kPaletteSize; ++i)
@@ -50,8 +42,6 @@ ImmutablePalette::ImmutablePalette(std::span<const std::byte> vec_rgb_triplets,
     const auto u8_b = static_cast<std::uint8_t>(
         std::to_integer<std::uint8_t>(vec_rgb_triplets[static_cast<std::size_t>(i) * 3 + 2]) << 2);
 
-    // Replicate high bits into the (currently zero) low bits.
-    // (Palette.cs L88-90)
     const auto u8_r_replicated = static_cast<std::uint8_t>(u8_r | (u8_r >> 6));
     const auto u8_g_replicated = static_cast<std::uint8_t>(u8_g | (u8_g >> 6));
     const auto u8_b_replicated = static_cast<std::uint8_t>(u8_b | (u8_b >> 6));
@@ -75,16 +65,10 @@ void ImmutablePalette::CopyToArray(std::span<std::byte> vec_destination,
               bytes.size());
 }
 
-// ———— MutablePalette ————
-
 MutablePalette::MutablePalette(const IPalette& palette_p) { SetFromPalette(palette_p); }
 
 void MutablePalette::SetFromPalette(const IPalette& palette_p) {
-  // 上游 p.CopyToArray(colors, 0)(uint[] 以 BlockCopy 视作字节);经栈缓冲
-  // 中转保持 CopyToArray 的字节接口不变。
-  // Upstream's p.CopyToArray(colors, 0) (the uint[] viewed as bytes by
-  // BlockCopy); routed through a stack buffer to keep CopyToArray's byte
-  // interface unchanged.
+
   std::array<std::byte, kPaletteSize * 4> arr_bytes{};
   palette_p.CopyToArray(arr_bytes, 0);
   std::memcpy(arr_colors_.data(), arr_bytes.data(), arr_bytes.size());
@@ -103,8 +87,6 @@ void MutablePalette::CopyToArray(std::span<std::byte> vec_destination,
               bytes.size());
 }
 
-// ———— PaletteReference ————
-
 PaletteReference::PaletteReference(std::string_view str_name, std::int32_t int4_index, const IPalette& palette,
                                    const HardwarePalette& hardware_palette)
     : str_name_{str_name},
@@ -113,9 +95,7 @@ PaletteReference::PaletteReference(std::string_view str_name, std::int32_t int4_
       ptr_hardware_palette_{&hardware_palette} {}
 
 bool PaletteReference::HasColorShift() const {
-  // OPT-A7 快路径:epoch 未变直接用缓存(零字符串、零字典)。
-  // OPT-A7 fast path: an unchanged epoch serves the cache (zero strings,
-  // zero dictionaries).
+
   const std::uint32_t uint4_epoch = ptr_hardware_palette_->ShiftEpoch();
   if (uint4_epoch == uint4_shift_epoch_cached_)
     return b_shift_cached_;
@@ -124,4 +104,4 @@ bool PaletteReference::HasColorShift() const {
   return b_shift_cached_;
 }
 
-}  // namespace ora::gfx
+}

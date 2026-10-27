@@ -1,9 +1,3 @@
-// UPSTREAM: OpenRA.Game/FileFormats/Png.cs @1f594e320 L29-592(实现半;头文件为契约半)
-// 形态适配汇总见 png.hpp 头注。zlib:miniz mz_uncompress / mz_compress
-// (third_party/miniz;import std 门禁白名单)。
-// See png.hpp's header note for the shape-adaptation summary. zlib: miniz's
-// mz_uncompress / mz_compress (third_party/miniz; whitelisted by the
-// import-std gate).
 #include "formats/png.hpp"
 
 #include <miniz.h>
@@ -17,20 +11,14 @@ namespace {
 constexpr std::array<std::byte, 8> kSignature = {std::byte{0x89}, std::byte{0x50}, std::byte{0x4E}, std::byte{0x47},
                                                  std::byte{0x0D}, std::byte{0x0A}, std::byte{0x1A}, std::byte{0x0A}};
 
-/// PngFilter(L468)。| PngFilter (L468).
 enum class PngFilter : std::uint8_t { None, Sub, Up, Average, Paeth };
 
-/// PngColorType(L467)[Flags]:C# [Flags] 枚举的位运算形态。
-/// PngColorType (L467) [Flags]: the bitwise form of the C# [Flags] enum.
 enum class PngColorType : std::uint8_t { Indexed = 1, Color = 2, Alpha = 4 };
 
 constexpr PngColorType operator|(PngColorType type_a, PngColorType type_b) {
   return static_cast<PngColorType>(static_cast<std::uint8_t>(type_a) | static_cast<std::uint8_t>(type_b));
 }
 
-/// IsPaletted(L470-482):位深/色型三判定,未覆盖组合抛 "Unknown pixel
-/// format"。| IsPaletted (L470-482): the three bit-depth/color-type
-/// probes; uncovered combinations throw "Unknown pixel format".
 bool IsPaletted(std::uint8_t uint1_bit_depth, PngColorType type_color) {
   if (uint1_bit_depth <= 8 && type_color == (PngColorType::Indexed | PngColorType::Color))
     return true;
@@ -44,19 +32,14 @@ bool IsPaletted(std::uint8_t uint1_bit_depth, PngColorType type_color) {
   throw std::runtime_error("Unknown pixel format");
 }
 
-/// Average(L375):(a+b)/2 截断。| Average (L375): (a+b)/2 truncated.
 std::byte Average(std::byte a, std::byte b) {
   return static_cast<std::byte>((std::to_integer<int>(a) + std::to_integer<int>(b)) / 2);
 }
 
-/// byte + byte(C# 的 byte 加法回绕)。| byte + byte (C#'s wrapping byte
-/// addition).
 std::byte AddBytes(std::byte a, std::byte b) {
   return static_cast<std::byte>(static_cast<std::uint8_t>(std::to_integer<int>(a) + std::to_integer<int>(b)));
 }
 
-/// Paeth(L377-386):逐字(含 pa<=pb&&pa<=pc 的平局序)。
-/// Paeth (L377-386): verbatim (including the pa<=pb&&pa<=pc tie order).
 std::byte Paeth(std::byte a, std::byte b, std::byte c) {
   const auto int_a = std::to_integer<int>(a);
   const auto int_b = std::to_integer<int>(b);
@@ -69,15 +52,8 @@ std::byte Paeth(std::byte a, std::byte b, std::byte c) {
   return (int4_pa <= int4_pb && int4_pa <= int4_pc) ? a : (int4_pb <= int4_pc) ? b : c;
 }
 
-/// Exts.IntegerDivisionRoundingAwayFromZero(正数域 = 向上取整)。
-/// Exts.IntegerDivisionRoundingAwayFromZero (ceil on the positive domain).
 std::int32_t DivRoundAway(std::int32_t int4_a, std::int32_t int4_b) { return (int4_a + int4_b - 1) / int4_b; }
 
-/// FileStream.Seek 越端合法语义:Position 可超 Length,后续 Read 得 0
-/// 字节 —— SpanReader 以钳位到 Length 复刻(随后读取均按短读处理)。
-/// FileStream.Seek's past-end legality: Position may exceed Length with
-/// later reads yielding zero bytes — replicated by clamping to Length
-/// (all subsequent reads then behave as short reads).
 void SkipClamped(SpanReader& reader_source, std::int64_t int8_count) {
   reader_source.Seek(std::min(reader_source.Length(), reader_source.Position() + int8_count));
 }
@@ -87,14 +63,6 @@ std::uint32_t ReadBE32(const std::byte* ptr) {
          (std::to_integer<std::uint32_t>(ptr[2]) << 8) | std::to_integer<std::uint32_t>(ptr[3]);
 }
 
-/// PngIdatStream(L29-93)的缝合语义,物化形态:拉空 IDAT 链直至首个非
-/// IDAT 块(读头后回退 8),中段枯竭 = 上游 EndOfStream 两消息的等价抛点。
-/// 首块 length 由调用方(chunk 头已消费)传入。
-/// The stitching semantics of PngIdatStream (L29-93), materialized: drain
-/// the IDAT chain until the first non-IDAT chunk (rewinding 8 bytes after
-/// reading its header), with mid-chain exhaustion hitting the equivalent
-/// throws of upstream's two EndOfStream messages. The first chunk's length
-/// comes from the caller (its header already consumed).
 std::vector<std::byte> PullIdatChain(SpanReader& reader_source, std::int32_t int4_initial_len) {
   auto vec_out = std::vector<std::byte>{};
   auto int4_remaining = int4_initial_len;
@@ -102,8 +70,7 @@ std::vector<std::byte> PullIdatChain(SpanReader& reader_source, std::int32_t int
 
   while (!b_eof) {
     if (int4_remaining == 0) {
-      // Skip CRC and read next chunk header(L54-68)。
-      // Skip CRC and read next chunk header (L54-68).
+
       if (reader_source.Position() + 12 > reader_source.Length())
         throw std::runtime_error("Invalid PNG file - no end chunk found.");
       SkipClamped(reader_source, 4);
@@ -111,8 +78,7 @@ std::vector<std::byte> PullIdatChain(SpanReader& reader_source, std::int32_t int
       if (ReadBE32(span_header.data() + 4) == Png::ChunkIDAT) {
         int4_remaining = static_cast<std::int32_t>(ReadBE32(span_header.data()));
       } else {
-        // 非 IDAT 块:读头回退,链终止。| Not an IDAT chunk: rewind the
-        // header read and end the chain.
+
         reader_source.Skip(-8);
         b_eof = true;
         break;
@@ -132,10 +98,6 @@ std::vector<std::byte> PullIdatChain(SpanReader& reader_source, std::int32_t int
   return vec_out;
 }
 
-/// zlib 单次解压(mz_uncompress,容量倍增重试;MZ_DATA_ERROR → 坏压缩流
-/// 的等价抛点,消息不逐字 = D63)。| One-shot zlib inflate (mz_uncompress
-/// with capacity-doubling retries; MZ_DATA_ERROR → the equivalent throw for
-/// a corrupt stream, message not verbatim = D63).
 std::vector<std::byte> ZlibInflate(const std::vector<std::byte>& vec_src) {
   if (vec_src.empty())
     throw std::runtime_error("ZLibException: unexpected end of zlib stream");
@@ -160,9 +122,6 @@ std::vector<std::byte> ZlibInflate(const std::vector<std::byte>& vec_src) {
   }
 }
 
-/// WritePngChunk(L484-504):长度/类型大端 + 数据 + CRC32(类型起算,Finish
-/// 收尾)大端写。| WritePngChunk (L484-504): big-endian length/type + data
-/// + the CRC32 (seeded from the type, Finish-closed) written big-endian.
 void WritePngChunk(std::vector<std::byte>& vec_output, std::uint32_t uint4_type, std::span<const std::byte> vec_input) {
   const auto put_be32 = [&vec_output](std::size_t st_pos, std::uint32_t uint4_v) {
     for (auto int4_i = 0; int4_i < 4; int4_i++)
@@ -182,11 +141,9 @@ void WritePngChunk(std::vector<std::byte>& vec_output, std::uint32_t uint4_type,
   put_be32(st_header + 8 + vec_input.size(), CRC32::Finish(uint4_crc));
 }
 
-/// Encoding.ASCII 语义:>0x7F → '?'(读写两侧一致保留)。
-/// The Encoding.ASCII semantics: >0x7F → '?' (kept on both read and write).
 char AsciiChar(unsigned char uint1_c) { return uint1_c <= 0x7F ? static_cast<char>(uint1_c) : '?'; }
 
-}  // namespace
+}
 
 bool Png::Verify(std::span<const std::byte> vec_file) {
   return vec_file.size() >= 8 && std::ranges::equal(vec_file.first(8), std::span<const std::byte, 8>{kSignature});
@@ -197,7 +154,7 @@ Png::Png(std::span<const std::byte> vec_file) {
     throw std::runtime_error("PNG Signature is bogus");
 
   auto reader_source = SpanReader{vec_file};
-  reader_source.Skip(8);  // s.Position += 8(L120)| s.Position += 8 (L120).
+  reader_source.Skip(8);
 
   auto b_header_parsed = false;
   auto b_data_parsed = false;
@@ -231,7 +188,7 @@ Png::Png(std::span<const std::byte> vec_file) {
           type_frame_ = gfx::SpriteFrameType::Rgb24;
 
         const auto uint1_compression = std::to_integer<std::uint8_t>(span_ihdr[10]);
-        // filter = span_ihdr[11](校验不含)| filter = span_ihdr[11] (unchecked).
+
         const auto uint1_interlace = std::to_integer<std::uint8_t>(span_ihdr[12]);
 
         if (uint1_compression != 0)
@@ -244,13 +201,13 @@ Png::Png(std::span<const std::byte> vec_file) {
             static_cast<std::uint64_t>(int4_width_) * static_cast<std::uint64_t>(int4_height_) *
                     static_cast<std::uint64_t>(PixelStride()) >
                 (std::uint64_t{1} << 32))
-          throw std::runtime_error("OverflowException");  // 上游 new byte[negative/溢出] 的等价抛点 | the equivalent of upstream's new byte[negative/overflowed]
+          throw std::runtime_error("OverflowException");
 
         vec_data_.assign(static_cast<std::size_t>(int4_width_) * static_cast<std::size_t>(int4_height_) *
                              static_cast<std::size_t>(PixelStride()),
                          std::byte{0});
 
-        SkipClamped(reader_source, 4);  // Skip CRC.| Skip the CRC.
+        SkipClamped(reader_source, 4);
         b_header_parsed = true;
         break;
       }
@@ -301,9 +258,6 @@ Png::Png(std::span<const std::byte> vec_file) {
       case ChunkTEXT: {
         const auto span_text = reader_source.ReadBytes(int4_length);
 
-        // ASCIIZ 键终结符探测(L249-251):缺失 → 构造即止(上游 return)。
-        // The ASCIIZ key terminator probe (L249-251): missing → the
-        // constructor stops here (upstream's return).
         const auto iter_null = std::ranges::find(span_text, std::byte{0});
         if (iter_null == span_text.end())
           return;
@@ -316,9 +270,6 @@ Png::Png(std::span<const std::byte> vec_file) {
         for (auto st_i = st_null + 1; st_i < span_text.size(); st_i++)
           str_value.push_back(AsciiChar(std::to_integer<unsigned char>(span_text[st_i])));
 
-        // Dictionary 索引器:已有键更新保位,新键追加。
-        // The Dictionary indexer: existing keys update in place, new keys
-        // append.
         const auto iter_existing = std::ranges::find_if(
             vec_embedded_data_, [&](const auto& pair_kv) { return pair_kv.first == str_key; });
         if (iter_existing != vec_embedded_data_.end())
@@ -339,7 +290,7 @@ Png::Png(std::span<const std::byte> vec_file) {
       }
 
       default:
-        // 未知块:跳过 数据+CRC。| Unknown chunk: skip data + CRC.
+
         SkipClamped(reader_source, static_cast<std::int64_t>(int4_length) + 4);
         break;
     }
@@ -356,15 +307,12 @@ void Png::ProcessIDAT(SpanReader& reader_source, std::int32_t int4_first_chunk_l
   const auto vec_ds = ZlibInflate(vec_zsrc);
   std::size_t st_ds_pos = 0;
 
-  // prevLine(L300-302):首行前的零行;此后指入 Data 的上一行。
-  // prevLine (L300-302): the zero row before the first line; afterwards it
-  // aliases the previous row inside Data.
   auto vec_prev_line = std::vector<std::byte>(static_cast<std::size_t>(int4_row_stride), std::byte{0});
   auto vec_prev = std::span<const std::byte>{vec_prev_line};
 
   for (auto int4_y = 0; int4_y < int4_height_; int4_y++) {
     if (st_ds_pos >= vec_ds.size())
-      break;  // filterByte == -1(L308-310)| filterByte == -1 (L308-310).
+      break;
 
     const auto type_filter = static_cast<PngFilter>(std::to_integer<std::uint8_t>(vec_ds[st_ds_pos++]));
     const auto span_line =
@@ -372,14 +320,10 @@ void Png::ProcessIDAT(SpanReader& reader_source, std::int32_t int4_first_chunk_l
                                                 static_cast<std::size_t>(int4_row_stride));
 
     if (st_ds_pos + static_cast<std::size_t>(int4_source_row_stride) > vec_ds.size())
-      throw std::runtime_error("EndOfStream: unexpected end of stream in IDAT row");  // ReadBytes 短读的等价抛点 | the equivalent of ReadBytes' short-read throw
+      throw std::runtime_error("EndOfStream: unexpected end of stream in IDAT row");
     std::ranges::copy_n(vec_ds.begin() + static_cast<std::ptrdiff_t>(st_ds_pos), int4_source_row_stride, span_line.begin());
     st_ds_pos += static_cast<std::size_t>(int4_source_row_stride);
 
-    // 位深 1/2/4:多像素/字节 → 1 像素/字节(降序原位展开;末字节部分
-    // 打包防御 L329)。| Bit depths 1/2/4: multiple pixels per byte → one
-    // pixel per byte (an in-place descending expansion; the guard against a
-    // partially packed last byte at L329).
     if (uint1_bit_depth < 8) {
       const auto int4_mask = (1 << uint1_bit_depth) - 1;
       for (auto int4_i = int4_source_row_stride - 1; int4_i >= 0; int4_i--) {
@@ -432,9 +376,6 @@ void Png::ProcessIDAT(SpanReader& reader_source, std::int32_t int4_first_chunk_l
     vec_prev = span_line;
   }
 
-  // 尾部 drain(L366-368):单次解压已消费整流,此处无操作(输出等价)。
-  // The trailing drain (L366-368): the one-shot inflate already consumed
-  // the whole stream — a no-op here (output-equivalent).
 }
 
 Png::Png(std::vector<std::byte> vec_data, gfx::SpriteFrameType type_frame, int int4_width, int int4_height,
@@ -454,9 +395,7 @@ Png::Png(std::vector<std::byte> vec_data, gfx::SpriteFrameType type_frame, int i
     case gfx::SpriteFrameType::Indexed8:
     case gfx::SpriteFrameType::Rgba32:
     case gfx::SpriteFrameType::Rgb24:
-      // Data 已为兼容形态;仅 Indexed8 挂接调色板(L411-412)。
-      // Data is already compatible; only Indexed8 adopts the palette
-      // (L411-412).
+
       vec_data_ = std::move(vec_data);
       if (type_frame_ != gfx::SpriteFrameType::Indexed8)
         vec_palette_.reset();
@@ -464,7 +403,7 @@ Png::Png(std::vector<std::byte> vec_data, gfx::SpriteFrameType type_frame, int i
 
     case gfx::SpriteFrameType::Bgra32:
     case gfx::SpriteFrameType::Bgr24: {
-      // 转大端(L420-447)。| Convert to big-endian (L420-447).
+
       vec_data_.assign(vec_data.size(), std::byte{0});
       const auto int4_stride = PixelStride();
       const auto uint8_elements =
@@ -493,7 +432,6 @@ std::vector<std::byte> Png::Save() const {
   vec_output.reserve(vec_data_.size() + 256);
   vec_output.insert(vec_output.end(), kSignature.begin(), kSignature.end());
 
-  // IHDR(L511-526)。| IHDR (L511-526).
   {
     auto vec_header = std::vector<std::byte>(13);
     const auto put_be32 = [&vec_header](std::size_t st_pos, std::uint32_t uint4_v) {
@@ -502,7 +440,7 @@ std::vector<std::byte> Png::Save() const {
     };
     put_be32(0, static_cast<std::uint32_t>(int4_width_));
     put_be32(4, static_cast<std::uint32_t>(int4_height_));
-    vec_header[8] = std::byte{8};  // Bit depth.| Bit depth.
+    vec_header[8] = std::byte{8};
 
     const auto uint1_color_type =
         type_frame_ == gfx::SpriteFrameType::Indexed8
@@ -511,15 +449,13 @@ std::vector<std::byte> Png::Save() const {
                                                          : static_cast<std::uint8_t>(PngColorType::Color | PngColorType::Alpha);
     vec_header[9] = static_cast<std::byte>(uint1_color_type);
 
-    vec_header[10] = std::byte{0};  // Compression.| Compression.
-    vec_header[11] = std::byte{0};  // Filter.| Filter.
-    vec_header[12] = std::byte{0};  // Interlacing.| Interlacing.
+    vec_header[10] = std::byte{0};
+    vec_header[11] = std::byte{0};
+    vec_header[12] = std::byte{0};
 
     WritePngChunk(vec_output, ChunkIHDR, vec_header);
   }
 
-  // PLTE + tRNS(L528-554):任一 alpha > 0 才写 tRNS。
-  // PLTE + tRNS (L528-554): tRNS is written only when any alpha > 0.
   auto b_alpha_palette = false;
   if (vec_palette_.has_value()) {
     auto vec_palette_bytes = std::vector<std::byte>{};
@@ -541,14 +477,12 @@ std::vector<std::byte> Png::Save() const {
     WritePngChunk(vec_output, ChunkTRNS, vec_alpha);
   }
 
-  // IDAT(L556-571):行滤波 0 前缀 + 行数据 → zlib。
-  // IDAT (L556-571): the filter-0 row prefixes + row data → zlib.
   {
     auto vec_rows = std::vector<std::byte>{};
     const auto int4_row_stride = int4_width_ * PixelStride();
     vec_rows.reserve((static_cast<std::size_t>(int4_row_stride) + 1) * static_cast<std::size_t>(int4_height_));
     for (auto int4_y = 0; int4_y < int4_height_; int4_y++) {
-      vec_rows.push_back(std::byte{0});  // Assuming no filtering for simplicity.
+      vec_rows.push_back(std::byte{0});
       vec_rows.insert(vec_rows.end(), vec_data_.begin() + static_cast<std::ptrdiff_t>(int4_y) * int4_row_stride,
                       vec_data_.begin() + static_cast<std::ptrdiff_t>(int4_y + 1) * int4_row_stride);
     }
@@ -564,7 +498,6 @@ std::vector<std::byte> Png::Save() const {
     WritePngChunk(vec_output, ChunkIDAT, vec_compressed);
   }
 
-  // tEXt(L573-580):插入序。| tEXt (L573-580): insertion order.
   for (const auto& [str_key, str_value] : vec_embedded_data_) {
     auto vec_text = std::vector<std::byte>{};
     vec_text.reserve(str_key.size() + str_value.size() + 1);
@@ -580,4 +513,4 @@ std::vector<std::byte> Png::Save() const {
   return vec_output;
 }
 
-}  // namespace ora::fmt
+}

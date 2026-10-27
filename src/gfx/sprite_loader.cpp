@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/Graphics/SpriteLoader.cs @1f594e320 L53-114 +
-//          OpenRA.Game/ObjectCreator.cs @1f594e320 L155
-//          (sprite_loader.hpp 的实现)
-//          Implementation of sprite_loader.hpp.
 import std;
 #include "gfx/sprite_loader.hpp"
 
@@ -21,14 +17,12 @@ namespace ora::gfx {
 
 namespace {
 
-/// 字节视图(vector&lt;char&gt; → span&lt;const byte&gt;,零拷贝)。
-/// A byte view (vector<char> → span<const byte>, zero-copy).
 std::span<const std::byte> AsBytes(const std::vector<char>& vec_chars) {
   return std::span<const std::byte>{reinterpret_cast<const std::byte*>(vec_chars.data()),
                                     vec_chars.size()};
 }
 
-}  // namespace
+}
 
 std::vector<SpriteLoaderFn> MakeSpriteLoaders(const std::vector<std::string>& vec_format_names) {
   std::vector<SpriteLoaderFn> vec_loaders;
@@ -102,4 +96,4 @@ const std::vector<std::unique_ptr<ISpriteFrame>>& FrameCache::operator[](
   return vec_cache_.back().second.vec_frames;
 }
 
-}  // namespace ora::gfx
+}

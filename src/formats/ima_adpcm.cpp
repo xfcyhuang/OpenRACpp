@@ -1,14 +1,8 @@
-// UPSTREAM: OpenRA.Mods.Common/FileFormats/ImaAdpcmReader.cs @1f594e320
-// L18-31(表)与 L33-85(两函数):逐句照抄;byte[]/Span → span。
-// [UPSTREAM continued] ImaAdpcmReader.cs L18-31 (the tables) and L33-85 (both
-// functions): copied statement by statement; byte[]/Span → span.
 #include "formats/ima_adpcm.hpp"
 
 namespace ora::fmt::ima_adpcm {
 namespace {
 
-// IndexAdjust(L18)/StepTable(L19-31)逐值。
-// IndexAdjust (L18) / StepTable (L19-31), value for value.
 constexpr int kIndexAdjust[] = {-1, -1, -1, -1, 2, 4, 6, 8};
 constexpr int kStepTable[] = {
     7,     8,     9,     10,    11,    12,    13,    14,    16,    17,    19,    21,    23,    25,    28,
@@ -18,7 +12,7 @@ constexpr int kStepTable[] = {
     2272,  2499,  2749,  3024,  3327,  3660,  4026,  4428,  4871,  5358,  5894,  6484,  7132,  7845,  8630,
     9493,  10442, 11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794, 32767};
 
-}  // namespace
+}
 
 std::int16_t DecodeImaAdpcmSample(std::uint8_t uint1_b, int& int4_index, int& int4_current) {
   const bool bool_sign = (uint1_b & 8) != 0;
@@ -71,4 +65,4 @@ void LoadImaAdpcmSound(std::span<const std::byte> vec_raw, int& int4_index, int&
   }
 }
 
-}  // namespace ora::fmt::ima_adpcm
+}

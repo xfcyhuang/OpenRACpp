@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Effects/Beacon.cs + RevealShroudEffect.cs +
-//          Projectiles/NukeLaunch.cs + Graphics/RangeCircleAnnotationRenderable.cs
-//          的实现面
-//          The implementation face.
 #include "mods/support_power_effects.hpp"
 
 #include "game/game_records.hpp"
@@ -31,7 +27,7 @@ gfx::Animation::Deps MakeAnimDeps(const sim::World& world_ref) {
   return deps;
 }
 
-}  // namespace
+}
 
 RangeCircleAnnotationRenderable::RangeCircleAnnotationRenderable(
     WPos wpos_pos, WDist dist_radius, std::int32_t int4_z_offset,
@@ -440,4 +436,4 @@ void NukeLaunch::Render(gfx::WorldRenderer& wr,
     vec_out.push_back(arr_items[static_cast<std::size_t>(i)]);
 }
 
-}  // namespace ora::mods
+}

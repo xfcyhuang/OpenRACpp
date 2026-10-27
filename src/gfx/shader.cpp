@@ -1,15 +1,6 @@
-// UPSTREAM: OpenRA.Platforms.Default/Shader.cs @1f594e320 L29-259(实现体)
-// 实现体翻译:CompileShaderObject({VERSION} 替换 + 编译 + 状态检查)、
-// program 组装(属性循环/fragColor/attach/link)、active uniform 枚举、
-// Set*/PrepareRender/Bind。GL 访问全部经命令队列;同步往返仅构造期发生。
-// The implementation body translated: CompileShaderObject ({VERSION}
-// substitution + compile + status check), program assembly (the attribute
-// loop / fragColor / attach / link), active-uniform enumeration, and
-// Set*/PrepareRender/Bind. All GL access goes through the command queue;
-// synchronous round-trips happen only during construction.
 import std;
-#include <cassert>  // assert 为宏,规范允许的 import/#include 并用正形态 | assert is a macro; the spec-sanctioned mixed form
-#include <cstdio>   // stderr 为宏,不穿越 import 边界(规范允许的并用正形态) | stderr is a macro; the spec-sanctioned mixed form
+#include <cassert>
+#include <cstdio>
 
 #include "gfx/shader.hpp"
 
@@ -17,8 +8,6 @@ namespace ora::gfx {
 
 namespace {
 
-/// {VERSION} 全量替换(Shader.cs L31-33:Embedded→"300 es",否则→"140")。
-/// Replace-all of {VERSION} (Shader.cs L31-33: Embedded→"300 es", else→"140").
 std::string ApplyVersionPlaceholder(std::string_view str_code, bool b_embedded) {
   std::string str_result(str_code);
   const std::string_view str_version = b_embedded ? "300 es" : "140";
@@ -28,9 +17,6 @@ std::string ApplyVersionPlaceholder(std::string_view str_code, bool b_embedded) 
   return str_result;
 }
 
-/// 编译一个着色器对象(Shader.cs L29-59;同步往返)。失败 = 0(InfoLog 已打印)。
-/// Compiles one shader object (Shader.cs L29-59; synchronous round-trips).
-/// Zero on failure (the info log has been printed).
 std::uint32_t CompileShaderObject(RenderThread& render, gl::GLenum kind_type, std::string_view str_code,
                                   std::string_view str_name, bool b_embedded) {
   const std::string str_resolved = ApplyVersionPlaceholder(str_code, b_embedded);
@@ -71,30 +57,17 @@ std::uint32_t CompileShaderObject(RenderThread& render, gl::GLenum kind_type, st
   if (!render.WaitDone(request_status.sync.sem_done))
     return 0;
   if (request_status.uint4_value == 0) {
-    // 消费端已打印 InfoLog(GetShaderStatus 分支);此处对齐上游异常文本
-    // (Shader.cs L55)。
-    // The consumer already printed the info log (the GetShaderStatus branch);
-    // this aligns with the upstream exception text (Shader.cs L55).
+
     std::println(stderr, "Compile error in shader object {}.", str_name);
     return 0;
   }
   return uint4_shader;
 }
 
-/// 渲染线程的 GL 档位(Embedded 判定用)。Modern 档按窗口创建参数唯一,
-/// 此处由调用方传入 —— Shader 不再二次询问 GL。
-/// The render thread's GL profile (for the Embedded test). The Modern profile
-/// is fixed by the window-creation parameters and passed in by the caller —
-/// Shader never re-queries GL.
-
-}  // namespace
+}
 
 std::optional<Shader> Shader::Create(RenderThread& render, const ShaderBindingsDesc& desc) {
-  // Embedded 档由窗口档位决定(sdl2_window 创建时 Modern/Embedded 二选一);
-  // 现行桌面主路径 = Modern。ES 档位批次接入后从此处读取档位标志。
-  // The Embedded tier is decided by the window profile (Modern/Embedded chosen
-  // at sdl2_window creation); the current desktop main path is Modern. The ES
-  // batch will read the profile flag here.
+
   const bool b_embedded = false;
 
   const std::uint32_t uint4_vs = CompileShaderObject(render, gl::GL_VERTEX_SHADER, desc.str_vertex_shader_code,
@@ -116,8 +89,6 @@ std::optional<Shader> Shader::Create(RenderThread& render, const ShaderBindingsD
     return std::nullopt;
   const std::uint32_t uint4_program = request_program.uint4_value;
 
-  // 属性循环(Shader.cs L71-77:EnableVertexAttribArray + BindAttribLocation)
-  // The attribute loop (Shader.cs L71-77).
   for (std::uint32_t i = 0; i < desc.vec_attributes.size(); ++i) {
     ptr_cmd = render.queue().Reserve(GfxCmdKind::EnableVertexAttribArray, 0);
     if (ptr_cmd == nullptr)
@@ -136,8 +107,6 @@ std::optional<Shader> Shader::Create(RenderThread& render, const ShaderBindingsD
     render.queue().Commit(desc.vec_attributes[i].str_name.c_str());
   }
 
-  // Modern 档:fragColor 输出绑定(Shader.cs L79-83)
-  // Modern profile: the fragColor output binding (Shader.cs L79-83).
   if (!b_embedded) {
     ptr_cmd = render.queue().Reserve(GfxCmdKind::BindFragDataLocation, sizeof("fragColor"));
     if (ptr_cmd == nullptr)
@@ -172,16 +141,12 @@ std::optional<Shader> Shader::Create(RenderThread& render, const ShaderBindingsD
   ptr_cmd->ptr_sync = &request_program;
   render.queue().CommitBare();
   if (!render.WaitDone(request_program.sync.sem_done) || request_program.uint4_value == 0) {
-    // 上游异常文本(Shader.cs L101)
-    // The upstream exception text (Shader.cs L101).
+
     std::println(stderr, "Link error in shader program '{}' and '{}'", desc.str_vertex_shader_name,
                  desc.str_fragment_shader_name);
     return std::nullopt;
   }
 
-  // 链接产物已嵌入 program:编译对象即刻删除(见文件头偏离注)
-  // The linked artifact is embedded in the program: delete the compiled
-  // objects right away (see the deviation note in the header).
   for (const std::uint32_t uint4_shader : {uint4_vs, uint4_fs}) {
     ptr_cmd = render.queue().Reserve(GfxCmdKind::DeleteShader, 0);
     if (ptr_cmd != nullptr) {
@@ -196,8 +161,6 @@ std::optional<Shader> Shader::Create(RenderThread& render, const ShaderBindingsD
   shader_result.vec_attributes_.assign(desc.vec_attributes.begin(), desc.vec_attributes.end());
   shader_result.int4_stride_ = desc.int4_stride;
 
-  // use + active uniform 枚举(Shader.cs L104-131)
-  // Use + active-uniform enumeration (Shader.cs L104-131).
   shader_result.PostUseProgram();
   const std::uint32_t uint4_uniforms = render.GetActiveUniformCount(uint4_program);
   std::uint32_t uint4_next_tex_unit = 0;
@@ -243,10 +206,7 @@ Shader::Shader(Shader&& other) noexcept
       map_bound_textures_(std::move(other.map_bound_textures_)) {}
 
 void Shader::PostUseProgram() {
-  // 消费端绑定 diff 吞掉重复(OPT-A6;对齐上游每次显式 glUseProgram 的
-  // 语义而不付其代价)。
-  // The consumer-side binding diff absorbs repeats (OPT-A6; preserves the
-  // semantics of upstream's explicit glUseProgram-per-call without its cost).
+
   if (GfxCmd* ptr_cmd = ptr_render_->queue().Reserve(GfxCmdKind::BindProgram, 0); ptr_cmd != nullptr) {
     ptr_cmd->uint4_a = uint4_program_;
     ptr_render_->queue().CommitBare();
@@ -254,13 +214,7 @@ void Shader::PostUseProgram() {
 }
 
 void Shader::Bind() {
-  // 上游在构造期一次 glEnableVertexAttribArray(全局单 VAO 模型,Shader.cs
-  // L71-77);C++ 侧 VAO 化后 enable 状态属于各 VAO,故 Bind 重播时一并
-  // enable(幂等),保证任意新建 VAO 上的属性状态完备。
-  // Upstream enables the arrays once at construction (the global-single-VAO
-  // model, Shader.cs L71-77); once VAO-ized on the C++ side the enable state
-  // belongs to each VAO, so Bind re-enables alongside the replay (idempotent)
-  // keeping any freshly created VAO attribute-complete.
+
   for (std::uint32_t i = 0; i < vec_attributes_.size(); ++i) {
     GfxCmd* ptr_cmd = ptr_render_->queue().Reserve(GfxCmdKind::EnableVertexAttribArray, 0);
     if (ptr_cmd != nullptr) {
@@ -278,8 +232,8 @@ void Shader::Bind() {
       continue;
     ptr_cmd->uint4_a = i;
     ptr_cmd->uint4_b = static_cast<std::uint32_t>(attribute.int4_components);
-    ptr_cmd->uint4_c = static_cast<std::uint32_t>(attribute.kind_type);  // 枚举值 = GL 类型常量 | enum value = the GL type constant
-    ptr_cmd->b_depth = 0;  // 未归一化(上游固定 false)| never normalized (upstream passes false)
+    ptr_cmd->uint4_c = static_cast<std::uint32_t>(attribute.kind_type);
+    ptr_cmd->b_depth = 0;
     ptr_cmd->uint4_d = static_cast<std::uint32_t>(int4_stride_);
     ptr_cmd->float_a = std::bit_cast<float>(static_cast<std::uint32_t>(attribute.int4_offset));
     ptr_render_->queue().CommitBare();
@@ -289,11 +243,7 @@ void Shader::Bind() {
 void Shader::PrepareRender() {
   PostUseProgram();
   for (const auto& [uint4_unit, uint4_texture] : map_bound_textures_) {
-    // 生命周期契约见文件头:调用方保证 Texture 存活(替代上游 glIsTexture
-    // 逐帧驱逐;COVERAGE 登记)。
-    // The lifetime contract is in the header: the caller keeps the Texture
-    // alive (replacing upstream's per-flush glIsTexture eviction; registered
-    // in COVERAGE).
+
     GfxCmd* ptr_cmd = ptr_render_->queue().Reserve(GfxCmdKind::BindTexture, 0);
     if (ptr_cmd == nullptr)
       continue;
@@ -379,10 +329,7 @@ void Shader::SetVecAt(std::int32_t int4_location, float float_x, float float_y, 
 }
 
 void Shader::SetVecAt(std::int32_t int4_location, std::span<const float> vec_values, std::int32_t int4_length) {
-  // 上游按长度分发 1fv..4fv(Shader.cs L229-235);length 1..4 之外为异常
-  // (InvalidDataException),C++ 侧断言防御。
-  // Upstream dispatches 1fv..4fv by length (Shader.cs L229-235); lengths
-  // outside 1..4 are exceptions (InvalidDataException), asserted here.
+
   assert(int4_length >= 1 && int4_length <= 4);
   PostUseProgram();
   const GfxCmdKind kind = int4_length == 1 ? GfxCmdKind::Uniform1fv
@@ -392,7 +339,7 @@ void Shader::SetVecAt(std::int32_t int4_location, std::span<const float> vec_val
   const std::uint32_t size_payload = static_cast<std::uint32_t>(int4_length * sizeof(float));
   if (GfxCmd* ptr_cmd = ptr_render_->queue().Reserve(kind, size_payload); ptr_cmd != nullptr) {
     ptr_cmd->uint4_a = static_cast<std::uint32_t>(int4_location);
-    ptr_cmd->uint4_b = 1;  // 上游 count=1 | upstream count=1
+    ptr_cmd->uint4_b = 1;
     ptr_render_->queue().Commit(vec_values.data());
   }
 }
@@ -407,4 +354,4 @@ void Shader::SetMatrixAt(std::int32_t int4_location, std::span<const float> vec_
   }
 }
 
-}  // namespace ora::gfx
+}

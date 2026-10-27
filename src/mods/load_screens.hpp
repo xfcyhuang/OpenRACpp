@@ -1,4 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/LoadScreens/LogoStripeLoadScreen.cs @1f594e320
 #pragma once
 import std;
 
@@ -94,4 +93,4 @@ class LogoStripeLoadScreen final : public SheetLoadScreen {
 std::unique_ptr<game::ILoadScreen> CreateLoadScreen(const std::string& str_name,
                                                     LoadScreenDeps deps_load);
 
-}  // namespace ora::mods
+}

@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ProductionTabsWidget.cs @1f594e320
-//          (实现部分)
-//          The implementation half.
 import std;
 
 #include "mods/production_tabs_widget.hpp"
@@ -36,7 +33,7 @@ bool RecordDerivesProductionQueueInfo(const meta::RecordObject& rec) {
          str_base == "ParallelProductionQueueInfo";
 }
 
-}  // namespace
+}
 
 bool ProductionTabGroup::Alert() const {
   for (const ProductionTab& tab : vec_tabs)
@@ -626,4 +623,4 @@ void RegisterProductionTypeButtonWidget() {
   (void)b_registered;
 }
 
-}  // namespace ora::mods
+}

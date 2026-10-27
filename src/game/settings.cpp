@@ -1,7 +1,3 @@
-// UPSTREAM: OpenRA.Game/Settings.cs @1f594e320 L52-340(实现部分;头注见
-//          settings.hpp)
-//          The implementation half of Settings.cs L52-340 (the header note
-//          lives in settings.hpp).
 #include "game/settings.hpp"
 
 #include "meta/dump_format.hpp"
@@ -17,9 +13,6 @@ using meta::FieldDesc;
 using meta::FieldType;
 using meta::GenericValue;
 
-/// PlayerSettings 字段表(Settings.cs L309-315;默认值取上游字面量)
-/// The PlayerSettings field table (Settings.cs L309-315; the defaults are
-/// upstream's literals).
 constexpr FieldDesc kPlayerSettingsFields[] = {
     {.str_name = "Name",
      .type = FieldType::String,
@@ -74,11 +67,6 @@ constexpr FieldDesc kGameSettingsFields[] = {
      .str_type_name = "OpenRA.TextNotificationPoolFilters"},
 };
 
-/// GraphicSettings 字段表(Settings.cs L237-280;全字段;枚举经本文件的
-/// WindowMode/GLProfile/WorldViewport 注册表)
-/// The GraphicSettings field table (Settings.cs L237-280; every field; the
-/// enums go through this file's WindowMode/GLProfile/WorldViewport registry
-/// entries).
 constexpr FieldDesc kGraphicSettingsFields[] = {
     {.str_name = "Mode", .type = FieldType::Enum, .b_required = false,
      .str_loader = {}, .str_type_name = "OpenRA.WindowMode"},
@@ -100,14 +88,10 @@ constexpr FieldDesc kGraphicSettingsFields[] = {
      .str_type_name = "OpenRA.GLProfile"},
 };
 
-/// PlayerSettings/GameSettings 的默认值(展开序 = 字段序)
-/// The PlayerSettings/GameSettings defaults (the expansion order = the
-/// field order).
 const std::vector<GenericValue>& PlayerSettingsDefaults() {
   static const std::vector<GenericValue> vec_defaults = {
       GenericValue::Of(std::string{"Commander"}),
-      // Color.FromArgb(200, 32, 32) 的打包((A<<24)+(R<<16)+(G<<8)+B)
-      // The Color.FromArgb(200, 32, 32) packing.
+
       GenericValue::Of(static_cast<std::int64_t>(0xFFC82020)),
       GenericValue::Of(std::string{"localhost:1234"}),
       GenericValue::Of(std::vector<GenericValue>{}),
@@ -146,12 +130,6 @@ const std::vector<GenericValue>& GameSettingsDefaults() {
   return vec_defaults;
 }
 
-/// GraphicSettings 默认值(Settings.cs L237-280 字面量;枚举槽 = 底层值:
-/// WindowMode.PseudoFullscreen=2 / WorldViewport.Medium=2 / GLProfile.
-/// Automatic=0)
-/// The GraphicSettings defaults (Settings.cs L237-280's literals; enum slots
-/// = the underlying values: WindowMode.PseudoFullscreen=2 /
-/// WorldViewport.Medium=2 / GLProfile.Automatic=0).
 const std::vector<GenericValue>& GraphicSettingsDefaults() {
   const auto fn_tuple2 = [](std::int64_t int8_a, std::int64_t int8_b) {
     meta::GenericTuple t{};
@@ -199,11 +177,6 @@ constexpr meta::RecordDesc kGameSettingsDesc = {
     .interfaces = {},
 };
 
-/// DebugSettings 字段表(Settings.cs L188-234;全字段手写 —— schema_dumper
-/// 未导出 Settings 扩展,同 Player/Game/Graphics 段先例)
-/// The DebugSettings field table (Settings.cs L188-234; every field
-/// hand-written — schema_dumper exports no Settings extension, the
-/// Player/Game/Graphics precedent).
 constexpr FieldDesc kDebugSettingsFields[] = {
     {.str_name = "PerfText", .type = FieldType::Bool, .b_required = false},
     {.str_name = "PerfGraph", .type = FieldType::Bool, .b_required = false},
@@ -230,8 +203,6 @@ constexpr FieldDesc kDebugSettingsFields[] = {
      .b_required = false},
 };
 
-/// SoundSettings 字段表(Settings.cs L287-302;全字段)
-/// The SoundSettings field table (Settings.cs L287-302; every field).
 constexpr FieldDesc kSoundSettingsFields[] = {
     {.str_name = "SoundVolume", .type = FieldType::Float, .b_required = false},
     {.str_name = "MusicVolume", .type = FieldType::Float, .b_required = false},
@@ -255,10 +226,6 @@ constexpr meta::RecordDesc kGraphicSettingsDesc = {
     .interfaces = {},
 };
 
-/// DebugSettings 默认值(Settings.cs L188-234 字面量;UUID 的 Guid.NewGuid()
-/// → 进程级首构造随机 128 位 hex)
-/// The DebugSettings defaults (Settings.cs L188-234's literals; UUID's
-/// Guid.NewGuid() becomes a random 128-bit hex minted once per process).
 const std::vector<GenericValue>& DebugSettingsDefaults() {
   static const std::string str_uuid = [] {
     std::array<char, 36> arr_out{};
@@ -301,8 +268,6 @@ const std::vector<GenericValue>& DebugSettingsDefaults() {
   return vec_defaults;
 }
 
-/// SoundSettings 默认值(Settings.cs L287-300 字面量)
-/// The SoundSettings defaults (Settings.cs L287-300's literals).
 const std::vector<GenericValue>& SoundSettingsDefaults() {
   static const std::vector<GenericValue> vec_defaults = {
       GenericValue::Of(0.5f),
@@ -338,12 +303,6 @@ constexpr meta::RecordDesc kDebugSettingsDesc = {
     .interfaces = {},
 };
 
-/// ServerSettings 字段表(Settings.cs L92-179;全字段手写 —— 同 Player/
-/// Game/Graphics/Debug/Sound 段先例;Ban/ProfileID*/MapPool 的 FrozenSet →
-/// ImmutableArray 承载)
-/// The ServerSettings field table (Settings.cs L92-179; every field
-/// hand-written — the Player/Game/Graphics/Debug/Sound precedent; Ban's/
-/// ProfileID*/MapPool's FrozenSet → the ImmutableArray carrier).
 constexpr FieldDesc kServerSettingsFields[] = {
     {.str_name = "Name", .type = FieldType::String, .b_required = false},
     {.str_name = "ListenPort", .type = FieldType::Int32, .b_required = false},
@@ -395,10 +354,6 @@ constexpr FieldDesc kServerSettingsFields[] = {
      .b_required = false},
 };
 
-/// ServerSettings 默认值(Settings.cs L92-179 字面量;Ban/ProfileID*/
-/// MapPool 空表)
-/// The ServerSettings defaults (Settings.cs L92-179's literals; Ban's/
-/// ProfileID*/MapPool's empty lists).
 const std::vector<GenericValue>& ServerSettingsDefaults() {
   static const std::vector<GenericValue> vec_defaults = {
       GenericValue::Of(std::string{}),
@@ -444,12 +399,6 @@ constexpr meta::RecordDesc kServerSettingsDesc = {
     .interfaces = {},
 };
 
-/// Settings 段的三枚举(PlatformInterfaces.cs L18-24 的 GLProfile/WindowMode
-/// 与 Settings.cs L50 的 WorldViewport;schema_dumper 未导出 —— 引擎核心
-/// 消费域手写注册)
-/// The Graphics section's three enums (PlatformInterfaces.cs L18-24's
-/// GLProfile/WindowMode and Settings.cs L50's WorldViewport; not exported by
-/// schema_dumper — hand-registered for the engine-core consumer domain).
 constexpr meta::EnumMemberDesc kEnumWindowMode[] = {
     {.str_name = "Windowed", .int4_value = 0},
     {.str_name = "Fullscreen", .int4_value = 1},
@@ -552,7 +501,7 @@ constexpr meta::RecordDesc kAutoSaveSettingsDesc = {
     .interfaces = {},
 };
 
-}  // namespace
+}
 
 const meta::RecordDesc* SettingsDescOf(std::string_view str_section) {
   if (str_section == "Player")
@@ -571,8 +520,6 @@ const meta::RecordDesc* SettingsDescOf(std::string_view str_section) {
     return &kAutoSaveSettingsDesc;
   return nullptr;
 }
-
-// ———— SettingsModule ————
 
 SettingsModule::SettingsModule(const meta::RecordDesc& desc,
                                std::string str_key, bool b_shared)
@@ -595,9 +542,7 @@ SettingsModule::SettingsModule(const meta::RecordDesc& desc,
   else if (&desc == &kAutoSaveSettingsDesc)
     ptr_defaults = &AutoSaveSettingsDefaults();
   else {
-    // 未知段:空字段承载(上游 Activator.CreateInstance 的缺省面)
-    // An unknown section: the empty carrier (upstream's
-    // Activator.CreateInstance default face).
+
     static const std::vector<GenericValue> vec_empty{};
     ptr_defaults = &vec_empty;
   }
@@ -607,20 +552,13 @@ SettingsModule::SettingsModule(const meta::RecordDesc& desc,
 }
 
 void SettingsModule::Load(const yaml::MiniYaml& yaml_section) {
-  // FieldLoader.Load(module, node.Value.Build())的值袋面(FieldLoader::Load
-  // 主循环:节点键 → 字段槽)
-  // The value-bag face of FieldLoader.Load (its main loop: the node keys →
-  // the field slots).
+
   meta::Load(up_record_.get(), yaml_section);
 }
 
 std::vector<yaml::MiniYamlNode> SettingsModule::Commit(
     yaml::StringPool& pool) const {
-  // Commit(L69-80):serialized != defaultSerialized 才存;键序 = 字段序
-  // (差异集重建 = 上游的 RemoveAll + Add 序)
-  // Commit (L69-80): saved only when serialized != defaultSerialized; the
-  // key order = the field order (the difference rebuild = upstream's
-  // RemoveAll + Add sequence).
+
   std::vector<yaml::MiniYamlNode> vec_nodes;
   const std::vector<const FieldDesc*> vec_fields =
       meta::CollectFields(up_record_->record_desc());
@@ -728,7 +666,6 @@ meta::GeneratedRecord SettingsModule::CloneRecord() const {
   return *up_record_;
 }
 
-
 namespace {
 
 yaml::MiniYaml CopyYamlDeep(const yaml::MiniYaml& yaml_src,
@@ -765,7 +702,7 @@ yaml::MiniYaml InternYamlDeep(const yaml::MiniYaml& yaml_src,
   return yaml::MiniYaml{ptr_value, std::move(vec_nodes)};
 }
 
-}  // namespace
+}
 
 void RawSettingsSection::Load(const yaml::MiniYaml& yaml_section) {
   vec_nodes_.clear();
@@ -805,8 +742,6 @@ void RawSettingsSection::AddNode(const std::string& str_name,
   vec_nodes_.emplace_back(ptr_key, yaml::MiniYaml{&deque_strings_.back()});
 }
 
-// ———— Settings ————
-
 namespace {
 
 std::unique_ptr<Settings>& InstanceSlot() {
@@ -814,7 +749,7 @@ std::unique_ptr<Settings>& InstanceSlot() {
   return up_settings;
 }
 
-}  // namespace
+}
 
 Settings& Settings::Instance() {
   return *InstanceSlot();
@@ -825,9 +760,7 @@ void Settings::ResetInstanceForTest() {
 }
 
 Settings::Settings() {
-  // 上游 [YamlNode("Player"/"Game"/"Graphics")] 三段(shared: true)
-  // Upstream's [YamlNode("Player"/"Game"/"Graphics")] sections (shared:
-  // true).
+
   if (const meta::RecordDesc* ptr_desc = SettingsDescOf("Player"))
     vec_modules_.push_back(
         std::make_unique<SettingsModule>(*ptr_desc, "Player", true));
@@ -939,4 +872,4 @@ RawSettingsSection& Settings::RawSection(std::string_view str_key) {
   return *vec_raw_sections_.back();
 }
 
-}  // namespace ora::game
+}

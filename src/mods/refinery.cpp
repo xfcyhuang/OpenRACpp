@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Buildings/Refinery.cs 实现部分
-//          The implementation half.
 #include "mods/refinery.hpp"
 
 #include "meta/field_loader.hpp"
@@ -8,8 +6,6 @@
 #include "sim/world.hpp"
 
 namespace ora::mods {
-
-// ———— RefineryInfoData(L21-33)————
 
 RefineryInfoData RefineryInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -41,20 +37,16 @@ RefineryInfoData RefineryInfoData::Parse(
   return data;
 }
 
-// ———— Refinery(L35-109)————
-
 Refinery::Refinery(ActorInitializer& init, const RefineryInfoData& info)
     : info_{info} {
-  // L43-48
+
   p_player_resources_ =
       init.Self().Owner()->PlayerActor()->Trait<PlayerResources>();
   int4_current_display_tick_ = info.int4_tick_rate;
 }
 
 void Refinery::Created(Actor& self) {
-  // L50-53(修正 trait 的值链一次物化 —— 上游 Lazy+Select 的数组值)
-  // L50-53 (the modifier traits' value chain materialized once —
-  // upstream's Lazy + Select array values).
+
   for (sim::IResourceValueModifier* m :
        self.TraitsImplementing<sim::IResourceValueModifier>())
     vec_resource_value_modifiers_.push_back(m->GetResourceValueModifier());
@@ -62,7 +54,7 @@ void Refinery::Created(Actor& self) {
 
 int Refinery::AcceptResources(Actor& self,
                               const std::string& resource_type, int count) {
-  // L55-91
+
   int resource_value = 0;
   bool b_found = false;
   for (const auto& [name, value] :
@@ -85,8 +77,7 @@ int Refinery::AcceptResources(Actor& self,
             p_player_resources_->Resources,
         0);
     if (!info_.b_discard_excess_resources) {
-      // Reduce amount if needed until it will fit the available storage
-      // (上游注释)
+
       while (value > storage_limit) {
         --count;
         value = ApplyPercentageModifiers(
@@ -117,9 +108,7 @@ int Refinery::AcceptResources(Actor& self,
 }
 
 void Refinery::Tick(Actor& self) {
-  // L93-103(FloatingText 显示面随 Phase 6;节拍状态照抄)
-  // L93-103 (the FloatingText display face rides Phase 6; the cadence
-  // state copied).
+
   if (info_.b_show_ticks && int4_current_display_value_ > 0 &&
       --int4_current_display_tick_ <= 0) {
     int4_current_display_tick_ = info_.int4_tick_rate;
@@ -127,11 +116,11 @@ void Refinery::Tick(Actor& self) {
   }
 }
 
-void Refinery::OnOwnerChanged(Actor& /*self*/, Player& /*old_owner*/,
+void Refinery::OnOwnerChanged(Actor& , Player& ,
                               Player& new_owner) {
-  // L105-108
+
   p_player_resources_ =
       new_owner.PlayerActor()->Trait<PlayerResources>();
 }
 
-}  // namespace ora::mods
+}

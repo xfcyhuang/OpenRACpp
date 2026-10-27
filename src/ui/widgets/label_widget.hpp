@@ -1,15 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/LabelWidget.cs @1f594e320 L20-133(全文)。
-// Text 为 Fluent 键(CachedTransform 空串/空值直通);字体经 Game.Renderer.
-// Fonts 注入面(缺名抛 ArgumentException 文本逐字);WordWrap/三态对齐/
-// IncreaseHeightToFitCurrentText 保真;DrawInner 虚面供 LabelWithTooltip 等
-// 子类(随其批)。ModData ctor 形参 → WidgetArgs 注入(ObjectCreator 等价)。
-// The whole of LabelWidget.cs L20-133. Text is a Fluent key (CachedTransform
-// passing empty through); the font goes through the Game.Renderer.Fonts
-// injected face (a miss throws the ArgumentException text verbatim);
-// WordWrap / the three-state alignment / IncreaseHeightToFitCurrentText kept;
-// the DrawInner virtual awaits the LabelWithTooltip subclasses. The ModData
-// ctor parameter becomes the WidgetArgs injection (the ObjectCreator
-// equivalent).
 #pragma once
 import std;
 
@@ -24,8 +12,6 @@ class SpriteFont;
 
 namespace ora::ui {
 
-/// TextAlign/TextVAlign(LabelWidget.cs L18-19)。
-/// TextAlign/TextVAlign (LabelWidget.cs L18-19).
 enum class TextAlign { Left, Center, Right };
 enum class TextVAlign { Top, Middle, Bottom };
 
@@ -42,7 +28,7 @@ class LabelWidget : public Widget {
   }
   std::string_view TypeName() const override { return kWidgetTypeName; }
 
-  std::optional<std::string> opt_text;  // Text(null 可) | Text (nullable)
+  std::optional<std::string> opt_text;
   TextAlign kind_align = TextAlign::Left;
   TextVAlign kind_valign = TextVAlign::Middle;
   std::string str_font;
@@ -61,11 +47,6 @@ class LabelWidget : public Widget {
   void IncreaseHeightToFitCurrentText();
   void Draw() override;
 
-  /// 标准委托族的自读重建(ctor 同式;clone 后源体亡于 GC 域外的重绑面 ——
-  /// SimpleTooltipLogic 的模板克隆消费)
-  /// The standard delegate family rebound to self (the ctor's shape; the
-  /// rebinding face for clones whose source dies outside the GC domain —
-  /// consumed by SimpleTooltipLogic's template clone).
   void BindStandardDelegates();
 
   bool LoadFieldOrProperty(std::string_view str_key, std::string_view str_value) override;
@@ -73,8 +54,7 @@ class LabelWidget : public Widget {
   const std::string* GetCursor(int2) const override { return nullptr; }
 
  protected:
-  /// DrawInner(L110-121)。
-  /// DrawInner (L110-121).
+
   virtual void DrawInner(const std::string& str_text, gfx::SpriteFont& font_text,
                          core::Color color_c, int2 int2_position);
 
@@ -82,4 +62,4 @@ class LabelWidget : public Widget {
   core::CachedTransform<std::string, std::string> cache_text_;
 };
 
-}  // namespace ora::ui
+}

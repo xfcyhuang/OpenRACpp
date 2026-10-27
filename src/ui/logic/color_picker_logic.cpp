@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ColorPickerLogic.cs @1f594e320
-// (color_picker_logic.hpp 的实现)
-// The implementation of color_picker_logic.hpp.
 import std;
 
 #include "ui/logic/color_picker_logic.hpp"
@@ -46,7 +43,7 @@ std::size_t FieldIndexOf(const meta::RecordDesc& desc, std::string_view str_name
                            "`");
 }
 
-}  // namespace
+}
 
 ColorPickerLogic::ColorPickerLogic(WidgetArgs& args_args) {
   Widget* ptr_widget = std::get<Widget*>(args_args.At("widget"));
@@ -300,4 +297,4 @@ void ColorPickerLogic::Tick() {
     int4_palette_tab_highlighted--;
 }
 
-}  // namespace ora::ui
+}

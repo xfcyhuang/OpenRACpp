@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/ProductionTypeButtonWidget.cs @1f594e320
-//          L12-28 全文
-//          The whole of ProductionTypeButtonWidget.cs L12-28.
 #pragma once
 import std;
 
@@ -44,4 +41,4 @@ class ProductionTypeButtonWidget final : public ora::ui::WorldButtonWidget {
 
 void RegisterProductionTypeButtonWidget();
 
-}  // namespace ora::mods
+}

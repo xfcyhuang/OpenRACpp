@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Render/WithDecorationBase.cs @1f594e320
-//          L18-146 + WithDecoration.cs L18-71
 #include "game/actor_info.hpp"
 #include "gfx/world_renderer.hpp"
 #include "mods/render_sprites.hpp"
@@ -29,7 +27,7 @@ int2 ParseInt2Value(const meta::GenericValue& gv_value) {
   return int2{};
 }
 
-}  // namespace
+}
 
 WithDecorationBaseInfoData WithDecorationBaseInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -77,8 +75,6 @@ std::vector<std::string> WithDecorationBaseInfoData::ConsumedConditionVariables(
         vec_out.push_back(variable);
   return vec_out;
 }
-
-// ———— WithDecoration ————
 
 WithDecorationInfoData WithDecorationInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -132,4 +128,4 @@ void WithDecoration::RenderDecorationAt(Actor& self, gfx::WorldRenderer& wr,
       sprite, self.CenterPosition(), vec_pos, 0, GetPalette(self, wr)));
 }
 
-}  // namespace ora::mods
+}

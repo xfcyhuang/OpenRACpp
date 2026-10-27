@@ -1,17 +1,3 @@
-// UPSTREAM: OpenRA.Game/MiniYaml.cs @1f594e320 L22-791(全文件逐语义重写)
-// 依赖的 BCL 语义在对应位置标注:
-//  - StreamExts.cs L200-248 ReadAllLinesAsMemory(流式行切分,含 BOM/行尾 \r)
-//  - MiniYaml.cs L405 String.Split(["\r\n","\n"])(字符串行切分,保留末尾空行)
-//  - Exts.cs L414-467 IntoDictionaryWithConflictLog(合并冲突消息格式)
-// C# IEnumerable 惰性产出在此物化为 vector(FromStreamAsEnumerable 并发流测试
-// 不移植,属实现细节;docs/COVERAGE.md 已登记)。
-// BCL semantics relied upon are annotated at the corresponding sites:
-//  - StreamExts.cs L200-248 ReadAllLinesAsMemory (streaming line splitting, incl. BOM/trailing \r)
-//  - MiniYaml.cs L405 String.Split(["\r\n","\n"]) (string line splitting, keeps the trailing empty line)
-//  - Exts.cs L414-467 IntoDictionaryWithConflictLog (merge conflict log message format)
-// C# IEnumerable lazy production is materialized into a vector here (the
-// FromStreamAsEnumerable concurrent-streaming test is not ported, being an
-// implementation detail; recorded in docs/COVERAGE.md).
 #include "yaml/mini_yaml.hpp"
 
 #include "core/text.hpp"
@@ -20,16 +6,8 @@ namespace ora::yaml {
 
 namespace {
 
-constexpr int kSpacesPerLevel = 4;  // MiniYaml.cs L110
+constexpr int kSpacesPerLevel = 4;
 
-// ———— 行切分 ————
-// ———— Line splitting ————
-
-// ReadAllLinesAsMemory 语义:按 '\n' 切行,行尾紧邻的单个 '\r' 剥离;
-// 末段无 '\n' 时仅当非空才作为末行(流以 '\n' 结尾不产生空行)。
-// ReadAllLinesAsMemory semantics: split on '\n' and strip a single '\r' that
-// immediately precedes the line break; a trailing segment without '\n' becomes
-// the last line only if non-empty (a stream ending in '\n' yields no empty line).
 std::vector<std::string_view> SplitLinesStream(std::string_view bytes) {
   std::vector<std::string_view> lines;
   std::size_t start = 0;
@@ -48,9 +26,6 @@ std::vector<std::string_view> SplitLinesStream(std::string_view bytes) {
   return lines;
 }
 
-// String.Split(["\r\n", "\n"], None) 语义:切法相同,末段(含空串)总是保留。
-// String.Split(["\r\n", "\n"], None) semantics: identical splitting, but the
-// final segment (empty string included) is always kept.
 std::vector<std::string_view> SplitLinesString(std::string_view text) {
   std::vector<std::string_view> lines;
   std::size_t start = 0;
@@ -68,8 +43,6 @@ std::vector<std::string_view> SplitLinesString(std::string_view text) {
   return lines;
 }
 
-// StreamReader 默认构造:识别并剥离 UTF-8 BOM
-// StreamReader default construction: detect and strip the UTF-8 BOM
 std::string_view StripUtf8Bom(std::string_view bytes) {
   if (bytes.size() >= 3 && static_cast<unsigned char>(bytes[0]) == 0xEF &&
       static_cast<unsigned char>(bytes[1]) == 0xBB && static_cast<unsigned char>(bytes[2]) == 0xBF)
@@ -93,12 +66,9 @@ std::string ReplaceAll(std::string_view text, std::string_view from, std::string
   return ret;
 }
 
-std::string EscapeHash(std::string_view text) {  // ToLines 的 Value.Replace("#", "\\#") | Value.Replace("#", "\\#") in ToLines
+std::string EscapeHash(std::string_view text) {
   return ReplaceAll(text, "#", "\\#");
 }
-
-// ———— 键比较(null 语义 = C# string ==:null 仅等于 null)————
-// ———— Key comparison (null semantics = C# string ==: null only equals null) ————
 
 bool KeyEquals(const std::string* a, const std::string* b) {
   if (a == nullptr || b == nullptr)
@@ -106,9 +76,6 @@ bool KeyEquals(const std::string* a, const std::string* b) {
   return *a == *b;
 }
 
-// 已登记偏离:合并键集合里 null 键以 "" 表示(上游解析器不会产生 "" 键)
-// Registered deviation: null keys in the merged key set are represented as ""
-// (the upstream parser never produces "" keys)
 std::string_view KeyViewOrNull(const std::string* key) {
   return key != nullptr ? std::string_view{*key} : std::string_view{};
 }
@@ -127,8 +94,6 @@ std::size_t LastIndexOfKey(const std::vector<MiniYamlNode>& nodes, const std::st
   return static_cast<std::size_t>(-1);
 }
 
-// List.RemoveAll(r => r.Key == removed):返回移除数
-// List.RemoveAll(r => r.Key == removed): returns the removal count
 std::size_t RemoveAllByKey(std::vector<MiniYamlNode>& nodes, std::string_view removed) {
   std::size_t removedCount = 0;
   for (std::size_t i = 0; i < nodes.size();) {
@@ -142,10 +107,7 @@ std::size_t RemoveAllByKey(std::vector<MiniYamlNode>& nodes, std::string_view re
   return removedCount;
 }
 
-// ———— Merge 家族(MiniYaml.cs L437-650)————
-// ———— Merge family (MiniYaml.cs L437-650) ————
-
-using Tree = std::vector<std::pair<const std::string*, MiniYaml>>;  // C# Dictionary(插入序) | C# Dictionary (insertion order)
+using Tree = std::vector<std::pair<const std::string*, MiniYaml>>;
 using TreeIndex = std::unordered_map<std::string_view, std::size_t>;
 using InheritedMap = std::unordered_map<std::string_view, SourceLocation>;
 
@@ -155,15 +117,6 @@ MiniYaml MergePartialValue(const MiniYaml* existingNodes, const MiniYaml* overri
 std::vector<MiniYamlNode> MergePartialList(const std::vector<MiniYamlNode>& existingNodes,
                                            const std::vector<MiniYamlNode>& overrideNodes);
 
-// IntoDictionaryWithConflictLog(Exts.cs L414-467,调用点 MiniYaml.cs L576-579):
-// 同层重复键 → YamlException,消息逐字一致:
-// "MiniYaml.Merge, duplicate values found for the following keys: K: [v1,v2]"
-// (逐键组拼接,组间无分隔;null 键跳过;组序 = 首次冲突发现序)
-// IntoDictionaryWithConflictLog (Exts.cs L414-467, call site MiniYaml.cs L576-579):
-// duplicate keys at the same level → YamlException, message verbatim:
-// "MiniYaml.Merge, duplicate values found for the following keys: K: [v1,v2]"
-// (concatenated per key group with no separator between groups; null keys
-// skipped; group order = order of first conflict discovery)
 void ConflictLogDupKeys(const std::vector<MiniYamlNode>& nodes, std::string_view debugName) {
   std::unordered_map<std::string_view, std::string> firstLog;
   std::unordered_map<std::string_view, std::vector<std::string>> dups;
@@ -175,11 +128,11 @@ void ConflictLogDupKeys(const std::vector<MiniYamlNode>& nodes, std::string_view
     const std::string logValue = std::format("{} (at {})", *n.Key, n.Location.ToString());
     const auto [it, inserted] = firstLog.emplace(keyView, logValue);
     if (inserted)
-      continue;  // 首次出现:不记 | first occurrence: not recorded
+      continue;
     auto& values = dups.try_emplace(keyView).first->second;
     if (values.empty()) {
       dupOrder.push_back(keyView);
-      values.push_back(it->second);  // 先记录首个(已插入字典)的值 | record the first (already-inserted) value first
+      values.push_back(it->second);
     }
     values.push_back(logValue);
   }
@@ -201,11 +154,6 @@ void ConflictLogDupKeys(const std::vector<MiniYamlNode>& nodes, std::string_view
   throw YamlException{std::move(msg)};
 }
 
-// WeakResolveRemovals(MiniYaml.cs L533-564):弱删除——无可删键时不抛;
-// null 键节点:首个移除节点之前的原样保留(前缀),之后被丢弃(照抄上游行为)
-// WeakResolveRemovals (MiniYaml.cs L533-564): weak removal — no throw when
-// there is nothing to remove; null-key nodes: kept verbatim before the first
-// removal node (prefix), discarded afterwards (upstream behavior copied verbatim)
 std::vector<MiniYamlNode> WeakResolveRemovals(const std::vector<MiniYamlNode>& nodes) {
   if (nodes.empty())
     return {};
@@ -231,7 +179,6 @@ std::vector<MiniYamlNode> WeakResolveRemovals(const std::vector<MiniYamlNode>& n
   return ret.has_value() ? std::move(*ret) : nodes;
 }
 
-// MergePartial(IReadOnlyCollection, IReadOnlyCollection)(MiniYaml.cs L597-650)
 std::vector<MiniYamlNode> MergePartialList(const std::vector<MiniYamlNode>& existingNodes,
                                            const std::vector<MiniYamlNode>& overrideNodes) {
   if (existingNodes.empty())
@@ -247,36 +194,26 @@ std::vector<MiniYamlNode> MergePartialList(const std::vector<MiniYamlNode>& exis
     if (node.Key == nullptr)
       return;
 
-    // 移除节点('-Key')无条件追加到结果
-    // Removal nodes ('-Key') are appended to the result unconditionally
     if (node.Key->starts_with('-')) {
       ret.push_back(node);
       return;
     }
 
-    // 无先前同键节点:新键,追加
-    // No previous node with the same key: a new key, append
     if (plainKeys.insert(std::string_view{*node.Key}).second) {
       ret.push_back(node);
       return;
     }
 
-    // 前面有比上次同键节点更近的移除节点:不合并,追加
-    //(保证应用序:旧节点 → 移除 → 新节点)
-    // A removal node nearer than the previous same-key node: do not merge, append
-    // (preserves application order: old node → removal → new node)
     const std::size_t previousNodeIndex = LastIndexOfKey(ret, node.Key);
     const std::string removalKey = std::string{"-"} + *node.Key;
     const std::size_t previousRemovalNodeIndex =
-        LastIndexOfKey(ret, &removalKey);  // 临时串仅作比较键(值相等) | temporary string used only as the comparison key (value equality)
+        LastIndexOfKey(ret, &removalKey);
     if (previousRemovalNodeIndex != static_cast<std::size_t>(-1) &&
         previousRemovalNodeIndex > previousNodeIndex) {
       ret.push_back(node);
       return;
     }
 
-    // 前有同键节点且中间无移除:原地合并
-    // A previous same-key node exists with no removal in between: merge in place
     MiniYaml merged = MergePartialValue(&ret[previousNodeIndex].Value, &node.Value);
     ret[previousNodeIndex] = node.WithValue(std::move(merged));
   };
@@ -289,10 +226,8 @@ std::vector<MiniYamlNode> MergePartialList(const std::vector<MiniYamlNode>& exis
   return ret;
 }
 
-// MergePartial(MiniYaml, MiniYaml)(MiniYaml.cs L566-595)
 MiniYaml MergePartialValue(const MiniYaml* existingNodes, const MiniYaml* overrideNodes) {
-  // 先弱删除,再做同层重复键冲突检查(顺序照抄)
-  // Weak removal first, then the same-level duplicate-key conflict check (order copied verbatim)
+
   if (existingNodes != nullptr)
     ConflictLogDupKeys(WeakResolveRemovals(existingNodes->Nodes), "MiniYaml.Merge");
   if (overrideNodes != nullptr)
@@ -307,8 +242,6 @@ MiniYaml MergePartialValue(const MiniYaml* existingNodes, const MiniYaml* overri
                   MergePartialList(existingNodes->Nodes, overrideNodes->Nodes)};
 }
 
-// MergeSelfPartial(MiniYaml.cs L507-531):同源内重复顶层键合并
-// MergeSelfPartial (MiniYaml.cs L507-531): merges duplicate top-level keys within a single source
 std::vector<MiniYamlNode> MergeSelfPartial(const std::vector<MiniYamlNode>& existingNodes) {
   if (existingNodes.empty())
     return {};
@@ -323,8 +256,7 @@ std::vector<MiniYamlNode> MergeSelfPartial(const std::vector<MiniYamlNode>& exis
     if (keys.insert(std::string_view{*n.Key}).second) {
       ret.push_back(n);
     } else {
-      // 同键节点已存在:新节点合并到旧节点上
-      // A node with the same key already exists: the new node is merged into the old one
+
       const std::size_t originalIndex = IndexOfKey(ret, n.Key);
       MiniYaml merged = MergePartialValue(&ret[originalIndex].Value, &n.Value);
       ret[originalIndex] = ret[originalIndex].WithValue(std::move(merged));
@@ -334,7 +266,6 @@ std::vector<MiniYamlNode> MergeSelfPartial(const std::vector<MiniYamlNode>& exis
   return ret;
 }
 
-// MergeIntoResolved(MiniYaml.cs L437-457)
 void MergeIntoResolved(const MiniYamlNode& overrideNode, std::vector<MiniYamlNode>& existingNodes,
                        std::unordered_set<std::string_view>& existingNodeKeys, const Tree& tree,
                        const TreeIndex& treeIndex, InheritedMap& inherited) {
@@ -355,11 +286,6 @@ void MergeIntoResolved(const MiniYamlNode& overrideNode, std::vector<MiniYamlNod
     existingNodes.push_back(overrideNode.WithValue(std::move(value)));
 }
 
-// ResolveInherits(MiniYaml.cs L459-501)。inherited 按值传入 =
-// C# ImmutableDictionary 的"传引用 + 不可变重绑"语义(嵌套调用的增改不回漏)
-// ResolveInherits (MiniYaml.cs L459-501). Passing inherited by value =
-// the C# ImmutableDictionary "pass by reference + immutable rebinding" semantics
-// (insertions/updates in nested calls do not leak back out)
 std::vector<MiniYamlNode> ResolveInherits(const MiniYaml& node, const Tree& tree,
                                           const TreeIndex& treeIndex, InheritedMap inherited) {
   if (node.Nodes.empty())
@@ -392,11 +318,7 @@ std::vector<MiniYamlNode> ResolveInherits(const MiniYaml& node, const Tree& tree
       for (const MiniYamlNode& r : ResolveInherits(parent, tree, treeIndex, inherited))
         MergeIntoResolved(r, resolved, resolvedKeys, tree, treeIndex, inherited);
     } else if (n.Key != nullptr && n.Key->starts_with('-')) {
-      // 已登记偏离:C# 对 null 键在首个条件即 NullReferenceException(上游潜在
-      // bug),此处 null 键落入 else 分支,合法输入下行为一致
-      // Registered deviation: C# hits NullReferenceException on the first
-      // condition for null keys (a latent upstream bug); here null keys fall
-      // into the else branch — identical behavior for valid input
+
       const std::string_view removed = std::string_view{*n.Key}.substr(1);
       if (RemoveAllByKey(resolved, removed) == 0)
         throw YamlException{std::format("{}: There are no elements with key `{}` to remove",
@@ -410,13 +332,8 @@ std::vector<MiniYamlNode> ResolveInherits(const MiniYaml& node, const Tree& tree
   return resolved;
 }
 
-}  // namespace
+}
 
-// ———— StringPool / 查询 ————
-// ———— StringPool / queries ————
-
-// MiniYaml 构造与值操作(MiniYamlNode 已完整)/
-// MiniYaml construction and value ops (MiniYamlNode is complete down here).
 MiniYaml::MiniYaml() = default;
 MiniYaml::MiniYaml(const std::string* str_v) : Value{str_v} {}
 MiniYaml::MiniYaml(const std::string* str_v, std::vector<MiniYamlNode> nodes)
@@ -449,8 +366,7 @@ const MiniYamlNode& MiniYaml::NodeWithKey(std::string_view key) const {
 }
 
 const MiniYamlNode* MiniYaml::NodeWithKeyOrDefault(std::string_view key) const {
-  // PERF: 避免 LINQ(MiniYaml.cs L151)
-  // PERF: avoid LINQ (MiniYaml.cs L151)
+
   bool first = true;
   const MiniYamlNode* result = nullptr;
   for (const MiniYamlNode& node : Nodes) {
@@ -482,9 +398,6 @@ std::vector<std::pair<std::string_view, const MiniYaml*>> MiniYaml::ToDictionary
   return ret;
 }
 
-// ———— 解析 ————
-// ———— Parsing ————
-
 std::vector<MiniYamlNode> MiniYaml::FromLines(std::span<const std::string_view> lines,
                                               std::string_view name,
                                               bool discardCommentsAndWhitespace,
@@ -502,7 +415,6 @@ std::vector<MiniYamlNode> MiniYaml::FromLines(std::span<const std::string_view> 
   std::vector<std::vector<MiniYamlNode>> result(1);
   std::vector<ParsedLine> parsedLines;
 
-  // BuildCompletedSubNode(MiniYaml.cs L360-390)
   auto buildCompletedSubNode = [&](int level) {
     const int lastLevel = parsedLines.back().Level;
     while (static_cast<int>(result.size()) <= lastLevel)
@@ -514,9 +426,6 @@ std::vector<MiniYamlNode> MiniYaml::FromLines(std::span<const std::string_view> 
       while (startOfRange > 0 && parsedLines[startOfRange - 1].Level == parent.Level)
         startOfRange--;
 
-      // 同组的非末位兄弟(其子树已在先前的构造中消化,照抄上游不带子节点)
-      // Non-last siblings in the group (their subtrees were already consumed by
-      // earlier construction; like upstream, no child nodes are attached)
       for (std::size_t i = startOfRange; i + 1 < parsedLines.size(); i++) {
         const ParsedLine& sibling = parsedLines[i];
         result[static_cast<std::size_t>(parent.Level)].emplace_back(
@@ -554,11 +463,10 @@ std::vector<MiniYamlNode> MiniYaml::FromLines(std::span<const std::string_view> 
     std::string_view value;
     std::string_view comment;
     bool hasComment = false;
-    std::string valueScratch;  // "\\#"→"#" 替换结果(存活至入池) | "\\#"→"#" replacement result (kept alive until interning)
+    std::string valueScratch;
 
     if (!line.empty()) {
-      // 前导空白扫描:每 4 空格(跨 tab 累计)或每 tab = 1 级
-      // Leading-whitespace scan: every 4 spaces (count accumulates across tabs) or each tab = 1 level
+
       char currChar = line[keyStart];
       while (!(currChar == '\n' || currChar == '\r') && keyStart < line.size() && !textStart) {
         currChar = line[keyStart];
@@ -731,15 +639,9 @@ std::vector<MiniYamlNode> MiniYaml::Merge(std::vector<std::vector<MiniYamlNode>>
     resolvedTop.emplace_back(keyPtr, MiniYaml{value.Value, std::move(children)}, nullptr);
   }
 
-  // 解析顶层弱删除(如整块移除 actor),经由 '-' 分支走一遍
-  // Resolve top-level weak removals (e.g. removing a whole actor block) by
-  // running them through the '-' branch once
-  const MiniYaml nodes{nullptr, std::move(resolvedTop)};  // C# 值为 "",仅作容器 | C# value is "", acting only as a container
+  const MiniYaml nodes{nullptr, std::move(resolvedTop)};
   return ResolveInherits(nodes, tree, treeIndex, {});
 }
-
-// ———— 序列化(MiniYaml.cs L670-682 / MiniYamlExts L22-59)————
-// ———— Serialization (MiniYaml.cs L670-682 / MiniYamlExts L22-59) ————
 
 void MiniYaml::ToLines(std::vector<std::string>& lines, const std::string* key,
                        const std::string* comment) const {
@@ -776,8 +678,7 @@ void ToLines(std::span<const MiniYamlNode> y, std::vector<std::string>& lines) {
 }
 
 std::string WriteToString(std::span<const MiniYamlNode> y) {
-  // 去掉全部尾部换行后补一个 EOF 换行(MiniYaml.cs L31)
-  // Strip all trailing newlines, then append a single EOF newline (MiniYaml.cs L31)
+
   std::vector<std::string> lines;
   ToLines(y, lines);
   std::string ret;
@@ -799,17 +700,14 @@ void WriteToFile(std::span<const MiniYamlNode> y, const std::string& filename) {
   if (!f)
     throw YamlException{std::format("Could not write file '{}'.", filename)};
   for (const std::string& line : lines) {
-    f << TrimEndNetWhiteSpace(line);  // 每行 TrimEnd() | TrimEnd() per line
+    f << TrimEndNetWhiteSpace(line);
 #ifdef _WIN32
-    f << "\r\n";  // File.WriteAllLines 用 Environment.NewLine | File.WriteAllLines uses Environment.NewLine
+    f << "\r\n";
 #else
     f << '\n';
 #endif
   }
 }
-
-// ———— 构建器(MiniYaml.cs L701-784)————
-// ———— Builders (MiniYaml.cs L701-784) ————
 
 MiniYamlBuilder::MiniYamlBuilder() = default;
 MiniYamlBuilder::MiniYamlBuilder(const std::string* str_v) : Value{str_v} {}
@@ -862,9 +760,7 @@ void MiniYamlBuilder::ToLines(std::vector<std::string>& lines, const std::string
 }
 
 const MiniYamlNodeBuilder* MiniYamlBuilder::NodeWithKeyOrDefault(std::string_view key) const {
-  // C# SingleOrDefault:多于一个匹配时抛 InvalidOperationException(同文本)
-  // C# SingleOrDefault: throws InvalidOperationException when more than one
-  // element matches (same text)
+
   const MiniYamlNodeBuilder* found = nullptr;
   for (const MiniYamlNodeBuilder& n : Nodes) {
     if (n.Key == nullptr || std::string_view{*n.Key} != key)
@@ -879,4 +775,4 @@ const MiniYamlNodeBuilder* MiniYamlBuilder::NodeWithKeyOrDefault(std::string_vie
 MiniYamlNodeBuilder::MiniYamlNodeBuilder(const MiniYamlNode& node)
     : Location{node.Location}, Key{node.Key}, Value{node.Value}, Comment{node.Comment} {}
 
-}  // namespace ora::yaml
+}

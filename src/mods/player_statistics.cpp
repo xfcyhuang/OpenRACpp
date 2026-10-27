@@ -1,6 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlayerStatistics.cs @1f594e320
-//          L22-311 的实现面
-//          The implementation face of L22-311.
 #include "mods/player_statistics.hpp"
 
 #include "core/int2.hpp"
@@ -35,7 +32,7 @@ std::vector<ProductionQueueInfoData> FindProductionQueueInfos(
   return vec_out;
 }
 
-}  // namespace
+}
 
 ArmyUnit::ArmyUnit(const game::ActorInfo& actor_info, sim::Player& owner)
     : ptr_actor_info_{&actor_info} {
@@ -293,4 +290,4 @@ void UpdatesPlayerStatistics::Disposing(Actor&) {
   }
 }
 
-}  // namespace ora::mods
+}

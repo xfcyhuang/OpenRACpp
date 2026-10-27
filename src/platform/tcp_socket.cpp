@@ -1,6 +1,3 @@
-// UPSTREAM: NONE —— 与 tcp_socket.hpp 同一条目(WinSock2 直连基础设施)
-// UPSTREAM: NONE — the same entry as tcp_socket.hpp (the WinSock2 direct
-// infrastructure).
 #include "platform/tcp_socket.hpp"
 
 namespace ora::platform {
@@ -42,7 +39,7 @@ std::string FormatAddress(const sockaddr_storage& addr, socklen_t len) {
   return {};
 }
 
-}  // namespace
+}
 
 bool InitWinSockOnce() {
   std::call_once(flag_winsock, InitWinSockBody);
@@ -335,4 +332,4 @@ SocketAddress TcpSocket::LocalEndpoint() {
   return ep;
 }
 
-}  // namespace ora::platform
+}

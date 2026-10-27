@@ -164,4 +164,4 @@ void TextNotificationsDisplayWidget::Tick() {
     RemoveNotification();
 }
 
-}  // namespace ora::ui
+}

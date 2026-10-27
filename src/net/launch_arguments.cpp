@@ -1,9 +1,8 @@
-// UPSTREAM: OpenRA.Game/Support/LaunchArguments.cs @1f594e320 L34-66
 import std;
 
 #include "net/launch_arguments.hpp"
 
-#include <boost/url.hpp>  // URI 解析(GetConnectEndPoint;白名单头,同 http_sync 的 boost::url 消费点)
+#include <boost/url.hpp>
 
 namespace ora::net {
 
@@ -55,4 +54,4 @@ std::optional<ConnectionTarget> LaunchArguments::GetConnectEndPoint() const {
   return ConnectionTarget(std::move(str_host), int4_port);
 }
 
-}  // namespace ora::net
+}

@@ -90,7 +90,6 @@ import std;
 
 namespace ora::mods {
 
-// ———— CreateMapPlayers.CreatePlayers(L87-140)————
 void CreateMapPlayers::CreatePlayers(World& w, MersenneTwister& player_random) {
   const map::MapPlayers map_players{w.Map().PlayerDefinitions(),
                                     core::Color::FromArgbRaw(0xFF4B4B4B)};
@@ -99,8 +98,6 @@ void CreateMapPlayers::CreatePlayers(World& w, MersenneTwister& player_random) {
   std::vector<Player*> world_players;
   bool world_owner_found = false;
 
-  // Create the unplayable map players -- neutral, shellmap, scripted, etc.
-  // (上游注释)| (upstream comment)
   for (const auto& [name, pr] : players) {
     if (pr.Playable)
       continue;
@@ -121,15 +118,11 @@ void CreateMapPlayers::CreatePlayers(World& w, MersenneTwister& player_random) {
 
   Player* local_player = nullptr;
 
-  // Create the regular playable players.(上游注释)| (upstream comment)
   for (const auto& [slot_key, slot] : w.LobbyInfo().vec_slots) {
     const net::SessionClient* client = w.LobbyInfo().ClientInSlot(slot_key);
     if (client == nullptr)
       continue;
 
-    // players[kv.Value.PlayerReference]:缺失键 = KeyNotFoundException 等价
-    // players[kv.Value.PlayerReference]: a missing key is the
-    // KeyNotFoundException equivalent.
     const map::PlayerReference* pr = map_players.Find(slot.PlayerReference);
     if (pr == nullptr)
       throw std::runtime_error(
@@ -142,8 +135,6 @@ void CreateMapPlayers::CreatePlayers(World& w, MersenneTwister& player_random) {
       local_player = player;
   }
 
-  // Create a player that is allied with everyone for shared observer
-  // shroud.(上游注释)| (upstream comment)
   {
     map::PlayerReference everyone;
     everyone.Name = "Everyone";
@@ -164,7 +155,6 @@ void CreateMapPlayers::CreatePlayers(World& w, MersenneTwister& player_random) {
       SetupPlayerMasks(p, q);
 }
 
-// ———— SetupPlayerMasks(L142-174)————
 void CreateMapPlayers::SetupPlayerMasks(Player* p, Player* q) {
   World& w = p->GetWorld();
   if (!p->Spectating())
@@ -185,12 +175,8 @@ void CreateMapPlayers::SetupPlayerMasks(Player* p, Player* q) {
     return;
   }
 
-  // HACK: Map players share a ClientID with the host, so would otherwise
-  // take the host's team stance instead of being neutral(上游注释)
   if (p->PlayerReference().Playable && q->PlayerReference().Playable) {
-    // Stances set via lobby teams(上游注释)| (upstream comment)
-    // GetClientForPlayer(L176-179):缺客户端 = null 面
-    // GetClientForPlayer (L176-179): a missing client is the null face.
+
     const net::SessionClient* pc =
         w.LobbyInfo().ClientWithIndex(p->ClientIndex());
     const net::SessionClient* qc =
@@ -204,12 +190,6 @@ void CreateMapPlayers::SetupPlayerMasks(Player* p, Player* q) {
   }
 }
 
-/// core::BitSetAllocator 桥装配:gen 运行时标签的 meta 表注入 core 侧
-/// 分配器(上游单一 BitSetAllocator<T> 静态的等价 —— 解析/查询同表;
-/// 第九批修出双表分裂真问题)
-/// The bridge assembly: gen runtime tags' meta tables inject into the
-/// core-side allocators (upstream's single static's equivalent — parse
-/// and query share one table; the batch-9 real-bug fix).
 void InstallBitSetAllocatorBridges() {
   auto install = []<class TagT>(const char* ptr_tag) {
     core::BitSetAllocator<TagT>::InstallBridge(
@@ -243,7 +223,6 @@ void InstallBitSetAllocatorBridges() {
       "OpenRA.Mods.Common.Traits.DetectionType");
 }
 
-// ———— mods trait 注册表装配(与 sim::RegisterWorldTraits 同形)————
 void RegisterCommonTraits() {
   InstallBitSetAllocatorBridges();
   RegisterActorPreviewFaces();
@@ -261,9 +240,6 @@ void RegisterCommonTraits() {
   static const bool b_registered = [] {
     sim::TraitRegistry& registry = sim::TraitRegistry::Instance();
 
-    // FactionInfo.Create(init) → new Faction()(Faction.cs 的空运行时类)
-    // FactionInfo.Create(init) → new Faction() (Faction.cs's empty runtime
-    // class).
     registry.Register(
         "FactionInfo",
         [](const meta::RecordObject&, ActorInitializer&,
@@ -271,20 +247,11 @@ void RegisterCommonTraits() {
           return arena.Create<Faction>();
         });
 
-    // HealthInfo.Create(init) → new Health(init, this);RulesetLoaded 的
-    // 无 HitShape 抛随工厂面(COVERAGE 时点偏离)
-    // HealthInfo.Create(init) → new Health(init, this); the RulesetLoaded
-    // no-HitShape throw rides the factory face (the COVERAGE timing
-    // deviation).
     registry.Register(
         "HealthInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
            ora::WorldArena& arena) -> TraitBase* {
-          // 上游查具体 Info 类(HasTraitInfo<HitShapeInfo>() —— 其接口集
-          // 不含 IHitShapeInfo),按记录全名匹配
-          // Upstream queries the concrete Info class
-          // (HasTraitInfo<HitShapeInfo>() — its interface set carries no
-          // IHitShapeInfo), matched here by record full name.
+
           bool has_hit_shape = false;
           for (const auto& rec_trait :
                init.Self().Info()->TraitsInConstructOrder())
@@ -301,7 +268,6 @@ void RegisterCommonTraits() {
           return arena.Create<Health>(init, data);
         });
 
-    // ActorMapInfo.Create(init) → new ActorMap(init.World, this)
     registry.Register(
         "ActorMapInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -312,22 +278,18 @@ void RegisterCommonTraits() {
                                              static_cast<int>(bin_size));
         });
 
-    // ControlGroupsInfo.Create(init) → new ControlGroups(init.World, this)
     registry.Register(
         "ControlGroupsInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
            ora::WorldArena& arena) -> TraitBase* {
           std::vector<std::string> groups{"1", "2", "3", "4", "5",
                                           "6", "7", "8", "9", "0"};
-          // 上游 ImmutableArray 默认;无自定义加载面(字段不可经 yaml 覆盖)
-          // Upstream's ImmutableArray default; no custom load face (the
-          // field is not yaml-overridable).
+
           (void)rec_info;
           return arena.Create<sim::ControlGroups>(init.Self().world(),
                                                   std::move(groups));
         });
 
-    // CreateMapPlayersInfo.Create(init) → new CreateMapPlayers()
     registry.Register(
         "CreateMapPlayersInfo",
         [](const meta::RecordObject&, ActorInitializer&,
@@ -335,11 +297,6 @@ void RegisterCommonTraits() {
           return arena.Create<CreateMapPlayers>();
         });
 
-    // LocomotorInfo.Create(init) → new Locomotor(init.Self, this);字段面
-    // 经值袋(LoadSpeeds 已由 loaders.cpp 的生成加载器物化)
-    // LocomotorInfo.Create(init) → new Locomotor(init.Self, this); the
-    // field face via the bag (LoadSpeeds is materialized by loaders.cpp's
-    // generated loader).
     registry.Register(
         "LocomotorInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -349,7 +306,6 @@ void RegisterCommonTraits() {
                                                      std::move(info));
         });
 
-    // PathFinderInfo.Create(init) → new PathFinder(init.Self, this)
     registry.Register(
         "PathFinderInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -360,23 +316,12 @@ void RegisterCommonTraits() {
               init.Self(), static_cast<int>(weight));
         });
 
-    // DefaultOrderGenerator 名字分派(Manifest.DefaultOrderGenerator 键;
-    // World ctor 消费)
-    // The DefaultOrderGenerator name dispatch (the
-    // Manifest.DefaultOrderGenerator key; consumed by the World ctor).
     sim::RegisterOrderGenerator(
         "UnitOrderGenerator",
         [](World& world) -> std::unique_ptr<sim::IOrderGenerator> {
           return std::make_unique<UnitOrderGenerator>(world);
         });
 
-    // ———— 第三批:Mobile/BodyOrientation/Armament ————
-
-    // MobileInfo.Create(init) → new Mobile(init, this);LocomotorInfo 解析
-    // = RulesetLoaded 的工厂时点面(D 系登记)
-    // MobileInfo.Create(init) → new Mobile(init, this); the LocomotorInfo
-    // resolution = the factory-time face of RulesetLoaded (the D-series
-    // registration).
     registry.Register(
         "MobileInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -388,7 +333,6 @@ void RegisterCommonTraits() {
           return arena.Create<Mobile>(init, std::move(data));
         });
 
-    // BodyOrientationInfo.Create(init) → new BodyOrientation(init, this)
     registry.Register(
         "BodyOrientationInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -398,11 +342,6 @@ void RegisterCommonTraits() {
           return arena.Create<BodyOrientation>(init, data);
         });
 
-    // ArmamentInfo.Create(init) → new Armament(init.Self, this);武器解析
-    // 与校验 = RulesetLoaded 的工厂时点面(异常文本逐字)
-    // ArmamentInfo.Create(init) → new Armament(init.Self, this); the
-    // weapon resolution + validation = the factory-time face of
-    // RulesetLoaded (exception texts verbatim).
     registry.Register(
         "ArmamentInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -412,10 +351,6 @@ void RegisterCommonTraits() {
           return arena.Create<Armament>(init, std::move(data));
         });
 
-    // ———— 第四批:Shroud/FrozenActorLayer/HitShape/Armor/RevealsShroud/
-    //      AttackFrontal/AutoTarget(±Priority)/BlocksProjectiles ————
-
-    // ShroudInfo.Create(init) → new Shroud(init.Self, this)
     registry.Register(
         "ShroudInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -431,8 +366,6 @@ void RegisterCommonTraits() {
           return arena.Create<sim::Shroud>(init.Self(), data);
         });
 
-    // FrozenActorLayerInfo.Create(init) → new FrozenActorLayer(init.Self,
-    // this)(Requires<ShroudInfo> 的构造序由 ActorInfo 拓扑序保证)
     registry.Register(
         "FrozenActorLayerInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -444,8 +377,6 @@ void RegisterCommonTraits() {
           return arena.Create<sim::FrozenActorLayer>(init.Self(), data);
         });
 
-    // HitShapeInfo.Create(init) → new HitShape(init, this)(Type 的
-    // LoadShape 嵌套记录在此物化;Initialize 随 ParseHitShape 调用)
     registry.Register(
         "HitShapeInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -454,7 +385,6 @@ void RegisterCommonTraits() {
               init, HitShapeInfoData::Parse(rec_info));
         });
 
-    // ArmorInfo.Create(init) → new Armor(this)
     registry.Register(
         "ArmorInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
@@ -462,7 +392,6 @@ void RegisterCommonTraits() {
           return arena.Create<Armor>(ArmorInfoData::Parse(rec_info));
         });
 
-    // RevealsShroudInfo.Create(init) → new RevealsShroud(this)
     registry.Register(
         "RevealsShroudInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
@@ -471,8 +400,6 @@ void RegisterCommonTraits() {
               RevealsShroudInfoData::Parse(rec_info));
         });
 
-    // AttackFrontalInfo.Create(init) → new AttackFrontal(init.Self, this)
-    // (Requires<IFacingInfo> 的构造序由 ActorInfo 拓扑序保证)
     registry.Register(
         "AttackFrontalInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -481,7 +408,6 @@ void RegisterCommonTraits() {
               init, AttackBaseInfoData::Parse(rec_info));
         });
 
-    // AutoTargetInfo.Create(init) → new AutoTarget(init, this)
     registry.Register(
         "AutoTargetInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -490,7 +416,6 @@ void RegisterCommonTraits() {
               init, AutoTargetInfoData::Parse(rec_info));
         });
 
-    // AutoTargetPriorityInfo.Create(init) → new AutoTargetPriority(this)
     registry.Register(
         "AutoTargetPriorityInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
@@ -499,7 +424,6 @@ void RegisterCommonTraits() {
               AutoTargetPriorityInfoData::Parse(rec_info));
         });
 
-    // TargetableInfo.Create(init) → new Targetable(this)
     registry.Register(
         "TargetableInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
@@ -508,7 +432,6 @@ void RegisterCommonTraits() {
               TargetableInfoData::Parse(rec_info));
         });
 
-    // BlocksProjectilesInfo.Create(init) → new BlocksProjectiles(this)
     registry.Register(
         "BlocksProjectilesInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
@@ -516,8 +439,6 @@ void RegisterCommonTraits() {
           return arena.Create<BlocksProjectiles>(
               BlocksProjectilesInfoData::Parse(rec_info));
         });
-
-    // ———— 第四批:弹丸/战头注册表(ProjectileRegistry/WarheadRegistry)————
 
     sim::ProjectileRegistry::Instance().Register(
         "BulletInfo",
@@ -536,8 +457,6 @@ void RegisterCommonTraits() {
         [](const meta::RecordObject& rec_info) -> IWarhead* {
           return SpreadDamageWarhead::Parse(rec_info).release();
         });
-
-    // ———— 第五批:弹丸/战头三件(注册表)————
 
     sim::ProjectileRegistry::Instance().Register(
         "MissileInfo",
@@ -575,9 +494,6 @@ void RegisterCommonTraits() {
           return LeaveSmudgeWarhead::Parse(rec_info).release();
         });
 
-    // ———— 第五批:迷雾修饰两件 + 建筑/生产链(注册表)————
-
-    // FrozenUnderFogInfo.Create(init) → new FrozenUnderFog(init, this)
     registry.Register(
         "FrozenUnderFogInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -586,7 +502,6 @@ void RegisterCommonTraits() {
               init, FrozenUnderFogInfoData::Parse(rec_info));
         });
 
-    // HiddenUnderShroudInfo.Create(init) → new HiddenUnderShroud(this)
     registry.Register(
         "HiddenUnderShroudInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
@@ -595,7 +510,6 @@ void RegisterCommonTraits() {
               HiddenUnderShroudInfoData::Parse(rec_info));
         });
 
-    // SmudgeLayerInfo.Create(init) → new SmudgeLayer(init.Self, this)
     registry.Register(
         "SmudgeLayerInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -604,7 +518,6 @@ void RegisterCommonTraits() {
               init.Self(), SmudgeLayerInfoData::Parse(rec_info));
         });
 
-    // BuildingInfo.Create(init) → new Building(init, this)
     registry.Register(
         "BuildingInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -613,7 +526,6 @@ void RegisterCommonTraits() {
               init, BuildingInfoData::Parse(rec_info));
         });
 
-    // BuildableInfo → TraitInfo<Buildable>(空运行时类)
     registry.Register(
         "BuildableInfo",
         [](const meta::RecordObject&, ActorInitializer&,
@@ -621,7 +533,6 @@ void RegisterCommonTraits() {
           return arena.Create<Buildable>();
         });
 
-    // ValuedInfo → TraitInfo<Valued>(空运行时类)
     registry.Register(
         "ValuedInfo",
         [](const meta::RecordObject&, ActorInitializer&,
@@ -629,7 +540,6 @@ void RegisterCommonTraits() {
           return arena.Create<Valued>();
         });
 
-    // ExitInfo.Create(init) → new Exit(this)
     registry.Register(
         "ExitInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer&,
@@ -637,7 +547,6 @@ void RegisterCommonTraits() {
           return arena.Create<Exit>(ExitInfoData::Parse(rec_info));
         });
 
-    // ReservableInfo → TraitInfo<Reservable>
     registry.Register(
         "ReservableInfo",
         [](const meta::RecordObject&, ActorInitializer&,
@@ -645,7 +554,6 @@ void RegisterCommonTraits() {
           return arena.Create<Reservable>();
         });
 
-    // RallyPointInfo.Create(init) → new RallyPoint(init.Self, this)
     registry.Register(
         "RallyPointInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -654,8 +562,6 @@ void RegisterCommonTraits() {
               init.Self(), RallyPointInfoData::Parse(rec_info));
         });
 
-    // ProvidesPrerequisiteInfo.Create(init) → new ProvidesPrerequisite(
-    // init, this)
     registry.Register(
         "ProvidesPrerequisiteInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -664,7 +570,6 @@ void RegisterCommonTraits() {
               init, ProvidesPrerequisiteInfoData::Parse(rec_info));
         });
 
-    // TechTreeInfo.Create(init) → new TechTree(init)
     registry.Register(
         "TechTreeInfo",
         [](const meta::RecordObject&, ActorInitializer& init,
@@ -672,8 +577,6 @@ void RegisterCommonTraits() {
           return arena.Create<TechTree>(init);
         });
 
-    // DeveloperModeInfo.Create(init) → new DeveloperMode(this)(cheat
-    // 字段随 lobby/命令批接线)
     registry.Register(
         "DeveloperModeInfo",
         [](const meta::RecordObject&, ActorInitializer&,
@@ -681,7 +584,6 @@ void RegisterCommonTraits() {
           return arena.Create<DeveloperMode>();
         });
 
-    // ProductionInfo.Create(init) → new Production(init, this)
     registry.Register(
         "ProductionInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -690,9 +592,6 @@ void RegisterCommonTraits() {
               init, ProductionInfoData::Parse(rec_info));
         });
 
-    // ProductionQueueInfo.Create(init) → new ProductionQueue(init,
-    // this);RulesetLoaded 的 LowPowerModifier 校验随工厂时点(异常
-    // 文本逐字)
     registry.Register(
         "ProductionQueueInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -706,8 +605,6 @@ void RegisterCommonTraits() {
           return arena.Create<ProductionQueue>(init, std::move(data));
         });
 
-    // PlayerResourcesInfo.Create(init) → new PlayerResources(init.Self,
-    // this)
     registry.Register(
         "PlayerResourcesInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -716,9 +613,6 @@ void RegisterCommonTraits() {
               init, PlayerResourcesInfoData::Parse(rec_info));
         });
 
-    // ClassicProductionQueueInfo.Create(init) → new
-    // ClassicProductionQueue(init, this)(ra 的共享队列;SpeedUp/
-    // BuildTimeSpeedReduction 的加速面随批 —— 缺省 [100] 无加速等价)
     registry.Register(
         "ClassicProductionQueueInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -733,8 +627,6 @@ void RegisterCommonTraits() {
               init, std::move(data));
         });
 
-    // BuildingInfluenceInfo.Create(init) → new BuildingInfluence(
-    // init.World)
     registry.Register(
         "BuildingInfluenceInfo",
         [](const meta::RecordObject&, ActorInitializer& init,
@@ -742,15 +634,6 @@ void RegisterCommonTraits() {
           return arena.Create<BuildingInfluence>(init.Self().world());
         });
 
-    // ———— 第六批增补:ClassicFacingBodyOrientation(Mods.Cnc 的
-    // BodyOrientation 子类;QuantizeFacing 覆写在 facings == 32 时走
-    // ClassicIndexFacing/SpriteFacings 表 —— 该域随渲染批的序列表面
-    // 接线,其余域与基类同式;COVERAGE 登记)————
-    // The batch-6 addition: ClassicFacingBodyOrientation (the Mods.Cnc
-    // subclass of BodyOrientation; its QuantizeFacing override goes
-    // through the ClassicIndexFacing/SpriteFacings table at facings == 32
-    // — that domain rides the render batch's sequence face, every other
-    // domain matches the base formula; registered in COVERAGE).
     registry.Register(
         "ClassicFacingBodyOrientationInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -759,9 +642,6 @@ void RegisterCommonTraits() {
               init, BodyOrientationInfoData::Parse(rec_info));
         });
 
-    // ———— 第六批:AttackFollow 族/Turreted ————
-
-    // AttackFollowInfo.Create(init) → new AttackFollow(init.Self, this)
     registry.Register(
         "AttackFollowInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -770,8 +650,6 @@ void RegisterCommonTraits() {
               init, AttackFollowInfoData::Parse(rec_info));
         });
 
-    // AttackTurretedInfo.Create(init) → new AttackTurreted(init.Self,
-    // this)
     registry.Register(
         "AttackTurretedInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -780,8 +658,6 @@ void RegisterCommonTraits() {
               init, AttackTurretedInfoData::Parse(rec_info));
         });
 
-    // TurretedInfo.Create(init) → new Turreted(init, this)(init 的按名
-    // 匹配面携带声明实例名)
     registry.Register(
         "TurretedInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -795,9 +671,6 @@ void RegisterCommonTraits() {
                                         std::move(str_instance_name));
         });
 
-    // ———— 第六批:电源链 ————
-
-    // PowerManagerInfo.Create(init) → new PowerManager(init.Self, this)
     registry.Register(
         "PowerManagerInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -806,7 +679,6 @@ void RegisterCommonTraits() {
               init, PowerManagerInfoData::Parse(rec_info));
         });
 
-    // PowerInfo.Create(init) → new Power(init.Self, this)
     registry.Register(
         "PowerInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -814,8 +686,6 @@ void RegisterCommonTraits() {
           return arena.Create<Power>(init, PowerInfoData::Parse(rec_info));
         });
 
-    // AffectedByPowerOutageInfo.Create(init) → new
-    // AffectedByPowerOutage(init.Self, this)
     registry.Register(
         "AffectedByPowerOutageInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -824,9 +694,6 @@ void RegisterCommonTraits() {
               init, AffectedByPowerOutageInfoData::Parse(rec_info));
         });
 
-    // ———— 第六批:资源链(world actor + 单位/厂)————
-
-    // ResourceLayerInfo.Create(init) → new ResourceLayer(init.Self, this)
     registry.Register(
         "ResourceLayerInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -835,7 +702,6 @@ void RegisterCommonTraits() {
               init.Self(), ResourceLayerInfoData::Parse(rec_info));
         });
 
-    // ResourceClaimLayerInfo.Create(init) → new ResourceClaimLayer()
     registry.Register(
         "ResourceClaimLayerInfo",
         [](const meta::RecordObject&, ActorInitializer&,
@@ -843,8 +709,6 @@ void RegisterCommonTraits() {
           return arena.Create<ResourceClaimLayer>();
         });
 
-    // DockClientManagerInfo.Create(init) → new DockClientManager(
-    // init.Self, this)
     registry.Register(
         "DockClientManagerInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -853,7 +717,6 @@ void RegisterCommonTraits() {
               init, DockClientManagerInfoData::Parse(rec_info));
         });
 
-    // DockHostInfo.Create(init) → new DockHost(init.Self, this)
     registry.Register(
         "DockHostInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -862,8 +725,6 @@ void RegisterCommonTraits() {
                                         DockHostInfoData::Parse(rec_info));
         });
 
-    // StoresResourcesInfo.Create(init) → new StoresResources(init.Self,
-    // this)
     registry.Register(
         "StoresResourcesInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -872,8 +733,6 @@ void RegisterCommonTraits() {
               init, StoresResourcesInfoData::Parse(rec_info));
         });
 
-    // StoresPlayerResourcesInfo.Create(init) → new
-    // StoresPlayerResources(init.Self, this)
     registry.Register(
         "StoresPlayerResourcesInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -882,11 +741,6 @@ void RegisterCommonTraits() {
               init, StoresPlayerResourcesInfoData::Parse(rec_info));
         });
 
-    // RefineryInfo.Create(init) → new Refinery(init.Self, this)
-    // (Requires<WithSpriteBodyInfo> 的约束面:WithSpriteBody 未移植 →
-    // 注册侧跳过 —— COVERAGE 登记)
-    // (the Requires<WithSpriteBodyInfo> constraint face: WithSpriteBody is
-    // unported → the registration-side skip — registered in COVERAGE).
     registry.Register(
         "RefineryInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -895,9 +749,6 @@ void RegisterCommonTraits() {
               init, RefineryInfoData::Parse(rec_info));
         });
 
-    // HarvesterInfo.Create(init) → new Harvester(init.Self, this)
-    // (IRulesetLoaded 的 Resources 校验 = 工厂时点)
-    // (the IRulesetLoaded Resources validation = factory time).
     registry.Register(
         "HarvesterInfo",
         [](const meta::RecordObject& rec_info, ActorInitializer& init,
@@ -908,23 +759,9 @@ void RegisterCommonTraits() {
           return arena.Create<Harvester>(init, data);
         });
 
-    // ———— 第七批注册(独立翻译单元;条件/Cloak/经验/捕获/选择/摆位)————
-    // ———— The batch-7 registration (a separate translation unit;
-    //      conditions/cloak/experience/capture/selectable/placement) ————
-
     RegisterCommonTraitsBatch7();
 
-    // ———— 第八批注册(独立翻译单元;Render·WithSpriteBody 渲染族 +
-    //      ProximityCapturable 族)————
-    // ———— The batch-8 registration (a separate translation unit; the
-    //      Render·WithSpriteBody family + the ProximityCapturable family)
-    //      ————
-
     RegisterCommonTraitsBatch8();
-
-    // ———— 第九批注册(独立翻译单元;注释·装饰·死亡·损伤·进度条族)————
-    // ———— The batch-9 registration (a separate translation unit; the
-    //      annotation/decoration/death/damage/progress-bar family) ————
 
     RegisterCommonTraitsBatch9();
     RegisterCommonTraitsBatch10();
@@ -958,14 +795,6 @@ void RegisterCommonTraits() {
   (void)b_registered;
 }
 
-// ———— 第三批 [VerifySync] 哈希注册(gen/sync_gen.cpp 成员表:
-//      Mobile {Facing,FromCell,ToCell,CenterPosition} /
-//      BodyOrientation {QuantizedFacings};组合协议 = 0 XOR 成员哈希)————
-// ———— The batch-3 [VerifySync] hash registrations (the gen/sync_gen.cpp
-//      member tables: Mobile {Facing,FromCell,ToCell,CenterPosition} /
-//      BodyOrientation {QuantizedFacings}; the combination protocol = 0
-//      XOR the member hashes) ————
-
 namespace {
 
 int MobileSyncHash(const sim::ISync* s) {
@@ -994,15 +823,6 @@ const bool b_registered_batch3_sync_hash = [] {
       &BodyOrientationSyncHash);
   return true;
 }();
-
-// ———— 第五批 [VerifySync] 哈希注册(gen/sync_gen.cpp 成员表:
-//      FrozenUnderFog {VisibilityHash} / Building {TopLeft} /
-//      PlayerResources {Cash,Resources,ResourceCapacity} /
-//      ProductionQueue {Enabled,IsValidFaction})————
-// ———— The batch-5 [VerifySync] hash registrations (the gen/sync_gen.cpp
-//      member tables: FrozenUnderFog {VisibilityHash} / Building
-//      {TopLeft} / PlayerResources {Cash,Resources,ResourceCapacity} /
-//      ProductionQueue {Enabled,IsValidFaction}) ————
 
 namespace {
 
@@ -1046,19 +866,15 @@ const bool b_registered_batch5_sync_hash = [] {
   sim::RegisterSyncHashFunction(
       "OpenRA.Mods.Common.Traits.ProductionQueue",
       &ProductionQueueSyncHash);
-  // ClassicProductionQueue 子类经继承成员走同一哈希(上游按运行时类型
-  // 生成,继承 [VerifySync] 成员)
-  // The ClassicProductionQueue subclass hashes the same via its
-  // inherited members (upstream generates per runtime type; the
-  // [VerifySync] members are inherited).
+
   sim::RegisterSyncHashFunction(
       "OpenRA.Mods.Common.Traits.ClassicProductionQueue",
       &ProductionQueueSyncHash);
   return true;
 }();
 
-}  // namespace
+}
 
-}  // namespace
+}
 
-}  // namespace ora::mods
+}

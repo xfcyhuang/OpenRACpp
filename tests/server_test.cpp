@@ -1,18 +1,3 @@
-// UPSTREAM: 测试面(Phase 7 第十四批):回环真 socket 的服务器全链验收
-//  —— 握手(协议 7 + 令牌)/HandshakeResponse 六门/槽位装配与
-//  SyncInfo/Chat 广播与洪水闸/Ack 前投影/StartGame 空帧注入/服务器侧
-//  desync 检测(录像作废)/DropClient 断连包与 Fluent 通知/Ping 往返/
-//  OrderBuffer 的 TickScale 结算/专用服 RecordFakeHandshake/
-//  GameInformation 往返/FluentMessage 与 Sanitize 的逐字面。
-//  The test face (Phase 7 batch 14): the loopback real-socket full-chain
-//  acceptance of the server — the handshake (protocol 7 + the token)/the
-//  HandshakeResponse six gates/the slot assembly and SyncInfo/the Chat
-//  broadcast and the flood gate/the Ack forward projection/StartGame's
-//  empty-frame injection/the server-side desync detection (the recording
-//  invalidated)/DropClient's disconnect packet and Fluent notifications/
-//  the Ping round-trip/OrderBuffer's TickScale settlement/the dedicated
-//  RecordFakeHandshake/GameInformation's round-trip/FluentMessage's and
-//  the Sanitize family's verbatim faces.
 import std;
 
 #include "net/order.hpp"
@@ -79,10 +64,6 @@ struct FramePacket {
   std::vector<std::uint8_t> vec_data;
 };
 
-/// 测试侧迷你客户端:阻塞读 + 帧状态机(与服务器 Connection 的读循环
-/// 同构)
-/// The test-side mini client: a blocking read + the frame state machine
-/// (isomorphic to the server Connection's read loop).
 struct TestClient {
   platform::TcpSocket tcp;
   int int4_client_id = -1;
@@ -105,11 +86,6 @@ struct TestClient {
            (int4_client_id = int4_id, true);
   }
 
-  /// 客户端上行帧 = [len][frame][data](OrderPacket.Serialize(frame) 前置
-  /// 长度;client id 不上线 —— 服务器按连接记账)
-  /// The client's uplink frame = [len][frame][data] (OrderPacket.Serialize(
-  /// frame) with a length prefix; the client id never rides the wire —
-  /// the server accounts per connection).
   void SendPacket(int int4_frame, const std::vector<std::uint8_t>& vec_data) {
     auto w = net::ByteWriter{};
     w.Write(static_cast<std::int32_t>(vec_data.size() + 4));
@@ -164,10 +140,7 @@ struct TestClient {
             (static_cast<std::uint32_t>(deque_read[5]) << 8) |
             (static_cast<std::uint32_t>(deque_read[6]) << 16) |
             (static_cast<std::uint32_t>(deque_read[7]) << 24));
-        // 服务器下行帧:len = frame(4) + data;8 字节头([len][client])后
-        // 的剩余恰为 len 字节
-        // The server's downlink frame: len = frame(4) + data; the bytes
-        // after the 8-byte header ([len][client]) number exactly len.
+
         const auto payload = len;
         if (payload < 0 || deque_read.size() < 8 + static_cast<std::size_t>(payload))
           break;
@@ -202,10 +175,6 @@ struct TestClient {
     return nullptr;
   }
 
-  /// 命中任一 Order 载荷帧(Fields/Handshake;裸 Ack/Ping/SyncHash/
-  /// TickScale/Disconnect 帧跳过)
-  /// Hits any Order-bearing frame (Fields/Handshake; the raw Ack/Ping/
-  /// SyncHash/TickScale/Disconnect frames are skipped).
   const FramePacket* FindOrderFrame(std::string_view str_order) const {
     for (const auto& f : vec_frames) {
       if (f.vec_data.empty())
@@ -323,8 +292,6 @@ std::unique_ptr<srv::Server> MakeServer(int int4_port, srv::ServerType type,
   return server;
 }
 
-// ———— 1. 握手 + 六门 + 槽位装配 + SyncInfo ————
-// 1. The handshake + the six gates + the slot assembly + SyncInfo.
 void TestHandshakeChain() {
   std::println("[server] handshake chain");
   auto vec_log = std::vector<std::string>{};
@@ -379,8 +346,6 @@ void TestHandshakeChain() {
   server->Shutdown();
 }
 
-// ———— 2. 拒绝面:错误 mod / 错误协议 / 密码 ————
-// 2. The rejection faces: wrong mod / wrong protocol / password.
 void TestValidationGates() {
   std::println("[server] validation gates");
   const auto int4_port = FreePort();
@@ -452,8 +417,6 @@ void TestValidationGates() {
   server->Shutdown();
 }
 
-// ———— 3. Chat 广播 + MP 洪水闸 ————
-// 3. The Chat broadcast + the MP flood gate.
 void TestChatAndFlood() {
   std::println("[server] chat + flood gate");
   const auto int4_port = FreePort();
@@ -530,9 +493,6 @@ void TestChatAndFlood() {
   server->Shutdown();
 }
 
-// ———— 4. StartGame:空帧注入 + Ack 前投影 + 转发 + SyncHash 记账 ————
-// 4. StartGame: the empty-frame injection + the Ack forward projection +
-// the forwarding + the SyncHash accounting.
 void TestStartGameOrders() {
   std::println("[server] start game + orders");
   const auto int4_port = FreePort();
@@ -569,9 +529,6 @@ void TestStartGameOrders() {
             server->GameInfo()->vec_players.size() == 1,
         "worldPlayers: 1 playable of 3 slots");
 
-  // Local 服 OrderLatency = 1:空帧注入帧 1。
-  // A Local server's OrderLatency = 1: the empty-frame injection at
-  // frame 1.
   auto b_empty = WaitUntil(
       [&] {
         a.Pump(150);
@@ -580,9 +537,6 @@ void TestStartGameOrders() {
       5000);
   Check(b_empty, "empty frame 1 injected");
 
-  // 世界 order 帧 5 → Ack(帧 6)+ 他人转发帧 6。
-  // A world order at frame 5 → the Ack (frame 6) + the peer forward at
-  // frame 6.
   auto order = net::Order("TestOrder", nullptr, false);
   a.SendOrderPacket(5, order);
   auto b_ack = WaitUntil(
@@ -598,9 +552,6 @@ void TestStartGameOrders() {
       5000);
   Check(b_ack, "Ack frame 6 count 1");
 
-  // SyncHash 帧 10:Local 无录像,记账副作用 = 静默接受(无 desync)。
-  // The SyncHash at frame 10: no Local recording, so the accounting's
-  // observable face is silent acceptance (no desync).
   a.SendSyncPacket(10, 12345, 0);
   a.Pump(500);
   Check(server->State() == srv::ServerState::GameStarted,
@@ -609,8 +560,6 @@ void TestStartGameOrders() {
   server->Shutdown();
 }
 
-// ———— 5. 服务器侧 desync 检测(专用服 + 录像)————
-// 5. The server-side desync detection (dedicated + recording).
 void TestServerDesync() {
   std::println("[server] server-side desync");
   const auto int4_port = FreePort();
@@ -623,8 +572,6 @@ void TestServerDesync() {
   FillSlots(*server);
   Check(server->Recorder() != nullptr, "dedicated recorder started");
 
-  // RecordFakeHandshake 的两条帧 0 条目。
-  // RecordFakeHandshake's two frame-0 entries.
   const auto& vec_bytes = server->Recorder()->Bytes();
   Check(vec_bytes.size() >= 16, "fake handshake recorded");
   auto b_handshake_entries = false;
@@ -640,9 +587,7 @@ void TestServerDesync() {
       at += 8;
       if (len < 0 || at + static_cast<std::size_t>(len) > vec_bytes.size())
         break;
-      // ReceiveFrame 的载荷 = [frame][data],帧 0 即四零字节
-      // ReceiveFrame's payload = [frame][data]; a frame-0 prefix is four
-      // zero bytes.
+
       if (len > 4 &&
           vec_bytes[at + 4] == static_cast<std::uint8_t>(net::OrderType::Handshake))
         ++count;
@@ -701,9 +646,6 @@ void TestServerDesync() {
   server->Shutdown();
 }
 
-// ———— 6. DropClient:断连包 + Fluent 通知 + 观察者流 ————
-// 6. DropClient: the disconnect packet + the Fluent notification + the
-// observer flow.
 void TestDropClient() {
   std::println("[server] drop client");
   const auto int4_port = FreePort();
@@ -726,8 +668,7 @@ void TestDropClient() {
       },
       5000);
   {
-    // accept 次序竞态防护:显式钉住 a 为管理员
-    // An accept-order race guard: pin a as the admin explicitly.
+
     std::lock_guard lock{server->mutex_lobby};
     auto* p_a = server->LobbyInfo.ClientWithIndex(0);
     auto* p_b = server->LobbyInfo.ClientWithIndex(1);
@@ -778,8 +719,6 @@ void TestDropClient() {
   server->Shutdown();
 }
 
-// ———— 7. Ping 往返 + OrderBuffer 结算 ————
-// 7. The Ping round-trip + the OrderBuffer settlement.
 void TestPingAndOrderBuffer() {
   std::println("[server] ping + order buffer");
   const auto int4_port = FreePort();
@@ -797,9 +736,6 @@ void TestPingAndOrderBuffer() {
       },
       5000);
 
-  // 服务器连接线程每秒发 Ping;回显时间戳即计入历史。
-  // The server's connection thread pings every second; echoing the
-  // timestamp feeds the history.
   auto b_pinged = WaitUntil(
       [&] {
         a.Pump(300);
@@ -843,9 +779,6 @@ void TestPingAndOrderBuffer() {
   Check(buffer.GetTickScales().empty(), "removed player: no scales");
 }
 
-// ———— 8. 纯逻辑面:FluentMessage/Handshake/GameInformation/Sanitize ————
-// 8. The pure-logic faces: FluentMessage/Handshake/GameInformation/
-// Sanitize.
 void TestPureLogic() {
   std::println("[server] pure logic faces");
 
@@ -935,14 +868,10 @@ void TestPureLogic() {
   CheckEq(session.FirstEmptySlot(), "", "all closed/skip → empty");
 }
 
-}  // namespace
+}
 
-// ———— 15. 第十五批:LobbyCommands/Pinger 族/LanBeacon/GameServer ————
-// 15. Batch 15: LobbyCommands / the Pingers / LanBeacon / GameServer.
 namespace {
 
-/// 倒序找 (order, target) 命中帧 | The reverse scan for an (order, target)
-/// hit frame.
 const FramePacket* FindOrderWithTarget(const TestClient& client,
                                        std::string_view str_order,
                                        std::string_view str_target_contains) {
@@ -1009,8 +938,6 @@ void TestLobbyCommandsBatch() {
   auto bob = TestClient{};
   Check(JoinLobby(bob, int4_port, "Bob"), "bob joins");
 
-  // ———— state 命令(Ready 物化 + SyncLobbyClients 广播)————
-  // The state command (Ready materialized + the SyncLobbyClients broadcast).
   alice.vec_frames.clear();
   SendCommand(alice, "state Ready");
   Check(WaitUntil(
@@ -1022,8 +949,6 @@ void TestLobbyCommandsBatch() {
             1500),
         "state Ready reflected in SyncLobbyClients");
 
-  // Ready 后非 state 命令被拒
-  // A non-state command is rejected once Ready.
   alice.vec_frames.clear();
   SendCommand(alice, "name Alice2");
   Check(WaitUntil(
@@ -1038,8 +963,6 @@ void TestLobbyCommandsBatch() {
 
   SendCommand(alice, "state NotReady");
 
-  // ———— name 命令(通知 + SyncLobbyClients)————
-  // The name command (the notification + SyncLobbyClients).
   alice.vec_frames.clear();
   SendCommand(alice, "name  Alice#2 ");
   Check(WaitUntil(
@@ -1052,8 +975,6 @@ void TestLobbyCommandsBatch() {
             1500),
         "nick-changed notification");
 
-  // ———— allow_spectators 畸形(上游 allow_spectate 文本)————
-  // allow_spectators' malformed branch (upstream's allow_spectate text).
   alice.vec_frames.clear();
   SendCommand(alice, "allow_spectators maybe");
   Check(WaitUntil(
@@ -1066,8 +987,6 @@ void TestLobbyCommandsBatch() {
             1500),
         "allow_spectators malformed");
 
-  // ———— faction:无 map = 一切非法
-  // faction: without a map everything is invalid.
   alice.vec_frames.clear();
   SendCommand(alice, "faction 0 allies");
   Check(WaitUntil(
@@ -1080,8 +999,6 @@ void TestLobbyCommandsBatch() {
             1500),
         "invalid faction rejected");
 
-  // ———— assignteams 畸形数字
-  // assignteams' malformed number.
   alice.vec_frames.clear();
   SendCommand(alice, "assignteams two");
   Check(WaitUntil(
@@ -1094,10 +1011,6 @@ void TestLobbyCommandsBatch() {
             1500),
         "assignteams malformed");
 
-  // ———— slot_bot:占位人类 = invalid-bot-slot;空槽 + IBotInfo 空集 =
-  //      invalid-bot-type
-  // slot_bot: a human occupant = invalid-bot-slot; an empty slot + the
-  // empty IBotInfo set = invalid-bot-type.
   alice.vec_frames.clear();
   SendCommand(alice, "slot_bot Multi0 0 NullBot");
   Check(WaitUntil(
@@ -1127,8 +1040,6 @@ void TestLobbyCommandsBatch() {
             1500),
         "slot_bot invalid type");
 
-  // ———— map:缓存空 = unknown-map(池外同样)
-  // map: the empty cache = unknown-map (the out-of-pool the same).
   alice.vec_frames.clear();
   SendCommand(alice, "map " + std::string(40, 'a'));
   Check(WaitUntil(
@@ -1141,9 +1052,6 @@ void TestLobbyCommandsBatch() {
             1500),
         "map unknown uid rejected");
 
-  // ———— clear_spawn:空点点名禁用 → SyncInfo;再点恢复
-  // clear_spawn: an empty spawn toggles to disabled → SyncInfo; toggling
-  // again restores it.
   alice.vec_frames.clear();
   SendCommand(alice, "clear_spawn 2");
   Check(WaitUntil(
@@ -1169,8 +1077,6 @@ void TestLobbyCommandsBatch() {
             1500),
         "clear_spawn toggles back");
 
-  // ———— make_admin:转交 + 广播
-  // make_admin: the handover + the broadcast.
   alice.vec_frames.clear();
   SendCommand(alice, "make_admin 1");
   Check(WaitUntil(
@@ -1189,8 +1095,6 @@ void TestLobbyCommandsBatch() {
     Check(p_bob != nullptr && p_bob->IsAdmin, "bob is admin");
   }
 
-  // ———— kick:temp ban 快照 + ServerError 回执
-  // kick: the temp-ban snapshot + the ServerError receipt.
   {
     std::lock_guard lock{server->mutex_lobby};
     if (auto* p_alice = server->LobbyInfo.ClientWithIndex(0))
@@ -1227,8 +1131,6 @@ void TestLobbyCommandsBatch() {
           "kicked client removed from lobby");
   }
 
-  // ———— sync_lobby:管理员装载合法 Session(往返)————
-  // sync_lobby: the admin loads a valid Session (the round-trip).
   std::string str_session;
   {
     std::lock_guard lock{server->mutex_lobby};
@@ -1250,9 +1152,6 @@ void TestLobbyCommandsBatch() {
           "reload keeps clients");
   }
 
-  // ———— sync_lobby:字段装载失败 → invalid-lobby-info(装载保持原状)
-  // sync_lobby: a field-load failure → invalid-lobby-info (the load is
-  // abandoned).
   alice.vec_frames.clear();
   SendCommand(alice, std::string{"sync_lobby Client@0:\n\tIndex: NaN"});
   Check(WaitUntil(
@@ -1274,10 +1173,6 @@ void TestLobbyCommandsBatch() {
   bob.tcp.Close();
   server->Shutdown();
 
-  // ———— vote_kick:无战况面(HasClientWonOrLost 恒 true)→ 管理员一票
-  //      即踢
-  // vote_kick: without a game-info face (HasClientWonOrLost constantly
-  // true) an admin's single vote kicks at once.
   const auto int4_vk_port = FreePort();
   auto settings_vk = srv::ServerSettings{};
   settings_vk.EnableSingleplayer = true;
@@ -1339,11 +1234,6 @@ void TestPlayerPingerDrop() {
   auto claire = TestClient{};
   Check(JoinLobby(claire, int4_port, "Claire"), "claire joins");
 
-  // 中位 client 的 LobbyInfo 条目移除 → PlayerPinger.Tick 踢无主连接
-  // (alice+claire 保持 ≥2 非_bot 计数门开)
-  // The middle client's LobbyInfo entry removed → PlayerPinger.Tick drops
-  // the client-less connection (alice+claire keep the >=2 non-bot count
-  // gate open).
   {
     std::lock_guard lock{server->mutex_lobby};
     const auto int4_bob = bob.int4_client_id;
@@ -1415,8 +1305,6 @@ void TestMasterServerPingerAndGameServer() {
   Check(vec_posted.back().second.find("Client@0") != std::string::npos,
         "shutdown advertisement carries the Client@0 node");
 
-  // ———— ToPOSTData 的 LAN 附加面(直构)————
-  // ToPOSTData's LAN extras (constructed directly).
   {
     std::lock_guard lock{server->mutex_lobby};
     auto gs = srv::GameServerData{*server};
@@ -1439,13 +1327,6 @@ void TestMasterServerPingerAndGameServer() {
   }
 }
 
-// ———— MasterServerPinger 的 fn_post 缺省直调(boost::beast + boost::url;
-//      回环伪 HTTP 服务器全链:POST 行/Host 头/StringContent 默认媒体型/
-//      body 的 Protocol 2/initial ping 的 [0] 应答解析)————
-// MasterServerPinger's fn_post default by the direct call (boost::beast +
-// boost::url; the loopback fake-HTTP-server full chain: the POST line/the
-// Host header/the StringContent default media type/the body's Protocol 2/
-// the initial ping's [0]-reply parse).
 void TestMasterServerPingerDefaultBeastPost() {
   std::println("[server] master pinger default beast post");
   auto vec_log = std::vector<std::string>{};
@@ -1455,14 +1336,6 @@ void TestMasterServerPingerDefaultBeastPost() {
   Check(listener.IsValid(), "fake HTTP server listens");
   const auto int4_http_port = listener.BoundPort();
 
-  // 上游对一次会话恰两投(事件循环 Tick 的 initial + ServerShutdown 的
-  // final),伪服务器须逐连接服务每一个,否则另一投滞留 backlog、收尾
-  // RST 后其 detach 回调越过本函数栈(窄窗悬垂 + 时序 flaky)。
-  // Upstream posts exactly twice per session (the event loop Tick's
-  // initial + ServerShutdown's final), so the fake server must serve
-  // every connection: the other post would otherwise sit in the backlog
-  // and, after the shutdown RST, its detached callback would outlive this
-  // function's stack (a narrow dangling window + timing flakiness).
   auto str_request = std::string{};
   auto mutex_request = std::mutex{};
   auto atomic_served = std::atomic<int>{0};
@@ -1560,16 +1433,6 @@ void TestMasterServerPingerDefaultBeastPost() {
   }
   Check(b_beast_seen, "beast POST round-trip reaches the initial-ping log");
 
-  // 两投都被服务后收尾:served>=2 时两响应均已上线,POST 线程的 fn_done
-  // 只差毫秒级收尾,100ms 余量让 detach 线程跑完再动本函数的栈;随后
-  // Close 解除 serve 线程的 Accept 阻塞,join 方能返回(单投时序下靠
-  // 4s 超时兜底)。
-  // Wind down after both posts are served: once served >= 2 both replies
-  // are on the wire, the POST threads' fn_done calls are milliseconds from
-  // done, and the 100ms grace lets the detached threads finish before this
-  // function's stack moves; Close then unblocks the serve thread's Accept
-  // so join can return (the single-post timing falls back on the 4s
-  // timeout).
   WaitUntil([&] { return atomic_served.load() >= 2; }, 4000);
   std::this_thread::sleep_for(std::chrono::milliseconds{100});
   listener.Close();
@@ -1600,9 +1463,6 @@ void TestLanBeacon() {
   beacon.SetBeaconData("Game\n\tName: LanTest");
   beacon.Start();
 
-  // 探测包:beaconType 编码前缀 → 应答 [type][port 大端 2B][data 编码]
-  // The probe packet: the encoded beaconType prefix → the reply
-  // [type][advertisedPort, 2B big-endian][the encoded data].
   auto udp = platform::UdpSocket::BindAny(0);
   Check(udp.IsValid(), "probe socket binds");
   if (!udp.IsValid())
@@ -1618,7 +1478,6 @@ void TestLanBeacon() {
     return vec;
   }();
 
-  // 定向到 35891(回环) | Directed at 35891 (loopback).
   {
     const auto vec_eps = platform::ResolveDns("127.0.0.1", 35891);
     Check(!vec_eps.empty() && udp.SendTo(vec_eps.front(), vec_probe),
@@ -1641,8 +1500,7 @@ void TestLanBeacon() {
         static_cast<std::uint16_t>((arr_buf[vec_probe.size()] << 8) |
                                    arr_buf[vec_probe.size() + 1]);
     CheckEq(std::to_string(u2_port), "43210", "beacon advertised port");
-    // data 编码:2 字节小端长度 + UTF-8
-    // The encoded data: a 2-byte little-endian length + UTF-8.
+
     const auto sz_data_begin = vec_probe.size() + 2;
     const auto u2_data_len =
         static_cast<std::uint16_t>(arr_buf[sz_data_begin] |
@@ -1702,20 +1560,12 @@ void TestLanProbe() {
   }
 }
 
-}  // namespace
+}
 
-// ———— 9. 客户端接线(NetworkConnection + OrderManager + ProcessOrder 的
-// 真 socket 全链:HandshakeRequest 自动应答 → 槽位装配 → 命令上行 →
-// SyncLobby*/SyncMapPool/FluentMessage 下行)————
-// 9. The client wiring (the real-socket full chain of NetworkConnection +
-// OrderManager + ProcessOrder: the HandshakeRequest auto-answer → the
-// slot assembly → the command uplink → the SyncLobby*/SyncMapPool/
-// FluentMessage downlink).
 struct WiredClient {
   std::unique_ptr<net::OrderManager> om;
-  std::mutex mutex_om;  // OM 单线程契约:发布线程与泵线程互斥 | the OM's
-                        // single-thread contract: the posting thread and
-                        // the pump thread mutually excluded.
+  std::mutex mutex_om;
+
   std::atomic<bool> b_stop{false};
   std::thread thread_pump;
 
@@ -1739,16 +1589,12 @@ struct WiredClient {
     });
   }
 
-  /// 主线程发布 order 并即冲刷(与泵线程互斥)
-  /// The main thread posts an order and flushes it right away (mutually
-  /// excluded from the pump thread).
   void Post(const net::Order& order_new) {
     std::lock_guard lock{mutex_om};
     om->IssueOrder(order_new);
     om->TickImmediate();
   }
 
-  /// 断言侧的互斥读 | the assertion side's mutually excluded read.
   template <class Fn>
   bool WithOm(Fn fn) {
     std::lock_guard lock{mutex_om};
@@ -1776,7 +1622,7 @@ void TestClientWiring() {
   auto face = net::ClientJoinFace{};
   face.str_mod_id = "ra";
   face.str_mod_version = "test";
-  face.str_player_name = "Wired#Player";  // sanitize 剥 '#' → "WiredPlayer"
+  face.str_player_name = "Wired#Player";
   face.color_player = ora::core::Color::FromArgb(255, 12, 34, 56);
 
   auto int4_changes = 0;
@@ -1814,14 +1660,6 @@ void TestClientWiring() {
             5000),
         "SyncMapPool received");
 
-  // ———— 命令上行:Order.Command → 服务器 LobbyCommands → SyncLobbyClients
-  // 下行 → 本端 LobbyInfo 物化(name 命令 —— state 会触发 CheckAutoStart
-  // 的失败复位:无图服务器上 Ready 即被回写 NotReady,上游 quirk)
-  // The command uplink: Order.Command → the server's LobbyCommands → the
-  // SyncLobbyClients downlink → the local LobbyInfo materialization (the
-  // name command — state would trigger CheckAutoStart's failure reset:
-  // on a mapless server Ready is written straight back to NotReady, the
-  // upstream quirk).
   const auto int4_changes_before = int4_changes;
   alice->Post(net::Order::Command("name WiredPlayer2"));
   Check(WaitUntil(
@@ -1836,9 +1674,6 @@ void TestClientWiring() {
             5000),
         "name uplink round-trip");
 
-  // state Ready 的 CheckAutoStart 复位 quirk:无图 → 全员回写 NotReady
-  // The state-Ready CheckAutoStart reset quirk: no map → everyone written
-  // back to NotReady.
   alice->Post(net::Order::Command("state Ready"));
   Check(WaitUntil(
             [&] {
@@ -1854,9 +1689,6 @@ void TestClientWiring() {
   Check(int4_changes > int4_changes_before,
         "SyncLobbyClients fired LobbyInfoChanged");
 
-  // ———— 第二客户端:joined FluentMessage 通知 + Chat 广播 ————
-  // The second client: the joined FluentMessage notification + the Chat
-  // broadcast.
   auto face_bob = face;
   face_bob.str_player_name = "Bobba";
   auto bob = make_client(face_bob, int4_port);
@@ -1896,8 +1728,6 @@ void TestClientWiring() {
 
   net::ClearLobbyInfoChangedHandler();
 
-  // ———— AuthenticationError / ServerError 的真实链 ————
-  // The AuthenticationError / ServerError real chains.
   const auto int4_port_locked = FreePort();
   auto locked_settings = srv::ServerSettings{};
   locked_settings.EnableSingleplayer = true;
@@ -1922,9 +1752,7 @@ void TestClientWiring() {
 
   auto face_alien = face;
   face_alien.str_mod_id = "cnc";
-  // mod 门在无密码服务器上直验(密码门在前 —— 上游 ValidateClient 序)
-  // The mod gate checks straight on the passwordless server (the password
-  // gate precedes it — upstream's ValidateClient order).
+
   auto alien = make_client(face_alien, int4_port);
   Check(WaitUntil(
             [&] {
@@ -1939,13 +1767,6 @@ void TestClientWiring() {
   net::SetClientJoinFace(net::ClientJoinFace{});
 }
 
-// ———— 10. 客户端分支的纯逻辑面(无世界/无服务器:大厅期 Chat 变体/
-// StartKickVote·EndKickVote 门/DisableChatEntry 算术/SyncConnectionQuality/
-// GenerateMap 早退)————
-// 10. The client branches' pure-logic faces (no world/no server: the
-// lobby-phase Chat variants / the StartKickVote·EndKickVote gates / the
-// DisableChatEntry arithmetic / SyncConnectionQuality / GenerateMap's
-// early-outs).
 void TestClientPureBranches() {
   std::println("[server] client pure branches");
   auto& tnm = net::TextNotificationsManager::Instance();
@@ -1961,7 +1782,7 @@ void TestClientPureBranches() {
   om.LobbyInfo().vec_clients[0].Team = 2;
   om.LobbyInfo().vec_clients[0].Color =
       ora::core::Color::FromArgb(255, 1, 2, 3);
-  om.LobbyInfo().vec_clients[1].Index = 1;  // EchoConnection 本地 | the local
+  om.LobbyInfo().vec_clients[1].Index = 1;
   om.LobbyInfo().vec_clients[1].Name = "Local";
   om.LobbyInfo().vec_clients[1].Team = 2;
   om.LobbyInfo().vec_clients.push_back(net::SessionClient{});
@@ -1977,14 +1798,6 @@ void TestClientPureBranches() {
     net::ProcessOrder(om, nullptr, int4_client, order);
   };
 
-  // 大厅期队伍聊天:同队可见(client.Team == local.Team);异队滤除。
-  // 上游 lobby 分支只比 client.Team 与 local.Team —— ExtraData 的目标队
-  // 号不参与(quirk 保真:同队发任意队号都上屏)
-  // The lobby-phase team chat: same-team visible (client.Team ==
-  // local.Team); cross-team filtered. Upstream's lobby branch compares
-  // only client.Team vs local.Team — ExtraData's target team number never
-  // joins in (the quirk kept: a same-team sender shows under any team
-  // number).
   run("Chat", "[Team] secret", 2, 2);
   run("Chat", "[Spectators] hi", std::numeric_limits<std::uint32_t>::max(), 2);
   run("Chat", "[Team] quirk-extra", 3, 2);
@@ -2010,17 +1823,12 @@ void TestClientPureBranches() {
   Check(b_quirk_extra_line, "lobby same-team quirk: extra team number ignored");
   Check(b_cross_team_hidden, "lobby cross-team chat filtered");
 
-  // 截断:>2500 字符裁到限
-  // The truncation: over 2500 characters clipped.
   tnm.ResetForTest();
   run("Chat", std::string(2600, 'x'), 0, 2);
   Check(!tnm.Notifications().empty() &&
             tnm.Notifications().back().Text().size() == 2500,
         "chat hard-limit truncation");
 
-  // StartKickVote/EndKickVote:非服务器源(id!=0)拒;匹配的 End 清除
-  // StartKickVote/EndKickVote: a non-server source (id!=0) rejected; the
-  // matching End clears.
   tnm.ResetForTest();
   run("StartKickVote", "", 3, 1);
   Check(!net::KickVoteTarget().has_value(), "kick vote from non-server ignored");
@@ -2033,8 +1841,6 @@ void TestClientPureBranches() {
   run("EndKickVote", "", 3, 0);
   Check(!net::KickVoteTarget().has_value(), "matching end vote clears");
 
-  // DisableChatEntry:RunTime + ExtraData;MaxValue = 永久
-  // DisableChatEntry: RunTime + ExtraData; MaxValue = permanent.
   tnm.SetChatDisabledUntil(0);
   run("DisableChatEntry", "", 500, 0);
   Check(tnm.ChatDisabledUntil() == 1500, "chat disabled until = runtime+extra");
@@ -2047,8 +1853,6 @@ void TestClientPureBranches() {
             std::numeric_limits<std::int64_t>::max(),
         "chat disable from non-server ignored");
 
-  // SyncConnectionQuality:服务器节点格式("ConnectionQuality@N: Poor")
-  // SyncConnectionQuality: the server's node format.
   auto quality_order = net::Order{"SyncConnectionQuality", nullptr, false};
   quality_order.str_target_string = "ConnectionQuality@2: Poor";
   net::ProcessOrder(om, nullptr, 0, quality_order);
@@ -2056,9 +1860,6 @@ void TestClientPureBranches() {
             net::ConnectionQuality::Poor,
         "connection quality synced");
 
-  // GenerateMap:未注入 MapCache 面 → 早退不抛
-  // GenerateMap: with the MapCache face uninjected → the early-out throws
-  // nothing.
   net::SetMapCacheAtFn(nullptr);
   auto generate_order = net::Order{"GenerateMap", nullptr, false};
   generate_order.str_target_string =
@@ -2066,9 +1867,6 @@ void TestClientPureBranches() {
       "Title: T\nAuthor: A";
   net::ProcessOrder(om, nullptr, 0, generate_order);
 
-  // FluentMessage 解析回环:Serialize → FromYaml(参数保留)
-  // The FluentMessage parse round-trip: Serialize → FromYaml (the
-  // arguments preserved).
   const auto str_wire = net::FluentMessage::Serialize(
       "notification-kicked", std::vector<net::FluentArgument>{{"admin", "A"}});
   const auto vec_nodes =
@@ -2083,9 +1881,6 @@ void TestClientPureBranches() {
 
   net::SetRuntimeMsFn([] { return std::int64_t{0}; });
 
-  // SyncLobbyClients 装载回环(服务器 SerializeSessionClient 线格式)
-  // The SyncLobbyClients load round-trip (the server's
-  // SerializeSessionClient wire format).
   om.LobbyInfo().vec_clients.clear();
   auto client_ready = net::SessionClient{};
   client_ready.Index = 4;

@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Widgets/Logic/ReplayBrowserLogic.cs +
-//          ReplayUtils.cs + GameSaveUtils.cs(see browser_logics.hpp)。
 #include "mods/browser_logics.hpp"
 
 #include <ctime>
@@ -217,10 +215,10 @@ T RandomOf(const std::vector<T>& vec_items, MersenneTwister& rng) {
       rng.Next(static_cast<std::int32_t>(vec_items.size())))];
 }
 
-}  // namespace
+}
 
 map::MapPreview& GameInfoMapPreview(const server::GameInformation& info,
-                                     game::ModData& /*mod_data*/) {
+                                     game::ModData& ) {
   map::MapCache* ptr_cache = ora::ui::Ui::Instance().MapCacheDeps();
   if (ptr_cache == nullptr)
     return map::MapCache::UnknownMap();
@@ -269,7 +267,6 @@ bool PromptConfirmReplayCompatibility(const net::ReplayMetadata& meta,
   if (info->Mod.empty())
     return incompatible("dialog-incompatible-replay.prompt-unknown-mod");
 
-  // Game.Mods 已安装模子表 = 当前模子(ExternalMods 面随其批;COVERAGE)
   if (!EqualsIgnoreCase(info->Mod, mod_data.ManifestRef().Id()))
     return incompatible("dialog-incompatible-replay.prompt-unavailable-mod",
                         MakeArgs({{"mod", info->Mod}}));
@@ -337,8 +334,6 @@ bool IsValidNewSaveName(const std::string& str_new_name,
   return true;
 }
 
-// ———— ReplayBrowserLogic ————
-
 ReplayBrowserLogic::Filter ReplayBrowserLogic::filter_{};
 
 ReplayBrowserLogic::ReplayBrowserLogic(
@@ -348,8 +343,6 @@ ReplayBrowserLogic::ReplayBrowserLogic(
   ptr_map_ = &map::MapCache::UnknownMap();
   ptr_panel_ = &widget;
   ptr_alive_ = std::make_shared<bool>(true);
-
-  // MAP_PREVIEW 子树装载(MapPreviewLogic)随大厅批;COVERAGE 登记
 
   fn_unsubscribe_game_start_ = ora::ui::Ui::Instance().SubscribeBeforeGameStart(
       [this] {
@@ -1220,8 +1213,6 @@ void SetMapLobbyOptionsCollectorForTest(
   ptr_lobby_options_collector_ = fn_collector;
 }
 
-// ———— GameSaveBrowserLogic ————
-
 GameSaveBrowserLogic::GameSaveBrowserLogic(
     ora::ui::Widget& widget, game::ModData& mod_data, sim::World& world,
     std::function<void()> fn_on_exit, std::function<void()> fn_on_start)
@@ -1848,9 +1839,6 @@ void GameSaveBrowserLogic::SaveGame() {
   }
 }
 
-// ——— MissionBrowserLogic ———
-
-
 MissionBrowserLogic::MissionBrowserLogic(
     ora::ui::Widget& widget, game::ModData& mod_data, sim::World& world,
     std::function<void()> fn_on_start, std::function<void()> fn_on_exit,
@@ -2159,7 +2147,6 @@ void MissionBrowserLogic::CreateMissionGroup(
   }
 }
 
-
 void MissionBrowserLogic::SelectMap(map::MapPreview& preview) {
   ptr_selected_map_ = &preview;
 
@@ -2288,7 +2275,6 @@ void MissionBrowserLogic::OnOptionSelected(const std::string& str_option_id,
 
   vec_mission_options_.emplace_back(str_option_id, str_value);
 }
-
 
 void MissionBrowserLogic::BuildOptions(
     const std::vector<server::LobbyOptionData>& vec_options) {
@@ -2442,7 +2428,6 @@ void MissionBrowserLogic::BuildMinifiedOptions(
     }
   }
 }
-
 
 void MissionBrowserLogic::SetupDropdown(
     ora::ui::DropDownButtonWidget& dropdown,
@@ -2603,9 +2588,6 @@ void MissionBrowserLogic::StartMissionClicked() {
                                                    vec_orders);
   }
 }
-
-// ——— MapChooserLogic + MusicPlayerLogic ———
-
 
 MapChooserLogic::MapChooserLogic(
     ora::ui::Widget& widget, game::ModData& mod_data,
@@ -2909,7 +2891,6 @@ void MapChooserLogic::SetupMapPanel(map::MapClassification kind_tab,
   RefreshMaps(kind_tab);
 }
 
-
 void MapChooserLogic::SetupGameModeDropdown(
     map::MapClassification kind_tab,
     ora::ui::DropDownButtonWidget* ptr_dropdown) {
@@ -3030,7 +3011,6 @@ void MapChooserLogic::SetupOrderByDropdown() {
     return std::string{};
   };
 }
-
 
 void MapChooserLogic::EnumerateMaps(map::MapClassification kind_tab) {
   if (kind_tab == map::MapClassification::Generated)
@@ -3217,12 +3197,9 @@ void MapChooserLogic::DeleteAllMaps(
       "dialog-delete-all-maps.confirm");
 }
 
-
-// ——— MusicPlayerLogic ———
-
 MusicPlayerLogic::MusicPlayerLogic(ora::ui::Widget& widget,
                                    sim::World& world,
-                                   game::ModData& /*mod_data*/,
+                                   game::ModData& ,
                                    std::function<void()> fn_on_exit) {
   ptr_music_list_ = widget.Get<ora::ui::ScrollPanelWidget>("MUSIC_LIST");
   up_item_template_ = ptr_music_list_->RemoveChild(
@@ -3550,4 +3527,4 @@ void RegisterBrowserLogics() {
       });
 }
 
-}  // namespace ora::mods
+}

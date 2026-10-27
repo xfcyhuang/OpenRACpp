@@ -1,12 +1,4 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/GainsExperience.cs @1f594e320
-//          L21-172 + GivesExperience.cs L15-79 +
-//          Multipliers/GainsExperienceMultiplier.cs L11-29 +
-//          Player/PlayerExperience.cs L14-35(逐语句重写;机制对照见
-//          experience.hpp 头注)
-//          Statement-by-statement; the mechanism mapping lives in
-//          experience.hpp's header note.
 #include "mods/experience.hpp"
-
 
 #include "core/percent_modifiers.hpp"
 #include "meta/field_loader.hpp"
@@ -17,8 +9,6 @@
 #include "sim/world.hpp"
 
 namespace ora::mods {
-
-// ———— GainsExperience ————
 
 GainsExperienceInfoData GainsExperienceInfoData::Parse(
     const meta::RecordObject& rec) {
@@ -52,7 +42,7 @@ GainsExperienceInfoData GainsExperienceInfoData::Parse(
 GainsExperience::GainsExperience(sim::ActorInitializer& init,
                                  GainsExperienceInfoData info)
     : info_{std::move(info)} {
-  // L82-90
+
   ptr_self_ = &init.Self();
   Experience = 0;
   int4_max_level_ = static_cast<int>(info_.vec_conditions.size());
@@ -63,9 +53,7 @@ GainsExperience::GainsExperience(sim::ActorInitializer& init,
 GainsExperience::~GainsExperience() = default;
 
 namespace {
-/// 上游 TraitInfoOrDefault<ValuedInfo>() 的具体类名查询(注册面同形)
-/// Upstream's TraitInfoOrDefault<ValuedInfo>() as the concrete-class-name
-/// query (the same registration face).
+
 const meta::RecordObject* FindTraitInfoByFullName(
     const game::ActorInfo& actor_info, std::string_view str_full_name) {
   for (const meta::RecordObject* rec_trait :
@@ -74,13 +62,10 @@ const meta::RecordObject* FindTraitInfoByFullName(
       return rec_trait;
   return nullptr;
 }
-}  // namespace
+}
 
 void GainsExperience::Created(sim::Actor& self) {
-  // L92-101:requiredExperience = ExperienceModifier < 0 ? Valued.Cost : 1
-  // : ExperienceModifier
-  // L92-101: requiredExperience = ExperienceModifier < 0 ? Valued.Cost : 1
-  // : ExperienceModifier.
+
   int required_experience = 1;
   if (info_.int4_experience_modifier < 0) {
     if (const meta::RecordObject* valued =
@@ -101,7 +86,7 @@ void GainsExperience::Created(sim::Actor& self) {
 }
 
 void GainsExperience::GiveLevels(int num_levels, bool silent) {
-  // L105-112
+
   if (int4_max_level_ == 0)
     return;
 
@@ -111,7 +96,7 @@ void GainsExperience::GiveLevels(int num_levels, bool silent) {
 }
 
 void GainsExperience::GiveExperience(int amount, bool silent) {
-  // L114-139
+
   if (amount < 0)
     throw std::runtime_error(
         "Revoking experience is not implemented. (Parameter 'amount')");
@@ -119,8 +104,6 @@ void GainsExperience::GiveExperience(int amount, bool silent) {
   if (int4_max_level_ == 0)
     return;
 
-  // (Experience + amount).Clamp(0, 上限)
-  // (Experience + amount).Clamp(0, the cap).
   int clamped = Experience + amount;
   const int cap = vec_next_level_[int4_max_level_ - 1].first;
   if (clamped < 0)
@@ -135,15 +118,13 @@ void GainsExperience::GiveExperience(int amount, bool silent) {
 
     Level++;
 
-    // 声音/SpriteEffect/Fluent 面省略(无 RNG 消耗)
-    // The sound/SpriteEffect/Fluent faces omitted (no RNG consumption).
     (void)silent;
   }
 }
 
 void GainsExperience::ResolveOrder(sim::Actor& self,
                                    const net::Order& order) {
-  // L141-159
+
   if (order.str_order_string != OrderName)
     return;
 
@@ -157,17 +138,13 @@ void GainsExperience::ResolveOrder(sim::Actor& self,
   else
     GiveLevels(1);
 
-  // FluentProvider 的 cheat 通知面省略(Phase 6)
-  // The FluentProvider cheat-notification face omitted (Phase 6).
 }
 
 void GainsExperience::ModifyTransformActorInit(
     sim::Actor& self, sim::TypeDictionary& init) {
-  // L161-164
+
   init.Add(self.world().Arena().Create<sim::ExperienceInit>(Experience));
 }
-
-// ———— GivesExperience ————
 
 GivesExperienceInfoData GivesExperienceInfoData::Parse(
     const meta::RecordObject& rec) {
@@ -191,7 +168,7 @@ GivesExperience::GivesExperience(GivesExperienceInfoData info)
 GivesExperience::~GivesExperience() = default;
 
 void GivesExperience::Created(sim::Actor& self) {
-  // L54-60
+
   int cost = 0;
   if (const meta::RecordObject* valued = FindTraitInfoByFullName(
           *self.Info(), "OpenRA.Mods.Common.Traits.ValuedInfo"))
@@ -206,7 +183,7 @@ void GivesExperience::Created(sim::Actor& self) {
 
 void GivesExperience::Killed(sim::Actor& self,
                              const sim::AttackInfo& e) {
-  // L62-79
+
   if (int4_exp_ == 0 || e.Attacker == nullptr || e.Attacker->Disposed())
     return;
 
@@ -214,16 +191,10 @@ void GivesExperience::Killed(sim::Actor& self,
           info_.valid_relationships,
           e.Attacker->Owner()->RelationshipWith(self.Owner())))
     return;
-  // attacker 的可变面在首个判定后解析(上游同序)
-  // The attacker's mutable face resolves after the first predicate
-  // (upstream's order).
 
   int4_exp_ = ApplyPercentageModifiers(int4_exp_,
                                              vec_experience_modifiers_);
 
-  // AttackInfo.Attacker 的 const 面(auto_target.cpp 同形 const_cast)
-  // AttackInfo.Attacker's const face (the same const_cast shape as
-  // auto_target.cpp).
   sim::Actor* attacker = const_cast<sim::Actor*>(e.Attacker);
   GainsExperience* killer = attacker->TraitOrDefault<GainsExperience>();
   if (killer != nullptr) {
@@ -246,12 +217,10 @@ void GivesExperience::Killed(sim::Actor& self,
                            info_.int4_player_experience_modifier}));
 }
 
-// ———— GainsExperienceMultiplier ————
-
 GainsExperienceMultiplier::GainsExperienceMultiplier(
     int modifier, sim::ConditionalTraitData conditional)
     : ConditionalTraitCore{conditional}, int4_modifier_{modifier} {}
 
 GainsExperienceMultiplier::~GainsExperienceMultiplier() = default;
 
-}  // namespace ora::mods
+}

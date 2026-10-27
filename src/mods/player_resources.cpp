@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/Player/PlayerResources.cs 实现部分
-//          | The implementation half.
 #include "mods/player_resources.hpp"
 
 #include "meta/field_loader.hpp"
@@ -29,7 +27,7 @@ std::optional<std::int64_t> RecInt(const meta::RecordObject& rec,
   return std::nullopt;
 }
 
-}  // namespace
+}
 
 PlayerResourcesInfoData PlayerResourcesInfoData::Parse(
     const meta::RecordObject& rec_info) {
@@ -73,9 +71,6 @@ PlayerResourcesInfoData PlayerResourcesInfoData::Parse(
     }
   }
 
-  // ResourceValues 的 FrozenDictionary<string,int> → 插入序对
-  // ResourceValues' FrozenDictionary<string,int> → the insertion-ordered
-  // pairs.
   if (const auto* generated =
           dynamic_cast<const meta::GeneratedRecord*>(&rec_info)) {
     const std::vector<const meta::FieldDesc*> fields =
@@ -97,16 +92,13 @@ PlayerResourcesInfoData PlayerResourcesInfoData::Parse(
 PlayerResources::PlayerResources(sim::ActorInitializer& init,
                                  PlayerResourcesInfoData info)
     : info_{std::move(info)} {
-  // L110-124
+
   p_owner_ = init.Self().Owner();
 
   const std::string starting_cash =
       init.Self().world().LobbyInfo().global_settings.OptionOrDefault(
           "startingcash", std::to_string(info_.int4_default_cash));
 
-  // int.TryParse 语义:全串十进制解析,失败回落 DefaultCash
-  // int.TryParse semantics: a full-string decimal parse, falling back
-  // to DefaultCash.
   int parsed = 0;
   const char* first = starting_cash.c_str();
   const char* last = first + starting_cash.size();
@@ -119,11 +111,11 @@ PlayerResources::PlayerResources(sim::ActorInitializer& init,
 }
 
 int PlayerResources::ChangeCash(int amount) {
-  // L95-107
+
   if (amount >= 0) {
     GiveCash(amount);
   } else {
-    // Don't put the player into negative funds(上游注释)
+
     amount = std::max(-GetCashAndResources(), amount);
 
     TakeCash(-amount);
@@ -133,12 +125,12 @@ int PlayerResources::ChangeCash(int amount) {
 }
 
 bool PlayerResources::CanGiveResources(int amount) const {
-  // L109-111
+
   return Resources + amount <= ResourceCapacity;
 }
 
 void PlayerResources::GiveResources(int num, bool is_refund) {
-  // L113-131
+
   Resources += num;
 
   if (!is_refund)
@@ -157,7 +149,7 @@ void PlayerResources::GiveResources(int num, bool is_refund) {
 }
 
 bool PlayerResources::TakeResources(int num) {
-  // L137-141
+
   if (Resources < num)
     return false;
   Resources -= num;
@@ -167,8 +159,7 @@ bool PlayerResources::TakeResources(int num) {
 }
 
 void PlayerResources::GiveCash(int num, bool is_refund) {
-  // L143-174(checked 溢出 → 饱和钳位;行为等价)
-  // (checked overflow → the saturating clamp; behaviorally equivalent).
+
   if (Cash < std::numeric_limits<int>::max()) {
     int result = 0;
     if (__builtin_add_overflow(Cash, num, &result))
@@ -193,15 +184,12 @@ void PlayerResources::GiveCash(int num, bool is_refund) {
 }
 
 bool PlayerResources::TakeCash(int num, bool notify_low_funds) {
-  // L180-201(通知面随注入;RunTime 注入缺省恒 0 → 条件假)
-  // (the notification face rides the injection; the RunTime injection
-  // defaults to a constant 0 → the predicate stays false).
+
   if (GetCashAndResources() < num) {
     (void)notify_low_funds;
     return false;
   }
 
-  // Spend ore before cash(上游注释)
   Resources -= num;
   Spent += num;
   if (Resources < 0) {
@@ -213,16 +201,16 @@ bool PlayerResources::TakeCash(int num, bool notify_low_funds) {
 }
 
 void PlayerResources::AddStorageCapacity(int capacity) {
-  // L203-205
+
   ResourceCapacity += capacity;
 }
 
 void PlayerResources::RemoveStorageCapacity(int capacity) {
-  // L207-214
+
   ResourceCapacity -= capacity;
 
   if (Resources > ResourceCapacity)
     Resources = ResourceCapacity;
 }
 
-}  // namespace ora::mods
+}
