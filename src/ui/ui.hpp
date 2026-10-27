@@ -1,17 +1,3 @@
-// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @1f594e320 L24-194(Ui 静态门面逐语义:
-// 窗口栈/焦点三指针/输入分发/ResetAll/Tick/Draw/Mediator 转发)。C# static
-// → 进程级单例;窗口栈条目在 widget 被 HideChild 摘出 Root 时接管所有权
-// (可见栈顶由 Root 持有);WidgetLoader/Renderer.Resolution/Game.RunTime/
-// ModData → Deps 注入;LastMousePos/LastMoveRunTime 写 gfx::Viewport 同名
-// 静态(Viewport.cs L134-135)。
-// Verbatim-semantics rewrite of the Ui static facade (the window stack /
-// the focus trio / the input dispatch / ResetAll / Tick / Draw / the
-// Mediator forwarding). C#'s static class becomes the process singleton;
-// a stack entry takes ownership when its widget is HideChild'ed out of
-// Root (the visible top is Root-owned); the WidgetLoader /
-// Renderer.Resolution / Game.RunTime / ModData faces arrive via Deps;
-// LastMousePos/LastMoveRunTime write the same-named gfx::Viewport statics
-// (Viewport.cs L134-135).
 #pragma once
 import std;
 
@@ -400,10 +386,23 @@ class Ui {
           return std::vector<std::string>{};
         };
     map::MapCache* ptr_map_cache = nullptr;
+
+    std::function<Widget*(sim::World&, const std::string&, Widget*,
+                         WidgetArgs&)>
+        fn_game_load_widget;
+    std::function<void()> fn_take_screenshot = [] {};
   };
 
   void Initialize(Deps deps);
   const Deps& DepsForTest() const { return deps_; }
+
+  void WireModData(
+      game::ModData* ptr_mod_data,
+      std::function<Widget*(WidgetArgs&, Widget*,
+                            const std::string&)> fn_load_widget,
+      std::function<Widget*(sim::World&, const std::string&, Widget*,
+                            WidgetArgs&)> fn_game_load_widget = {});
+  void WireMapCache(map::MapCache* ptr_map_cache);
 
   gfx::Renderer* RendererDeps() const { return deps_.ptr_renderer; }
   gfx::ChromeProvider* ChromeProviderDeps() const { return deps_.ptr_chrome_provider; }

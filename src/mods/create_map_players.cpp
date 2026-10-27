@@ -1,11 +1,11 @@
-// UPSTREAM: OpenRA.Mods.Common/Traits/World/CreateMapPlayers.cs @1f594e320
-//          (实现部分)+ 本批 mods trait 的注册表装配
-//          The implementation half of CreateMapPlayers.cs + this batch's
-//          mods-trait registry assembly.
 import std;
 
 #include "mods/actor_preview_faces.hpp"
 #include "mods/create_map_players.hpp"
+
+#include "mods/hotkey_logics.hpp"
+#include "mods/load_widget_at_game_start.hpp"
+#include "mods/local_profile_logics.hpp"
 #include "mods/viewport_controller.hpp"
 #include "mods/production_palette_widget.hpp"
 #include "mods/radar_widget.hpp"
@@ -938,6 +938,9 @@ void RegisterCommonTraits() {
     RegisterCommonTraitsBatch16();
     RegisterCommonTraitsBatch17();
     RegisterCommonTraitsBatch18();
+    RegisterLoadWidgetAtGameStart();
+    RegisterHotkeyLogics();
+    RegisterLocalProfileLogics();
     RegisterMenuLogics();
     RegisterIngameMenuLogic();
     RegisterMainMenuLogic();

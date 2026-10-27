@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @1f594e320 L24-194(ui.hpp 的实现)
-// The implementation of ui.hpp.
 import std;
 
 #include "ui/ui.hpp"
@@ -36,6 +34,22 @@ void Ui::Initialize(Deps deps) {
   // upstream Initialize only stores modData; the Deps swap is the assembly
   // point for the injected faces.
   deps_ = std::move(deps);
+}
+
+void Ui::WireMapCache(map::MapCache* ptr_map_cache) {
+  deps_.ptr_map_cache = ptr_map_cache;
+}
+
+void Ui::WireModData(
+    game::ModData* ptr_mod_data,
+    std::function<Widget*(WidgetArgs&, Widget*, const std::string&)>
+        fn_load_widget,
+    std::function<Widget*(sim::World&, const std::string&, Widget*,
+                          WidgetArgs&)> fn_game_load_widget) {
+  deps_.ptr_mod_data = ptr_mod_data;
+  deps_.fn_load_widget = std::move(fn_load_widget);
+  if (fn_game_load_widget)
+    deps_.fn_game_load_widget = std::move(fn_game_load_widget);
 }
 
 void Ui::CloseWindow() {

@@ -1,5 +1,3 @@
-// UPSTREAM: OpenRA.Game/Game.cs @1f594e320(game.hpp 的实现)
-// The implementation of game.hpp.
 import std;
 
 #include "game/game.hpp"
@@ -25,6 +23,7 @@ import std;
 #include "sound/sound.hpp"
 #include "ui/chrome_metrics.hpp"
 #include "ui/default_input_handler.hpp"
+#include "ui/widget_loader.hpp"
 
 namespace ora::game {
 
@@ -278,6 +277,21 @@ bool Game::InitializeMod(const Manifest& manifest,
   if (ModDataFace() == nullptr)
     throw std::runtime_error("NullReferenceException");
 
+  up_widget_loader_ = std::make_unique<ui::WidgetLoader>(
+      manifest.ChromeLayout(), ModDataFace()->ModFiles());
+  ui_face.WireModData(
+      ModDataFace(),
+      [this](ui::WidgetArgs& args_load, ui::Widget* ptr_parent,
+             const std::string& str_id) -> ui::Widget* {
+        return up_widget_loader_->LoadWidget(args_load, ptr_parent, str_id);
+      },
+      [this](sim::World& world_load, const std::string& str_id_load,
+             ui::Widget* ptr_parent_load,
+             ui::WidgetArgs& args_load) -> ui::Widget* {
+        return LoadWidget(world_load, str_id_load, ptr_parent_load,
+                          std::move(args_load));
+      });
+
   ModDataFace()->InitializeLoaders([this](const std::string& str_path) {
     return std::optional<std::vector<char>>(
         ModDataFace()->ModFiles().Open(str_path));
@@ -320,6 +334,7 @@ bool Game::InitializeMod(const Manifest& manifest,
         deps_init_.fn_create_font);
   }
 
+  ui_face.WireMapCache(&MapCacheFace());
   MapCacheFace().LoadMaps(*ModDataFace(), deps_init_.str_map_filter);
 
   if (deps_init_.fn_create_cursor != nullptr)
@@ -350,6 +365,41 @@ void Game::LoadShellMap() {
   for (auto& fn : vec_on_shellmap_loaded_)
     if (fn)
       fn();
+}
+
+ui::Widget* Game::OpenWindow(sim::World& world_game,
+                             const std::string& str_widget) {
+  ui::WidgetArgs args_window{};
+  args_window.Add("world", &world_game);
+  args_window.Add("orderManager", OrderManagerFace());
+  args_window.Add("worldRenderer", WorldRendererFace());
+  ui::Ui& ui_face =
+      deps_.ptr_ui != nullptr ? *deps_.ptr_ui : ui::Ui::Instance();
+  return ui_face.OpenWindow(str_widget, std::move(args_window));
+}
+
+ui::Widget* Game::OpenWindow(const std::string& str_widget,
+                             ui::WidgetArgs args_extra) {
+  if (WorldRendererFace() == nullptr)
+    throw std::runtime_error("NullReferenceException");
+  args_extra.Add("world", &WorldRendererFace()->World());
+  args_extra.Add("orderManager", OrderManagerFace());
+  args_extra.Add("worldRenderer", WorldRendererFace());
+  ui::Ui& ui_face =
+      deps_.ptr_ui != nullptr ? *deps_.ptr_ui : ui::Ui::Instance();
+  return ui_face.OpenWindow(str_widget, std::move(args_extra));
+}
+
+ui::Widget* Game::LoadWidget(sim::World& world_game,
+                             const std::string& str_id,
+                             ui::Widget* ptr_parent, ui::WidgetArgs args_extra) {
+  if (ModDataFace() == nullptr || up_widget_loader_ == nullptr)
+    throw std::runtime_error("NullReferenceException");
+  args_extra.Add("modData", ModDataFace());
+  args_extra.Add("world", &world_game);
+  args_extra.Add("orderManager", OrderManagerFace());
+  args_extra.Add("worldRenderer", WorldRendererFace());
+  return up_widget_loader_->LoadWidget(args_extra, ptr_parent, str_id);
 }
 
 std::string Game::ChooseShellmap() {
@@ -571,8 +621,10 @@ void Game::RenderTick() {
     deps_.ptr_renderer->EndFrame(&handler_input_null);
   }
 
-  // takeScreenshot/PerfHistory 计面桩(Phase 5) | the takeScreenshot/
-  // PerfHistory stubs (Phase 5)
+  if (b_take_screenshot_) {
+    b_take_screenshot_ = false;
+    deps_.fn_take_screenshot_inner();
+  }
 }
 
 void Game::Loop() {

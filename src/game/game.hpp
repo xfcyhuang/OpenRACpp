@@ -1,21 +1,3 @@
-// UPSTREAM: OpenRA.Game/Game.cs @1f594e320 + OpenRA.Game/Support/Program.cs
-// L14-19(主循环骨架逐语义:RunTime 时钟/延迟动作队列/JoinInner·JoinLocal/
-// InnerLogicTick 的双 TickTime 节拍/LogicTick 的连接态事件/RenderTick 的
-// prepare→world→UI→flip 全序/Loop 的逻辑-渲染双时间表与追帧截断/Run 的
-// finally 清理)。Phase 5-8 依赖面 → Deps/钩子注入:Renderer/Sound/
-// CursorManager/ChromeProvider/WorldRenderer+Viewport/Ui、Settings.Graphics
-// 值面、NetworkConnection 的连接态观测(Phase 7)、world.OrderGenerator
-// (Phase 5)、PerfHistory/PerfSample/Benchmark/截图(Phase 5+)、
-// TextNotificationsManager/UnitOrders.Clear(第十六批客户端接线落地:
-// JoinInner 双 Clear + LobbyInfoChanged 事件转发)
-// —— 不在场的编排点全部 no-op 并注释锚定。
-// Verbatim-semantics rewrite of the main-loop skeleton (the RunTime clock /
-// the delayed-action queue / JoinInner·JoinLocal / InnerLogicTick's dual
-// TickTime pacing / LogicTick's connection-state event / RenderTick's
-// prepare→world→UI→flip order / Loop's logic-render dual schedule with the
-// catch-up cutoff / Run's finally cleanup). Phase 5-8 dependency faces
-// arrive as Deps/hooks — every absent orchestration point is a commented
-// no-op (see the CN notes).
 #pragma once
 import std;
 
@@ -52,6 +34,9 @@ class ConnectionTarget;
 }
 namespace ora::sim {
 class World;
+}
+namespace ora::ui {
+class WidgetLoader;
 }
 namespace ora::game {
 class ModData;
@@ -124,6 +109,8 @@ class Game {
     /// Sequences.LoadSprites; an injection face until the Phase 6 asset
     /// chain — no hook = skipped).
     std::function<void(map::Map&)> fn_prepare_map;
+
+    std::function<void()> fn_take_screenshot_inner = [] {};
   };
 
   struct InitializeModDeps {
@@ -305,6 +292,19 @@ class Game {
 
   ILoadScreen* LoadScreenFace() const { return up_load_screen_.get(); }
 
+  ui::Widget* OpenWindow(sim::World& world_game, const std::string& str_widget);
+
+  ui::Widget* OpenWindow(const std::string& str_widget, ui::WidgetArgs args_extra);
+
+  ui::Widget* LoadWidget(sim::World& world_game, const std::string& str_id,
+                         ui::Widget* ptr_parent, ui::WidgetArgs args_extra);
+
+  void TakeScreenshot() { b_take_screenshot_ = true; }
+
+  ui::WidgetLoader* WidgetLoaderFace() const {
+    return up_widget_loader_.get();
+  }
+
   bool InitializeMod(const Manifest& manifest, const core::Arguments& args);
 
   void LoadShellMap();
@@ -343,10 +343,12 @@ class Game {
   std::unique_ptr<map::Map> up_map_;
   std::unique_ptr<sim::World> up_world_;
   std::unique_ptr<ModData> up_mod_data_;
+  std::unique_ptr<ui::WidgetLoader> up_widget_loader_;
   std::unique_ptr<gfx::CursorManager> up_cursor_;
   std::unique_ptr<ILoadScreen> up_load_screen_;
 
   std::int32_t int4_render_frame_ = 0;
+  bool b_take_screenshot_ = false;
   Modifiers kind_modifiers_ = Modifiers::None;
   net::ConnectionState last_connection_state_ = net::ConnectionState::PreConnecting;  // L140
   bool b_hide_cursor_ = false;

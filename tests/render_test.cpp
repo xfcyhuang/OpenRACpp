@@ -22,7 +22,13 @@ import std;
 #include "net/launch_arguments.hpp"
 #include "net/connection_target.hpp"
 #include "game/load_screen.hpp"
+#include "mods/hotkey_logics.hpp"
+
+#include "ui/widgets/badge_widget.hpp"
+#include "ui/widgets/logic_key_listener_widget.hpp"
 #include "mods/load_screens.hpp"
+#include "mods/load_widget_at_game_start.hpp"
+#include "mods/local_profile_logics.hpp"
 #include "mods/music_playlist.hpp"
 #include "mods/lobby_logics.hpp"
 #include "mods/settings_logics.hpp"
@@ -8160,6 +8166,16 @@ int main(int argc, char** argv) {
         world.reset();
         map_world.reset();
 
+        static ui::ChromeMetrics metrics_boot25;
+        metrics_boot25.Initialize({&mod_data.ModFiles(),
+                                   &manifest->ChromeMetrics()});
+        auto deps_ui25 = ui::Ui::Instance().DepsForTest();
+        deps_ui25.ptr_chrome_metrics = &metrics_boot25;
+        deps_ui25.fn_window_size = [] { return int2{1280, 720}; };
+        deps_ui25.fn_run_after_tick =
+            [](std::function<void()> fn_action) { fn_action(); };
+        ui::Ui::Instance().Initialize(std::move(deps_ui25));
+
         int int4_screens = 0;
         int int4_saves = 0;
         int int4_shellmap_loaded = 0;
@@ -8298,8 +8314,286 @@ int main(int argc, char** argv) {
       }
     }
 
+    // ———— Phase 6 第二十六批:MAINMENU 装配链(Game.OpenWindow/
+    // LoadWidget + LoadWidgetAtGameStart + 热键/profile Logic 族)————
+    {
+      static gfx::SheetBuilder builder_font26{gfx::SheetType::BGRA, 128};
+      static std::unique_ptr<gfx::SpriteFont> up_font26;
+      if (up_font26 == nullptr) {
+        struct FakeFont26 final : platform::IFont {
+          platform::FontGlyph CreateGlyph(std::uint32_t, int,
+                                          float) override {
+            platform::FontGlyph glyph_ret;
+            glyph_ret.offset = int2{1, 2};
+            glyph_ret.int4_width = 2;
+            glyph_ret.int4_height = 3;
+            glyph_ret.fp4_advance = 4.0f;
+            glyph_ret.vec_data.assign(2 * 3, 0);
+            return glyph_ret;
+          }
+        };
+        up_font26 = std::make_unique<gfx::SpriteFont>(
+            "Regular", std::span<const std::uint8_t>{},
+            std::make_unique<FakeFont26>(), 10, 8, 1.0f, builder_font26,
+            [](const gfx::Sprite&, core::Vector3, float, core::Vector3,
+               float) {},
+            [](const gfx::Sprite&, core::Vector3, core::Vector3,
+               core::Vector3, core::Vector3, core::Vector3, float) {});
+      }
+
+      int int4_screenshots26 = 0;
+      int int4_tick26 = 0;
+
+      {
+        auto deps_ui26 = ui::Ui::Instance().DepsForTest();
+        deps_ui26.fn_window_size = [] { return int2{1280, 720}; };
+        deps_ui26.fn_local_tick = [&int4_tick26] { return int4_tick26; };
+        deps_ui26.fn_run_after_tick =
+            [](std::function<void()> fn_action) { fn_action(); };
+        deps_ui26.fn_try_get_font = [](const std::string&) {
+          return up_font26.get();
+        };
+        deps_ui26.fn_take_screenshot = [&] { ++int4_screenshots26; };
+        ui::Ui::Instance().Initialize(std::move(deps_ui26));
+      }
+
+      {
+        game::Game::InitializeModDeps deps_init26{};
+        deps_init26.fn_create_load_screen =
+            [&game_](const game::Manifest&)
+                -> std::unique_ptr<game::ILoadScreen> {
+          return mods::CreateLoadScreen("BlankLoadScreen",
+                                        mods::LoadScreenDeps{.ptr_game = &game_});
+        };
+        deps_init26.str_map_filter = "desert-shellmap";
+        game_.SetInitializeModDeps(std::move(deps_init26));
+
+        const bool b_booted26 = game_.InitializeMod(
+            mod_data.ManifestRef(), core::Arguments{});
+        Check(b_booted26, "p6b26: InitializeMod boots with the widget chain");
+
+        ui::Widget* ptr_mainmenu =
+            ui::Ui::Instance().Root()->GetOrNull("MAINMENU");
+        Check(ptr_mainmenu != nullptr,
+              "p6b26: LoadWidgetAtGameStart mounts the MAINMENU tree");
+
+        if (ptr_mainmenu != nullptr) {
+          Check(!ptr_mainmenu->LogicObjects().empty(),
+                "p6b26: MainMenuLogic materializes on the tree");
+          Check(ptr_mainmenu->GetOrNull("MENUS") != nullptr &&
+                    ptr_mainmenu->GetOrNull("VERSION_LABEL") != nullptr,
+                "p6b26: the main menu widgets load");
+          Check(ptr_mainmenu->GetOrNull("GLOBAL_KEYHANDLER") != nullptr,
+                "p6b26: the global key handler mounts");
+          Check(ptr_mainmenu->GetOrNull("PLAYER_PROFILE_CONTAINER") !=
+                    nullptr,
+                "p6b26: the local profile panel mounts");
+        }
+
+        Check(game_.WidgetLoaderFace() != nullptr,
+              "p6b26: Game owns the widget loader");
+        Check(ui::Ui::Instance().CurrentWindow() == nullptr,
+              "p6b26: MAINMENU loads without a window stack entry");
+
+        sim::World* ptr_world26 =
+            game_.OrderManagerFace() != nullptr
+                ? game_.OrderManagerFace()->World()
+                : nullptr;
+        Check(ptr_world26 != nullptr &&
+                  ptr_world26->Type() == sim::WorldType::Shellmap,
+              "p6b26: the shellmap world stays live");
+      }
+
+      {
+        ui::WidgetArgs args_keys26;
+        auto up_bin26 = std::make_unique<ui::ContainerWidget>();
+        auto up_listener26 =
+            std::make_unique<ui::LogicKeyListenerWidget>(args_keys26);
+        up_listener26->str_id = "GLOBAL_KEYHANDLER";
+        up_bin26->AddChild(std::move(up_listener26));
+        ui::Widget* ptr_listener26 = up_bin26->Get("GLOBAL_KEYHANDLER");
+
+        static const std::string str_take_key_name{"TakeScreenshot"};
+        static const yaml::MiniYaml yaml_take_key{&str_take_key_name};
+        static const std::vector<std::pair<std::string_view, const yaml::MiniYaml*>>
+            vec_logic_args_shot{{"TakeScreenshotKey", &yaml_take_key}};
+        ui::WidgetArgs args_shot;
+        args_shot.Add("widget", up_bin26.get());
+        args_shot.Add("modData", game_.ModDataFace());
+        args_shot.Add("logicArgs",
+                      static_cast<const ui::YamlDictionary*>(&vec_logic_args_shot));
+        auto logic_shot = ui::ChromeLogicRegistry::Instance().Create(
+            "ScreenshotHotkeyLogic", args_shot);
+        Check(logic_shot != nullptr, "p6b26: ScreenshotHotkeyLogic builds");
+
+        KeyInput e_shot{};
+        e_shot.Event = KeyInputEvent::Down;
+        e_shot.Key = Keycode::P;
+        e_shot.ModifierFlags = Modifiers::Ctrl;
+        Check(ptr_listener26->HandleKeyPress(e_shot) &&
+                  int4_screenshots26 == 1,
+              "p6b26: the named screenshot key fires TakeScreenshot");
+
+        KeyInput e_other{};
+        e_other.Event = KeyInputEvent::Down;
+        e_other.Key = Keycode::P;
+        Check(!ptr_listener26->HandleKeyPress(e_other) &&
+                  int4_screenshots26 == 1,
+              "p6b26: the key without its modifier does not fire");
+      }
+
+      {
+        auto& profile26 = game::LocalPlayerProfileInstance();
+        profile26.kind_state = game::LinkState::Linked;
+        profile26.profile_data.str_profile_name = "Tester";
+        profile26.profile_data.str_profile_rank = "Rank 2";
+        profile26.profile_data.vec_badges.push_back(
+            game::PlayerBadge{"Founder", "icon1.png", "", ""});
+
+        ui::WidgetArgs args_panel26;
+        auto up_panel26 = std::make_unique<ui::ContainerWidget>();
+        up_panel26->str_id = "LOCAL_PROFILE_PANEL";
+        for (const std::string_view sv_id :
+             {"CHECKING_FINGERPRINT", "LINK_ACCOUNT", "CONNECTION_ERROR",
+              "PROFILE_HEADER"})
+          up_panel26->AddChild(std::make_unique<ui::ContainerWidget>());
+        auto up_name26 = std::make_unique<ui::LabelWidget>(args_panel26);
+        up_name26->str_id = "PROFILE_NAME";
+        auto up_rank26 = std::make_unique<ui::LabelWidget>(args_panel26);
+        up_rank26->str_id = "PROFILE_RANK";
+        auto up_link26 = std::make_unique<ui::ButtonWidget>(args_panel26);
+        up_link26->str_id = "LINK_BUTTON";
+        auto up_retry26 = std::make_unique<ui::ButtonWidget>(args_panel26);
+        up_retry26->str_id = "RETRY_BUTTON";
+        auto up_destroy26 = std::make_unique<ui::ButtonWidget>(args_panel26);
+        up_destroy26->str_id = "DESTROY_KEY";
+        auto up_badges26 = std::make_unique<ui::ContainerWidget>();
+        up_badges26->str_id = "BADGES_CONTAINER";
+        ui::ContainerWidget* ptr_badges26 = up_badges26.get();
+        {
+          const std::string_view sv_ids26[] = {"CHECKING_FINGERPRINT",
+                                               "LINK_ACCOUNT",
+                                               "CONNECTION_ERROR",
+                                               "PROFILE_HEADER"};
+          for (std::size_t i = 0; i < 4; ++i)
+            up_panel26->Children()[i]->str_id = std::string{sv_ids26[i]};
+        }
+        up_panel26->AddChild(std::move(up_name26));
+        up_panel26->AddChild(std::move(up_rank26));
+        up_panel26->AddChild(std::move(up_link26));
+        up_panel26->AddChild(std::move(up_retry26));
+        up_panel26->AddChild(std::move(up_destroy26));
+        up_panel26->AddChild(std::move(up_badges26));
+
+        std::function<bool()> fn_minimal26 = [] { return false; };
+        {
+          mods::LocalProfileLogic logic_profile26(*up_panel26, nullptr,
+                                                  fn_minimal26);
+          Check(up_panel26->Get<ui::LabelWidget>("PROFILE_NAME")
+                        ->fn_get_text() == "Tester",
+                "p6b26: PROFILE_NAME reads the profile data");
+          Check(up_panel26->Get<ui::LabelWidget>("PROFILE_RANK")
+                        ->fn_get_text() == "Rank 2",
+                "p6b26: PROFILE_RANK reads the profile data");
+          Check(ptr_badges26->Children().size() == 1,
+                "p6b26: the badge insert loads into the container");
+        }
+        Check(true, "p6b26: LocalProfileLogic destroys cleanly");
+      }
+
+      {
+        ui::WidgetArgs args_badges26;
+        auto up_insert26 = std::make_unique<ui::ContainerWidget>();
+        up_insert26->str_id = "PLAYER_PROFILE_BADGES_INSERT";
+        auto up_template26 = std::make_unique<ui::ContainerWidget>();
+        up_template26->str_id = "BADGE_TEMPLATE";
+        up_template26->bounds_widget.int4_y = 10;
+        up_template26->bounds_widget.int4_height = 20;
+        auto up_icon26 = std::make_unique<ui::BadgeWidget>(args_badges26);
+        up_icon26->str_id = "ICON";
+        up_icon26->bounds_widget.int4_x = 0;
+        up_icon26->bounds_widget.int4_width = 24;
+        auto up_label26 = std::make_unique<ui::LabelWidget>(args_badges26);
+        up_label26->str_id = "LABEL";
+        up_label26->str_font = "Regular";
+        up_label26->bounds_widget.int4_x = 30;
+        up_template26->AddChild(std::move(up_icon26));
+        up_template26->AddChild(std::move(up_label26));
+        up_insert26->AddChild(std::move(up_template26));
+
+        game::PlayerProfile profile_badges26{};
+        profile_badges26.vec_badges.push_back(
+            game::PlayerBadge{"Alpha", "a.png", "", ""});
+        profile_badges26.vec_badges.push_back(
+            game::PlayerBadge{"Beta", "b.png", "", ""});
+        profile_badges26.vec_badges.push_back(
+            game::PlayerBadge{"Gamma", "c.png", "", ""});
+
+        int int4_negotiated26 = -1;
+        std::function<int(int)> fn_negotiate26 = [&](int int4_asked) {
+          int4_negotiated26 = int4_asked;
+          return 400;
+        };
+        mods::PlayerProfileBadgesLogic logic_badges26(
+            *up_insert26, &profile_badges26, fn_negotiate26);
+
+        Check(up_insert26->Children().size() == 3,
+              "p6b26: three badges clone three rows");
+        Check(up_insert26->bounds_widget.int4_width == 400,
+              "p6b26: the insert width takes the negotiated value");
+        Check(int4_negotiated26 == 2 * 30 - 24 + 20,
+              "p6b26: negotiate receives 2*labelLeft-iconRight+maxLabel "
+              "(the fake font measures 4px per char)");
+        Check(up_insert26->bounds_widget.int4_height == 10 + 3 + 3 * 20 + 5,
+              "p6b26: the height stacks the badge rows");
+        Check(up_insert26->fn_is_visible(),
+              "p6b26: the insert is visible with badges present");
+
+        ui::BadgeWidget* ptr_icon_row =
+            up_insert26->Children().empty()
+                ? nullptr
+                : up_insert26->Children().front()->GetOrNull<ui::BadgeWidget>(
+                      "ICON");
+        Check(ptr_icon_row != nullptr && ptr_icon_row->opt_badge.has_value() &&
+                  ptr_icon_row->opt_badge->str_label == "Alpha",
+              "p6b26: the cloned row carries the badge");
+      }
+
+      {
+        auto up_badges_empty26 = std::make_unique<ui::ContainerWidget>();
+        auto up_template_empty26 =
+            std::make_unique<ui::ContainerWidget>();
+        up_template_empty26->str_id = "BADGE_TEMPLATE";
+        up_template_empty26->bounds_widget.int4_y = 10;
+        ui::WidgetArgs args_badges_empty26;
+        auto up_icon_empty26 = std::make_unique<ui::BadgeWidget>(args_badges_empty26);
+        up_icon_empty26->str_id = "ICON";
+        up_icon_empty26->bounds_widget.int4_x = 0;
+        up_icon_empty26->bounds_widget.int4_width = 24;
+        auto up_label_empty26 = std::make_unique<ui::LabelWidget>(args_badges_empty26);
+        up_label_empty26->str_id = "LABEL";
+        up_label_empty26->str_font = "Regular";
+        up_label_empty26->bounds_widget.int4_x = 30;
+        up_template_empty26->AddChild(std::move(up_icon_empty26));
+        up_template_empty26->AddChild(std::move(up_label_empty26));
+        up_badges_empty26->AddChild(std::move(up_template_empty26));
+        game::PlayerProfile profile_empty26{};
+        std::function<int(int)> fn_none26 = [](int) { return 0; };
+        mods::PlayerProfileBadgesLogic logic_empty26(
+            *up_badges_empty26, &profile_empty26, fn_none26);
+        Check(!up_badges_empty26->fn_is_visible(),
+              "p6b26: an empty badge list hides the insert");
+        Check(up_badges_empty26->Children().empty(),
+              "p6b26: no rows without badges");
+        Check(up_badges_empty26->bounds_widget.int4_height == 10,
+              "p6b26: the height stays at the template offset");
+      }
+    }
+
     std::println("render_test: {} failures", g_failures);
 
+    if (ui::Ui::HasInstance())
+      ui::Ui::Instance().ResetAll();
 
   return g_failures != 0;
 }

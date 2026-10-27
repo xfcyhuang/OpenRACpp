@@ -599,7 +599,10 @@ add_library(ora_mods STATIC
   src/mods/asset_browser_logic.cpp
   src/mods/trait_registry_batch17.cpp
   src/mods/trait_registry_batch18.cpp
-  src/mods/load_screens.cpp)
+  src/mods/load_screens.cpp
+  src/mods/load_widget_at_game_start.cpp
+  src/mods/hotkey_logics.cpp
+  src/mods/local_profile_logics.cpp)
 target_link_libraries(ora_mods PUBLIC ora_gfx PRIVATE ora_formats ora_ui ora_sound)
 ora_link_std(ora_mods)
 

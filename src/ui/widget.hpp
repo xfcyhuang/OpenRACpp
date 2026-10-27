@@ -1,23 +1,3 @@
-// UPSTREAM: OpenRA.Game/Widgets/Widget.cs @1f594e320(Widget 树逐语义:Ui 门面
-// /ChromeLogic/WidgetBounds/Widget/ContainerWidget/InputWidget/WidgetArgs/
-// Mediator)。C# static Ui → 进程级单例(Widget 的 Outer 族经其取焦点态);
-// 子 widget 所有权归父 unique_ptr,RemoveChild/HideChild 转移出树;Mediator
-// 的 TypeDictionary 反射接口索引 → type_index 桶 + NotificationHandlerSet
-// 混入;PostInit 的 ObjectCreator.CreateObject → 名字分派注册表(未知名
-// "Cannot locate type: {name}" 逐字);FieldLoader.LoadFieldOrProperty →
-// LoadFieldOrProperty 虚方法链式回退;Initialize 的 Renderer.Resolution 与
-// ChromeMetrics 经 WidgetArgs("windowSize"/"chromeMetrics")注入。
-// Verbatim-semantics rewrite of the widget tree. C#'s static Ui becomes the
-// process singleton (the Widget Outer family reaches focus state through
-// it); child widgets are owned by the parent's unique_ptrs with
-// RemoveChild/HideChild transferring ownership out of the tree; the
-// Mediator's TypeDictionary reflection index becomes type_index buckets +
-// the NotificationHandlerSet mixin; PostInit's ObjectCreator.CreateObject
-// becomes a name-dispatch registry (unknown names throw
-// "Cannot locate type: {name}" verbatim); FieldLoader.LoadFieldOrProperty
-// becomes the chained-fallback LoadFieldOrProperty virtual; Initialize's
-// Renderer.Resolution and ChromeMetrics arrive through WidgetArgs
-// ("windowSize"/"chromeMetrics").
 #pragma once
 import std;
 
@@ -55,6 +35,9 @@ struct MapGenerationArgs;
 }
 namespace ora::game {
 class ModData;
+}
+namespace ora::game {
+struct PlayerProfile;
 }
 namespace ora::mods {
 class ISettingsLogic;
@@ -121,8 +104,10 @@ using WidgetArgValue =
                  std::function<std::vector<int>()>,            // getDisabledSpawnPoints
                  MapPreviewWidget*,                            // preview(SpawnSelectorTooltip)
                  TooltipContainerWidget*,                      // tooltipContainer
-                 const map::MapGenerationArgs*,                // initialGeneratedMap
-                 std::function<void(const map::MapGenerationArgs&)>>;  // onSelectGenerated
+                const map::MapGenerationArgs*,                // initialGeneratedMap
+                std::function<void(const map::MapGenerationArgs&)>,  // onSelectGenerated
+                game::PlayerProfile*,
+                std::function<int(int)>>;
 
 /// WidgetArgs(L673-679;插入序条目表)
 /// WidgetArgs (L673-679; an insertion-ordered entry list).
