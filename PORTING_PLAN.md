@@ -1,0 +1,42 @@
+# PORTING_PLAN —— 分阶段移植计划
+
+**当前状态：Phase 0 未开始（2026-11-02 起草）**
+
+## 目标与原则
+
+- **范围（终态：全移植）**：上游引擎七程序集（Game / Mods.Common / Mods.Cnc / Mods.D2k / Platforms.Default / Server / Utility）+ ra/cnc/d2k/ts 四 mod + Launcher（GUI，Dear ImGui）。
+- **原则**：语义等价第一原则，不照抄（见 [ADR-0001](docs/adr/0001-semantic-equivalence-first.md)）。
+- **路线**：垂直切片优先，先通沙盒对局再横向补全（见 [ADR-0002](docs/adr/0002-vertical-slice-first.md)）。
+- **编码**：`../cpp26.md` 为准；裸 ctest 偏离见 [ADR-0003](docs/adr/0003-bare-ctest-no-framework.md)。
+- **平台**：Windows 优先（llvm-mingw Clang 23 / UCRT / WinSock2）；POSIX 留接口列 CI 待办。
+- **上游**：`../openra`，基线钉定见 [UPSTREAM.baseline](UPSTREAM.baseline)，同步手动发起。
+- **验证**：ra 为主线 mod；三层验证 = 字节恒等 + oracle 回放逐帧 SyncHash + ctest 三编排（base/asan/hardened）。
+
+## 里程碑 M1：CLI 直进沙盒对局可玩
+
+加载 ra 固定地图 → 直进对局 → 可框选/移动/建造/生产/交战的基础 HUD 侧栏；静音桩、无 AI、无菜单 UI。
+
+## 阶段表
+
+每阶段退出条件：本阶段验收项通过 + ctest 三编排全绿。
+
+| 阶段 | 内容 | 验收 |
+|------|------|------|
+| **Phase 0** 骨架 | CMake 根 + `base/asan/hardened` 三 preset + `std.cppm` PCM 共享 + `ora::<assembly>` 命名空间骨架 + `docs/COVERAGE.md`/`upstream.md` 空表 + `tools/golden_gen`（dotnet 10 无头宿主）脚手架 | 空测试三编排全绿；golden_gen 可产/校验一份最小产物 |
+| **Phase 1** 数据层最小集 | MiniYaml 解析、ra 规则加载、`.oramap` 地图读取、素材索引最小面、确定性随机数 | 规则/地图加载单测 + yaml dump 与 oracle 字节恒等 |
+| **Phase 2** 引擎核心最小集 | World/Tick 循环、Actor/Trait 装配最小面、订单管道、Actor 创建/销毁 | 无头跑固定种子 N tick，状态摘要自洽 |
+| **Phase 3** 渲染与输入最小集 | SDL2+OpenGL 窗口、地形/精灵绘制、框选与指令输入、ra 侧栏 HUD 最小面 | 固定地图可视可交互（手动验收 + 渲染截图对拍） |
+| **Phase 4** gameplay 最小闭环 | 建造/生产/移动/攻击/资源/电力最小闭环、CLI 直进参数 | 沙盒对局可玩（M1 功能面齐） |
+| **Phase 5** 确定性关卡 | golden_gen 产真 .orarep（固定地图固定种子 ~150 帧）→ 逐帧 SyncHash 全对 + desync 篡改负向样本；回放/地图读写字节恒等 | **M1 达成** |
+| **Phase 6** 平台层补全 | 音频（去静音桩）、输入全量、显示设置与持久化 | 音效/音乐生效；设置往返一致 |
+| **Phase 7** UI 体系 | Widget 框架、主菜单、遭遇战大堂（地图预览/槽位/设置面板） | 菜单→大堂→对局全流程可走 |
+| **Phase 8** AI | lua 虚拟机、NullBot 接入 | 遭遇战带 AI 对手可玩 |
+| **Phase 9** 网络/服务器 | Connection/Server/LobbyCommands 族、回环验收 | 127.0.0.1 回环全链验收 |
+| **Phase 10** utility | OpenRA.Utility 语义（格式转换/地图工具） | 命令行工具集对拍 |
+| **Phase 11** mods 增量 | cnc → d2k → ts | 各 mod 沙盒对局可玩 |
+| **Phase 12** Launcher | Dear ImGui GUI（见 [ADR-0004](docs/adr/0004-launcher-dear-imgui.md)）、内容发现/拉起语义 | GUI 启动器全流程 |
+| **Phase 13** 全量审计收尾 | 上游文件覆盖审计、COVERAGE 登记清零或完毕、三编排常态化 | 覆盖审计无未登记缺口 |
+
+## 同步
+
+上游更新的**语义合并**流程见 [UPSTREAM.baseline](UPSTREAM.baseline)；同步与阶段推进可交错，每次同步须对拍回归全绿。

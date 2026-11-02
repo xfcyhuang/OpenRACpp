@@ -1,0 +1,11 @@
+1f594e32065615ed1847962c80ecfe6e868a11c3
+
+上游基线：OpenRA/OpenRA @ 1f594e32065615ed1847962c80ecfe6e868a11c3（2026-10-15）
+
+## 同步流程（手动发起）
+
+1. 在 ../openra 执行 git fetch && git log --oneline <旧基线>..origin/bleed 审阅上游变更
+2. 选定新基线 commit，更新本文件首行
+3. 按**语义合并**原则逐项移植变更到对应模块（不套文本补丁）
+4. 跑全量对拍回归：字节恒等 + oracle 回放逐帧 SyncHash + ctest 三编排，全绿才算完成
+5. 有意偏离处登记 docs/COVERAGE.md；有意优化登记 docs/UPSTREAM_CPP_REVIEW.md
