@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- golden_gen oracle 宿主（工单 #3 / T02）：dotnet 10 无头宿主，ProjectReference
+       上游基线源码，进程内驱动上游真源（MersenneTwister / IUtilityCommand）产黄金基准。 -->
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
@@ -9,9 +12,27 @@
     <RootNamespace>GoldenGen</RootNamespace>
   </PropertyGroup>
 
+  <!-- 上游根解析（可用 -p:OpenRaRoot=DIR 覆盖）：
+       1) 主检出布局   <repo>/../openra      （PORTING_PLAN 约定 ../openra）
+       2) worktree 布局 <repo>/../../openra   （.ora-worktrees/<name> 场景）
+       两级探测均落空时由下方 CheckOpenRaRoot 报错（不静默回落到不存在路径）。 -->
   <PropertyGroup>
-    <OpenRaRoot Condition="'$(OpenRaRoot)' == '' AND Exists('..\..\..\openra')">..\..\..\openra</OpenRaRoot>
-    <OpenRaRoot Condition="'$(OpenRaRoot)' == '' AND Exists('..\..\..\..\openra')">..\..\..\..\openra</OpenRaRoot>
+    <OpenRaRoot Condition="'$(OpenRaRoot)' == '' AND Exists('$(MSBuildThisFileDirectory)..\..\..\openra\OpenRA.slnx')">$(MSBuildThisFileDirectory)..\..\..\openra</OpenRaRoot>
+    <OpenRaRoot Condition="'$(OpenRaRoot)' == '' AND Exists('$(MSBuildThisFileDirectory)..\..\..\..\openra\OpenRA.slnx')">$(MSBuildThisFileDirectory)..\..\..\..\openra</OpenRaRoot>
+  </PropertyGroup>
+
+  <Target Name="CheckOpenRaRoot" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(OpenRaRoot)\OpenRA.slnx')"
+           Text="未找到上游 openra 检出（OpenRaRoot='$(OpenRaRoot)'）。请按 PORTING_PLAN 置于 &lt;repo&gt;/../openra，或用 -p:OpenRaRoot=DIR 指定。" />
+  </Target>
+
+  <!-- 与上游 Directory.Build.props 约定一致：程序集平铺进上游仓库 bin/（上游 git 忽略目录，
+       不改上游 tracked 文件）。宿主 exe 落在上游 bin 内使 Platform.BinDir 自然指向
+       openra/bin，mod 程序集（OpenRA.Mods.*.dll）按上游 ObjectCreator 约定可直接加载
+       （resolved-rules 命令体即在 Mods.Common 程序集内）。 -->
+  <PropertyGroup>
+    <OutputPath>$(OpenRaRoot)\bin</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
   <ItemGroup>

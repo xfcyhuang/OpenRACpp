@@ -1,12 +1,148 @@
+// golden-gen —— 无头 oracle 宿主（工单 #3 / T02；PRNG 模式源自 T03）
+//
+// 职责：ProjectReference 上游基线源码（OpenRA.Game）构建，进程内驱动上游真源产出
+// 黄金基准产物，供 C++ 侧移植黄金对拍（入库字节 = 判定真值）。动作：
+//   gen     重产基准产物并写入库位置（tests/golden/**）+ .sha256 旁车（sha256sum -c 兼容）
+//   verify  重产并与入库黄金逐字节比对，退出码供脚本/ctest 判定
+//   check   验收复验：每产物独立重产两次断言字节恒等（SHA256 一致），再与入库黄金比对
+//
+// 产物模式（artifacts 清单登记，随工单扩展）：
+//   prng            上游 OpenRA.Support.MersenneTwister 序列 dump（7 种子 × 10 kind，T03 格式）
+//   resolved-rules  上游 IUtilityCommand --resolved-rules ra:BADR.Bomber——覆盖 MiniYaml
+//                   解析、Inherits/Inherits@ 继承展开与多文件合并语义
+//
+// 每次动作前断言上游检出 HEAD == UPSTREAM.baseline 首行，防基准漂移。
+// resolved-rules 产物字节为上游命令 stdout 的原样捕获（UTF-8 无 BOM；末尾行尾来自
+// Console.WriteLine，Windows 上为 CR LF）——黄金锚定 Windows 上游 stdout 语义，不做任何规范化。
+//
+// 退出码：0 成功 / 1 校验失败（含 check 双跑不恒等）/ 2 基线漂移 / 3 宿主错误；
+//         77 前置缺失（dotnet/上游检出不在）由 run.cmd 判定，供 ctest 记为 SKIP。
+
+using System.Diagnostics;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
+using OpenRA;
 using OpenRA.Support;
 
-var outDir = args.Length > 0 ? args[0] : "tests/golden/prng";
-var seeds = new[] { 0, 1, 42, -1, int.MinValue, int.MaxValue, 20261103 };
-Directory.CreateDirectory(outDir);
+const int ExitOk = 0;
+const int ExitVerifyFail = 1;   // verify/check：黄金缺失、字节不一致或双跑不恒等
+const int ExitBaseline = 2;     // 上游检出与 UPSTREAM.baseline 不符（基准漂移）
+const int ExitError = 3;        // 参数/构建/运行等其他宿主错误
 
-foreach (var seed in seeds)
+try
+{
+    return Run(args);
+}
+catch (BaselineMismatchException e)
+{
+    return Fail(ExitBaseline, e.Message);
+}
+catch (Exception e)
+{
+    return Fail(ExitError, $"{e.GetType().Name}: {e.Message}");
+}
+finally
+{
+    // 必修：上游 Log 静态构造（OpenRA.Game/Support/Log.cs:49-54）启动的是前台线程，
+    // 不 Dispose 进程永不退出——参照上游 OpenRA.Utility/Program.cs Main 的 finally 收尾。
+    Log.Dispose();
+}
+
+int Run(string[] args)
+{
+    // —— 参数解析（run.cmd 会显式传入两个根路径） ——
+    string verb = null;
+    string repoRootArg = null;
+    string openraArg = null;
+    for (var i = 0; i < args.Length; i++)
+    {
+        switch (args[i])
+        {
+            case "--repo-root": repoRootArg = NextArg(args, ref i); break;
+            case "--openra": openraArg = NextArg(args, ref i); break;
+            default:
+                if (verb == null && args[i] is "gen" or "verify" or "check") verb = args[i];
+                else throw new ArgumentException(
+                    $"未知参数或动作：{args[i]}（用法：golden-gen gen|verify|check [--repo-root DIR] [--openra DIR]）");
+                break;
+        }
+    }
+
+    if (verb == null)
+        throw new ArgumentException("缺少动作。用法：golden-gen gen|verify|check [--repo-root DIR] [--openra DIR]");
+
+    // —— 路径解析 ——
+    var repoRoot = ResolveRepoRoot(repoRootArg);
+    var openraRoot = ResolveOpenRaRoot(openraArg, repoRoot);
+
+    // —— 基线断言：上游检出必须钉在 UPSTREAM.baseline 记录的 commit ——
+    AssertUpstreamBaseline(openraRoot, repoRoot);
+
+    // 注：宿主不在此整建上游 slnx——宿主 exe 与其加载的 OpenRA.Game.dll 都在
+    // openra/bin，进程运行中锁文件，进程内再构建同一输出目录会自锁
+    // （MSB3026 复制失败重试耗尽）。上游构建职责在 run.cmd：先建 slnx 再建宿主，
+    // 宿主启动后对 mod 程序集做存在性自检（见 DumpResolvedRules）。
+
+    // —— 基准产物清单（后续 yaml-roundtrip / 真回放等模式在此追加） ——
+    (string RelPath, Func<byte[]> Produce)[] artifacts =
+    [
+        .. State.PrngSeeds.Select(seed => (
+            $"tests/golden/prng/seed_{seed.ToString(CultureInfo.InvariantCulture)}.txt",
+            (Func<byte[]>)(() => DumpPrngSequence(seed)))),
+        ("tests/golden/resolved_rules/BADR.Bomber.yaml",
+            () => DumpResolvedRules(openraRoot, "ra", "BADR.Bomber")),
+    ];
+
+    var failures = 0;
+    foreach (var (relPath, produce) in artifacts)
+    {
+        var artifactPath = Path.Combine(repoRoot, relPath.Replace('/', Path.DirectorySeparatorChar));
+
+        if (verb == "check")
+        {
+            // 验收语义：独立重产两次，字节必须恒等（真双跑，非同义反复）
+            var first = produce();
+            var second = produce();
+            if (!first.AsSpan().SequenceEqual(second))
+            {
+                failures++;
+                Console.WriteLine($"check: {relPath} FAIL —— 连续两次产出字节不一致" +
+                    $"（{Sha256Hex(first)} vs {Sha256Hex(second)}）");
+                continue;
+            }
+
+            Console.WriteLine($"check: {relPath} 双跑恒等 sha256={Sha256Hex(first)} bytes={first.Length}");
+            if (!VerifyGolden(artifactPath, relPath, first))
+                failures++;
+        }
+        else
+        {
+            var bytes = produce();
+            if (verb == "gen")
+                WriteGolden(artifactPath, relPath, bytes);
+            else if (!VerifyGolden(artifactPath, relPath, bytes))
+                failures++;
+        }
+    }
+
+    if (failures > 0)
+        return Fail(ExitVerifyFail, $"{failures} 个黄金产物校验失败");
+
+    var summary = verb switch
+    {
+        "gen" => $"gen: {artifacts.Length} 个黄金产物已写入",
+        "check" => $"check: {artifacts.Length} 个产物双跑恒等且与入库黄金一致",
+        _ => "verify: 全部通过",
+    };
+    Console.WriteLine(summary);
+    return ExitOk;
+}
+
+// —— prng 模式：驱动上游 MersenneTwister 真源，格式与 T03 入库文件一致
+//    （首部注释即格式说明，C++ 侧 tests/prng.cpp 按此解析） ——
+
+static byte[] DumpPrngSequence(int seed)
 {
     var sb = new StringBuilder();
     sb.Append("# seed ").Append(seed).Append('\n');
@@ -65,7 +201,222 @@ foreach (var seed in seeds)
         m8.NextUint();
     Line("u32_624", $"{m8.NextUint():x8} {m8.NextUint():x8} {m8.NextUint():x8}");
 
-    var path = Path.Combine(outDir, $"seed_{seed}.txt");
-    File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
-    Console.WriteLine($"wrote {path}");
+    // 与 T03 落盘编码一致：UTF-8 无 BOM，LF 行尾
+    return new UTF8Encoding(false).GetBytes(sb.ToString());
+}
+
+// —— resolved-rules 模式：镜像上游 OpenRA.Utility/Program.cs:55-99 的无头装配，
+//    命令体（--resolved-rules）经 ObjectCreator 自 openra/bin 的上游程序集加载，
+//    oracle 纯度 = 产物全部来自上游代码 ——
+static byte[] DumpResolvedRules(string openraRoot, string modId, string actorKey)
+{
+    // 前置自检：ra 的 manifest 声明程序集（OpenRA.Mods.Common/Cnc.dll）须已在
+    // openra/bin——由 run.cmd 在宿主启动前整建 slnx。缺失时报可操作错误而非
+    // 让 ObjectCreator 在装配深处抛难解的 FileNotFoundException。
+    foreach (var assembly in new[] { "OpenRA.Mods.Common.dll", "OpenRA.Mods.Cnc.dll" })
+        if (!File.Exists(Path.Combine(Platform.BinDir, assembly)))
+            throw new InvalidOperationException(
+                $"openra/bin 缺少 {assembly}（BinDir={Platform.BinDir}）。" +
+                "先运行 tools/golden_gen/run.cmd，或手动执行 " +
+                $"dotnet build {Path.Combine(openraRoot, "OpenRA.slnx")} -c Release 后重试。");
+
+    // 与上游同序：先覆写引擎目录（须在任何 EngineDir 访问前）。上游 Platform
+    // 对二次 OverrideEngineDir 直接 throw，check 双跑时只覆写一次。
+    if (!State.EngineDirOverridden)
+    {
+        Platform.OverrideEngineDir(openraRoot);
+        State.EngineDirOverridden = true;
+    }
+
+    // AddChannel 幂等（上游 Log.cs:130-131），重复装配时安全
+    Log.AddChannel("perf", null);
+    Log.AddChannel("debug", null);
+    Game.InitializeSettings(Arguments.Empty);
+
+    var mods = new InstalledMods(new[] { Path.Combine(Platform.EngineDir, "mods") }, Array.Empty<string>());
+    if (!mods.ContainsKey(modId))
+        throw new InvalidOperationException($"mod '{modId}' 不在可用列表：{string.Join(", ", mods.Keys)}");
+
+    var modData = new ModData(mods[modId], mods);
+    var utility = new Utility(modData, mods);
+
+    var command = modData.ObjectCreator.GetTypesImplementing<IUtilityCommand>()
+        .Select(t => (IUtilityCommand)Activator.CreateInstance(t))
+        .FirstOrDefault(c => c.Name == "--resolved-rules")
+        ?? throw new InvalidOperationException("上游程序集中未找到 --resolved-rules 命令");
+
+    var commandArgs = new[] { "--resolved-rules", actorKey };
+    if (!command.ValidateArguments(commandArgs))
+        throw new InvalidOperationException($"--resolved-rules 参数不合法：{string.Join(" ", commandArgs)}");
+
+    // 捕获上游命令的 stdout 作为产物字节（UTF-8、无 BOM），宿主自身日志不混入
+    var captured = new StringWriter();
+    var oldOut = Console.Out;
+    Console.SetOut(captured);
+    try
+    {
+        command.Run(utility, commandArgs);
+    }
+    finally
+    {
+        Console.SetOut(oldOut);
+    }
+
+    return Encoding.UTF8.GetBytes(captured.ToString());
+}
+
+static void WriteGolden(string artifactPath, string relPath, byte[] bytes)
+{
+    var dir = Path.GetDirectoryName(artifactPath);
+    Directory.CreateDirectory(dir);
+
+    // 临时文件 + 原子替换，避免中断留下半截产物
+    var tmp = artifactPath + ".tmp";
+    File.WriteAllBytes(tmp, bytes);
+    File.Move(tmp, artifactPath, overwrite: true);
+
+    var sidecar = artifactPath + ".sha256";
+    tmp = sidecar + ".tmp";
+    File.WriteAllText(tmp, SidecarLine(relPath, bytes), new UTF8Encoding(false));
+    File.Move(tmp, sidecar, overwrite: true);
+
+    Console.WriteLine($"gen: {relPath} sha256={Sha256Hex(bytes)} bytes={bytes.Length}");
+}
+
+static bool VerifyGolden(string artifactPath, string relPath, byte[] produced)
+{
+    if (!File.Exists(artifactPath))
+    {
+        Console.WriteLine($"verify: {relPath} FAIL —— 黄金文件缺失，先运行 gen 生成");
+        return false;
+    }
+
+    var golden = File.ReadAllBytes(artifactPath);
+    if (!produced.AsSpan().SequenceEqual(golden))
+    {
+        var offset = FirstDiffOffset(produced, golden);
+        Console.WriteLine($"verify: {relPath} FAIL —— 与入库黄金字节不一致" +
+            $"（produced={produced.Length}B golden={golden.Length}B，首个差异偏移 {offset}）");
+        return false;
+    }
+
+    // 旁车 .sha256 与黄金文件自身一致性（格式兼容 `sha256sum -c`）
+    var sidecar = artifactPath + ".sha256";
+    if (!File.Exists(sidecar) || File.ReadAllText(sidecar) != SidecarLine(relPath, golden))
+    {
+        Console.WriteLine($"verify: {relPath} FAIL —— .sha256 旁车缺失或与黄金文件不匹配");
+        return false;
+    }
+
+    return true;
+}
+
+static string SidecarLine(string relPath, byte[] bytes) =>
+    $"{Sha256Hex(bytes)}  {Path.GetFileName(relPath)}\n";
+
+static string Sha256Hex(byte[] bytes) =>
+    Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+
+static int FirstDiffOffset(byte[] a, byte[] b)
+{
+    var n = Math.Min(a.Length, b.Length);
+    for (var i = 0; i < n; i++)
+        if (a[i] != b[i]) return i;
+    return n;
+}
+
+// —— 基线断言 ——
+static void AssertUpstreamBaseline(string openraRoot, string repoRoot)
+{
+    var baselineFile = Path.Combine(repoRoot, "UPSTREAM.baseline");
+    if (!File.Exists(baselineFile))
+        throw new InvalidOperationException($"未找到 {baselineFile}");
+
+    var expected = File.ReadLines(baselineFile).Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0)
+        ?? throw new InvalidOperationException("UPSTREAM.baseline 为空");
+
+    var actual = RunCapture("git", $"-C \"{openraRoot}\" rev-parse HEAD", "git rev-parse 失败").Trim();
+
+    if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+        throw new BaselineMismatchException(
+            $"上游检出与基线不符：UPSTREAM.baseline={expected}，{openraRoot} HEAD={actual}。" +
+            "请按 UPSTREAM.baseline 同步流程处理后再产/验黄金。");
+}
+
+// —— 路径解析 ——
+static string ResolveRepoRoot(string arg)
+{
+    if (arg != null)
+    {
+        var full = Path.GetFullPath(arg);
+        if (!File.Exists(Path.Combine(full, "UPSTREAM.baseline")))
+            throw new InvalidOperationException($"{full} 下无 UPSTREAM.baseline，不是本仓库根目录");
+        return full;
+    }
+
+    // 默认：自当前目录向上找 UPSTREAM.baseline
+    for (var dir = new DirectoryInfo(Directory.GetCurrentDirectory()); dir != null; dir = dir.Parent)
+        if (File.Exists(Path.Combine(dir.FullName, "UPSTREAM.baseline")))
+            return dir.FullName;
+
+    throw new InvalidOperationException("未能定位仓库根（未指定 --repo-root 且当前目录链上无 UPSTREAM.baseline）");
+}
+
+static string ResolveOpenRaRoot(string arg, string repoRoot)
+{
+    // 主检出布局 <repo>/../openra（PORTING_PLAN 约定）；worktree 布局 <repo>/../../openra
+    string[] candidates = arg != null ? [arg] :
+    [
+        Path.GetFullPath(Path.Combine(repoRoot, "..", "openra")),
+        Path.GetFullPath(Path.Combine(repoRoot, "..", "..", "openra")),
+    ];
+
+    foreach (var c in candidates)
+        if (File.Exists(Path.Combine(c, "OpenRA.slnx")))
+            return c;
+
+    throw new InvalidOperationException($"未找到上游 openra 检出（尝试：{string.Join("; ", candidates)}）");
+}
+
+// —— 进程工具 ——
+static string RunCapture(string exe, string arguments, string what)
+{
+    var psi = new ProcessStartInfo(exe, arguments)
+    {
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+    };
+    using var p = Process.Start(psi) ?? throw new InvalidOperationException($"无法启动 {exe}");
+    var stdout = p.StandardOutput.ReadToEnd();
+    var stderr = p.StandardError.ReadToEnd();
+    p.WaitForExit();
+    if (p.ExitCode != 0)
+        throw new InvalidOperationException($"{what}（exit {p.ExitCode}）：{stderr.Trim()}");
+    return stdout;
+}
+
+static string NextArg(string[] args, ref int i)
+{
+    if (++i >= args.Length) throw new ArgumentException("选项缺少取值");
+    return args[i];
+}
+
+static int Fail(int code, string message)
+{
+    Console.Error.WriteLine($"golden-gen: {message}");
+    return code;
+}
+
+// 基线漂移单独给退出码 2，脚本可区分“基准漂移”与“一般宿主错误”
+sealed class BaselineMismatchException(string message) : Exception(message);
+
+// 宿主可变状态（顶层语句文件的方法声明区不能含字段，收拢于此）
+static class State
+{
+    // prng 模式种子集：0/1/42/-1/边界值/日期种子（与 T03 入库文件一一对应）
+    public static readonly int[] PrngSeeds = [0, 1, 42, -1, int.MinValue, int.MaxValue, 20261103];
+
+    // resolved-rules 装配守卫：上游 Platform 二次 OverrideEngineDir 会 throw（见 DumpResolvedRules）
+    public static bool EngineDirOverridden;
 }
