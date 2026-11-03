@@ -30,6 +30,9 @@ export namespace std {
 using std::abort;
 using std::array;
 using std::bit_cast;
+using std::find_if;
+using std::lower_bound;
+using std::min;
 using std::sort;
 using std::byte;
 using std::errc;
@@ -59,6 +62,7 @@ using std::string;
 using std::string_view;
 using std::to_chars;
 using std::to_chars_result;
+using std::to_string;
 using std::int16_t;
 using std::int32_t;
 using std::int64_t;
