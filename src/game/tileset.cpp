@@ -104,6 +104,26 @@ std::expected<Tileset, std::string> tileset_load(
       if (int4_frame_slots < 0)
         return std::unexpected(std::format("{}: 模板 {} Size 乘积为负", str_source_name, tpl_next.u2_id));
     }
+    if (const MiniYamlNode* node_images{node_with_key(node_tpl.vec_children, "Images")}) {
+      std::string_view str_rest{node_images->str_value};
+      while (!str_rest.empty()) {
+        const std::size_t sz_comma{str_rest.find(',')};
+        const std::string_view str_one{sz_comma == std::string_view::npos ? str_rest
+                                                                          : str_rest.substr(0, sz_comma)};
+        std::size_t sz_begin{0};
+        std::size_t sz_end{str_one.size()};
+        while (sz_begin < sz_end && (str_one[sz_begin] == ' ' || str_one[sz_begin] == '	'))
+          ++sz_begin;
+        while (sz_end > sz_begin && (str_one[sz_end - 1] == ' ' || str_one[sz_end - 1] == '	'))
+          --sz_end;
+        if (sz_end > sz_begin)
+          tpl_next.vec_str_images.emplace_back(str_one.substr(sz_begin, sz_end - sz_begin));
+        if (sz_comma == std::string_view::npos) break;
+        str_rest = str_rest.substr(sz_comma + 1);
+      }
+      if (tpl_next.vec_str_images.empty())
+        return std::unexpected(std::format("{}: 模板 {} Images 为空", str_source_name, tpl_next.u2_id));
+    }
     if (const MiniYamlNode* node_pick{node_with_key(node_tpl.vec_children, "PickAny")}) {
       const auto res_bool{parse_bool(node_pick->str_value, "PickAny", str_source_name)};
       if (!res_bool) return std::unexpected(res_bool.error());
