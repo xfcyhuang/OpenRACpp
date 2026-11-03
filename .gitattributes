@@ -3,3 +3,6 @@
 tests/golden/** -text
 *.yaml eol=lf
 *.expected eol=lf
+# 截图留档为二进制字节，禁止任何 EOL 转换。
+*.bmp -text
+*.png -text
