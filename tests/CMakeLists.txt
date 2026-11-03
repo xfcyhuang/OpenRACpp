@@ -89,3 +89,8 @@ if(SDL2_FOUND)
 else()
   message(STATUS "SDL2 未找到（-DSDL2_DIR=<...>/lib/cmake/SDL2）——render_probe target 跳过")
 endif()
+add_executable(ora_orders orders.cpp)
+target_link_libraries(ora_orders PRIVATE ora_std ora_game)
+target_compile_definitions(ora_orders PRIVATE
+  ORA_ORDERS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/orders")
+add_test(NAME orders COMMAND ora_orders)

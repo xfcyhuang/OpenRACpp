@@ -4,6 +4,8 @@ import std;
 
 namespace ora::game::world {
 
+struct WorldModel;
+
 constexpr std::uint32_t kOwnerNone{0xffffffffu};
 
 struct ActorModel {
@@ -17,5 +19,9 @@ struct ActorModel {
   bool b_disposed{};
   std::vector<std::uint32_t> vec_trait_handles;
 };
+
+[[nodiscard]] const ActorModel* world_actor_by_id(const WorldModel& w, std::uint32_t u4_id);
+
+[[nodiscard]] ActorModel* world_actor_by_id(WorldModel& w, std::uint32_t u4_id);
 
 }  // namespace ora::game::world
