@@ -8,3 +8,5 @@ add_subdirectory(mods)
 add_subdirectory(platforms)
 add_subdirectory(server)
 add_subdirectory(utility)
+# PROTOTYPE（wayfinder #23）：一次性汇编原型，仅存在于 prototype/asm-sync-hash 分支
+add_subdirectory(prototype)

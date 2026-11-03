@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(OpenRACpp LANGUAGES CXX)
+project(OpenRACpp LANGUAGES CXX ASM)
 
 set(CMAKE_CXX_EXTENSIONS OFF)
 
