@@ -4,6 +4,10 @@ import std;
 
 #include "game/world/actor.hpp"
 
+namespace ora::game::network {
+struct OrderModel;
+}
+
 namespace ora::game::world {
 
 struct WorldModel;
@@ -33,15 +37,23 @@ struct TraitTickCtx {
   ActorModel& ref_actor;
 };
 
+struct TraitResolveCtx {
+  WorldModel& ref_world;
+  ActorModel& ref_actor;
+  const network::OrderModel& ref_order;
+};
+
 struct TraitSpec {
   std::string str_kind;
   bool b_implements_tick{};
   bool b_implements_sync{};
+  bool b_implements_resolve{};
   std::string str_int_param_key;
   std::string str_str_param_key;
   std::function<void(const TraitCreateCtx&, TraitModel&)> fn_create;
   std::function<void(const TraitTickCtx&, TraitModel&)> fn_tick;
   std::function<std::int32_t(const TraitModel&)> fn_sync_hash;
+  std::function<void(const TraitResolveCtx&, TraitModel&)> fn_resolve;
 };
 
 [[nodiscard]] const std::vector<TraitSpec>& trait_registry();

@@ -61,6 +61,7 @@ struct WorldModel {
   support::MersenneTwister rng_shared;
   support::MersenneTwister rng_player;
   std::int32_t int4_world_tick{};
+  bool b_paused{};
   std::uint32_t u4_net_frame{1};
   std::deque<FrameEndTask> deque_frame_end;
   std::uint32_t u4_next_aid{};
