@@ -10,6 +10,11 @@
 //   prng            上游 OpenRA.Support.MersenneTwister 序列 dump（7 种子 × 10 kind，T03 格式）
 //   resolved-rules  上游 IUtilityCommand --resolved-rules ra:BADR.Bomber——覆盖 MiniYaml
 //                   解析、Inherits/Inherits@ 继承展开与多文件合并语义
+//   rules-stats     上游 Manifest.Rules 提取 + MiniYaml.Load 全量合并树（T05/issue #6）——
+//                   ra-manifest.txt（16 文件有序清单）、ra-merged.yaml（全量合并树，
+//                   Merge 输出序、WriteToString 序列化）、ra-stats.txt（计数头 + 逐 actor
+//                   trait 计数）。轻路径：物理 IReadOnlyFileSystem + MiniYaml.Load 直驱，
+//                   不装配 ModData/IUtilityCommand（无需 Game.ModData hack）。
 //
 // 每次动作前断言上游检出 HEAD == UPSTREAM.baseline 首行，防基准漂移。
 // resolved-rules 产物字节为上游命令 stdout 的原样捕获（UTF-8 无 BOM；末尾行尾来自
@@ -23,6 +28,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using OpenRA;
+using OpenRA.FileSystem;
 using OpenRA.Support;
 
 const int ExitOk = 0;
@@ -92,6 +98,9 @@ int Run(string[] args)
             (Func<byte[]>)(() => DumpPrngSequence(seed)))),
         ("tests/golden/resolved_rules/BADR.Bomber.yaml",
             () => DumpResolvedRules(openraRoot, "ra", "BADR.Bomber")),
+        ("tests/golden/rules/ra-manifest.txt", () => DumpRaManifest(openraRoot)),
+        ("tests/golden/rules/ra-merged.yaml", () => DumpRaMerged(openraRoot)),
+        ("tests/golden/rules/ra-stats.txt", () => DumpRaStats(openraRoot)),
     ];
 
     var failures = 0;
@@ -265,6 +274,58 @@ static byte[] DumpResolvedRules(string openraRoot, string modId, string actorKey
     return Encoding.UTF8.GetBytes(captured.ToString());
 }
 
+// —— rules-stats 模式（T05/issue #6）：轻路径直驱上游 Manifest/MiniYaml 真源 ——
+//    复刻 Manifest.cs 的 Rules 提取（FromStream → Merge([nodes]) → ToDictionary → YamlList）
+//    与 MiniYaml.Load 全量合并管线；物理 IReadOnlyFileSystem 映射 ra|x → <root>/mods/ra/x。
+//    产物顺序一律用上游输出序（Merge 输出 = 文件清单序 + 首现序，实测双跑恒等），勿排序。
+
+static (List<string> Rules, List<MiniYamlNode> Merged) LoadRaRules(string openraRoot)
+{
+    var fs = new GoldenModRootFs(openraRoot);
+
+    // Manifest.cs:97-124 路径（ra 的 mod.yaml 无 Include，该展开分支不触发）
+    var nodes = MiniYaml.FromStream(fs.Open("ra|mod.yaml"), "ra|mod.yaml").ToList();
+    var yaml = new MiniYaml(null, MiniYaml.Merge([nodes])).ToDictionary();
+    var rules = yaml["Rules"].Nodes.Select(n => n.Key).ToList();
+
+    var merged = MiniYaml.Load(fs, rules, null);
+    return (rules, merged.ToList());
+}
+
+static byte[] DumpRaManifest(string openraRoot)
+{
+    var (rules, _) = LoadRaRules(openraRoot);
+    var sb = new StringBuilder();
+    foreach (var r in rules)
+        sb.Append(r).Append('\n');
+    return new UTF8Encoding(false).GetBytes(sb.ToString());
+}
+
+static byte[] DumpRaMerged(string openraRoot)
+{
+    var (_, merged) = LoadRaRules(openraRoot);
+    // WriteToString（MiniYamlExts）：每顶层 key: + 子行 TAB 缩进，LF、无 BOM；
+    // 与 resolved-rules 单 actor 产物格式同构（本产物是全集超集）
+    return new UTF8Encoding(false).GetBytes(merged.WriteToString());
+}
+
+static byte[] DumpRaStats(string openraRoot)
+{
+    var (_, merged) = LoadRaRules(openraRoot);
+    var actors = merged.Where(n => !n.Key.StartsWith('^')).ToList();
+    var traits = actors.Sum(a => a.Value.Nodes.Length);
+    var abstractCount = merged.Count - actors.Count;
+
+    var sb = new StringBuilder();
+    sb.Append("# baseline 1f594e32065615ed1847962c80ecfe6e868a11c3 ra rules (manifest 16 files)").Append('\n');
+    sb.Append("# actors ").Append(actors.Count).Append('\n');
+    sb.Append("# traits ").Append(traits).Append('\n');
+    sb.Append("# abstract ").Append(abstractCount).Append('\n');
+    foreach (var a in actors)
+        sb.Append(a.Key).Append(' ').Append(a.Value.Nodes.Length).Append('\n');
+    return new UTF8Encoding(false).GetBytes(sb.ToString());
+}
+
 static void WriteGolden(string artifactPath, string relPath, byte[] bytes)
 {
     var dir = Path.GetDirectoryName(artifactPath);
@@ -419,4 +480,28 @@ static class State
 
     // resolved-rules 装配守卫：上游 Platform 二次 OverrideEngineDir 会 throw（见 DumpResolvedRules）
     public static bool EngineDirOverridden;
+}
+
+// 上游检出 mods 树之上的最小 IReadOnlyFileSystem（探针 ModRootFs 同构）：
+// "ra|rules/misc.yaml" → <root>/mods/ra/rules/misc.yaml；"common|x" → <root>/mods/common/x
+sealed class GoldenModRootFs(string root) : IReadOnlyFileSystem
+{
+    string Map(string filename)
+    {
+        var sep = filename.IndexOf('|');
+        var rel = sep >= 0 ? $"mods/{filename[..sep]}/{filename[(sep + 1)..]}" : filename;
+        return Path.Combine(root, rel.Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    public Stream Open(string filename) => File.OpenRead(Map(filename));
+    public bool TryOpen(string filename, out Stream s)
+    {
+        if (!Exists(filename)) { s = null; return false; }
+        s = Open(filename); return true;
+    }
+
+    public bool Exists(string filename) => File.Exists(Map(filename));
+    public bool IsExternalFile(string filename) => false;
+    public bool TryGetPackageContaining(string path, out IReadOnlyPackage package, out string filename)
+    { package = null; filename = null; return false; }
 }

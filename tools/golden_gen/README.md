@@ -30,6 +30,18 @@ tools\golden_gen\run.cmd check    # 验收复验：每产物独立重产两次�
   `tests/golden/resolved_rules/BADR.Bomber.yaml`。产物字节为命令 stdout 原样捕获
   （UTF-8 无 BOM；末尾行尾来自 `Console.WriteLine`，Windows 上为 CR LF）——锚定
   Windows 上游 stdout 语义，不做任何规范化。
+- `rules-stats`（T05/issue #6）：ra 主线规则全量加载基准。轻路径直驱上游真源——
+  `GoldenModRootFs`（物理 mods 树的最小 `IReadOnlyFileSystem`）之上复刻
+  `Manifest.cs` 的 Rules 提取（`FromStream` → `Merge([nodes])` → `ToDictionary` →
+  `YamlList`）与 `MiniYaml.Load` 全量合并管线（不装配 ModData、无需 Game.ModData
+  hack）。产物 `tests/golden/rules/`：
+  - `ra-manifest.txt`：mod.yaml Rules 区块 16 文件有序清单（上游提取，保序）；
+  - `ra-merged.yaml`：全量合并树（`WriteToString` 序列化，**Merge 输出序** =
+    文件清单序 + 首现序，1,025,317 B；与 resolved-rules 单 actor 产物格式同构超集）；
+  - `ra-stats.txt`：计数头（`# actors 307 / # traits 13850 / # abstract 68`）+
+    逐 actor `<name> <traitCount>` 清单（Merge 输出序）。
+  语料 `mod.yaml` 逐字节拷自上游 `mods/ra/mod.yaml`（GPL，随带 `COPYING`）；
+  规则文件本体复用 `tests/golden/miniyaml/ra/`。C++ 侧 `tests/rules_load.cpp` 消费。
 
 ## 布局与机制约束
 
