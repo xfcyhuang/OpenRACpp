@@ -1,0 +1,117 @@
+AppearsOnRadar:
+	UseLocation: true
+CombatDebugOverlay:
+GivesExperience:
+	PlayerExperienceModifier: 1
+	Experience: 1000
+ScriptTriggers:
+RenderDebugState:
+BodyOrientation:
+QuantizeFacingsFromSequence:
+RenderSprites:
+	Image: badr
+GrantConditionOnPrerequisite@GLOBALBOUNTY:
+	Condition: global-bounty
+	Prerequisites: global-bounty
+GivesBounty:
+	RequiresCondition: global-bounty
+SelectionDecorations:
+WithSpriteControlGroupDecoration:
+	Margin: -2, 0
+DrawLineToTarget:
+HandicapFirepowerMultiplier:
+HandicapDamageMultiplier:
+HandicapProductionTimeMultiplier:
+OwnerLostAction:
+	Action: Kill
+Armor:
+	Type: Light
+UpdatesPlayerStatistics:
+Aircraft:
+	AirborneCondition: airborne
+	CruiseAltitude: 2560
+	TurnSpeed: 20
+	Speed: 180
+	Repulsable: False
+	MaximumPitch: 56
+Targetable@GROUND:
+	RequiresCondition: !airborne
+	TargetTypes: GroundActor, Vehicle
+Targetable@AIRBORNE:
+	RequiresCondition: airborne
+	TargetTypes: AirborneActor
+Targetable@REPAIR:
+	RequiresCondition: !airborne && damaged
+	TargetTypes: Repair
+GrantConditionOnDamageState@DAMAGED:
+	Condition: damaged
+	ValidDamageStates: Light, Medium, Heavy, Critical
+HiddenUnderFog:
+	Type: GroundPosition
+AttackMove:
+Guard:
+Guardable:
+ActorLostNotification:
+	Notification: AirUnitLost
+	TextNotification: notification-airborne-unit-lost
+ProximityCaptor:
+	Types: Plane
+GpsDot:
+	String: Plane
+Tooltip:
+	GenericName: meta-neutralplane-generic-name
+	Name: actor-badr-name
+WithShadow:
+	Offset: 43, 128, 0
+	ZOffset: -129
+WithFacingSpriteBody:
+MustBeDestroyed:
+HitShape:
+SpawnActorOnDeath:
+	RequiresCondition: airborne
+	Actor: BADR.Husk
+FireWarheadsOnDeath:
+	Weapon: UnitExplode
+	RequiresCondition: !airborne
+CaptureManager:
+Capturable:
+	Types: aircraft
+	RequiresCondition: !airborne
+CaptureNotification:
+	Notification: UnitStolen
+	TextNotification: notification-unit-stolen
+	LoseNotification: UnitLost
+	LoseTextNotification: notification-unit-lost
+Health:
+	HP: 40000
+Interactable:
+Contrail@1:
+	Offset: -432,560,0
+	StartColorAlpha: 128
+Contrail@2:
+	Offset: -432,-560,0
+	StartColorAlpha: 128
+LeavesTrails@0:
+	Offsets: -432,560,0
+	MovingInterval: 2
+	Image: smokey
+	SpawnAtLastPosition: False
+	Type: CenterPosition
+	RequiresCondition: enable-smoke
+LeavesTrails@1:
+	Offsets: -432,-560,0
+	MovingInterval: 2
+	Image: smokey
+	SpawnAtLastPosition: False
+	Type: CenterPosition
+	RequiresCondition: enable-smoke
+RejectsOrders:
+GrantConditionOnDamageState@SmokeTrail:
+	Condition: enable-smoke
+AttackBomber:
+	FacingTolerance: 8
+AmmoPool:
+	Ammo: 10
+Armament:
+	Weapon: ParaBomb
+
