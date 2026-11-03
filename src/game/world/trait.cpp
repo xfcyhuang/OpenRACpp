@@ -1,5 +1,6 @@
 #include "game/world/trait.hpp"
 
+#include "game/network/order.hpp"
 #include "game/world/world.hpp"
 
 namespace ora::game::world {
@@ -44,19 +45,45 @@ std::int32_t sync_probe_hash(const TraitModel& t) {
   return t.int4_counter ^ (t.b_sync_flag ? 1 : 0);
 }
 
+void resolve_order_counter(const TraitResolveCtx& ctx, TraitModel& t) {
+  if (ctx.ref_order.str_order == "Move") ++t.int4_counter;
+}
+
 }  // namespace
 
 const std::vector<TraitSpec>& trait_registry() {
   static const std::vector<TraitSpec> vec_registry{
-      TraitSpec{"TickCounter", true, false, "Start", "", create_tick_counter, tick_counter,
-                nullptr},
-      TraitSpec{"RngProbe", true, false, "", "", create_noop, tick_rng_probe, nullptr},
-      TraitSpec{"SyncProbe", true, true, "", "", create_noop, tick_sync_probe, sync_probe_hash},
-      TraitSpec{"SelfDestructProbe", true, false, "At", "", create_noop, tick_self_destruct,
-                nullptr},
-      TraitSpec{"SpawnerProbe", true, false, "Interval", "Type", create_noop, tick_spawner,
-                nullptr},
-      TraitSpec{"FactionInfo", false, false, "", "", create_noop, nullptr, nullptr},
+      TraitSpec{.str_kind = "TickCounter",
+                .b_implements_tick = true,
+                .str_int_param_key = "Start",
+                .fn_create = create_tick_counter,
+                .fn_tick = tick_counter},
+      TraitSpec{.str_kind = "RngProbe",
+                .b_implements_tick = true,
+                .fn_create = create_noop,
+                .fn_tick = tick_rng_probe},
+      TraitSpec{.str_kind = "SyncProbe",
+                .b_implements_tick = true,
+                .b_implements_sync = true,
+                .fn_create = create_noop,
+                .fn_tick = tick_sync_probe,
+                .fn_sync_hash = sync_probe_hash},
+      TraitSpec{.str_kind = "SelfDestructProbe",
+                .b_implements_tick = true,
+                .str_int_param_key = "At",
+                .fn_create = create_noop,
+                .fn_tick = tick_self_destruct},
+      TraitSpec{.str_kind = "SpawnerProbe",
+                .b_implements_tick = true,
+                .str_int_param_key = "Interval",
+                .str_str_param_key = "Type",
+                .fn_create = create_noop,
+                .fn_tick = tick_spawner},
+      TraitSpec{.str_kind = "OrderCounterProbe",
+                .b_implements_resolve = true,
+                .fn_create = create_noop,
+                .fn_resolve = resolve_order_counter},
+      TraitSpec{.str_kind = "FactionInfo", .fn_create = create_noop},
   };
   return vec_registry;
 }

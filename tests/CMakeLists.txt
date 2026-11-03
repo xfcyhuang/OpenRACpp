@@ -50,3 +50,9 @@ add_test(NAME map_read COMMAND ora_map_read)
 add_executable(ora_world_tick world_tick.cpp)
 target_link_libraries(ora_world_tick PRIVATE ora_std ora_game)
 add_test(NAME world_tick COMMAND ora_world_tick)
+
+add_executable(ora_orders orders.cpp)
+target_link_libraries(ora_orders PRIVATE ora_std ora_game)
+target_compile_definitions(ora_orders PRIVATE
+  ORA_ORDERS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/orders")
+add_test(NAME orders COMMAND ora_orders)
