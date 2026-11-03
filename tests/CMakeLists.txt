@@ -46,3 +46,7 @@ target_link_libraries(ora_map_read PRIVATE ora_std ora_game)
 target_compile_definitions(ora_map_read PRIVATE
   ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps")
 add_test(NAME map_read COMMAND ora_map_read)
+
+add_executable(ora_world_tick world_tick.cpp)
+target_link_libraries(ora_world_tick PRIVATE ora_std ora_game)
+add_test(NAME world_tick COMMAND ora_world_tick)
