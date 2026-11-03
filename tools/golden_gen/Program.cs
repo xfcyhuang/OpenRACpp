@@ -10,6 +10,9 @@
 //   prng            上游 OpenRA.Support.MersenneTwister 序列 dump（7 种子 × 10 kind，T03 格式）
 //   resolved-rules  上游 IUtilityCommand --resolved-rules ra:BADR.Bomber——覆盖 MiniYaml
 //                   解析、Inherits/Inherits@ 继承展开与多文件合并语义
+//   map-info        无头 new Map(modData, oramap 包) 全量加载后的字段+图块直方图转储
+//                   （T06 格式，tests/golden/maps/*.mapinfo.txt）；同批把 .oramap 与
+//                   tileset yaml 原样从上游检出复制入库（基线漂移时 check 报警）
 //
 // 每次动作前断言上游检出 HEAD == UPSTREAM.baseline 首行，防基准漂移。
 // resolved-rules 产物字节为上游命令 stdout 的原样捕获（UTF-8 无 BOM；末尾行尾来自
@@ -23,6 +26,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using OpenRA;
+using OpenRA.FileSystem;
 using OpenRA.Support;
 
 const int ExitOk = 0;
@@ -92,6 +96,17 @@ int Run(string[] args)
             (Func<byte[]>)(() => DumpPrngSequence(seed)))),
         ("tests/golden/resolved_rules/BADR.Bomber.yaml",
             () => DumpResolvedRules(openraRoot, "ra", "BADR.Bomber")),
+        .. State.MapNames.Select(mapName => (
+            $"tests/golden/maps/{mapName}.oramap",
+            (Func<byte[]>)(() => File.ReadAllBytes(
+                Path.Combine(openraRoot, "mods", "ra", "maps", mapName + ".oramap"))))),
+        .. State.MapNames.Select(mapName => (
+            $"tests/golden/maps/{mapName}.mapinfo.txt",
+            (Func<byte[]>)(() => DumpMapInfo(openraRoot, "ra", mapName)))),
+        ("tests/golden/maps/tilesets/temperat.yaml",
+            () => File.ReadAllBytes(Path.Combine(openraRoot, "mods", "ra", "tilesets", "temperat.yaml"))),
+        ("tests/golden/maps/tilesets/snow.yaml",
+            () => File.ReadAllBytes(Path.Combine(openraRoot, "mods", "ra", "tilesets", "snow.yaml"))),
     ];
 
     var failures = 0;
@@ -265,6 +280,109 @@ static byte[] DumpResolvedRules(string openraRoot, string modId, string actorKey
     return Encoding.UTF8.GetBytes(captured.ToString());
 }
 
+// —— map-info 模式（T06）：无头 new Map(modData, oramap 包) 全量加载后转储关键字段
+//    与图块/资源直方图。蓝本 = 调研探针（.ora-explore/t06-scratch，5 图双跑恒等已实测）。
+//    禁忌：宿主只 ProjectReference OpenRA.Game——加 Mods.Common 会因 ObjectCreator 自定义
+//    ALC 双加载造成 trait 类型身份分裂，new Map 抛与真因无关的假错（调研 §0-6）。
+//    地形信息只经 map.Rules.TerrainInfo（ITerrainInfo 在 OpenRA.Game）。
+//    bounds 打印宽高形 Left,Top,Width,Height（与 map.yaml 原文同形；探针初版的
+//    Right/Bottom 形已废弃——转储格式一经入库不得再改）。 ——
+static byte[] DumpMapInfo(string openraRoot, string modId, string mapName)
+{
+    foreach (var assembly in new[] { "OpenRA.Mods.Common.dll", "OpenRA.Mods.Cnc.dll" })
+        if (!File.Exists(Path.Combine(Platform.BinDir, assembly)))
+            throw new InvalidOperationException(
+                $"openra/bin 缺少 {assembly}（BinDir={Platform.BinDir}）。" +
+                "先运行 tools/golden_gen/run.cmd，或手动执行 " +
+                $"dotnet build {Path.Combine(openraRoot, "OpenRA.slnx")} -c Release 后重试。");
+
+    if (!State.EngineDirOverridden)
+    {
+        Platform.OverrideEngineDir(openraRoot);
+        State.EngineDirOverridden = true;
+    }
+
+    Log.AddChannel("perf", null);
+    Log.AddChannel("debug", null);
+    Game.InitializeSettings(Arguments.Empty);
+
+    var mods = new InstalledMods(new[] { Path.Combine(Platform.EngineDir, "mods") }, Array.Empty<string>());
+    if (!mods.ContainsKey(modId))
+        throw new InvalidOperationException($"mod '{modId}' 不在可用列表：{string.Join(", ", mods.Keys)}");
+
+    var modData = new ModData(mods[modId], mods);
+    var utility = new Utility(modData, mods);
+    Game.ModData = modData;
+
+    var mapsDir = new Folder(Path.Combine(Platform.EngineDir, "mods", modId, "maps"));
+    using var package = mapsDir.OpenPackage(mapName + ".oramap", modData.ModFiles)
+        ?? throw new InvalidOperationException($"无法打开 {mapName}.oramap（zip/目录签名均不匹配）");
+
+    var map = new Map(modData, package);
+    var sb = new StringBuilder();
+    sb.Append("uid ").Append(map.Uid).Append('\n');
+    sb.Append("mapformat ").Append(map.MapFormat).Append('\n');
+    sb.Append("requiresmod ").Append(map.RequiresMod).Append('\n');
+    sb.Append("title ").Append(map.Title).Append('\n');
+    sb.Append("author ").Append(map.Author).Append('\n');
+    sb.Append("tileset ").Append(map.Tileset).Append('\n');
+    sb.Append("mapsize ").Append(map.MapSize.Width).Append(',').Append(map.MapSize.Height).Append('\n');
+    sb.Append("bounds ").AppendFormat(CultureInfo.InvariantCulture, "{0},{1},{2},{3}",
+        map.Bounds.Left, map.Bounds.Top, map.Bounds.Width, map.Bounds.Height).Append('\n');
+    sb.Append("visibility ").Append(map.Visibility).Append('\n');
+    sb.Append("categories ").Append(string.Join(",", map.Categories)).Append('\n');
+    sb.Append("players ").Append(map.PlayerDefinitions.Count).Append('\n');
+    sb.Append("actors ").Append(map.ActorDefinitions.Count).Append('\n');
+    sb.Append("invalidcustomrules ").Append(map.InvalidCustomRules).Append('\n');
+    sb.Append("replacedinvalidtiles ").Append(map.ReplacedInvalidTerrainTiles.Count).Append('\n');
+
+    // 图块直方图：与 map.bin 读取序一致（i=宽 外层，j=高 内层），输出按 (type,index) 升序
+    var hist = new Dictionary<(ushort, byte), int>();
+    var resHist = new Dictionary<(byte, byte), int>();
+    for (var i = 0; i < map.MapSize.Width; i++)
+    {
+        for (var j = 0; j < map.MapSize.Height; j++)
+        {
+            var uv = new MPos(i, j);
+            var t = map.Tiles[uv];
+            hist[(t.Type, t.Index)] = hist.TryGetValue((t.Type, t.Index), out var c) ? c + 1 : 1;
+            var r = map.Resources[uv];
+            resHist[(r.Type, r.Index)] = resHist.TryGetValue((r.Type, r.Index), out var c2) ? c2 + 1 : 1;
+        }
+    }
+
+    var ordered = hist.OrderBy(k => k.Key.Item1).ThenBy(k => k.Key.Item2).ToList();
+    sb.Append("tilerecords ").Append(ordered.Count).Append('\n');
+    foreach (var kv in ordered)
+        sb.Append("tile ").Append(kv.Key.Item1).Append(',').Append(kv.Key.Item2).Append(' ').Append(kv.Value).Append('\n');
+
+    sb.Append("resourcerecords ").Append(resHist.Count).Append('\n');
+    foreach (var kv in resHist.OrderBy(k => k.Key.Item1).ThenBy(k => k.Key.Item2))
+        sb.Append("resource ").Append(kv.Key.Item1).Append(',').Append(kv.Key.Item2).Append(' ').Append(kv.Value).Append('\n');
+
+    var ti = map.Rules.TerrainInfo;
+    sb.Append("terraininfo id=").Append(ti.Id)
+      .Append(" name=").Append(ti.Name)
+      .Append(" tilesize=").Append(ti.TileSize.Width).Append(',').Append(ti.TileSize.Height)
+      .Append(" terraintypes=").Append(ti.TerrainTypes.Length).Append('\n');
+    var dt = ti.DefaultTerrainTile;
+    sb.Append("defaulttile ").Append(dt.Type).Append(',').Append(dt.Index).Append('\n');
+
+    // 每条 tile 记录（升序前 5 条）的 GetTerrainIndex：覆盖类型表排序编号 + 模板帧映射
+    var terrainIdx = new StringBuilder();
+    var n = 0;
+    foreach (var kv in ordered)
+    {
+        if (n++ == 5) break;
+        terrainIdx.Append(kv.Key.Item1).Append(',').Append(kv.Key.Item2).Append("->")
+            .Append(ti.GetTerrainIndex(new TerrainTile(kv.Key.Item1, kv.Key.Item2))).Append(' ');
+    }
+
+    sb.Append("terrainidx ").Append(terrainIdx.ToString().TrimEnd()).Append('\n');
+
+    return new UTF8Encoding(false).GetBytes(sb.ToString());
+}
+
 static void WriteGolden(string artifactPath, string relPath, byte[] bytes)
 {
     var dir = Path.GetDirectoryName(artifactPath);
@@ -416,6 +534,10 @@ static class State
 {
     // prng 模式种子集：0/1/42/-1/边界值/日期种子（与 T03 入库文件一一对应）
     public static readonly int[] PrngSeeds = [0, 1, 42, -1, int.MinValue, int.MaxValue, 20261103];
+
+    // map-info 模式地图集：TEMPERAT 主选（最小 64×64）+ SNOW 跨 tileset + 128×128 大图
+    // （模板 65535 合法 PickAny 使用），调研 §5 选型
+    public static readonly string[] MapNames = ["ore-lord", "doubles", "a-path-beyond"];
 
     // resolved-rules 装配守卫：上游 Platform 二次 OverrideEngineDir 会 throw（见 DumpResolvedRules）
     public static bool EngineDirOverridden;
