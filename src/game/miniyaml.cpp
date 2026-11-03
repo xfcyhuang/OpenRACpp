@@ -231,6 +231,12 @@ std::expected<std::vector<MiniYamlNode>, std::string> miniyaml_from_string(
 
 std::expected<std::vector<MiniYamlNode>, std::string> miniyaml_from_file(
     std::string_view str_path, bool b_discard_comments_and_whitespace) {
+  return miniyaml_from_file_named(str_path, str_path, b_discard_comments_and_whitespace);
+}
+
+std::expected<std::vector<MiniYamlNode>, std::string> miniyaml_from_file_named(
+    std::string_view str_path, std::string_view str_name,
+    bool b_discard_comments_and_whitespace) {
   std::ifstream fs_file{std::string{str_path}, std::ios::binary};
   if (!fs_file) return std::unexpected("cannot open file: " + std::string{str_path});
 
@@ -243,7 +249,7 @@ std::expected<std::vector<MiniYamlNode>, std::string> miniyaml_from_file(
 
   if (str_text.starts_with("\xEF\xBB\xBF")) str_text.erase(0, 3);
 
-  return miniyaml_from_string(str_text, str_path, b_discard_comments_and_whitespace);
+  return miniyaml_from_string(str_text, str_name, b_discard_comments_and_whitespace);
 }
 
 std::string miniyaml_write_to_string(const std::vector<MiniYamlNode>& vec_nodes) {

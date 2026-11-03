@@ -34,6 +34,13 @@ target_compile_definitions(ora_miniyaml_roundtrip PRIVATE
   ORA_MINIYAML_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/miniyaml")
 add_test(NAME miniyaml_roundtrip COMMAND ora_miniyaml_roundtrip)
 
+add_executable(ora_rules_load rules_load.cpp)
+target_link_libraries(ora_rules_load PRIVATE ora_std ora_game)
+target_compile_definitions(ora_rules_load PRIVATE
+  ORA_RULES_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/rules"
+  ORA_MINIYAML_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/miniyaml")
+add_test(NAME rules_load COMMAND ora_rules_load)
+
 add_executable(ora_map_read map_read.cpp)
 target_link_libraries(ora_map_read PRIVATE ora_std ora_game)
 target_compile_definitions(ora_map_read PRIVATE
