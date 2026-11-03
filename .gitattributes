@@ -1,3 +1,5 @@
 # 黄金基准产物按字节入库（oracle stdout 原样捕获，含行尾字节），
 # 必须禁止任何 EOL 转换（core.autocrlf=true 环境下 commit/checkout 会改写字节导致 verify 假失败）。
 tests/golden/** -text
+*.yaml eol=lf
+*.expected eol=lf
