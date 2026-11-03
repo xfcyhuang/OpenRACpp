@@ -8,10 +8,12 @@ module;
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <deque>
 #include <expected>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <functional>
 #include <ios>
 #include <limits>
 #include <map>
@@ -35,9 +37,11 @@ using std::lower_bound;
 using std::min;
 using std::sort;
 using std::byte;
+using std::deque;
 using std::errc;
 using std::expected;
 using std::fabs;
+using std::function;
 using std::format;
 using std::from_chars;
 using std::from_chars_result;
@@ -56,6 +60,7 @@ using std::pair;
 using std::print;
 using std::println;
 using std::set;
+using std::ptrdiff_t;
 using std::size_t;
 using std::span;
 using std::string;
