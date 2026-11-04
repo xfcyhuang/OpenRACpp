@@ -50,7 +50,10 @@ struct SearchState {
   CPos cell_goal_reverse{};
   std::int32_t int4_weight;
   bool b_lane_bias;
+  // 完整反向模式（FindPathToTargetCells 语义：initial=target、goal=from、lane 翻转、
+  // goal 豁免、回溯序反转）；T12/duelD 的多源 swap 搜索只翻 lane 偏置。
   bool b_reverse;
+  bool b_lane_bias_reverse{};  // DensePathGraph inReverse：lane 偏置奇偶翻转（x+1/y+1）
   std::int32_t int4_cell_cost;
   std::int32_t int4_diag_cost;
   const CellBlockSet* ptr_set_blocked;
@@ -91,9 +94,11 @@ std::int32_t path_cost_to_node(SearchState& state, CPos cell_dest, CellVec vec_d
                                                               : int2_cost};
 
   if (state.b_lane_bias) {
-    // 上游 DensePathGraph：ux = neighbor.X + (inReverse ? 1 : 0) & 1（+ 先于 &）。
-    const std::int32_t int4_ux{(cell_dest.int4_x + (state.b_reverse ? 1 : 0)) & 1};
-    const std::int32_t int4_uy{(cell_dest.int4_y + (state.b_reverse ? 1 : 0)) & 1};
+    // 上游 DensePathGraph.GetConnections（:215-216）：ux = neighbor.X + (inReverse ? 1 : 0)
+    // & 1（+ 先于 &）——完整反向与多源 swap 两种形态都翻奇偶。
+    const std::int32_t int4_bias_flip{(state.b_reverse || state.b_lane_bias_reverse) ? 1 : 0};
+    const std::int32_t int4_ux{(cell_dest.int4_x + int4_bias_flip) & 1};
+    const std::int32_t int4_uy{(cell_dest.int4_y + int4_bias_flip) & 1};
     if ((int4_ux == 0 && vec_dir.int4_y < 0) || (int4_ux == 1 && vec_dir.int4_y > 0))
       int4_cost += kLaneBiasCost;
     if ((int4_uy == 0 && vec_dir.int4_x < 0) || (int4_uy == 1 && vec_dir.int4_x > 0))
@@ -221,6 +226,97 @@ std::vector<CPos> astar_to_target_cell(const LocomotorMap& map, CPos cell_from, 
       // 返回前 path.Reverse() 对齐正向形态（back=actor 当前格，pop 后 back=下一行进格）。
       if (b_reverse) std::reverse(vec_path.begin(), vec_path.end());
       return vec_path;
+    }
+  }
+
+  return {};
+}
+
+namespace {
+
+// Grid.TilesByDistance（MapGrid.cs）：圈 = ISqrt(i²+j², Ceiling)，圈序 (len², hash, x, y)
+struct AnnulusOffset {
+  std::int32_t int4_x{};
+  std::int32_t int4_y{};
+  std::int32_t int4_len_sq{};
+};
+
+const std::vector<std::vector<AnnulusOffset>>& tiles_by_distance() {
+  constexpr std::int32_t kMaxRange{50};  // MapGrid.MaximumTileSearchRange
+  static const std::vector<std::vector<AnnulusOffset>> vec_table{[] {
+    std::vector<std::vector<AnnulusOffset>> vec_dist(static_cast<std::size_t>(kMaxRange) + 1);
+    for (std::int32_t int4_j{-kMaxRange}; int4_j <= kMaxRange; ++int4_j)
+      for (std::int32_t int4_i{-kMaxRange}; int4_i <= kMaxRange; ++int4_i) {
+        const std::int32_t int4_sq{int4_i * int4_i + int4_j * int4_j};
+        if (kMaxRange * kMaxRange < int4_sq) continue;
+        // Exts.ISqrt(Ceiling)：最小 s 使 s² >= v
+        std::int32_t int4_root{0};
+        while (int4_root * int4_root < int4_sq) ++int4_root;
+        vec_dist[static_cast<std::size_t>(int4_root)].push_back(
+            AnnulusOffset{int4_i, int4_j, int4_sq});
+      }
+    for (std::vector<AnnulusOffset>& vec_ring : vec_dist)
+      std::sort(vec_ring.begin(), vec_ring.end(), [](const AnnulusOffset& a,
+                                                     const AnnulusOffset& b) {
+        if (a.int4_len_sq != b.int4_len_sq) return a.int4_len_sq < b.int4_len_sq;
+        const std::int32_t int4_hash_a{a.int4_x ^ a.int4_y};  // CVec.GetHashCode
+        const std::int32_t int4_hash_b{b.int4_x ^ b.int4_y};
+        if (int4_hash_a != int4_hash_b) return int4_hash_a < int4_hash_b;
+        if (a.int4_x != b.int4_x) return a.int4_x < b.int4_x;
+        return a.int4_y < b.int4_y;
+      });
+    return vec_dist;
+  }()};
+  return vec_table;
+}
+
+}  // namespace
+
+std::vector<CPos> find_tiles_in_annulus(const LocomotorMap& map, CPos cell_center,
+                                        std::int32_t int4_min_range, std::int32_t int4_max_range) {
+  std::vector<CPos> vec_out;
+  const auto& vec_table{tiles_by_distance()};
+  for (std::int32_t int4_ring{int4_min_range}; int4_ring <= int4_max_range; ++int4_ring) {
+    if (int4_ring < 0 || static_cast<std::size_t>(int4_ring) >= vec_table.size()) break;
+    for (const AnnulusOffset& offset : vec_table[static_cast<std::size_t>(int4_ring)]) {
+      const CPos cell{cell_center.int4_x + offset.int4_x, cell_center.int4_y + offset.int4_y};
+      if (map_contains(map, cell)) vec_out.push_back(cell);
+    }
+  }
+  return vec_out;
+}
+
+std::vector<CPos> astar_to_target_cell_multi(const LocomotorMap& map,
+                                             const std::vector<CPos>& vec_cells_from,
+                                             CPos cell_target, std::int32_t int4_weight,
+                                             bool b_lane_bias, bool b_lane_bias_reverse) {
+  SearchState state;
+  state.ptr_map = &map;
+  state.cell_target = cell_target;
+  state.int4_weight = int4_weight;
+  state.b_lane_bias = b_lane_bias;
+  state.b_lane_bias_reverse = b_lane_bias_reverse;
+  state.int4_cell_cost = map.int4_min_cost;
+  state.int4_diag_cost = multiply_by_sqrt_two(map.int4_min_cost);
+  state.vec_cells.assign(static_cast<std::size_t>(map.int4_width) * map.int4_height, CellInfoNode{});
+
+  // AddInitialCells（PathSearch.cs:98-110）：多源各 cost 0 加入（可达过滤在调用方）
+  for (const CPos cell : vec_cells_from)
+    if (map_contains(map, cell)) add_initial_cell(state, cell);
+
+  while (can_expand(state)) {
+    const CPos cell{expand(state)};
+    if (cell.int4_x == cell_target.int4_x && cell.int4_y == cell_target.int4_y) {
+      std::vector<CPos> vec_path;
+      CPos cell_node{cell};
+      while (true) {
+        vec_path.push_back(cell_node);
+        const CellInfoNode& info{state.vec_cells[cell_index(state, cell_node)]};
+        if (info.cell_prev.int4_x == cell_node.int4_x && info.cell_prev.int4_y == cell_node.int4_y)
+          break;
+        cell_node = info.cell_prev;
+      }
+      return vec_path;  // target→source（上游 ToTargetCell 返回序）
     }
   }
 

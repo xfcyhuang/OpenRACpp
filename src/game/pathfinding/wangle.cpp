@@ -81,6 +81,18 @@ std::int32_t wangle_sin(std::int32_t int4_angle) {
   return wangle_cos(int4_angle - 256);
 }
 
+std::int32_t wangle_tan(std::int32_t int4_angle_raw) {
+  // WAngle.Tan（WAngle.cs:89-107）：branchless 三角折叠 + 符号（表与 CosineTable 同源）
+  const std::int32_t int4_angle{int4_angle_raw & 511};
+  const std::int32_t int4_shifted{int4_angle - 257};
+  const std::int32_t int4_mask{int4_shifted >> 31};
+  const std::int32_t int4_delta{int4_angle - 256};
+  const std::int32_t int4_triangle{(int4_delta ^ (int4_delta >> 31)) - (int4_delta >> 31)};
+  const std::int32_t int4_final_index{256 - int4_triangle};
+  const std::int32_t int4_sign{-1 - (int4_mask << 1)};
+  return int4_sign * kTanTable[static_cast<std::size_t>(int4_final_index)];
+}
+
 std::int32_t wangle_arctan(std::int32_t int4_y, std::int32_t int4_x) {
   if (int4_y == 0) return wangle_wrap(int4_x >= 0 ? 0 : 512);
   if (int4_x == 0) return wangle_wrap(int4_y > 0 ? 256 : 768);

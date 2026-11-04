@@ -44,6 +44,8 @@ using std::min;
 using std::numeric_limits;
 using std::sort;
 using std::sqrt;
+using std::stable_sort;
+using std::unique;
 using std::byte;
 using std::deque;
 using std::errc;

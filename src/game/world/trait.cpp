@@ -51,6 +51,10 @@ void resolve_order_counter(const TraitResolveCtx& ctx, TraitModel& t) {
   if (ctx.ref_order.str_order == "Move") ++t.int4_counter;
 }
 
+void create_selectable(const TraitCreateCtx&, TraitModel& t) {
+  if (t.int4_param == 0) t.int4_param = 10;
+}
+
 }  // namespace
 
 const std::vector<TraitSpec>& trait_registry() {
@@ -86,7 +90,22 @@ const std::vector<TraitSpec>& trait_registry() {
                                              .b_implements_resolve = true,
                                              .fn_create = create_noop,
                                              .fn_resolve = resolve_order_counter},
-                                   TraitSpec{.str_kind = "FactionInfo", .fn_create = create_noop}};
+                                   TraitSpec{.str_kind = "FactionInfo", .fn_create = create_noop},
+                                   TraitSpec{.str_kind = "Selectable",
+                                             .str_int_param_key = "Priority",
+                                             .str_str_param_key = "Bounds",
+                                             .fn_create = create_selectable},
+                                   TraitSpec{.str_kind = "Targetable", .fn_create = create_noop},
+                                   TraitSpec{.str_kind = "MobileProbe",
+                                             .str_order_id = "Move",
+                                             .int4_order_priority = 4,
+                                             .b_order_terrain_target = true,
+                                             .fn_create = create_noop},
+                                   TraitSpec{.str_kind = "AttackProbe",
+                                             .str_order_id = "Attack",
+                                             .int4_order_priority = 6,
+                                             .b_order_actor_target = true,
+                                             .fn_create = create_noop}};
         for (const TraitSpec& spec : production::production_trait_specs()) vec.push_back(spec);
         for (const TraitSpec& spec : economy::economy_trait_specs()) vec.push_back(spec);
         return vec;

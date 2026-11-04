@@ -163,6 +163,8 @@ void move_on_first_run(MoveSimState& st, const MoveSimConfig& cfg) {
     return;
   }
 
+  if (st.b_path_preset) return;  // 外部预置路径（MoveWithinRange 的 FindPathToTargetCells）
+
   std::vector<CPos> vec_path{astar_to_target_cell(*cfg.ptr_map, st.cell_to, st.cell_destination,
                                                   cfg.int4_heuristic_weight, true, cfg.ptr_set_blocked,
                                                   cfg.b_reverse_path)};
@@ -216,6 +218,7 @@ bool move_root_tick(MoveSimState& st, const MoveSimConfig& cfg) {
 void move_queue(MoveSimState& st, CPos cell_destination) {
   st.b_has_activity = true;
   st.b_first_run_done = false;
+  st.b_path_preset = false;
   st.b_already_at_destination = false;
   st.b_had_no_path = false;
   st.vec_path.clear();
