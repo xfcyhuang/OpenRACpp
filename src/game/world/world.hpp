@@ -3,6 +3,7 @@
 import std;
 
 #include "game/miniyaml.hpp"
+#include "game/production/production.hpp"
 #include "game/support/mersenne_twister.hpp"
 #include "game/world/actor.hpp"
 #include "game/world/trait.hpp"
@@ -34,15 +35,21 @@ struct SyntheticMap {
 };
 
 struct FrameEndTask {
-  std::uint32_t u4_actor_id{};
+  std::uint32_t u4_kind{};
+  std::uint32_t u4_actor{};
+  std::uint32_t u4_player{};
+  std::uint32_t u4_value{};
+  std::string str_item;
 };
 
 struct PlayerModel {
   std::string str_internal_name;
+  std::string str_faction;
   std::uint32_t u4_actor_id{};
   bool b_owns_world{};
   bool b_non_combatant{};
   bool b_spectating{};
+  bool b_playable{};
 };
 
 struct ActorTypeDef {
@@ -58,6 +65,8 @@ struct WorldModel {
   TraitContainerModel container_tick;
   TraitContainerModel container_sync;
   std::vector<PlayerModel> vec_players;
+  production::ProductionWorldState prod;
+  production::LobbyModel lobby;
   support::MersenneTwister rng_shared;
   support::MersenneTwister rng_player;
   std::int32_t int4_world_tick{};
@@ -73,6 +82,10 @@ struct WorldModel {
 
 [[nodiscard]] std::expected<WorldModel, std::string> world_create(
     const SyntheticMap& map_syn, std::int32_t int4_seed);
+
+[[nodiscard]] std::expected<WorldModel, std::string> world_create(
+    const SyntheticMap& map_syn, std::int32_t int4_seed,
+    const production::LobbyModel& lobby);
 
 [[nodiscard]] std::expected<std::uint32_t, std::string> create_actor(
     WorldModel& w, std::string_view str_type, std::uint32_t u4_owner,
