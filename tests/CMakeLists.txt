@@ -106,6 +106,19 @@ target_compile_definitions(ora_orders PRIVATE
   ORA_ORDERS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/orders")
 add_test(NAME orders COMMAND ora_orders)
 
+add_executable(ora_pathfind pathfind.cpp)
+target_link_libraries(ora_pathfind PRIVATE ora_std ora_game)
+target_compile_definitions(ora_pathfind PRIVATE
+  ORA_PATHFINDING_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/pathfinding"
+  ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps")
+add_test(NAME pathfind COMMAND ora_pathfind)
+
+add_executable(ora_pathfind_move pathfind_move.cpp)
+target_link_libraries(ora_pathfind_move PRIVATE ora_std ora_game)
+target_compile_definitions(ora_pathfind_move PRIVATE
+  ORA_PATHFINDING_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/pathfinding"
+  ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps")
+add_test(NAME pathfind_move COMMAND ora_pathfind_move)
 add_executable(ora_input input_logic.cpp)
 target_link_libraries(ora_input PRIVATE ora_std ora_game)
 add_test(NAME input COMMAND ora_input)
