@@ -51,19 +51,25 @@ void world_tick_activities(WorldModel&) {}
 void world_tick_effects(WorldModel&) {}
 
 void frame_end_run_task(WorldModel& w, const FrameEndTask& task) {
-  if (task.u4_actor_id >= w.vec_actors_all.size()) return;
-  ActorModel& actor{w.vec_actors_all[task.u4_actor_id]};
+  if (task.u4_kind == 1 || task.u4_kind == 2) {
+    production::production_frame_end_task(w, task.u4_kind, task.u4_player, task.u4_value,
+                                          task.str_item);
+    return;
+  }
+
+  if (task.u4_actor >= w.vec_actors_all.size()) return;
+  ActorModel& actor{w.vec_actors_all[task.u4_actor]};
   if (actor.b_disposed) return;
 
   if (actor.b_in_world) {
     actor.b_in_world = false;
-    const auto it{std::lower_bound(w.vec_in_world.begin(), w.vec_in_world.end(),
-                                   task.u4_actor_id)};
-    if (it != w.vec_in_world.end() && *it == task.u4_actor_id) w.vec_in_world.erase(it);
+    const auto it{std::lower_bound(w.vec_in_world.begin(), w.vec_in_world.end(), task.u4_actor)};
+    if (it != w.vec_in_world.end() && *it == task.u4_actor) w.vec_in_world.erase(it);
+    production::production_on_actor_removed(w, task.u4_actor);
   }
 
-  container_remove_actor(w.container_tick, task.u4_actor_id);
-  container_remove_actor(w.container_sync, task.u4_actor_id);
+  container_remove_actor(w.container_tick, task.u4_actor);
+  container_remove_actor(w.container_sync, task.u4_actor);
   actor.b_disposed = true;
 }
 
@@ -145,7 +151,14 @@ std::expected<SyntheticMap, std::string> synthetic_map_from_yaml(std::string_vie
 
 std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
                                                     std::int32_t int4_seed) {
+  return world_create(map_syn, int4_seed, production::LobbyModel{});
+}
+
+std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
+                                                    std::int32_t int4_seed,
+                                                    const production::LobbyModel& lobby) {
   WorldModel w;
+  w.lobby = lobby;
   w.rng_shared = support::make_mersenne_twister(int4_seed);
   w.rng_player = support::make_mersenne_twister(int4_seed);
 
@@ -200,6 +213,19 @@ std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
                 find_child(node_trait.vec_children, ptr_spec->str_str_param_key)})
           tpl.str_param_type = to_lower_ascii(node_param->str_value);
       }
+      if (!ptr_spec->str_str_param2_key.empty()) {
+        if (const MiniYamlNode* node_param{
+                find_child(node_trait.vec_children, ptr_spec->str_str_param2_key)})
+          tpl.str_param2 = to_lower_ascii(node_param->str_value);
+      }
+      if (!ptr_spec->str_str_param3_key.empty()) {
+        if (const MiniYamlNode* node_param{
+                find_child(node_trait.vec_children, ptr_spec->str_str_param3_key)})
+          tpl.str_param3 = to_lower_ascii(node_param->str_value);
+      }
+      for (const MiniYamlNode& node_child : node_trait.vec_children)
+        if (!node_child.str_value.empty() && node_child.vec_children.empty())
+          tpl.vec_kv.emplace_back(node_child.str_key, node_child.str_value);
       def.vec_templates.push_back(std::move(tpl));
     }
     w.vec_actor_types.push_back(std::move(def));
@@ -235,6 +261,7 @@ std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
 
     PlayerModel player;
     player.str_internal_name = ref.str_name;
+    player.str_faction = ref.str_faction;
     player.u4_actor_id = *res;
     player.b_owns_world = ref.b_owns_world;
     player.b_non_combatant = ref.b_non_combatant;
@@ -251,6 +278,25 @@ std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
     return std::unexpected("Map " + map_syn.str_title +
                            " does not define a player actor owning the world.");
 
+  for (const auto& [str_slot, str_faction] : lobby.vec_playable_factions) {
+    const std::uint32_t u4_index{static_cast<std::uint32_t>(w.vec_players.size())};
+    auto res{create_actor(w, "player", u4_index, 0, 0, true)};
+    if (!res.has_value()) return std::unexpected(res.error());
+
+    bool b_faction_hit{false};
+    for (const std::string& str_faction_table : vec_factions)
+      if (str_faction_table == str_faction) b_faction_hit = true;
+    if (!b_faction_hit)
+      support::next(w.rng_player, 0, static_cast<std::int32_t>(vec_factions.size()));
+
+    PlayerModel player;
+    player.str_internal_name = str_slot;
+    player.str_faction = str_faction;
+    player.u4_actor_id = *res;
+    player.b_playable = true;
+    w.vec_players.push_back(std::move(player));
+  }
+
   {
     const std::uint32_t u4_index{static_cast<std::uint32_t>(w.vec_players.size())};
     auto res{create_actor(w, "player", u4_index, 0, 0, true)};
@@ -260,16 +306,37 @@ std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
 
     PlayerModel player;
     player.str_internal_name = "Everyone";
+    player.str_faction = "Random";
     player.u4_actor_id = *res;
     player.b_non_combatant = true;
     player.b_spectating = true;
     w.vec_players.push_back(std::move(player));
   }
 
+  production::production_queue_state_build(w);
+
   for (const MapActorRef& ref : map_syn.vec_actor_defs) {
     std::uint32_t u4_owner{player_index_by_name(w, ref.str_owner)};
     if (u4_owner == kOwnerNone) u4_owner = w.u4_world_owner_player;
     auto res{create_actor(w, ref.str_type, u4_owner, ref.int4_pos_x, ref.int4_pos_y, true)};
+    if (!res.has_value()) return std::unexpected(res.error());
+  }
+
+  // SpawnStartingUnits 等价（mcvonly）：MCV 落 mpspawn。rng 账本 0 耗——
+  // StartingUnitsInfo.BaseActorFacing 默认 WAngle(512) 非 null（FacingInit 不抽样），
+  // 出生组选择 RandomOrDefault 单组命中走 Next(1)（diff<=1 短路，0 耗）。
+  for (std::size_t idx{0}; idx < w.vec_players.size(); ++idx) {
+    if (!w.vec_players[idx].b_playable) continue;
+    std::int32_t int4_home_x{0};
+    std::int32_t int4_home_y{0};
+    for (const MapActorRef& ref : map_syn.vec_actor_defs) {
+      if (ref.str_type != "mpspawn") continue;
+      int4_home_x = ref.int4_pos_x;
+      int4_home_y = ref.int4_pos_y;
+      break;
+    }
+    auto res{create_actor(w, "mcv", static_cast<std::uint32_t>(idx), int4_home_x, int4_home_y,
+                          true)};
     if (!res.has_value()) return std::unexpected(res.error());
   }
 
@@ -301,7 +368,9 @@ std::expected<std::uint32_t, std::string> create_actor(WorldModel& w, std::strin
     trait.str_instance = tpl.str_instance;
     trait.int4_param = tpl.int4_param;
     trait.str_param_type = tpl.str_param_type;
-    ptr_spec->fn_create(ctx_create, trait);
+    trait.str_param2 = tpl.str_param2;
+    trait.str_param3 = tpl.str_param3;
+    if (ptr_spec->fn_create) ptr_spec->fn_create(ctx_create, trait);
 
     const std::uint32_t u4_handle{static_cast<std::uint32_t>(w.vec_traits.size())};
     w.vec_traits.push_back(std::move(trait));
@@ -317,13 +386,14 @@ std::expected<std::uint32_t, std::string> create_actor(WorldModel& w, std::strin
   }
 
   w.vec_actors_all.push_back(std::move(actor));
+  if (b_add_to_world) production::production_on_actor_added(w, w.vec_actors_all.back().u4_id);
   return w.vec_actors_all.back().u4_id;
 }
 
 void dispose_actor(WorldModel& w, std::uint32_t u4_actor_id) {
   if (u4_actor_id >= w.vec_actors_all.size()) return;
   w.vec_actors_all[u4_actor_id].b_will_dispose = true;
-  w.deque_frame_end.push_back(FrameEndTask{u4_actor_id});
+  w.deque_frame_end.push_back(FrameEndTask{.u4_kind = 0, .u4_actor = u4_actor_id});
 }
 
 std::int32_t process_orders(WorldModel& w) {
