@@ -13,8 +13,12 @@ struct CellInfoNode {
   CPos cell_prev;
 };
 
+using CellBlockSet = std::set<std::pair<std::int32_t, std::int32_t>>;
+
 [[nodiscard]] std::vector<CPos> astar_to_target_cell(const LocomotorMap& map, CPos cell_from,
                                                      CPos cell_target, std::int32_t int4_weight,
-                                                     bool b_lane_bias);
+                                                     bool b_lane_bias,
+                                                     const CellBlockSet* ptr_set_blocked = nullptr,
+                                                     bool b_reverse = false);
 
 }  // namespace ora::game::pathfinding

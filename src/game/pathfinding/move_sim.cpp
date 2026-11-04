@@ -6,7 +6,8 @@ namespace {
 
 std::int32_t movement_speed_for_cell(const MoveSimConfig& cfg, CPos cell) {
   const std::int32_t int4_terrain{terrain_speed_for_cell(*cfg.ptr_map, cell)};
-  return static_cast<std::int32_t>(static_cast<std::int64_t>(cfg.int4_speed) * int4_terrain / 100);
+  return static_cast<std::int32_t>(static_cast<std::int64_t>(cfg.int4_speed) * int4_terrain /
+                                   cfg.int4_speed_den);
 }
 
 CPos pop_path(MoveSimState& st) {
@@ -163,7 +164,8 @@ void move_on_first_run(MoveSimState& st, const MoveSimConfig& cfg) {
   }
 
   std::vector<CPos> vec_path{astar_to_target_cell(*cfg.ptr_map, st.cell_to, st.cell_destination,
-                                                  cfg.int4_heuristic_weight, true)};
+                                                  cfg.int4_heuristic_weight, true, cfg.ptr_set_blocked,
+                                                  cfg.b_reverse_path)};
   while (!vec_path.empty() && vec_path.back() == st.cell_to)
     vec_path.pop_back();
   st.vec_path = std::move(vec_path);

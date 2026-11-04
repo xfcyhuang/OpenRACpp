@@ -1,5 +1,6 @@
 #include "game/world/trait.hpp"
 
+#include "game/economy/economy.hpp"
 #include "game/network/order.hpp"
 #include "game/production/production.hpp"
 #include "game/world/world.hpp"
@@ -87,6 +88,7 @@ const std::vector<TraitSpec>& trait_registry() {
                                              .fn_resolve = resolve_order_counter},
                                    TraitSpec{.str_kind = "FactionInfo", .fn_create = create_noop}};
         for (const TraitSpec& spec : production::production_trait_specs()) vec.push_back(spec);
+        for (const TraitSpec& spec : economy::economy_trait_specs()) vec.push_back(spec);
         return vec;
       }()};
   return vec_registry;

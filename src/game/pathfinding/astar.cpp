@@ -47,10 +47,13 @@ std::int32_t multiply_by_sqrt_two(std::int32_t int4_number) {
 struct SearchState {
   const LocomotorMap* ptr_map;
   CPos cell_target;
+  CPos cell_goal_reverse{};
   std::int32_t int4_weight;
   bool b_lane_bias;
+  bool b_reverse;
   std::int32_t int4_cell_cost;
   std::int32_t int4_diag_cost;
+  const CellBlockSet* ptr_set_blocked;
   std::vector<CellInfoNode> vec_cells;
   LevelOrderQueue queue;
 };
@@ -73,6 +76,14 @@ std::int32_t heuristic_cost(const SearchState& state, CPos cell) {
 }
 
 std::int32_t path_cost_to_node(SearchState& state, CPos cell_dest, CellVec vec_dir) {
+  // 上游 GetPathCostToNode：反向搜索时允许进入不可达的 source 格（被 actor 自己
+  // 占据，MovementCostToEnterCell 判 Unreachable），代价按 0（PathSearch.cs:186-190）。
+  if (state.b_reverse && cell_dest.int4_x == state.cell_goal_reverse.int4_x &&
+      cell_dest.int4_y == state.cell_goal_reverse.int4_y)
+    return 0;
+  if (state.ptr_set_blocked != nullptr &&
+      state.ptr_set_blocked->contains({cell_dest.int4_x, cell_dest.int4_y}))
+    return std::numeric_limits<std::int32_t>::max();
   const std::int16_t int2_cost{movement_cost_for_cell(*state.ptr_map, cell_dest)};
   if (int2_cost == kCostUnreachable) return std::numeric_limits<std::int32_t>::max();
 
@@ -80,8 +91,9 @@ std::int32_t path_cost_to_node(SearchState& state, CPos cell_dest, CellVec vec_d
                                                               : int2_cost};
 
   if (state.b_lane_bias) {
-    const std::int32_t int4_ux{cell_dest.int4_x & 1};
-    const std::int32_t int4_uy{cell_dest.int4_y & 1};
+    // 上游 DensePathGraph：ux = neighbor.X + (inReverse ? 1 : 0) & 1（+ 先于 &）。
+    const std::int32_t int4_ux{(cell_dest.int4_x + (state.b_reverse ? 1 : 0)) & 1};
+    const std::int32_t int4_uy{(cell_dest.int4_y + (state.b_reverse ? 1 : 0)) & 1};
     if ((int4_ux == 0 && vec_dir.int4_y < 0) || (int4_ux == 1 && vec_dir.int4_y > 0))
       int4_cost += kLaneBiasCost;
     if ((int4_uy == 0 && vec_dir.int4_x < 0) || (int4_uy == 1 && vec_dir.int4_x > 0))
@@ -171,21 +183,31 @@ CPos expand(SearchState& state) {
 }  // namespace
 
 std::vector<CPos> astar_to_target_cell(const LocomotorMap& map, CPos cell_from, CPos cell_target,
-                                       std::int32_t int4_weight, bool b_lane_bias) {
+                                       std::int32_t int4_weight, bool b_lane_bias,
+                                       const CellBlockSet* ptr_set_blocked, bool b_reverse) {
   SearchState state;
   state.ptr_map = &map;
-  state.cell_target = cell_target;
   state.int4_weight = int4_weight;
   state.b_lane_bias = b_lane_bias;
+  state.b_reverse = b_reverse;
   state.int4_cell_cost = map.int4_min_cost;
   state.int4_diag_cost = multiply_by_sqrt_two(map.int4_min_cost);
+  state.ptr_set_blocked = ptr_set_blocked;
   state.vec_cells.assign(static_cast<std::size_t>(map.int4_width) * map.int4_height, CellInfoNode{});
 
-  if (map_contains(map, cell_from)) add_initial_cell(state, cell_from);
+  // 上游 PathFinder.FindPathToTargetCells：多目标反向搜索——以 targets 为初始源、
+  // source 为目标（启发式指向 source）、inReverse 的 lane bias 变体；产出回溯序
+  // [goal..initial] 与正向同构（goal=actor 位置在首、弹出尾部 initial 即得行进序）。
+  const CPos cell_initial{b_reverse ? cell_target : cell_from};
+  const CPos cell_goal{b_reverse ? cell_from : cell_target};
+  state.cell_target = cell_goal;
+  state.cell_goal_reverse = cell_goal;
+
+  if (map_contains(map, cell_initial)) add_initial_cell(state, cell_initial);
 
   while (can_expand(state)) {
     const CPos cell{expand(state)};
-    if (cell.int4_x == cell_target.int4_x && cell.int4_y == cell_target.int4_y) {
+    if (cell.int4_x == cell_goal.int4_x && cell.int4_y == cell_goal.int4_y) {
       std::vector<CPos> vec_path;
       CPos cell_node{cell};
       while (true) {
@@ -195,6 +217,9 @@ std::vector<CPos> astar_to_target_cell(const LocomotorMap& map, CPos cell_from, 
           break;
         cell_node = info.cell_prev;
       }
+      // 反向搜索的回溯序 [goal..initial] 与正向相反；上游 FindPathToTargetCells 在
+      // 返回前 path.Reverse() 对齐正向形态（back=actor 当前格，pop 后 back=下一行进格）。
+      if (b_reverse) std::reverse(vec_path.begin(), vec_path.end());
       return vec_path;
     }
   }

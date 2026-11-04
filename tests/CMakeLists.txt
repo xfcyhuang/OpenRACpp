@@ -114,3 +114,10 @@ target_link_libraries(ora_production PRIVATE ora_std ora_game)
 target_compile_definitions(ora_production PRIVATE
   ORA_PRODUCTION_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/production")
 add_test(NAME production COMMAND ora_production)
+
+add_executable(ora_economy economy.cpp)
+target_link_libraries(ora_economy PRIVATE ora_std ora_game)
+target_compile_definitions(ora_economy PRIVATE
+  ORA_ECONOMY_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/economy"
+  ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps")
+add_test(NAME economy COMMAND ora_economy)

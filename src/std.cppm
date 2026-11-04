@@ -34,6 +34,8 @@ using std::abort;
 using std::array;
 using std::bit_cast;
 using std::clamp;
+using std::find;
+using std::reverse;
 using std::find_if;
 using std::greater;
 using std::lower_bound;
