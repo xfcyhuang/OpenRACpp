@@ -72,6 +72,17 @@ set_tests_properties(render_assets PROPERTIES LABELS "render" SKIP_RETURN_CODE 7
 set(SDL2_DIR "" CACHE PATH "SDL2 cmake 配置目录（SDL2-devel-mingw 包内 lib/cmake/SDL2）；空则跳过渲染探针 target")
 find_package(SDL2 CONFIG QUIET)
 if(SDL2_FOUND)
+  add_executable(ora_input_probe input_probe.cpp)
+  target_link_libraries(ora_input_probe PRIVATE ora_std ora_game SDL2::SDL2main SDL2::SDL2)
+  target_include_directories(ora_input_probe PRIVATE ${SDL2_INCLUDE_DIRS})
+  add_custom_command(TARGET ora_input_probe POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${SDL2_DIR}/../../../bin/SDL2.dll" $<TARGET_FILE_DIR:ora_input_probe>)
+  add_test(NAME input_probe COMMAND ora_input_probe
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:ora_input_probe>)
+  set_tests_properties(input_probe PROPERTIES LABELS "render" SKIP_RETURN_CODE 77)
+  message(STATUS "SDL2 input probe enabled: ${SDL2_DIR}")
+
   add_executable(ora_render_probe render_probe.cpp)
   target_link_libraries(ora_render_probe PRIVATE ora_std ora_game SDL2::SDL2main SDL2::SDL2)
   target_include_directories(ora_render_probe PRIVATE ${SDL2_INCLUDE_DIRS})
@@ -114,3 +125,7 @@ target_link_libraries(ora_production PRIVATE ora_std ora_game)
 target_compile_definitions(ora_production PRIVATE
   ORA_PRODUCTION_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/production")
 add_test(NAME production COMMAND ora_production)
+
+add_executable(ora_input input_logic.cpp)
+target_link_libraries(ora_input PRIVATE ora_std ora_game)
+add_test(NAME input COMMAND ora_input)
