@@ -108,3 +108,10 @@ target_compile_definitions(ora_pathfind_move PRIVATE
   ORA_PATHFINDING_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/pathfinding"
   ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps")
 add_test(NAME pathfind_move COMMAND ora_pathfind_move)
+
+add_executable(ora_combat combat.cpp)
+target_link_libraries(ora_combat PRIVATE ora_std ora_game)
+target_compile_definitions(ora_combat PRIVATE
+  ORA_COMBAT_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/combat"
+  ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps")
+add_test(NAME combat COMMAND ora_combat)

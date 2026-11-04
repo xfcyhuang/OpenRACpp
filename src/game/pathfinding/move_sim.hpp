@@ -35,6 +35,7 @@ struct MovePartState {
 struct MoveSimState {
   bool b_has_activity{};
   bool b_first_run_done{};
+  bool b_path_preset{};  // 外部预置路径（FindPathToTargetCells 面）——首 tick 跳过内部寻路
   bool b_already_at_destination{};
   bool b_had_no_path{};
   CPos cell_from{};

@@ -33,6 +33,7 @@ constexpr std::int32_t wangle_wrap(std::int32_t int4_angle) { return int4_angle 
                                        std::int32_t int4_mul, std::int32_t int4_div);
 [[nodiscard]] std::int32_t wangle_cos(std::int32_t int4_angle);
 [[nodiscard]] std::int32_t wangle_sin(std::int32_t int4_angle);
+[[nodiscard]] std::int32_t wangle_tan(std::int32_t int4_angle);
 [[nodiscard]] std::int32_t wangle_arctan(std::int32_t int4_y, std::int32_t int4_x);
 [[nodiscard]] std::int32_t tick_facing(std::int32_t int4_facing, std::int32_t int4_desired,
                                        std::int32_t int4_step);
