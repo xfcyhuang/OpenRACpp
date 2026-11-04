@@ -50,6 +50,10 @@ struct TraitSpec {
   bool b_implements_resolve{};
   std::string str_int_param_key;
   std::string str_str_param_key;
+  std::string str_order_id;
+  std::int32_t int4_order_priority{};
+  bool b_order_actor_target{};
+  bool b_order_terrain_target{};
   std::function<void(const TraitCreateCtx&, TraitModel&)> fn_create;
   std::function<void(const TraitTickCtx&, TraitModel&)> fn_tick;
   std::function<std::int32_t(const TraitModel&)> fn_sync_hash;

@@ -14,6 +14,7 @@ struct ActorModel {
   std::uint32_t u4_owner{kOwnerNone};
   std::int32_t int4_pos_x{};
   std::int32_t int4_pos_y{};
+  std::int32_t int4_generation{};
   bool b_in_world{};
   bool b_will_dispose{};
   bool b_disposed{};
