@@ -52,11 +52,11 @@ struct SearchState {
   bool b_lane_bias;
   // 完整反向模式（FindPathToTargetCells 语义：initial=target、goal=from、lane 翻转、
   // goal 豁免、回溯序反转）；T12/duelD 的多源 swap 搜索只翻 lane 偏置。
-  bool b_reverse;
+  bool b_reverse{};
   bool b_lane_bias_reverse{};  // DensePathGraph inReverse：lane 偏置奇偶翻转（x+1/y+1）
   std::int32_t int4_cell_cost;
   std::int32_t int4_diag_cost;
-  const CellBlockSet* ptr_set_blocked;
+  const CellBlockSet* ptr_set_blocked{};
   std::vector<CellInfoNode> vec_cells;
   LevelOrderQueue queue;
 };
