@@ -48,6 +48,7 @@ static void (*gl_vertex_attrib_pointer)(int, GLint, GLenum, GLboolean, GLsizei, 
 static void (*gl_draw_arrays)(GLenum, GLint, GLsizei);
 static void (*gl_gen_vertex_arrays)(GLsizei, unsigned*);
 static void (*gl_bind_vertex_array)(unsigned);
+static void (*gl_read_pixels)(int, int, GLsizei, GLsizei, GLenum, GLenum, void*);
 
 constexpr GLenum GL_COLOR_BUFFER_BIT{0x4000};
 constexpr GLenum GL_TRIANGLES{0x0004};
@@ -58,6 +59,8 @@ constexpr GLenum GL_FRAGMENT_SHADER{0x8B30};
 constexpr GLenum GL_COMPILE_STATUS{0x8B81};
 constexpr GLenum GL_ARRAY_BUFFER{0x8892};
 constexpr GLenum GL_STATIC_DRAW{0x88E4};
+constexpr GLenum GL_RGB{0x1907};
+constexpr GLenum GL_UNSIGNED_BYTE{0x1401};
 
 template <typename T>
 T gl_load(const char* sz_name) {
@@ -136,6 +139,29 @@ void push_text(std::string_view str_text, GLfloat fp4_x, GLfloat fp4_y, GLfloat 
                     fp4_scale, fp4_r, fp4_g, fp4_b, 1);
     fp4_cursor += (kFontW + 1) * fp4_scale;
   }
+}
+
+void save_screenshot(SDL_Window* ptr_window, const char* sz_path) {
+  int int4_w{};
+  int int4_h{};
+  SDL_GL_GetDrawableSize(ptr_window, &int4_w, &int4_h);
+  std::vector<unsigned char> vec1u_px(static_cast<std::size_t>(int4_w) * int4_h * 3);
+  gl_read_pixels(0, 0, int4_w, int4_h, GL_RGB, GL_UNSIGNED_BYTE, vec1u_px.data());
+
+  SDL_Surface* surf_shot{
+      SDL_CreateRGBSurfaceWithFormat(0, int4_w, int4_h, 24, SDL_PIXELFORMAT_RGB24)};
+  auto* p1u_dst{static_cast<unsigned char*>(surf_shot->pixels)};
+  const int int4_pitch{surf_shot->pitch};
+  for (int int4_y{0}; int4_y < int4_h; ++int4_y)
+    for (int int4_x{0}; int4_x < int4_w * 3; ++int4_x)
+      p1u_dst[int4_y * int4_pitch + int4_x] =
+          vec1u_px[static_cast<std::size_t>(int4_h - 1 - int4_y) * int4_w * 3 +
+                   static_cast<std::size_t>(int4_x)];
+  if (SDL_SaveBMP(surf_shot, sz_path) != 0)
+    std::println("input_probe: screenshot failed: {}", SDL_GetError());
+  else
+    std::println("input_probe: screenshot {}", sz_path);
+  SDL_FreeSurface(surf_shot);
 }
 
 constexpr int kViewW{960};
@@ -277,14 +303,17 @@ void push_world_draw(ProbeSession& session) {
     const auto opt_bounds{wig::actor_mouse_bounds(session.w, actor)};
     if (!opt_bounds.has_value()) continue;
 
-    GLfloat fp4_r{0.8f}, fp4_g{0.8f}, fp4_b{0.2f};
+    const bool b_neutral_owner{actor.u4_owner < session.w.vec_players.size() &&
+                               actor.u4_owner != 0 &&
+                               session.w.vec_players[actor.u4_owner].b_non_combatant};
+    GLfloat fp4_r{0.9f}, fp4_g{0.2f}, fp4_b{0.2f};
     if (actor.u4_owner == 0) {
       fp4_r = 0.2f;
       fp4_g = 0.9f;
       fp4_b = 0.2f;
-    } else if (actor.u4_owner == 2) {
-      fp4_r = 0.9f;
-      fp4_g = 0.2f;
+    } else if (b_neutral_owner) {
+      fp4_r = 0.8f;
+      fp4_g = 0.8f;
       fp4_b = 0.2f;
     }
     push_quad(static_cast<GLfloat>(opt_bounds->int4_x),
@@ -461,6 +490,7 @@ int run_probe(bool b_manual) {
   gl_draw_arrays = gl_load<decltype(gl_draw_arrays)>("glDrawArrays");
   gl_gen_vertex_arrays = gl_load<decltype(gl_gen_vertex_arrays)>("glGenVertexArrays");
   gl_bind_vertex_array = gl_load<decltype(gl_bind_vertex_array)>("glBindVertexArray");
+  gl_read_pixels = gl_load<decltype(gl_read_pixels)>("glReadPixels");
 
   const char* sz_vert{
       "#version 150\n"
@@ -614,6 +644,8 @@ int run_probe(bool b_manual) {
                    vec_verts.data(), GL_STATIC_DRAW);
     gl_draw_arrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vec_quads.size() * 6));
     SDL_GL_SwapWindow(ptr_window);
+
+    if (!b_manual && u4_frame == 200) save_screenshot(ptr_window, "t14-input-probe.bmp");
 
     ++u4_frame;
   }
