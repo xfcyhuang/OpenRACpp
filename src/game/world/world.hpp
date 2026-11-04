@@ -2,6 +2,7 @@
 
 import std;
 
+#include "game/economy/economy.hpp"
 #include "game/miniyaml.hpp"
 #include "game/production/production.hpp"
 #include "game/support/mersenne_twister.hpp"
@@ -66,6 +67,7 @@ struct WorldModel {
   TraitContainerModel container_sync;
   std::vector<PlayerModel> vec_players;
   production::ProductionWorldState prod;
+  economy::EconomyWorldState econ;
   production::LobbyModel lobby;
   support::MersenneTwister rng_shared;
   support::MersenneTwister rng_player;

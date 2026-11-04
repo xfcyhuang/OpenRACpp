@@ -13,9 +13,13 @@ struct CellInfoNode {
   CPos cell_prev;
 };
 
+using CellBlockSet = std::set<std::pair<std::int32_t, std::int32_t>>;
+
 [[nodiscard]] std::vector<CPos> astar_to_target_cell(const LocomotorMap& map, CPos cell_from,
                                                      CPos cell_target, std::int32_t int4_weight,
-                                                     bool b_lane_bias);
+                                                     bool b_lane_bias,
+                                                     const CellBlockSet* ptr_set_blocked = nullptr,
+                                                     bool b_reverse = false);
 
 // 多源单目标 A*（PathSearch.ToTargetCell 多 froms 形态；T12/duelD 的
 // PathFinder.FindPathToTargetCells swap 路径：annulus 候选=源、原点=目标、inReverse）。

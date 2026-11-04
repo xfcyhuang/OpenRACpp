@@ -1,5 +1,6 @@
 #include "game/world/world.hpp"
 
+#include "game/economy/economy.hpp"
 #include "game/miniyaml_merge.hpp"
 #include "game/world/sync_hash.hpp"
 
@@ -46,7 +47,7 @@ std::optional<std::pair<std::int32_t, std::int32_t>> parse_location(std::string_
   return std::pair{*opt_x, *opt_y};
 }
 
-void world_tick_activities(WorldModel&) {}
+void world_tick_activities(WorldModel& w) { economy::economy_on_tick(w); }
 
 void world_tick_effects(WorldModel&) {}
 
@@ -54,6 +55,11 @@ void frame_end_run_task(WorldModel& w, const FrameEndTask& task) {
   if (task.u4_kind == 1 || task.u4_kind == 2) {
     production::production_frame_end_task(w, task.u4_kind, task.u4_player, task.u4_value,
                                           task.str_item);
+    return;
+  }
+
+  if (task.u4_kind == 3) {
+    economy::economy_frame_end_task(w, task);
     return;
   }
 
@@ -66,6 +72,7 @@ void frame_end_run_task(WorldModel& w, const FrameEndTask& task) {
     const auto it{std::lower_bound(w.vec_in_world.begin(), w.vec_in_world.end(), task.u4_actor)};
     if (it != w.vec_in_world.end() && *it == task.u4_actor) w.vec_in_world.erase(it);
     production::production_on_actor_removed(w, task.u4_actor);
+    economy::economy_on_actor_removed(w, task.u4_actor);
   }
 
   container_remove_actor(w.container_tick, task.u4_actor);
@@ -325,19 +332,23 @@ std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
   // SpawnStartingUnits 等价（mcvonly）：MCV 落 mpspawn。rng 账本 0 耗——
   // StartingUnitsInfo.BaseActorFacing 默认 WAngle(512) 非 null（FacingInit 不抽样），
   // 出生组选择 RandomOrDefault 单组命中走 Next(1)（diff<=1 短路，0 耗）。
-  for (std::size_t idx{0}; idx < w.vec_players.size(); ++idx) {
-    if (!w.vec_players[idx].b_playable) continue;
-    std::int32_t int4_home_x{0};
-    std::int32_t int4_home_y{0};
-    for (const MapActorRef& ref : map_syn.vec_actor_defs) {
-      if (ref.str_type != "mpspawn") continue;
-      int4_home_x = ref.int4_pos_x;
-      int4_home_y = ref.int4_pos_y;
-      break;
+  // 规则集未定义 mcv（经济等无 SpawnStartingUnits 的最小规则集）时跳过——
+  // 上游无该 trait 的规则不生成起始单位。
+  if (find_actor_type(w, "mcv") != nullptr) {
+    for (std::size_t idx{0}; idx < w.vec_players.size(); ++idx) {
+      if (!w.vec_players[idx].b_playable) continue;
+      std::int32_t int4_home_x{0};
+      std::int32_t int4_home_y{0};
+      for (const MapActorRef& ref : map_syn.vec_actor_defs) {
+        if (ref.str_type != "mpspawn") continue;
+        int4_home_x = ref.int4_pos_x;
+        int4_home_y = ref.int4_pos_y;
+        break;
+      }
+      auto res{create_actor(w, "mcv", static_cast<std::uint32_t>(idx), int4_home_x, int4_home_y,
+                            true)};
+      if (!res.has_value()) return std::unexpected(res.error());
     }
-    auto res{create_actor(w, "mcv", static_cast<std::uint32_t>(idx), int4_home_x, int4_home_y,
-                          true)};
-    if (!res.has_value()) return std::unexpected(res.error());
   }
 
   return w;
@@ -386,7 +397,10 @@ std::expected<std::uint32_t, std::string> create_actor(WorldModel& w, std::strin
   }
 
   w.vec_actors_all.push_back(std::move(actor));
-  if (b_add_to_world) production::production_on_actor_added(w, w.vec_actors_all.back().u4_id);
+  if (b_add_to_world) {
+    production::production_on_actor_added(w, w.vec_actors_all.back().u4_id);
+    economy::economy_on_actor_added(w, w.vec_actors_all.back().u4_id);
+  }
   return w.vec_actors_all.back().u4_id;
 }
 
