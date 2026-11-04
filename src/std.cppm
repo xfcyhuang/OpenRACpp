@@ -29,14 +29,22 @@ module;
 export module std;
 
 export namespace std {
+using std::abs;
 using std::abort;
 using std::array;
 using std::bit_cast;
+using std::clamp;
+using std::find;
 using std::find_if;
+using std::greater;
 using std::lower_bound;
+using std::max;
 using std::min;
 using std::numeric_limits;
 using std::sort;
+using std::sqrt;
+using std::stable_sort;
+using std::unique;
 using std::byte;
 using std::deque;
 using std::errc;
