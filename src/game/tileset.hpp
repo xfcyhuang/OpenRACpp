@@ -11,6 +11,7 @@ struct TerrainTemplate {
   int int4_size_x{1};
   int int4_size_y{1};
   bool b_pickany{false};
+  std::vector<std::string> vec_str_images{};
   std::vector<std::optional<std::uint8_t>> vec_opt1u_frame_terrain{};
 
   [[nodiscard]] bool contains_frame(int int4_index) const {

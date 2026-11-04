@@ -51,6 +51,44 @@ add_executable(ora_world_tick world_tick.cpp)
 target_link_libraries(ora_world_tick PRIVATE ora_std ora_game)
 add_test(NAME world_tick COMMAND ora_world_tick)
 
+add_executable(ora_render_decode render_decode.cpp)
+target_link_libraries(ora_render_decode PRIVATE ora_std ora_game)
+target_compile_definitions(ora_render_decode PRIVATE
+  ORA_RENDER_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/render"
+  ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps")
+add_test(NAME render_decode COMMAND ora_render_decode)
+set_tests_properties(render_decode PROPERTIES LABELS "render")
+
+set(ORA_CONTENT_TEMPERAT_DIR "" CACHE PATH
+  "EA 内容包抽取目录（ore-lord 58 .tem + 1tnk.shp，OpenRA.Utility --extract 产物）；空则测试 SKIP")
+add_executable(ora_render_assets render_assets.cpp)
+target_link_libraries(ora_render_assets PRIVATE ora_std ora_game)
+target_compile_definitions(ora_render_assets PRIVATE
+  ORA_CONTENT_TEMPERAT_DIR="${ORA_CONTENT_TEMPERAT_DIR}"
+  ORA_RENDER_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/render")
+add_test(NAME render_assets COMMAND ora_render_assets)
+set_tests_properties(render_assets PROPERTIES LABELS "render" SKIP_RETURN_CODE 77)
+
+set(SDL2_DIR "" CACHE PATH "SDL2 cmake 配置目录（SDL2-devel-mingw 包内 lib/cmake/SDL2）；空则跳过渲染探针 target")
+find_package(SDL2 CONFIG QUIET)
+if(SDL2_FOUND)
+  add_executable(ora_render_probe render_probe.cpp)
+  target_link_libraries(ora_render_probe PRIVATE ora_std ora_game SDL2::SDL2main SDL2::SDL2)
+  target_include_directories(ora_render_probe PRIVATE ${SDL2_INCLUDE_DIRS})
+  target_compile_definitions(ora_render_probe PRIVATE
+    ORA_CONTENT_TEMPERAT_DIR="${ORA_CONTENT_TEMPERAT_DIR}"
+    ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps"
+    ORA_RENDER_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/render")
+  add_custom_command(TARGET ora_render_probe POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${SDL2_DIR}/../../../bin/SDL2.dll" $<TARGET_FILE_DIR:ora_render_probe>)
+  add_test(NAME render_probe COMMAND ora_render_probe
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:ora_render_probe>)
+  set_tests_properties(render_probe PROPERTIES LABELS "render" SKIP_RETURN_CODE 77)
+  message(STATUS "SDL2 render probe enabled: ${SDL2_DIR}")
+else()
+  message(STATUS "SDL2 未找到（-DSDL2_DIR=<...>/lib/cmake/SDL2）——render_probe target 跳过")
+endif()
 add_executable(ora_orders orders.cpp)
 target_link_libraries(ora_orders PRIVATE ora_std ora_game)
 target_compile_definitions(ora_orders PRIVATE
