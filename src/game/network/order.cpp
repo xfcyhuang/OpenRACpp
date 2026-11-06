@@ -93,12 +93,17 @@ std::optional<std::int16_t> read_i2le(OrderReader& reader) {
 
 std::optional<std::string> read_7bit_string(OrderReader& reader) {
   std::uint32_t u4_length{};
+  std::uint32_t u4_shift{};
   std::uint8_t u1_byte{};
   do {
     const auto opt_byte{read_u1(reader)};
     if (!opt_byte.has_value()) return std::nullopt;
     u1_byte = *opt_byte;
-    u4_length = (u4_length << 7) | static_cast<std::uint32_t>(u1_byte & 0x7f);
+    // LEB128 小端序（write_7bit_string 先写低 7 位）：长度按 low<<shift 累加。
+    // 多字节长度（>=128）时移位方向不可交换——T16 的 SyncInfo Session yaml（>127B）实证。
+    u4_length |= static_cast<std::uint32_t>(u1_byte & 0x7f) << u4_shift;
+    u4_shift += 7;
+    if (u4_shift >= 32) return std::nullopt;  // 长度溢出（上游 int 界）
   } while ((u1_byte & 0x80) != 0);
 
   if (reader.span_bytes.size() - reader.idx_pos < u4_length) return std::nullopt;

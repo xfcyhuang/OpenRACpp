@@ -18,7 +18,7 @@ struct FlagSpec {
   bool b_takes_value{};
 };
 
-constexpr std::array<FlagSpec, 11> kFlags{{
+constexpr std::array<FlagSpec, 13> kFlags{{
     FlagSpec{"--mod", true},
     FlagSpec{"--map", true},
     FlagSpec{"--seed", true},
@@ -26,6 +26,8 @@ constexpr std::array<FlagSpec, 11> kFlags{{
     FlagSpec{"--content-dir", true},
     FlagSpec{"--log-file", true},
     FlagSpec{"--ticks", true},
+    FlagSpec{"--record", true},
+    FlagSpec{"--replay", true},
     FlagSpec{"--fullscreen", false},
     FlagSpec{"--headless", false},
     FlagSpec{"--demo", false},
@@ -88,6 +90,10 @@ CliParseResult cli_args_parse(std::span<const std::string_view> vec_args) {
       args.str_content_dir = std::string{str_value};
     } else if (str_arg == "--log-file") {
       args.str_log_file = std::string{str_value};
+    } else if (str_arg == "--record") {
+      args.str_record = std::string{str_value};
+    } else if (str_arg == "--replay") {
+      args.str_replay = std::string{str_value};
     } else if (str_arg == "--seed") {
       const auto opt{parse_int(str_value)};
       if (!opt.has_value()) {
@@ -112,6 +118,9 @@ CliParseResult cli_args_parse(std::span<const std::string_view> vec_args) {
     }
   }
 
+  if (!args.str_record.empty() && !args.str_replay.empty())
+    res.vec_errors.push_back("--record 与 --replay 互斥");
+
   res.b_ok = res.vec_errors.empty();
   return res;
 }
@@ -121,7 +130,8 @@ std::string cli_help_text() {
       "ora - OpenRACpp M1 sandbox game launcher\n"
       "usage: ora [--mod ra] [--map <path.oramap>] [--seed N] [--tick-ms 40]\n"
       "           [--fullscreen] [--content-dir <path>] [--log-file <path>]\n"
-      "           [--headless --ticks N] [--help] [--version]\n"
+      "           [--headless --ticks N] [--record <path.orarep>] [--replay <path.orarep>]\n"
+      "           [--help] [--version]\n"
       "defaults: mod=ra map=built-in sandbox seed=0 tick-ms=40 windowed\n"};
 }
 

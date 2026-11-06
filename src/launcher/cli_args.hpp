@@ -15,6 +15,8 @@ struct CliArgs {
   bool b_headless{};
   std::int32_t int4_headless_ticks{600};
   bool b_demo{};
+  std::string str_record;   // T16：对局录制为 .orarep（退出前 Dispose 落盘）
+  std::string str_replay;   // T16：重演 .orarep（headless；与 --record 互斥）
 };
 
 struct CliParseResult {

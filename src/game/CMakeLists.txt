@@ -5,6 +5,7 @@ add_library(ora_game STATIC game.cpp miniyaml.cpp miniyaml_merge.cpp ruleset.cpp
   combat/weapon.cpp combat/warhead_damage.cpp combat/health.cpp combat/armament.cpp combat/projectile.cpp combat/combat_sim.cpp
   world/actor.cpp world/trait.cpp world/trait_container.cpp world/world.cpp world/sync_hash.cpp
   network/order.cpp network/order_packet.cpp network/order_manager.cpp
+  replay/replay_format.cpp replay/replay_record.cpp replay/replay_player.cpp
   production/production.cpp
   economy/economy.cpp
   input/input_events.hpp input/screen_map.cpp input/selection.cpp input/selection_logic.cpp input/order_generator.cpp input/production_panel.cpp
@@ -16,6 +17,7 @@ target_sources(ora_game PRIVATE game.hpp miniyaml.hpp miniyaml_merge.hpp ruleset
   combat/weapon.hpp combat/warhead_damage.hpp combat/health.hpp combat/armament.hpp combat/projectile.hpp combat/combat_sim.hpp
   world/actor.hpp world/trait.hpp world/trait_container.hpp world/world.hpp world/sync_hash.hpp
   network/order.hpp network/order_packet.hpp network/order_manager.hpp
+  replay/replay_format.hpp replay/replay_record.hpp replay/replay_player.hpp
   production/production.hpp
   economy/economy.hpp
   input/screen_map.hpp input/selection.hpp input/selection_logic.hpp input/order_generator.hpp input/production_panel.hpp

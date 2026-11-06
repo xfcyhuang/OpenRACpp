@@ -4,6 +4,7 @@ module;
 #include <array>
 #include <bit>
 #include <charconv>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -67,6 +68,7 @@ using std::nullopt_t;
 using std::optional;
 using std::unexpected;
 using std::pair;
+using std::make_pair;
 using std::print;
 using std::println;
 using std::set;
@@ -96,6 +98,17 @@ using std::size;
 using std::swap;
 using std::move;
 
+namespace chrono {
+using std::chrono::system_clock;
+using std::chrono::floor;
+using std::chrono::days;
+using std::chrono::seconds;
+using std::chrono::sys_days;
+using std::chrono::year_month_day;
+using std::chrono::hh_mm_ss;
+using std::chrono::operator-;
+}
+
 namespace filesystem {
 using std::filesystem::path;
 using std::filesystem::directory_entry;
@@ -106,6 +119,7 @@ using std::filesystem::end;
 using std::filesystem::exists;
 }
 using std::operator+;
+using std::operator-;
 using std::operator==;
 using std::operator!=;
 using std::operator<;

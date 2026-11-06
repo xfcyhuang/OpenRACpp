@@ -22,8 +22,14 @@ import std;
 #include "game/input/screen_map.hpp"
 #include "game/input/selection.hpp"
 #include "game/input/selection_logic.hpp"
+#include "game/network/order_packet.hpp"
+#include "game/replay/replay_format.hpp"
+#include "game/replay/replay_player.hpp"
+#include "game/replay/replay_record.hpp"
 #include "launcher/cli_args.hpp"
 #include "launcher/game_session.hpp"
+
+namespace replay_ns = ora::game::replay;
 
 namespace {
 
@@ -272,6 +278,41 @@ void flush_events(const lch::GameSession& s, std::size_t& sz_events_printed,
 void issue_orders(lch::GameSession& s, std::span<const net::OrderModel> vec_orders) {
   for (const net::OrderModel& order : vec_orders) lch::session_issue_order(s, order);
 }
+
+// T16 --record 引导段：SyncInfo/StartGame 两枚 from=0 引导包（Server.cs:1288/:1428 同型）
+// + [1] pacing 空包（session_setup 已 start_game，此处补记探针 StartGame 挂接点的等价物）
+namespace recorder_ns_local {
+
+void recorder_boot_packets(replay_ns::ReplayRecorderModel& recorder,
+                           const std::string& str_session_yaml) {
+  replay_ns::recorder_receive(recorder, 0, replay_ns::make_boot_packet("SyncInfo", str_session_yaml));
+  replay_ns::recorder_receive(recorder, 0, replay_ns::make_boot_packet("StartGame", ""));
+  replay_ns::recorder_receive(recorder, net::kLocalClientId,
+                              net::order_packet_serialize_frame(std::vector<std::uint8_t>{}, 1));
+}
+
+void recorder_finish(replay_ns::ReplayRecorderModel& recorder,
+                     const replay_ns::ReplayGameInfo& info, const std::string& str_path,
+                     std::ofstream* ptr_log) {
+  replay_ns::recorder_attach_metadata(recorder, replay_ns::replay_metadata_nodes(info));
+  auto res_file{replay_ns::recorder_dispose(recorder)};
+  if (!res_file.has_value()) {
+    std::println("ora: record failed: {}", res_file.error());
+    return;
+  }
+  std::ofstream fs_out{str_path, std::ios::binary | std::ios::trunc};
+  if (!fs_out) {
+    std::println("ora: cannot write replay: {}", str_path);
+    return;
+  }
+  fs_out.write(reinterpret_cast<const char*>(res_file->data()),
+               static_cast<std::streamsize>(res_file->size()));
+  const std::string str_line{std::format("record: {} bytes -> {}", res_file->size(), str_path)};
+  std::println("{}", str_line);
+  if (ptr_log != nullptr) *ptr_log << str_line << '\n';
+}
+
+}  // namespace recorder_ns_local
 
 std::optional<int> parse_dim(std::string_view str_value, std::size_t idx_part) {
   const std::size_t idx_comma{str_value.find(',')};
@@ -896,15 +937,78 @@ void push_panel_draw(const lch::GameSession& s, const UiState& ui,
 }
 
 int run_headless(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0) {
-  auto res_session{lch::session_setup(make_session_env(args, sz_argv0))};
+  // T16 --replay：先读 .orarep 构建重演 feed（世界按文件 Session 的 seed 重建）
+  std::optional<replay_ns::ReplayFeedModel> opt_feed;
+  std::int32_t int4_ticks{args.int4_headless_ticks};
+  if (!args.str_replay.empty()) {
+    std::ifstream fs_replay{args.str_replay, std::ios::binary};
+    if (!fs_replay) {
+      std::println("ora: replay file not found: {}", args.str_replay);
+      return 1;
+    }
+    fs_replay.seekg(0, std::ios::end);
+    std::vector<std::uint8_t> vec_file(static_cast<std::size_t>(fs_replay.tellg()));
+    fs_replay.seekg(0, std::ios::beg);
+    fs_replay.read(reinterpret_cast<char*>(vec_file.data()),
+                   static_cast<std::streamsize>(vec_file.size()));
+
+    auto res_read{replay_ns::replay_read(vec_file)};
+    if (!res_read.has_value()) {
+      std::println("ora: replay read failed: {}", res_read.error());
+      return 1;
+    }
+    auto res_feed{replay_ns::replay_feed_build(*res_read)};
+    if (!res_feed.has_value()) {
+      std::println("ora: replay feed failed: {}", res_feed.error());
+      return 1;
+    }
+    opt_feed.emplace(std::move(*res_feed));
+    // 尾帧投影未消费：TickCount = 仿真帧 + 1（t16-t17 §5.3）
+    int4_ticks = opt_feed->int4_tick_count - 1;
+    std::println("replay: {} seed={} net-frame-interval={} final-tick={} clients={}",
+                 args.str_replay, opt_feed->session.int4_seed,
+                 opt_feed->session.int4_net_frame_interval, res_read->int4_final_game_tick,
+                 opt_feed->session.vec_client_indices.size());
+  }
+
+  lch::SessionEnv env{make_session_env(args, sz_argv0)};
+  if (opt_feed.has_value()) env.int4_seed = opt_feed->session.int4_seed;
+  auto res_session{lch::session_setup(env)};
   if (!res_session.has_value()) {
     std::println("ora: setup failed: {}", res_session.error());
     return 1;
   }
   lch::GameSession& s{*res_session};
+
+  // T16 --record：录制器挂接（session_setup 已 start_game——[1] pacing 空包在此补记，
+  // 与探针 RecordingEchoConnection.StartGame 的记录点等价）
+  replay_ns::ReplayRecorderModel recorder;
+  if (!args.str_record.empty()) {
+    s.om.ptr_recorder = &recorder;
+    const replay_ns::ReplaySessionInfo info{
+        .int4_seed = env.int4_seed,
+        .str_map_uid = args.str_map.empty() ? std::string{"ora-sandbox"} : args.str_map,
+        .int4_net_frame_interval = net::kNetFrameInterval,
+        .int4_game_timestep = args.int4_tick_ms,
+        .vec_client_indices = {net::kLocalClientId}};
+    recorder_ns_local::recorder_boot_packets(recorder, replay_ns::replay_session_yaml(info));
+  }
+
+  if (opt_feed.has_value()) s.om.ptr_replay_feed = &*opt_feed;
+
   std::size_t sz_printed{0};
+  std::size_t sz_orders_fed{};
   flush_events(s, sz_printed, ptr_log);
-  for (std::int32_t int4_tick{0}; int4_tick < args.int4_headless_ticks; ++int4_tick) {
+  for (std::int32_t int4_tick{0}; int4_tick < int4_ticks; ++int4_tick) {
+    // 重演订单喂桥：管道外效果（Move/Attack 由 launcher 桥承载）按投喂帧对齐
+    // bridge_pending——与录制侧 session_issue_order 的 (frame+1) 同帧消费
+    if (opt_feed.has_value()) {
+      while (sz_orders_fed < opt_feed->vec_replayed_orders.size()) {
+        const auto& [int4_frame, vec_bytes]{opt_feed->vec_replayed_orders[sz_orders_fed++]};
+        for (const net::OrderModel& order : net::order_packet_get_orders(vec_bytes, &s.w))
+          s.vec_bridge_pending.emplace_back(static_cast<std::uint32_t>(int4_frame), order);
+      }
+    }
     lch::session_tick(s);
     if (int4_tick % 40 == 0) std::println("{}", lch::session_hud_line(s));
     flush_events(s, sz_printed, ptr_log);
@@ -913,8 +1017,35 @@ int run_headless(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv
       return 1;
     }
   }
+
   std::println("{}", lch::session_hud_line(s));
-  std::println("exiting clean frames={}", args.int4_headless_ticks);
+
+  // T16 --record：Dispose 落盘（EndTimeUtc=当前 UTC 墙钟——记录流恒等口径不受影响）
+  if (!args.str_record.empty()) {
+    replay_ns::ReplayGameInfo info;
+    info.str_mod = args.str_mod;
+    info.str_version = "ora-m1";
+    info.str_map_uid = args.str_map.empty() ? std::string{"ora-sandbox"} : args.str_map;
+    info.str_map_title = args.str_map.empty() ? std::string{"ora sandbox"} : args.str_map;
+    info.int4_final_game_tick = s.w.int4_world_tick;
+    info.str_start_time_utc = "2026-01-01 00-00-00";
+    info.vec_players.push_back(replay_ns::ReplayGameInfo::PlayerInfo{
+        .int4_client_index = net::kLocalClientId, .str_name = "ora-headless", .b_is_human = true});
+    recorder_ns_local::recorder_finish(recorder, info, args.str_record, ptr_log);
+  }
+
+  // T16 --replay：desync 检出面（逐帧对拍报告 / om 标志）
+  if (opt_feed.has_value()) {
+    for (const std::string& str_report : opt_feed->vec_desync_reports)
+      std::println("ora: desync: {}", str_report);
+    if (s.om.b_out_of_sync || !opt_feed->vec_desync_reports.empty()) {
+      std::println("ora: replay desync detected ({} reports)", opt_feed->vec_desync_reports.size());
+      return 1;
+    }
+    std::println("replay: clean {} frames, sync hash consistent", int4_ticks);
+  }
+
+  std::println("exiting clean frames={}", int4_ticks);
   return 0;
 }
 
