@@ -88,6 +88,10 @@ void shuffle_forward(support::MersenneTwister& rng, std::span<T> span_items) {
 [[nodiscard]] std::string production_observation(const world::WorldModel& w,
                                                  std::uint32_t u4_player);
 
+[[nodiscard]] std::vector<std::string> queue_buildable_items(const world::WorldModel& w,
+                                                             std::uint32_t u4_player,
+                                                             std::string_view str_queue_type);
+
 void production_queue_state_build(world::WorldModel& w);
 
 void production_on_actor_added(world::WorldModel& w, std::uint32_t u4_actor_id);

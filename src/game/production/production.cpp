@@ -789,6 +789,21 @@ std::string production_observation(const world::WorldModel& w, std::uint32_t u4_
   return str_out;
 }
 
+std::vector<std::string> queue_buildable_items(const world::WorldModel& w,
+                                               std::uint32_t u4_player,
+                                               std::string_view str_queue_type) {
+  std::vector<std::string> vec_items;
+  const std::set<std::string> set_owned{owned_prerequisites(w, u4_player)};
+  for (const world::ActorTypeDef& def : w.vec_actor_types) {
+    const world::TraitTemplate* ptr_buildable{find_template(w, def.str_name_lower, "Buildable")};
+    if (ptr_buildable == nullptr) continue;
+    if (kv_find(*ptr_buildable, "Queue") != str_queue_type) continue;
+    if (!prereqs_satisfied(set_owned, kv_find(*ptr_buildable, "Prerequisites"))) continue;
+    vec_items.push_back(def.str_name_lower);
+  }
+  return vec_items;
+}
+
 void production_queue_state_build(world::WorldModel& w) {
   w.prod.vec_players.clear();
   w.prod.vec_players.resize(w.vec_players.size());
