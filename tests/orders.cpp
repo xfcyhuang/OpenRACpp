@@ -122,6 +122,20 @@ void test_roundtrip_tier_a() {
   }
 
   {
+    // 多字节 7-bit varint 长度（>=128）的 TargetString：LEB128 小端序读写对称
+    // （T16 SyncInfo Session yaml 实证：read 端移位方向反了会解析失败/错长）
+    OrderModel order;
+    order.str_order = "SyncInfo";
+    order.opt_str_target = std::string(235, 'x');  // 235 = 0xEB → varint 两字节 eb 01
+    const std::vector<std::uint8_t> vec_first{serialize_order(order)};
+    // varint 字节 eb 01 紧跟 flags(0x0004) 之后：ff 08 "SyncInfo" 04 00 eb 01 ...
+    const std::string str_hex{to_hex(vec_first)};
+    check(str_hex.starts_with("ff0853796e63496e666f0400eb01"),
+          std::format("varint-235 prefix mismatch: {}", str_hex.substr(0, 24)));
+    roundtrip_identity(order, "target-string-varint-multibyte");
+  }
+
+  {
     OrderModel order;
     order.str_order = "Move";
     order.b_has_subject = true;

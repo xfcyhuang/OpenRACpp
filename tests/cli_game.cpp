@@ -2,6 +2,10 @@ import std;
 
 #include <initializer_list>
 
+#include "game/network/order_packet.hpp"
+#include "game/replay/replay_format.hpp"
+#include "game/replay/replay_player.hpp"
+#include "game/replay/replay_record.hpp"
 #include "launcher/cli_args.hpp"
 #include "launcher/game_session.hpp"
 #include "launcher/sandbox_recipe.hpp"
@@ -275,6 +279,136 @@ bool queue_has_done(const lch::GameSession& s, std::string_view str_type,
   return false;
 }
 
+// T16（issue #17）：CLI --record/--replay 参数面 + GameSession 级自录自放
+// （录制含生产/移动/攻击订单——Move/Attack 效果走 launcher 桥，重演侧由
+// feed.vec_replayed_orders 按帧喂回 bridge_pending，digest 恒等是桥重演的强断言）。
+
+void test_parse_replay_flags() {
+  const lch::CliParseResult res{lch::cli_args_parse(
+      args({"--headless", "--ticks", "300", "--record", "run.orarep"}))};
+  check(res.b_ok, "parse: --record value accepted");
+  check(res.args.str_record == "run.orarep", "parse: record path");
+  check(res.args.str_replay.empty(), "parse: replay empty");
+
+  const lch::CliParseResult res2{
+      lch::cli_args_parse(args({"--replay", "run.orarep"}))};
+  check(res2.b_ok, "parse: --replay value accepted");
+  check(res2.args.str_replay == "run.orarep", "parse: replay path");
+
+  check(!lch::cli_args_parse(args({"--record", "a", "--replay", "b"})).b_ok,
+        "parse: --record + --replay mutually exclusive");
+  check(!lch::cli_args_parse(args({"--record"})).b_ok, "parse: record missing value rejected");
+}
+
+void test_session_record_replay() {
+  namespace rep = ora::game::replay;
+  constexpr std::int32_t kSeed{20261103};
+  constexpr std::int32_t kTicks{240};
+
+  // —— 录制侧 ——
+  std::vector<std::uint8_t> vec_file;
+  std::string str_digest_record;
+  {
+    lch::SessionEnv env;
+    env.int4_seed = kSeed;
+    auto res_session{lch::session_setup(env)};
+    check(res_session.has_value(), "replay-cli: record session setup");
+    if (!res_session.has_value()) return;
+    lch::GameSession& s{*res_session};
+
+    rep::ReplayRecorderModel recorder;
+    s.om.ptr_recorder = &recorder;
+    recorder_receive(recorder, 0,
+                     rep::make_boot_packet("SyncInfo", rep::replay_session_yaml(
+                         rep::ReplaySessionInfo{.int4_seed = kSeed,
+                                                .str_map_uid = "ora-sandbox",
+                                                .int4_net_frame_interval = net::kNetFrameInterval,
+                                                .int4_game_timestep = 40,
+                                                .vec_client_indices = {net::kLocalClientId}})));
+    recorder_receive(recorder, 0, rep::make_boot_packet("StartGame", ""));
+    // session_setup 已 start_game：[1] pacing 空包在此补记（run_headless 同款）
+    recorder_receive(recorder, net::kLocalClientId,
+                     net::order_packet_serialize_frame(std::vector<std::uint8_t>{}, 1));
+
+    const std::uint32_t u4_player_actor{s.w.vec_players[s.u4_viewer].u4_actor_id};
+    std::uint32_t u4_mover{};
+    std::uint32_t u4_target{};
+    for (const std::uint32_t u4_id : s.w.vec_in_world) {
+      const ww::ActorModel& actor{s.w.vec_actors_all[u4_id]};
+      if (actor.str_type == "harv" && u4_mover == 0) u4_mover = u4_id;
+      if (actor.str_type == "e1" && u4_target == 0 && u4_id != u4_mover) u4_target = u4_id;
+    }
+
+    for (std::int32_t int4_tick{0}; int4_tick < kTicks; ++int4_tick) {
+      if (int4_tick == 4) lch::session_issue_order(s, order_start_production(u4_player_actor, "powr"));
+      if (int4_tick == 8 && u4_mover != 0) lch::session_issue_order(s, order_move(u4_mover, 30, 20));
+      if (int4_tick == 12 && u4_mover != 0 && u4_target != 0)
+        lch::session_issue_order(s, order_attack(u4_mover, u4_target));
+      lch::session_tick(s);
+    }
+    str_digest_record = lch::session_digest(s);
+
+    rep::ReplayGameInfo info;
+    info.str_mod = "ra";
+    info.str_version = "ora-m1";
+    info.str_map_uid = "ora-sandbox";
+    info.str_map_title = "ora sandbox";
+    info.int4_final_game_tick = s.w.int4_world_tick;
+    info.str_start_time_utc = "2026-01-01 00-00-00";
+    info.vec_players.push_back(rep::ReplayGameInfo::PlayerInfo{
+        .int4_client_index = net::kLocalClientId, .str_name = "cli-test", .b_is_human = true});
+    recorder_attach_metadata(recorder, rep::replay_metadata_nodes(info));
+    auto res_file{recorder_dispose(recorder)};
+    check(res_file.has_value(), "replay-cli: recorder dispose");
+    if (!res_file.has_value()) return;
+    vec_file = std::move(*res_file);
+  }
+
+  // 读→写恒等（CLI 自录文件）
+  {
+    auto res_read{rep::replay_read(vec_file)};
+    check(res_read.has_value(), "replay-cli: file parses");
+    if (res_read.has_value())
+      check(rep::replay_write(*res_read) == vec_file, "replay-cli: read->write identity");
+  }
+
+  // —— 重放侧（桥喂单路径）——
+  {
+    auto res_read{rep::replay_read(vec_file)};
+    check(res_read.has_value(), "replay-cli: replay parse");
+    if (!res_read.has_value()) return;
+    auto res_feed{rep::replay_feed_build(*res_read)};
+    check(res_feed.has_value(), "replay-cli: feed build");
+    if (!res_feed.has_value()) return;
+
+    lch::SessionEnv env;
+    env.int4_seed = res_feed->session.int4_seed;   // 文件 Session 的 seed
+    auto res_session{lch::session_setup(env)};
+    check(res_session.has_value(), "replay-cli: replay session setup");
+    if (!res_session.has_value()) return;
+    lch::GameSession& s{*res_session};
+    s.om.ptr_replay_feed = &*res_feed;
+
+    const std::int32_t int4_ticks{res_feed->int4_tick_count - 1};
+    std::size_t sz_orders_fed{};
+    for (std::int32_t int4_tick{0}; int4_tick < int4_ticks; ++int4_tick) {
+      while (sz_orders_fed < res_feed->vec_replayed_orders.size()) {
+        const auto& [int4_frame, vec_bytes]{res_feed->vec_replayed_orders[sz_orders_fed++]};
+        for (const net::OrderModel& order : net::order_packet_get_orders(vec_bytes, &s.w))
+          s.vec_bridge_pending.emplace_back(static_cast<std::uint32_t>(int4_frame), order);
+      }
+      lch::session_tick(s);
+    }
+
+    check(res_feed->vec_desync_reports.empty(), "replay-cli: no desync reports");
+    check(!s.om.b_out_of_sync, "replay-cli: om not out of sync");
+    check(!res_feed->vec_replayed_orders.empty(),
+          "replay-cli: orders replayed through bridge path");
+    check(lch::session_digest(s) == str_digest_record,
+          "replay-cli: final digest equals record (bridge replay included)");
+  }
+}
+
 bool events_contain(const lch::GameSession& s, std::string_view str_prefix) {
   for (const std::string& str_event : s.vec_events)
     if (str_event.starts_with(str_prefix)) return true;
@@ -484,6 +618,8 @@ int main() {
   test_determinism_double_run();
   test_parse_demo_flag();
   test_low_power_negative();
+  test_parse_replay_flags();
+  test_session_record_replay();
   std::println("cli_game: {} checks, {} failed", g_total, g_failed);
   return g_failed == 0 ? 0 : 1;
 }

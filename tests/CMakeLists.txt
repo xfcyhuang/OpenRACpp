@@ -147,3 +147,9 @@ add_test(NAME input COMMAND ora_input)
 add_executable(ora_cli_game cli_game.cpp)
 target_link_libraries(ora_cli_game PRIVATE ora_std ora_game ora_launcher_core)
 add_test(NAME cli_game COMMAND ora_cli_game)
+
+add_executable(ora_replay replay.cpp)
+target_link_libraries(ora_replay PRIVATE ora_std ora_game)
+target_compile_definitions(ora_replay PRIVATE
+  ORA_REPLAY_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/replay")
+add_test(NAME replay COMMAND ora_replay)
