@@ -153,3 +153,10 @@ target_link_libraries(ora_replay PRIVATE ora_std ora_game)
 target_compile_definitions(ora_replay PRIVATE
   ORA_REPLAY_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/replay")
 add_test(NAME replay COMMAND ora_replay)
+
+add_executable(ora_replay_oracle replay_oracle.cpp)
+target_link_libraries(ora_replay_oracle PRIVATE ora_std ora_game)
+target_compile_definitions(ora_replay_oracle PRIVATE
+  ORA_REPLAY_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/replay"
+  ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps")
+add_test(NAME replay_oracle COMMAND ora_replay_oracle)
