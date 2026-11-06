@@ -127,27 +127,40 @@ void test_assembly_and_frame1() {
     check(int4_hash == it_sync->second.first,
           std::format("frame-1 sync hash: got {} want {}", int4_hash, it_sync->second.first));
 
-  // slice 2:f1 末事件(harv 出生/shroud 波/queue 波/RNG 34)→ sync(2) 对拍
+  // slice 2/3:f1-f8 逐帧对拍(A/B 两段帧内序:WIB pair/扫描/首枪/延迟特效——
+  // 录包口径 sync(N) = N-1 帧末状态;frame1 = f1 末事件:harv 出生/置位波/队列波)。
   ReplayOracleWorld w2{*res_world};
-  replay_oracle_frame1(w2);
-  const std::int32_t int4_hash2{replay_oracle_sync_hash(w2)};
-  const auto it_sync2{res_feed->map_recorded_syncs.find(2)};
-  check(it_sync2 != res_feed->map_recorded_syncs.end(), "frame-2 sync packet present");
-  if (it_sync2 != res_feed->map_recorded_syncs.end())
-    check(int4_hash2 == it_sync2->second.first,
-          std::format("frame-2 sync hash: got {} want {}", int4_hash2, it_sync2->second.first));
-
-  // slice 3(进行中):f2-f6 模型(harv 转身/扫描计时/消耗数量)。f6 末 147 的
-  // AutoTarget 重置值尚差 1(oracle=6、模型=7——「重置帧不递减」已按实测复刻,重置
-  // 抽样的消耗位与输出值对应疑上游 Activity/ITick 帧内序细节,待后续逐 trait 钉死;
-  // f3 的 4 个非同步消耗用途亦未定位)。以「首个分歧帧」呈现进度,不作全对断言。
-  replay_oracle_frames_2_to_6(w2);
-  const auto it_sync7{res_feed->map_recorded_syncs.find(7)};
-  if (it_sync7 != res_feed->map_recorded_syncs.end()) {
-    const std::int32_t int4_hash7{replay_oracle_sync_hash(w2)};
-    std::println("  progress: f6-end sync {} vs recorded {} (first divergence frame {})",
-                 int4_hash7, it_sync7->second.first, int4_hash7 == it_sync7->second.first ? 0 : 7);
+  std::int32_t int4_hash2{};
+  std::int32_t int4_first_div{-1};
+  for (std::int32_t int4_n{1}; int4_n <= 8; ++int4_n) {
+    if (int4_n == 1)
+      replay_oracle_frame1(w2);
+    else
+      replay_oracle_frame(w2, int4_n);
+    const std::int32_t int4_hash_n{replay_oracle_sync_hash(w2)};
+    if (int4_n == 1) int4_hash2 = int4_hash_n;
+    if (int4_n >= 7) {  // 临时调试:f7/f8 末关键字段
+      const auto& a146{w2.vec_actors[146]};
+      const auto& a147{w2.vec_actors[147]};
+      std::println("  dbg f{}-end rng {} {} | 146 hp {} tc {} ns {} | 147 face {} aim {} ns {} | harv face {}", int4_n,
+                   w2.rng_shared.int4_last, w2.rng_shared.int4_total_count, a146.int4_hp,
+                   a146.int4_take_cover, a146.int4_next_scan, a147.int4_facing, a147.b_aiming,
+                   a147.int4_next_scan, w2.vec_actors[149].int4_facing);
+    }
+    const auto it_sync_n{res_feed->map_recorded_syncs.find(int4_n + 1)};
+    if (it_sync_n == res_feed->map_recorded_syncs.end()) {
+      check(false, std::format("frame-{} sync packet missing", int4_n + 1));
+      break;
+    }
+    if (int4_hash_n != it_sync_n->second.first) {
+      if (int4_first_div < 0) int4_first_div = int4_n + 1;
+      check(false, std::format("frame-{}-end sync: got {} want {}", int4_n, int4_hash_n,
+                               it_sync_n->second.first));
+    } else {
+      check(true, std::format("frame-{}-end sync matches recorded", int4_n));
+    }
   }
+  check(int4_first_div < 0, "no divergence through frame 8");
 
   // —— desync 负向(当前实现面):篡改录中 frame-2 sync 封包 hash 字节 → 与本地
   // 重演 hash 对拍必然分叉(检出)。订单字节/物品名负向随行为面扩展(后续帧模型)接入。

@@ -5,6 +5,7 @@
 
 #include "game/filesystem/zip_read.hpp"
 #include "game/miniyaml.hpp"
+#include "game/pathfinding/wangle.hpp"
 
 namespace ora::game::replay {
 
@@ -223,8 +224,10 @@ const char* trait_kind_name(FaceTraitKind kind) {
 }
 
 // 单 trait 哈希(成员 XOR;初值/运行期状态按 kind 分派)。player 面由调用点展开
-// (每队列实例独立取 b_queue_enabled[idx])。
-std::int32_t face_trait_hash(const ReplayOracleWorld& w, const FaceActor& actor, FaceTraitKind kind) {
+// (每队列实例独立取 b_queue_enabled[idx])。int4_instance = 同型 ISync trait 的
+// 出现序(ChangesHealth ×2 各自独立取 ticks/damageTicks)。
+std::int32_t face_trait_hash(const ReplayOracleWorld& w, const FaceActor& actor, FaceTraitKind kind,
+                             std::int32_t int4_instance) {
   const FaceTypeSpec& face{*actor.ptr_face};
   switch (kind) {
     case K::kDebugPauseState:
@@ -237,8 +240,10 @@ std::int32_t face_trait_hash(const ReplayOracleWorld& w, const FaceActor& actor,
     case K::kConyardChronoReturn:
     case K::kDockHost:
     case K::kChronoshiftable:
+      return 0;  // 恒定 0(false/0/null)
     case K::kChangesHealth:
-      return 0;  // 恒定 0(false/0/null;ChangesHealth 全程 0——changes 表无事件)
+      return actor.int4_ch_ticks[std::size_t(int4_instance)] ^
+             actor.int4_ch_damage[std::size_t(int4_instance)];  // f7 实测 damageTicks=125
     case K::kImmobile:
       return cpos_bits(actor.int4_x, actor.int4_y) ^
              wpos_hash(actor.int4_x * 1024 + 512, actor.int4_y * 1024 + 512, 0);
@@ -444,17 +449,80 @@ std::expected<ReplayOracleWorld, std::string> replay_oracle_create(
 }
 
 
+// —— 玩家关系(本剧本:playable(Multi0)与 Creeps 互为敌;Neutral 无人敌对)——
+bool players_hostile(const ReplayOracleWorld& w, std::uint32_t u4_a, std::uint32_t u4_b) {
+  const std::string& str_a{w.vec_players[u4_a].str_name};
+  const std::string& str_b{w.vec_players[u4_b].str_name};
+  const bool b_a_playable{str_a == "Multi0"};
+  const bool b_b_playable{str_b == "Multi0"};
+  const bool b_a_creeps{str_a == "Creeps"};
+  const bool b_b_creeps{str_b == "Creeps"};
+  return (b_a_playable && b_b_creeps) || (b_a_creeps && b_b_playable);
+}
+
+// actor 是否在 viewer 玩家的已探索集内(足印任一格)
+bool actor_visible_to(const ReplayOracleWorld& w, std::uint32_t u4_viewer, const FaceActor& actor) {
+  if (u4_viewer >= w.vec_sight.size()) return false;
+  const std::set<std::pair<std::int32_t, std::int32_t>>& set_sight{w.vec_sight[u4_viewer]};
+  for (std::int32_t int4_x{actor.int4_x};
+       int4_x < actor.int4_x + footprint_width(actor.str_type); ++int4_x)
+    for (std::int32_t int4_y{actor.int4_y};
+         int4_y < actor.int4_y + footprint_height(actor.str_type); ++int4_y)
+      if (set_sight.contains({int4_x, int4_y})) return true;
+  return false;
+}
+
+// AutoTarget 扫描(ChooseTarget 行为子集):找 a 的敌人中距 a 中心 5c0 内、
+// 在 a 所属玩家视界内的首个(按 ActorID 升序;本剧本同期至多一个候选)。
+// 返回 -1 = 无目标(仍消耗 1 RNG 重置计时)。
+std::int32_t autotarget_scan_target(const ReplayOracleWorld& w, const FaceActor& actor) {
+  constexpr std::int64_t in8_range{5 * 1024};
+  constexpr std::int64_t in8_limit{in8_range * in8_range};
+  for (const FaceActor& other : w.vec_actors) {
+    if (!other.b_in_world || other.u4_id == actor.u4_id) continue;
+    if (other.ptr_face == nullptr) continue;
+    if (!players_hostile(w, actor.u4_owner, other.u4_owner)) continue;
+    const std::int64_t in8_dx{static_cast<std::int64_t>(other.int4_px) - actor.int4_px};
+    const std::int64_t in8_dy{static_cast<std::int64_t>(other.int4_py) - actor.int4_py};
+    if (in8_dx * in8_dx + in8_dy * in8_dy > in8_limit) continue;
+    if (!actor_visible_to(w, actor.u4_owner, other)) continue;
+    return static_cast<std::int32_t>(other.u4_id);
+  }
+  return -1;
+}
+
 void replay_oracle_frame1(ReplayOracleWorld& w) {
-  // —— f1 的 RNG 消耗(oracle 装配差分实测;数量与序)——
-  // ITick 分发序 = ActorID:mine×12(SeedsResource 首种 RandomWalk;初始 ore 场固定
-  // → 26 个为确定性常量;f76+ 周期需资源场动态复刻)→ e1 146(4 个)→ e1 147(4 个)。
-  // AutoTarget 首扫抽样 Next(3,8) 位于各自第 4 个消耗位(nextScanTime 146=5、147=4)。
-  // 消耗序(oracle MT 输出对照):e1 146 的 AutoTarget 抽样在 f1 第 6 个消耗
-  // (out%5=2 → nextScanTime 5)、147 在第 9 个(out%5=1 → 4)。
-  for (std::int32_t idx{}; idx < 34; ++idx) {
-    const std::int32_t int4_out{support::next(w.rng_shared)};
-    if (idx == 5) w.vec_actors[146].int4_next_scan = 3 + int4_out % 5;
-    if (idx == 8) w.vec_actors[147].int4_next_scan = 3 + int4_out % 5;
+  // —— A 段(逐 actor:idle TickIdle;上''游 AutoTarget/WithInfantryBody 栈级账本)——
+  // 每个地图 e1:A 段主 WIB pair(2 消耗:seq pick + delay=Next(30,110))+ AutoTarget
+  // 首扫(1 消耗;shroud 尚未探索(B 段才置位)→ 两 e1 首扫均无目标,raw=3+out%5)。
+  for (const std::uint32_t u4_e1 : {146u, 147u}) {
+    FaceActor& e1{w.vec_actors[u4_e1]};
+    e1.b_wib_quirk = true;  // 首帧 CurrentMovementTypes 误含 Horizontal(f1 B 弹回 Waiting 的实测路径)
+    {  // WIB pair(idleSequence pick + idleDelay reset)
+      const std::int32_t int4_out_seq{support::next(w.rng_shared)};
+      (void)int4_out_seq;
+      e1.wib_state = 1;  // Waiting → Idle
+      e1.int4_wib_delay = 30 + support::next(w.rng_shared) % 80;
+    }
+    {  // AutoTarget 首扫(可见性:f1 B 段才置位 → 无目标;raw 同帧 B 段递减)
+      const std::int32_t int4_out{support::next(w.rng_shared)};
+      e1.int4_next_scan = 3 + int4_out % 5;
+      (void)autotarget_scan_target(w, e1);  // 无目标(f1 视界未开);账本上仅 1 消耗
+    }
+  }
+
+  // —— B 段(ITick;矿 SeedsResource RandomWalk ×28 = 全量世界确定性常量,
+  //      no-inject 26 + 注入建筑足迹扰动 +2;RandomWalk 真复刻 = 子面 4)——
+  for (std::int32_t idx{}; idx < 28; ++idx) (void)support::next(w.rng_shared);
+
+  // B 段 ITick 递减(AutoTarget:>0 减;WIB:state 迁移)
+  for (const std::uint32_t u4_e1 : {146u, 147u}) {
+    FaceActor& e1{w.vec_actors[u4_e1]};
+    if (e1.int4_next_scan > 0) --e1.int4_next_scan;
+    if (e1.b_wib_quirk) {
+      e1.wib_state = 2;  // Horizontal 误见 → Moving
+      e1.b_wib_quirk = false;
+    }
   }
 
   // —— ClassicProductionQueue.Enabled 波(f1 首次 ITick:anyEnabledProduction)——
@@ -470,14 +538,15 @@ void replay_oracle_frame1(ReplayOracleWorld& w) {
   // —— shroud 置位波(f1:Shroud 首帧圈推进 → frozen 可见判定)——
   // 可见集:Neutral = v01(id7,10c0);Multi0 = fact/proc/barr(5c0+4c0)+ e1×2(4c0)+
   // mcv(4c0);Everyone = 观战者并集(playable 玩家可见集)+ 盟友可见(Multi0 的 frozen);
-  // Creeps = ∅。
-  std::set<std::pair<std::int32_t, std::int32_t>> set_neutral_sight;
-  add_actor_sight(set_neutral_sight, w.vec_actors[7], {10});
-  std::set<std::pair<std::int32_t, std::int32_t>> set_multi0_sight;
+  // Creeps = ∅。格集入 w.vec_sight(扫描可见性共用)。
+  w.vec_sight.assign(w.vec_players.size(), {});
+  add_actor_sight(w.vec_sight[0], w.vec_actors[7], {10});
+  add_actor_sight(w.vec_sight[1], w.vec_actors[147], {4});  // Creeps 唯一视圈源 = vic e1
   for (const std::uint32_t u4_id : {143u, 144u, 145u})
-    add_actor_sight(set_multi0_sight, w.vec_actors[u4_id], {5, 4});
+    add_actor_sight(w.vec_sight[2], w.vec_actors[u4_id], {5, 4});
   for (const std::uint32_t u4_id : {146u, 147u, 148u})
-    add_actor_sight(set_multi0_sight, w.vec_actors[u4_id], {4});
+    add_actor_sight(w.vec_sight[2], w.vec_actors[u4_id], {4});
+  w.vec_sight[3] = w.vec_sight[2];  // Everyone 观战者并集 = playable(Multi0)可见集
 
   std::vector<std::uint32_t> vec_frozen;
   for (const FaceActor& actor : w.vec_actors)
@@ -492,8 +561,7 @@ void replay_oracle_frame1(ReplayOracleWorld& w) {
       if (idx_player == 1) continue;  // Creeps 无视圈源
       bool b_visible{false};
       if (idx_player != 3 || w.vec_players[frozen.u4_owner].str_name != "Multi0") {
-        const std::set<std::pair<std::int32_t, std::int32_t>>& set_sight{
-            idx_player == 0 ? set_neutral_sight : set_multi0_sight};
+        const std::set<std::pair<std::int32_t, std::int32_t>>& set_sight{w.vec_sight[idx_player]};
         for (std::int32_t int4_x{}; int4_x < int4_w && !b_visible; ++int4_x)
           for (std::int32_t int4_y{}; int4_y < int4_h; ++int4_y)
             if (set_sight.contains({frozen.int4_x + int4_x, frozen.int4_y + int4_y})) {
@@ -538,23 +606,107 @@ void replay_oracle_frame1(ReplayOracleWorld& w) {
 }
 
 
-// f2-f6:mining 前的静态相位——harv 转身(TurnSpeed 20/帧,寻矿朝向)、AutoTarget
-// 扫描计时递减(<=0 时扫描:消耗 1 个、重置 Next(3,8))、f3 的 4 个非同步消耗
-// (用途未定位——CreateEffect 家族散布抽样候选;数量按 oracle 账本)。
-void replay_oracle_frames_2_to_6(ReplayOracleWorld& w) {
-  for (std::int32_t int4_frame{2}; int4_frame <= 6; ++int4_frame) {
-    if (int4_frame == 3)
-      for (std::int32_t idx{}; idx < 4; ++idx) support::next(w.rng_shared);
-    for (const std::uint32_t u4_e1 : {146u, 147u}) {
-      FaceActor& e1{w.vec_actors[u4_e1]};
-      if (e1.int4_next_scan <= 0) {
+// —— 通用单帧(n ≥ 2)——
+// A 段:逐 actor 活动(e1 攻击链:转向→IsAiming→开火;ReloadDelay 门闸)与 idle
+//       TickIdle(WIB 状态机、AutoTarget 扫描:nextScan≤0 → 消耗 1 重置 3+out%5)。
+// B 段:全 ITick(AutoTarget/TakeCover/Reload 递减;WIB 状态迁移;harv 转身 +20/帧)。
+// 帧尾:伤害结算(HP/TakeCover/damageTicks——实测落点在 B 段之后,f7-end TakeCover=50)
+//       与延迟开火特效账本(+2/+4 帧各耗 4)。
+void replay_oracle_frame(ReplayOracleWorld& w, std::int32_t int4_frame) {
+  struct FireDamage {
+    std::uint32_t u4_victim{};
+    std::int32_t int4_damage{};
+  };
+  std::vector<FireDamage> vec_fires;  // 帧尾结算(实测伤害落点在 B 段后)
+
+  // —— A 段 ——
+  for (FaceActor& actor : w.vec_actors) {
+    if (!actor.b_in_world || actor.ptr_face == nullptr) continue;
+    if (actor.str_type != "e1") continue;
+
+    if (!actor.b_activity) {
+      // WIB TickIdle(idle 才调):Waiting → 消耗 2(seq pick + delay reset)→ Idle
+      if (actor.wib_state == 0) {
+        (void)support::next(w.rng_shared);  // IdleSequences.Random
+        actor.wib_state = 1;
+        actor.int4_wib_delay = 30 + support::next(w.rng_shared) % 80;
+      } else if (actor.wib_state == 1) {
+        if (actor.int4_wib_delay > 0) --actor.int4_wib_delay;
+        // delay 归零 → IdleAnimating(无 RNG;动画回调回 Waiting = 子面 2 接入)
+      }
+      // AutoTarget TickIdle:nextScan ≤ 0 → 扫描(消耗 1;重置 raw;可锁定目标排队攻击)
+      if (actor.int4_next_scan <= 0) {
         const std::int32_t int4_out{support::next(w.rng_shared)};
-        e1.int4_next_scan = 3 + int4_out % 5;
-      } else {
-        --e1.int4_next_scan;
+        actor.int4_next_scan = 3 + int4_out % 5;
+        const std::int32_t int4_target{autotarget_scan_target(w, actor)};
+        if (int4_target >= 0) {
+          actor.b_activity = true;  // AttackActivity 排队(下帧 A 段执行)
+          actor.int4_activity_target = int4_target;  // 同步的 Aggressor 仅 INotifyDamage 还击置位
+        }
+      }
+    } else {
+      // 攻击活动 tick(f7 实测:转向+IsAiming+开火同一活动 tick;开火消耗 4 =
+      // 命中特效 CreateEffect Inaccuracy 171 的 WVec.FromPDF;伤害帧尾结算)
+      FaceActor* ptr_target{nullptr};
+      for (FaceActor& other : w.vec_actors)
+        if (other.b_in_world &&
+            static_cast<std::int32_t>(other.u4_id) == actor.int4_activity_target)
+          ptr_target = &other;
+      if (ptr_target == nullptr) {
+        actor.b_activity = false;  // 目标亡:活动终止(子面 2 完整化 kill/experience)
+        continue;
+      }
+      // 转向(desired = wvec_yaw(目标向量);tick_facing 一步内吸附——Mobile 默认 TurnSpeed 512)
+      const pathfinding::WVec vec_delta{pathfinding::WVec{
+          ptr_target->int4_px - actor.int4_px, ptr_target->int4_py - actor.int4_py, 0}};
+      const std::int32_t int4_desired{pathfinding::wvec_yaw(vec_delta)};
+      actor.int4_facing = pathfinding::tick_facing(actor.int4_facing, int4_desired, 512);
+      actor.b_aiming = true;
+      if (actor.int4_reload <= 0) {
+        for (std::int32_t idx{}; idx < 4; ++idx) (void)support::next(w.rng_shared);
+        actor.int4_reload = 20;  // 含开火帧在内的 20 次 B 段递减 → 恰 +20 帧再开火(f7→f27 实测)
+        w.vec_delayed_effect.push_back({int4_frame + 2, 4});
+        w.vec_delayed_effect.push_back({int4_frame + 4, 4});
+        const std::int32_t int4_damage{ptr_target->int4_take_cover > 0 ? 750 : 1500};
+        vec_fires.push_back({ptr_target->u4_id, int4_damage});
       }
     }
-    w.vec_actors[149].int4_facing += 20;  // f6 末=356
+  }
+
+  // —— B 段(ITick)——
+  for (FaceActor& actor : w.vec_actors) {
+    if (!actor.b_in_world || actor.ptr_face == nullptr) continue;
+    if (actor.str_type == "e1") {
+      if (actor.int4_next_scan > 0) --actor.int4_next_scan;
+      if (actor.int4_take_cover > 0) --actor.int4_take_cover;
+      if (actor.int4_reload > 0) --actor.int4_reload;
+      // WIB ITick 状态迁移(f2 实测:Moving → !Horizontal → PlayStand → Waiting)
+      if (actor.wib_state == 2) actor.wib_state = 0;
+    }
+    if (actor.str_type == "harv" && int4_frame >= 2 && actor.int4_facing < 512) {
+      // 采矿转身(f2-f14 实测 +20/帧,目标朝向 512=矿区正南;上限 512)
+      actor.int4_facing = pathfinding::tick_facing(actor.int4_facing, 512, 20);
+    }
+  }
+
+  // —— 帧尾:伤害结算(B 段后;1500 站立/750 卧倒已定,TriggerProne → 50)——
+  for (const FireDamage& fire : vec_fires) {
+    FaceActor& victim{w.vec_actors[fire.u4_victim]};
+    victim.int4_hp -= fire.int4_damage;
+    victim.int4_take_cover = 50;
+    victim.int4_ch_damage[0] = 125;
+    victim.int4_ch_damage[1] = 125;
+  }
+
+  // —— 帧尾:延迟特效账本(值不入面,只耗 RNG)——
+  for (std::size_t idx{}; idx < w.vec_delayed_effect.size();) {
+    if (w.vec_delayed_effect[idx].first <= int4_frame) {
+      for (std::int32_t idx2{}; idx2 < w.vec_delayed_effect[idx].second; ++idx2)
+        (void)support::next(w.rng_shared);
+      w.vec_delayed_effect.erase(w.vec_delayed_effect.begin() + static_cast<std::ptrdiff_t>(idx));
+    } else {
+      ++idx;
+    }
   }
 }
 
@@ -584,21 +736,22 @@ std::int32_t replay_oracle_sync_hash(const ReplayOracleWorld& w) {
     }
     if (actor.str_type == "player") {
       fn_add(K::kShroud, 0);
-      fn_add(K::kPlayerResources, face_trait_hash(w, actor, K::kPlayerResources));
+      fn_add(K::kPlayerResources, face_trait_hash(w, actor, K::kPlayerResources, 0));
       fn_add(K::kMissionObjectives, 0);
       fn_add(K::kDeveloperMode, 0);
       fn_add(K::kGpsWatcher, 0);
-      fn_add(K::kPlayerExperience, face_trait_hash(w, actor, K::kPlayerExperience));
+      fn_add(K::kPlayerExperience, face_trait_hash(w, actor, K::kPlayerExperience, 0));
       for (std::size_t idx{}; idx < 6; ++idx)
         fn_add(K::kClassicProductionQueue,
                (w.vec_players[actor.u4_owner].b_queue_enabled[idx] ? 1 : 0) ^
                    (w.vec_players[actor.u4_owner].b_queue_faction[idx] ? 1 : 0));
-      fn_add(K::kPowerManager, face_trait_hash(w, actor, K::kPowerManager));
-      fn_add(K::kFrozenActorLayer, face_trait_hash(w, actor, K::kFrozenActorLayer));
+      fn_add(K::kPowerManager, face_trait_hash(w, actor, K::kPowerManager, 0));
+      fn_add(K::kFrozenActorLayer, face_trait_hash(w, actor, K::kFrozenActorLayer, 0));
       continue;
     }
+    std::uint8_t u1_seen[32]{};
     for (const FaceTraitKind kind : actor.ptr_face->vec_traits)
-      fn_add(kind, face_trait_hash(w, actor, kind));
+      fn_add(kind, face_trait_hash(w, actor, kind, u1_seen[std::size_t(kind)]++));
   }
 
   // 段3:SyncedEffects(战斗弹道;骨架期空)
@@ -637,20 +790,21 @@ std::string replay_oracle_pertrait_dump(const ReplayOracleWorld& w) {
       fn_add(K::kDebugPauseState, 0);
     } else if (actor.str_type == "player") {
       fn_add(K::kShroud, 0);
-      fn_add(K::kPlayerResources, face_trait_hash(w, actor, K::kPlayerResources));
+      fn_add(K::kPlayerResources, face_trait_hash(w, actor, K::kPlayerResources, 0));
       fn_add(K::kMissionObjectives, 0);
       fn_add(K::kDeveloperMode, 0);
       fn_add(K::kGpsWatcher, 0);
-      fn_add(K::kPlayerExperience, face_trait_hash(w, actor, K::kPlayerExperience));
+      fn_add(K::kPlayerExperience, face_trait_hash(w, actor, K::kPlayerExperience, 0));
       for (std::size_t idx{}; idx < 6; ++idx)
         fn_add(K::kClassicProductionQueue,
                (w.vec_players[actor.u4_owner].b_queue_enabled[idx] ? 1 : 0) ^
                    (w.vec_players[actor.u4_owner].b_queue_faction[idx] ? 1 : 0));
-      fn_add(K::kPowerManager, face_trait_hash(w, actor, K::kPowerManager));
-      fn_add(K::kFrozenActorLayer, face_trait_hash(w, actor, K::kFrozenActorLayer));
+      fn_add(K::kPowerManager, face_trait_hash(w, actor, K::kPowerManager, 0));
+      fn_add(K::kFrozenActorLayer, face_trait_hash(w, actor, K::kFrozenActorLayer, 0));
     } else {
+      std::uint8_t u1_seen[32]{};
       for (const FaceTraitKind kind : actor.ptr_face->vec_traits)
-        fn_add(kind, face_trait_hash(w, actor, kind));
+        fn_add(kind, face_trait_hash(w, actor, kind, u1_seen[std::size_t(kind)]++));
     }
   }
   return str_out;
