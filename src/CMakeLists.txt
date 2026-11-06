@@ -4,6 +4,7 @@ target_compile_features(ora_std PUBLIC cxx_std_26)
 target_compile_options(ora_std PRIVATE -Wno-reserved-module-identifier)
 
 add_subdirectory(game)
+add_subdirectory(launcher)
 add_subdirectory(mods)
 add_subdirectory(platforms)
 add_subdirectory(server)

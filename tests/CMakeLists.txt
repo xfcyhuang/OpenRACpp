@@ -143,3 +143,7 @@ add_test(NAME economy COMMAND ora_economy)
 add_executable(ora_input input_logic.cpp)
 target_link_libraries(ora_input PRIVATE ora_std ora_game)
 add_test(NAME input COMMAND ora_input)
+
+add_executable(ora_cli_game cli_game.cpp)
+target_link_libraries(ora_cli_game PRIVATE ora_std ora_game ora_launcher_core)
+add_test(NAME cli_game COMMAND ora_cli_game)
