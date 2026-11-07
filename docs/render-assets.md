@@ -46,3 +46,20 @@ ENGINE_DIR="<openra 检出路径>" <openra 检出>/bin/OpenRA.Utility.exe ra \
 - 构建接线：`cmake --preset base -DSDL2_DIR=<...>/x86_64-w64-mingw32/lib/cmake/SDL2`。
   `find_package(SDL2 CONFIG QUIET)` 失败时 `ora_render_probe` target 与 `render_probe`
   测试整体跳过（STATUS 提示），其余测试不受影响。
+
+## soft_oal.dll（音频设备层，T18）
+
+- 来源：nuget 缓存 `openra-openal-cs/1.0.23` 包内 `native/win-x64/soft_oal.dll`
+  （openal-soft 1.23.x，LGPL-2.1，动态加载合规；本机路径
+  `C:/Users/xfcyhuang/.nuget/packages/openra-openal-cs/1.0.23/native/win-x64/soft_oal.dll`，
+  PE 校验 + ctypes/al 探针实测通过）。**不入库**（同 SDL2 红线）。
+- 也可用 openal-soft 官方发布包的 soft_oal.dll（版本 ≥1.23 均可）。
+- 构建接线：`cmake --preset base -DORA_SOFT_OAL_DLL=<soft_oal.dll 路径>`。
+  变量为空时 `ora_audio_probe` target 与 `audio_probe` 测试整体跳过（STATUS 提示）；
+  变量非空时 POST_BUILD `copy_if_different` 到探针 exe 旁（探针按 exe 目录优先探测）。
+- 运行时探测顺序（src/platforms/openal_loader.cpp）：环境变量缺失前提下
+  exe 目录 `soft_oal.dll` → exe 目录 `openal32.dll` → LoadLibrary 默认搜索
+  （`soft_oal.dll`、`openal32.dll`）；任一命中后 25 个 AL/ALC 符号全量
+  GetProcAddress，任一缺失整库作废 → 回落 Dummy 引擎。
+- `ora_audio_probe` 无声卡/设备打开失败时以 **ctest SKIP（退出码 77）** 跳过；
+  Dummy 回落路径在 `ora_audio`（无外部依赖，三编排必跑）。

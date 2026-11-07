@@ -1,0 +1,41 @@
+# baseline 1f594e32065615ed1847962c80ecfe6e868a11c3 audio music dump mods\ra\audio\music.yaml
+track 2nd_hand|2nd_hand.aud|The Second Hand|hidden=False|vol=1
+track araziod|araziod.aud|Arazoid|hidden=False|vol=0.8
+track await|await.aud|Afterlife (Await)|hidden=False|vol=1
+track await_r|await_r.aud|Afterlife (Await)|hidden=False|vol=0.7
+track backstab|backstab.aud|Backstab|hidden=False|vol=0.9
+track bigf226m|bigf226m.aud|Bigfoot|hidden=False|vol=0.7
+track bog|bog.aud|Bog|hidden=False|vol=0.9
+track chaos2|chaos2.aud|Chaos|hidden=False|vol=0.9
+track credits|credits.aud|Reload Fire (Credits)|hidden=False|vol=0.9
+track crus226m|crus226m.aud|Crush|hidden=False|vol=0.7
+track dense_r|dense_r.aud|Dense|hidden=False|vol=0.7
+track fac1226m|fac1226m.aud|Face to the Enemy 1|hidden=False|vol=0.85
+track fac2226m|fac2226m.aud|Face to the Enemy 2|hidden=False|vol=0.7
+track float_v2|float_v2.aud|Floating|hidden=False|vol=1
+track fogger1a|fogger1a.aud|Fogger|hidden=False|vol=0.8
+track gloom|gloom.aud|Gloom|hidden=False|vol=1
+track grndwire|grndwire.aud|Groundwire|hidden=False|vol=1
+track hell226m|hell226m.aud|Hell March|hidden=False|vol=0.7
+track intro|intro.aud|Intro|hidden=True|vol=0.9
+track map|map.aud|Map|hidden=True|vol=0.6
+track mud1a|mud1a.aud|Mud|hidden=False|vol=0.7
+track radio2|radio2.aud|Radio 2|hidden=False|vol=0.7
+track rollout|rollout.aud|Roll Out|hidden=False|vol=0.7
+track rpt|rpt.aud|Running Through Pipes|hidden=False|vol=1
+track run1226m|run1226m.aud|Run (For Your Life)|hidden=False|vol=0.7
+track score|score.aud|Militant Force (Scores)|hidden=True|vol=0.7
+track search|search.aud|The Search|hidden=False|vol=1
+track shut_it|shut_it.aud|Shut It|hidden=False|vol=0.9
+track smsh226m|smsh226m.aud|Smash|hidden=False|vol=0.7
+track snake|snake.aud|Snake|hidden=False|vol=0.7
+track terminat|terminat.aud|Terminate|hidden=False|vol=0.7
+track traction|traction.aud|Traction|hidden=False|vol=1
+track tren226m|tren226m.aud|Trenches|hidden=False|vol=0.7
+track twin|twin.aud|Twin Cannon|hidden=False|vol=0.7
+track twinmix1|twinmix1.aud|Twin Cannon (Remix)|hidden=False|vol=0.9
+track under3|under3.aud|Underlying Thoughts|hidden=False|vol=0.95
+track vector1a|vector1a.aud|Vector|hidden=False|vol=0.7
+track vr2|vr2.aud|Voice Rhythm 2|hidden=False|vol=0.95
+track wastelnd|wastelnd.aud|Wasteland|hidden=False|vol=1
+track work226m|work226m.aud|Workmen|hidden=False|vol=0.7

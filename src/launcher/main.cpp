@@ -21,6 +21,7 @@ import std;
 #include "game/replay/replay_format.hpp"
 #include "game/replay/replay_player.hpp"
 #include "game/replay/replay_record.hpp"
+#include "game/sound/sound.hpp"
 #include "launcher/cli_args.hpp"
 #include "launcher/game_session.hpp"
 
@@ -45,12 +46,6 @@ BOOL WINAPI console_ctrl_handler(DWORD) {
   g_ctrl_c = 1;
   return TRUE;
 }
-
-struct SoundEngineStub {
-  bool b_dummy{true};
-};
-
-void sound_tick(SoundEngineStub&) {}
 
 typedef unsigned int GLenum;
 typedef float GLfloat;
@@ -1132,8 +1127,8 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
     return 1;
   }
   lch::GameSession& s{*res_session};
-  SoundEngineStub sound;
-  std::println("sound: dummy engine stub (muted, M1)");
+  ora::game::sound_facade sound{ora::game::make_sound_facade("", false)};
+  std::println("sound: {} engine", ora::platforms::engine_dummy(sound.engine) ? "dummy" : "openal");
   lch::session_tick(s);
 
   UiState ui;
@@ -1155,7 +1150,7 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
     if (static_cast<std::int32_t>(u4_now - u4_next_logic) >= 0) {
       u4_next_logic += static_cast<std::uint32_t>(args.int4_tick_ms);
       lch::session_tick(s);
-      sound_tick(sound);
+      ora::game::sound_facade_tick(sound);
       flush_events(s, sz_printed, ptr_log);
       if (!s.om.str_fatal.empty()) {
         std::println("ora: order manager fatal: {}", s.om.str_fatal);
@@ -1269,7 +1264,7 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
   s.vec_fighters.clear();
   s.om = net::OrderManagerModel{};
   s.w = ww::WorldModel{};
-  sound_tick(sound);
+  ora::platforms::engine_dispose(sound.engine);
 
   SDL_GL_DeleteContext(ctx);
   SDL_DestroyWindow(ptr_window);

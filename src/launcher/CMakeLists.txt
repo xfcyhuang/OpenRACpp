@@ -12,7 +12,7 @@ set(SDL2_NO_MWINDOWS ON)
 find_package(SDL2 CONFIG QUIET)
 if(SDL2_FOUND)
   add_executable(ora main.cpp)
-  target_link_libraries(ora PRIVATE ora_std ora_launcher_core SDL2::SDL2)
+  target_link_libraries(ora PRIVATE ora_std ora_launcher_core ora_platforms SDL2::SDL2)
   target_include_directories(ora PRIVATE ${SDL2_INCLUDE_DIRS})
   add_custom_command(TARGET ora POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

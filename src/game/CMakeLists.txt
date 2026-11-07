@@ -1,4 +1,4 @@
-add_library(ora_game STATIC game.cpp miniyaml.cpp miniyaml_merge.cpp ruleset.cpp
+add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.cpp miniyaml.cpp miniyaml_merge.cpp ruleset.cpp
   map_bin.cpp map_read.cpp tileset.cpp
   render/palette.cpp render/lcw.cpp render/xor_delta.cpp render/tmp_ra.cpp render/shp_td.cpp
   pathfinding/priority_queue.cpp pathfinding/path_graph.cpp pathfinding/astar.cpp pathfinding/wangle.cpp pathfinding/move_sim.cpp
