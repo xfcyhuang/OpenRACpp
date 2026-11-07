@@ -207,6 +207,15 @@ internal static partial class Program
                     (string)null,
                     (Func<byte[]>)(() => File.ReadAllBytes(
                         Path.Combine(openraRoot, "mods", "d2k", "bits", name))))),
+            // fonts 模式（T23/issue #30）：FreeType interop 轻路径 dump——fixture TTF 原样
+            // 入库（漂移哨兵兼 C++ 测试输入）+ ra mod.yaml Fonts: 三元组解析转储 + FTD1u8
+            // metrics/位图（ASCII 95 cp × FreeSans 10/12/14/18/24、FreeSansBold 14 + 特殊
+            // cp 集缺字/.notdef 面）+ Measure/WrapText oracle（C# 侧逐行复刻真源逻辑）。
+            // 前置 freetype6.dll（上游 bin 构建产物）缺失时整组跳过——C++ ctest 读入库
+            // 黄金，不依赖该 dll。
+            .. (FontsAvailable(openraRoot)
+                ? FontsArtifacts(openraRoot)
+                : Array.Empty<(string RelPath, string Mode, Func<byte[]> Produce)>()),
         ];
 
         var firstRuns = new Dictionary<string, (string RelPath, byte[] Bytes)[]>();

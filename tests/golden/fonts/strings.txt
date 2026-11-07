@@ -1,0 +1,19 @@
+# T23 oracle strings set (T23/issue #30)
+# escaping: backslash->\\, newline->\n, tab->\t, CR->\r; unescaped text is UTF-16 code units (C# string)
+# format: <index><TAB><escaped>
+0	
+1	 
+2	A
+3	Hello World
+4	The quick brown fox jumps over the lazy dog
+5	line one\nline two\nline three
+6	\n
+7	a\n\nb
+8	trailing spaces   
+9	   leading spaces
+10	Supercalifragilisticexpialidocious
+11	a verylongunbreakableword here
+12	word word word word
+13	  double  spaces  inside
+14	OpenRA C++ port measures and wraps text like upstream FreeType dumps
+15	!!!???...,,,

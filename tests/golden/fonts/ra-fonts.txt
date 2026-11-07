@@ -1,0 +1,10 @@
+# ra mod.yaml Fonts: section parsed with upstream Fonts.LoadFonts semantics
+# format: <name><TAB><font><TAB><size><TAB><ascender> (yaml document order)
+Tiny	common|FreeSans.ttf	10	8
+TinyBold	common|FreeSansBold.ttf	10	8
+Small	common|FreeSans.ttf	12	9
+Regular	common|FreeSans.ttf	14	11
+Bold	common|FreeSansBold.ttf	14	11
+MediumBold	common|FreeSansBold.ttf	18	14
+BigBold	common|FreeSansBold.ttf	24	18
+Title	ra|ZoodRangmah.ttf	48	26

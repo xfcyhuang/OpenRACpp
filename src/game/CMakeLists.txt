@@ -1,6 +1,6 @@
 add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.cpp miniyaml.cpp miniyaml_merge.cpp ruleset.cpp
   map_bin.cpp map_read.cpp tileset.cpp
-  render/palette.cpp render/lcw.cpp render/xor_delta.cpp render/tmp_ra.cpp render/shp_td.cpp
+  render/palette.cpp render/lcw.cpp render/xor_delta.cpp render/tmp_ra.cpp render/shp_td.cpp render/font.cpp
   pathfinding/priority_queue.cpp pathfinding/path_graph.cpp pathfinding/astar.cpp pathfinding/wangle.cpp pathfinding/move_sim.cpp
   combat/weapon.cpp combat/warhead_damage.cpp combat/health.cpp combat/armament.cpp combat/projectile.cpp combat/combat_sim.cpp
   world/actor.cpp world/trait.cpp world/trait_container.cpp world/world.cpp world/sync_hash.cpp
@@ -13,7 +13,7 @@ add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.c
   support/mersenne_twister.cpp support/sha1.cpp filesystem/inflate.cpp filesystem/zip_read.cpp)
 target_sources(ora_game PRIVATE game.hpp miniyaml.hpp miniyaml_merge.hpp ruleset.hpp
   map_bin.hpp map_read.hpp tileset.hpp
-  render/palette.hpp render/lcw.hpp render/xor_delta.hpp render/tmp_ra.hpp render/shp_td.hpp
+  render/palette.hpp render/lcw.hpp render/xor_delta.hpp render/tmp_ra.hpp render/shp_td.hpp render/font.hpp render/stb_truetype.h
   pathfinding/priority_queue.hpp pathfinding/path_graph.hpp pathfinding/astar.hpp pathfinding/wangle.hpp pathfinding/move_sim.hpp
   combat/weapon.hpp combat/warhead_damage.hpp combat/health.hpp combat/armament.hpp combat/projectile.hpp combat/combat_sim.hpp
   world/actor.hpp world/trait.hpp world/trait_container.hpp world/world.hpp world/sync_hash.hpp

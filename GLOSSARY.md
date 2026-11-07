@@ -73,3 +73,21 @@ _Avoid_: 静音模式、无声音效
 **音源池洗牌袋（shuffle bag）**:
 SoundPool 的轮转语义：clips 耗尽后整体回填再抽，抽签消耗表现随机源（CosmeticRandom），轮转顺序非确定、不对拍。
 _Avoid_: 随机播放列表
+
+### 渲染与文本
+
+**字形位图（glyph bitmap）**:
+字体光栅化产出的 8bpp 灰度像素块（含 box 与 advance 元数据）；本项目由 vendored stb_truetype 产出，与上游 FreeType 位图非字节恒等（对拍口径见 COVERAGE D064）。
+_Avoid_: 字体图片、点阵
+
+**缺字回退（.notdef）**:
+cmap 未命中的字符（CJK/孤立代理/控制符）按 glyph 0 的方框字形渲染并保留其 advance——上游 FreeType 行为，中文文本渲染为一串方框。
+_Avoid_: 字体回退、tofu 兜底
+
+**字体清单（Fonts 段）**:
+mod.yaml 的 `Fonts:` 段三元组 {Font, Size, Ascender}；Ascender 是手工值（不从字体表推算），粗体=独立 TTF。
+_Avoid_: metrics.yaml 字体、字体注册表
+
+**图集（sheet）**:
+字形/精灵打包的共享 512 BGRA 纹理缓冲，margin=1 行贪心分配；字形以四通道同灰度写入。
+_Avoid_: 纹理数组、atlas 页
