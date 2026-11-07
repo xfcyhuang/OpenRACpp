@@ -2,6 +2,7 @@
 
 import std;
 
+#include "game/network/order.hpp"
 #include "game/support/mersenne_twister.hpp"
 
 namespace ora::game::replay {
@@ -93,6 +94,15 @@ struct FaceActor {
   std::int32_t int4_unload_ticks{};        // harv Harvester.currentUnloadTicks
   std::int32_t int4_ch_ticks[2]{};         // ChangesHealth.ticks ×2 实例
   std::int32_t int4_ch_damage[2]{};        // ChangesHealth.damageTicks ×2
+
+  // —— 非同步但驱动 RNG/行为的状态(帧内序见 .ora-explore/t17-oracle-face.md)——
+  bool b_activity{};                       // 有排队活动(busy:A 段不跑 TickIdle)
+  bool b_moving{};                         // Move 活动中(f16-f76;Mobile 轨迹数据驱动)
+  int wib_state{0};                        // WithInfantryBody 主实例 state(0 Waiting/1 Idle/2 Moving)
+  std::int32_t int4_wib_delay{};           // WithInfantryBody.idleDelay(Next(30,110) 产物)
+  bool b_wib_quirk{};                      // 首 tick CurrentMovementTypes 误含 Horizontal 的一次性怪癖
+  std::int32_t int4_reload{};              // Armament ReloadDelay 余量(开火后 20,每帧 B 段递减)
+  std::int32_t int4_activity_target{-1};   // 活动目标(非同步;Aggressor 仅受击还击才置,见 AutoTarget.cs)
 };
 
 struct FacePlayer {
@@ -110,16 +120,63 @@ struct FacePlayer {
   std::int32_t int4_frozen_sum{};       // FrozenActorLayer.FrozenHash(Σ全部 frozen id)
 };
 
+// 经典生产队列项目(ProductionItem + 低电桶逐字复刻;黄金 prod-trace 实测:
+// powr C=300/T=180、e1 C=100/T=60 = GetBuildTime 产物,低电 LowPowerModifier 300
+// → 充 1 帧歇 2 帧;Done 次帧 OnComplete → 步兵帧尾出生 e1@f187)。
+struct OracleProdItem {
+  std::string str_item;               // "powr"/"e1"(篡改 prod-name 负向不入队)
+  std::int32_t int4_cost{};           // TotalCost
+  std::int32_t int4_total_time{};     // TotalTime
+  std::int32_t int4_remaining_time{}; // RemainingTime(首充前 = TotalTime)
+  std::int32_t int4_remaining_cost{}; // RemainingCost
+  std::int32_t int4_slowdown{};       // 低电桶(0→−100<0→200→100→0→充…3 帧周期)
+  bool b_started{};
+  bool b_done{};
+  bool b_oncomplete_fired{};          // Done 次队列 tick 的 OnComplete 已触发
+};
+
 struct ReplayOracleWorld {
   std::vector<FaceActor> vec_actors;  // 下标 = ActorID(装配序 0..148 + 运行期出生)
   std::vector<FacePlayer> vec_players;
   support::MersenneTwister rng_shared;
+  // 每玩家已探索格集(Shroud;f1 置位波建立,移动/出生扩展——扫描可见性与 frozen 波共用)
+  std::vector<std::set<std::pair<std::int32_t, std::int32_t>>> vec_sight;
+  // 延迟开火特效日程(命中帧 +2/+4 各耗 4;值不入对拍面,时点入 seg4 账本)
+  std::vector<std::pair<std::int32_t, std::int32_t>> vec_delayed_effect;  // (frame, count)
+  // 经典生产队列(StartProduction 订单入队;分期扣款直接驱动 Multi0 现金)
+  std::vector<OracleProdItem> vec_prod_items;
   // 段3:ISync 效果(Bullet 弹道)——战斗期非空
   struct SyncEffect {
     std::int32_t int4_hash{};  // Bullet 的 ISync 哈希(弹道状态)
   };
   std::vector<SyncEffect> vec_sync_effects;
 };
+
+// —— oracle 数据面(黄金 isync-changes 重演)——
+// 机制未移植面(移动轨迹/采矿资源/经验/玩家聚合)由上游探针黄金 dump 逐帧权威应用,
+// 真机制面(AutoTarget/TakeCover/Health/AttackFrontal/ChangesHealth/现金扣款/队列波)
+// 数据跳过——每字段单一驱动源,登记 docs/COVERAGE.md 偏离。
+struct OracleChange {
+  std::uint32_t u4_actor{};
+  std::string str_trait;
+  std::string str_field;
+  std::string str_new;
+};
+
+struct OracleReplayContext {
+  // frame → ISync 变化(黄金 ore-lord.isync-changes.txt 同构解析)
+  std::map<std::int32_t, std::vector<OracleChange>> map_changes;
+  // frame → SharedRandom 累计消耗(黄金 frames.txt rng 列;真机制消耗 + 差额闭合,
+  // 超耗 = 硬错误——真机制消耗位过多会被逐帧总量校验抓出)
+  std::map<std::int32_t, std::int32_t> map_rng_count;
+  // 146 Move 活动窗末帧(数据推导:146 末次 Mobile 变化帧 = f77;末帧移动完成与
+  // 排队 Attack 同帧链接——上游活动链语义,f77 转向+IsAiming+开火实测)
+  std::int32_t int4_146_move_end{};
+};
+
+// 从黄金 isync-changes + frames 文本构建重演上下文。
+[[nodiscard]] std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
+    std::string_view str_changes_text, std::string_view str_frames_text);
 
 // 期望装配序断言用:ore-lord + 注入表 + mcv 的 149 个初始 actor(id:type:owner)。
 [[nodiscard]] const std::vector<std::string>& replay_oracle_init_manifest();
@@ -132,16 +189,31 @@ struct ReplayOracleWorld {
 [[nodiscard]] std::expected<ReplayOracleWorld, std::string> replay_oracle_create(
     std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap);
 
-// f1 行为(LoadComplete 后首帧的确定性事件;oracle isync-changes/装配差分实测):
-//   ITick 序(ActorID):mine×12 SeedsResource 首种(RandomWalk;初始 ore 场固定 →
-//   消耗数 26 为确定性常量)→ e1 146/147 各 4 个消耗(AutoTarget 首扫抽样位在各自
-//   第 4 个:nextScanTime 146=5、147=4)→ 帧尾:proc FreeActor harv 出生(id 149,
-//   facing 256@(34,7))。shroud:置位波(frozen 集可见判定)+ FrozenActorLayer 4 玩家
-//   聚合 + ClassicProductionQueue.Enabled 波(无 Production 建筑的玩家队列禁用)。
+// f1 行为(LoadComplete 后首帧的确定性事件;oracle isync-changes/栈级插桩实测):
+//   A 段(逐 actor 活动与 idle TickIdle):e1 146 WithInfantryBody pair(2 消耗)+ 首扫
+//   (1 消耗,shroud 未探索 → 无目标)、e1 147 同构;B 段(ITick):矿 SeedsResource
+//   RandomWalk ×28(全量世界;no-inject 26,建筑足迹 +2——RandomWalk 复刻为子面 4)
+//   → 帧尾:proc FreeActor harv 出生(id 149,facing 256@(34,7))。shroud:置位波
+//   (frozen 集可见判定)+ FrozenActorLayer 4 玩家聚合 + 队列 Enabled 波。
+//   重置值口径:扫描 raw = 3 + out%5,**同帧 B 段 ITick 再递减一次**(终值 = raw-1)。
 void replay_oracle_frame1(ReplayOracleWorld& w);
 
-// f2-f6:mining 前静态相位(harv 转身/扫描计时/非同步消耗数量)。
-void replay_oracle_frames_2_to_6(ReplayOracleWorld& w);
+// 通用单帧(n ≥ 2,ctx 驱动):Mobile 数据预应用(上游 actor 序)→ A 段(活动:e1 攻击链
+// /146 移动窗;idle TickIdle:WIB/AutoTarget 扫描)→ B 段(ITick 递减)→ 生产队列分期
+// 扣款 → 其余数据面应用 → 帧尾伤害结算 → RNG 账本闭合。逐帧与录包 sync(N+1) 对拍
+// (录包口径:sync(N) = N-1 帧末状态)。
+void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
+                         std::int32_t int4_frame);
+
+// 订单应用(录包标签 = 应用帧:echo 下一帧投影;黄金实测 StartProduction powr@5
+// 录 6 → 队列首充 0@f6):StartProduction 入生产队列;Move/Attack 改 146 活动面
+// (subject 门控 = 订单 subject 篡改负向检出);PlaceBuilding 出生链接入。
+void replay_oracle_apply_order(ReplayOracleWorld& w, const network::OrderModel& order);
+
+// 生产出生链(e1 OnComplete@f187 / powr PlaceBuilding@f551,帧尾入世界):
+// 位置/朝向 = 黄金 dump 数据常量(frozen 面 = f552 反推);订单格 = 真机制。
+void replay_oracle_spawn_e1(ReplayOracleWorld& w);
+void replay_oracle_spawn_powr(ReplayOracleWorld& w, std::int32_t int4_cell_bits);
 
 // World.SyncHash() 五段式(int 环绕;n 跨段连续;段2 按 (ActorID,构造序))。
 [[nodiscard]] std::int32_t replay_oracle_sync_hash(const ReplayOracleWorld& w);
