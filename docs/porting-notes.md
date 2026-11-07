@@ -841,3 +841,32 @@ cpp26.md 规定 `.hpp` / `.cpp` 内一律不写注释（P1-2 整改）。本文�
   段走构造覆盖路径）；合成段本身从 override 黄金头注释解析（单一事实源）。
 - canonical 修饰键序 = C# 声明序 Shift, Alt, Ctrl, Meta（Modifiers:F），**不是** yaml
   源序——ControlGroupAddTo01 源写 `Ctrl, Shift`，dump 为 `Shift, Ctrl`。
+
+## src/game/render/font.cpp
+- vendored `stb_truetype.h` v1.26（master 2024-11+，探索期实测同版）：该单头的
+  include guard（`__STB_INCLUDE_STB_TRUETYPE_H__`）只覆盖声明段（L499-1097），
+  实现段（L1106-4973）在 guard 之外——因此 IMPL TU 必须先无宏包含拿声明
+  （经 font.hpp），再 `#define STB_TRUETYPE_IMPLEMENTATION` 二次包含让实现段
+  就位；font.cpp 是唯一 IMPL TU。`STB_TRUETYPE_IMPLEMENTATION` 是第三方单头的
+  激活契约宏，无语言等价物（其自身 `#ifdef` 门控），业务 TU 不自定义其他宏。
+- stb 内部宏/风格按 cpp26.md「第三方库头照常 include」豁免，未改造；
+  -Wall -Wextra -Wpedantic 下零告警实证。
+- `FontFace` move-only（删拷贝）：`stbtt_fontinfo` 持有指向 `vec1u_ttf` 堆缓冲的
+  内部指针，vector 移动不换缓冲地址故移动安全、拷贝必悬垂。
+- `spritefont_measure/wrap_text` 取非 const SpriteFont&：上游 Measure 经
+  `Cache` 索引器会插入新字形（缓存填充是可观测副作用），const 化即语义偏离。
+- WrapText 直译踩坑（黄金抓出后修正）：C# `line` 是值拷贝，`lines[i]=line[..n]`
+  赋值后再读 `line[start..]` 仍读原串；C++ 引用别名下必须先把 head/tail 两段
+  求值成独立 u16string 再赋值，否则 tail 读到已截短串（丢数据 + substr 越界）。
+- advance 一行（U084 实证核心）：`round = (int)(advW * scale + 0.5f)`，
+  scale = `(float)(uint)(size*deviceScale) / upem`；禁用 stbtt_ScaleForPixelHeight
+  （那是 ascent+descent 行高语义）。
+- 缺字语义不查 cmap：stbtt_FindGlyphIndex 未命中回 0，glyph 0（.notdef）自然
+  流出——与上游 FT_Load_Char 行为同构，勿加 fallback 字体逻辑（上游没有）。
+- Sheet 512 BGRA margin=1 行贪心逐条同构上游 SheetBuilder.Allocate（含零尺寸
+  占 margin 槽的空格精灵路径）；单 builder 被 7 个 SpriteFont 共享
+  （上游 Renderer.InitializeFonts 同构），分配顺序 = 字体清单序 × ASCII 序。
+- 文本层 API 取 `std::u16string_view`（上游 C# string = UTF-16 code unit 迭代；
+  孤立代理按单 code unit 出一个 .notdef 方框——语义等价非偏离）。
+- deviceScale 路径：`(uint)` 截断复刻 + set_scale 清缓存；ds≠1 的跨库对拍无
+  黄金（不测语义，只测机制），ds=1 面全量对拍。

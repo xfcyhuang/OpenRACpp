@@ -193,3 +193,9 @@ target_link_libraries(ora_hotkeys PRIVATE ora_std ora_game)
 target_compile_definitions(ora_hotkeys PRIVATE
   ORA_HOTKEYS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/hotkeys")
 add_test(NAME hotkeys COMMAND ora_hotkeys)
+
+add_executable(ora_fonts fonts.cpp)
+target_link_libraries(ora_fonts PRIVATE ora_std ora_game)
+target_compile_definitions(ora_fonts PRIVATE
+  ORA_FONTS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/fonts")
+add_test(NAME fonts COMMAND ora_fonts)
