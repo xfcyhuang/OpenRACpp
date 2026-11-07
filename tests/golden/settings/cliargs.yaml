@@ -1,0 +1,9 @@
+Game:
+	ZoomModifier: Shift
+
+Sound:
+	Mute: True
+
+Debug:
+	UUID: <UUID>
+

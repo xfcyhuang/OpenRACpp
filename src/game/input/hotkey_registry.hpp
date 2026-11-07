@@ -34,9 +34,10 @@ struct HotkeyRegistryModel {
     const std::vector<std::vector<MiniYamlNode>>& vec_files);
 
 // settings `Keys:` 段覆盖（HotkeyManager ctor :36-39）：未知名跳过、Readonly 跳过、
-// 坏值回退 Default（上游此处经 Settings 的 warn+默认替换；偏离登记 COVERAGE.md）。
-void hotkey_registry_apply_settings(HotkeyRegistryModel& reg,
-                                    std::span<const MiniYamlNode> vec_keys_nodes);
+// 坏值 = 报错拒绝装载（D059 修正：上游此解析在 InvalidValueAction 替换窗口外，
+// 默认委托 throw YamlException → ModData ctor 炸 → 启动失败，t21 probe 6 实证）。
+[[nodiscard]] std::expected<void, std::string> hotkey_registry_apply_settings(
+    HotkeyRegistryModel& reg, std::span<const MiniYamlNode> vec_keys_nodes);
 
 [[nodiscard]] std::optional<std::size_t> hotkey_registry_find(const HotkeyRegistryModel& reg,
                                                               std::string_view str_name);

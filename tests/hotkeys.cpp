@@ -276,7 +276,8 @@ void test_golden_bindings() {
       node.str_value = str_value;
       vec_nodes.push_back(node);
     }
-    wig::hotkey_registry_apply_settings(reg, vec_nodes);
+    check(wig::hotkey_registry_apply_settings(reg, vec_nodes).has_value(),
+          "golden: synthetic override segment applies without error (valid values only)");
 
     const std::string str_override_dump{cpp_dump_table(reg)};
     check(golden_data_lines(str_override_dump) == golden_data_lines(str_override_golden),
@@ -594,7 +595,8 @@ void test_rebind_and_conflicts(const wig::HotkeyRegistryModel& reg) {
   node_quirk.str_key = "TogglePlayerStanceColor";
   node_quirk.str_value = "UNKNOWN None";
   vec_nodes.push_back(node_quirk);
-  wig::hotkey_registry_apply_settings(reg5, vec_nodes);
+  check(wig::hotkey_registry_apply_settings(reg5, vec_nodes).has_value(),
+        "settings: UNKNOWN None override applies (round-trip path)");
   check(!wig::hotkey_is_valid(wig::hotkey_resolve(reg5, "TogglePlayerStanceColor")),
         "settings: UNKNOWN None override parses back to Invalid (round-trip)");
 }
