@@ -1,6 +1,6 @@
 #include "game/combat/combat_sim.hpp"
 
-#include <algorithm>
+import std;
 
 #include "game/combat/armament.hpp"
 #include "game/combat/projectile.hpp"

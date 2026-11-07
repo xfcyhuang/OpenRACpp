@@ -1,7 +1,6 @@
 #include "game/replay/replay_world.hpp"
 
-#include <initializer_list>
-#include <set>
+import std;
 
 #include "game/filesystem/zip_read.hpp"
 #include "game/miniyaml.hpp"
@@ -478,7 +477,7 @@ void replay_oracle_frame1(ReplayOracleWorld& w) {
     {
       const std::int32_t int4_out_seq{support::next(w.rng_shared)};
       (void)int4_out_seq;
-      e1.wib_state = 1;
+      e1.int4_wib_state = 1;
       e1.int4_wib_delay = 30 + support::next(w.rng_shared) % 80;
     }
     {
@@ -494,7 +493,7 @@ void replay_oracle_frame1(ReplayOracleWorld& w) {
     FaceActor& e1{w.vec_actors[u4_e1]};
     if (e1.int4_next_scan > 0) --e1.int4_next_scan;
     if (e1.b_wib_quirk) {
-      e1.wib_state = 2;
+      e1.int4_wib_state = 2;
       e1.b_wib_quirk = false;
     }
   }
@@ -778,11 +777,11 @@ void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
 
     if (!actor.b_activity) {
 
-      if (actor.wib_state == 0) {
+      if (actor.int4_wib_state == 0) {
         (void)support::next(w.rng_shared);
-        actor.wib_state = 1;
+        actor.int4_wib_state = 1;
         actor.int4_wib_delay = 30 + support::next(w.rng_shared) % 80;
-      } else if (actor.wib_state == 1) {
+      } else if (actor.int4_wib_state == 1) {
         if (actor.int4_wib_delay > 0) --actor.int4_wib_delay;
 
       }
@@ -832,7 +831,7 @@ void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
       if (actor.int4_take_cover > 0) --actor.int4_take_cover;
       if (actor.int4_reload > 0) --actor.int4_reload;
 
-      if (actor.wib_state == 2) actor.wib_state = 0;
+      if (actor.int4_wib_state == 2) actor.int4_wib_state = 0;
     }
     if (actor.str_type == "harv" && int4_frame >= 2 && int4_frame < 15 && actor.int4_facing < 512) {
 

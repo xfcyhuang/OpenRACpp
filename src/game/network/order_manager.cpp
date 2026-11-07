@@ -44,7 +44,8 @@ void system_pause_game(world::WorldModel& w, const OrderModel& order) {
 
 struct SystemOrderEntry {
   std::string_view str_name;
-  void (*fn_handle)(OrderManagerModel&, world::WorldModel&, std::int32_t, const OrderModel&);
+  std::function<void(OrderManagerModel&, world::WorldModel&, std::int32_t, const OrderModel&)>
+      fn_handle;
 };
 
 void run_chat(OrderManagerModel& om, world::WorldModel&, std::int32_t int4_client,

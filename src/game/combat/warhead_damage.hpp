@@ -2,8 +2,6 @@
 
 import std;
 
-#include <initializer_list>
-
 #include "game/combat/health.hpp"
 #include "game/combat/weapon.hpp"
 #include "game/pathfinding/wangle.hpp"

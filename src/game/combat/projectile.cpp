@@ -1,5 +1,7 @@
 #include "game/combat/projectile.hpp"
 
+#include <cstdint>
+
 #include "game/combat/warhead_damage.hpp"
 #include "game/pathfinding/wangle.hpp"
 #include "game/support/mersenne_twister.hpp"

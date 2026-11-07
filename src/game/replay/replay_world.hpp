@@ -77,7 +77,7 @@ struct FaceActor {
 
   bool b_activity{};
   bool b_moving{};
-  int wib_state{0};
+  std::int32_t int4_wib_state{0};
   std::int32_t int4_wib_delay{};
   bool b_wib_quirk{};
   std::int32_t int4_reload{};

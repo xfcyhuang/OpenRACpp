@@ -2,8 +2,6 @@
 
 import std;
 
-#include <functional>
-
 #include "game/combat/armament.hpp"
 #include "game/combat/health.hpp"
 #include "game/combat/weapon.hpp"
