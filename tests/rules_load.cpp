@@ -3,6 +3,8 @@ import std;
 #include "game/miniyaml.hpp"
 #include "game/miniyaml_merge.hpp"
 #include "game/ruleset.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_RULES_GOLDEN_DIR
 #define ORA_RULES_GOLDEN_DIR "tests/golden/rules"
@@ -13,14 +15,6 @@ import std;
 
 namespace {
 
-int int4_failures{0};
-
-void check(bool b_ok, std::string_view str_what) {
-  if (!b_ok) {
-    ++int4_failures;
-    std::println("rules_load: check failed: {}", str_what);
-  }
-}
 
 std::expected<std::vector<ora::game::MiniYamlNode>, std::string> parse(
     std::string_view str_text) {
@@ -432,10 +426,5 @@ int main() {
     }
   }
 
-  if (int4_failures != 0) {
-    std::println("rules_load: {} checks failed", int4_failures);
-    return 1;
-  }
-  std::println("rules_load: all checks passed");
-  return 0;
+  return ora::test::test_exit_code("rules_load");
 }

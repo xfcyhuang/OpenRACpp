@@ -5,6 +5,8 @@ import std;
 #include "game/render/palette.hpp"
 #include "game/render/shp_td.hpp"
 #include "game/render/tmp_ra.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_CONTENT_TEMPERAT_DIR
 #define ORA_CONTENT_TEMPERAT_DIR ""
@@ -12,23 +14,8 @@ import std;
 
 namespace {
 
-int int4_failures{0};
-int int4_checks{0};
-int int4_reports{0};
 
-constexpr int kMaxReports{20};
 constexpr int kSkip{77};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_checks;
-  if (!b_ok) {
-    ++int4_failures;
-    if (int4_reports < kMaxReports) {
-      ++int4_reports;
-      std::println("render_assets: {}", str_what);
-    }
-  }
-}
 
 std::optional<std::string> read_file_bytes(std::string_view str_path) {
   std::ifstream stream_in{std::filesystem::path{std::string{str_path}}, std::ios::binary};
@@ -203,10 +190,5 @@ int main() {
   run_1tnk(*opt_dir);
   run_all_tem(*opt_dir);
 
-  if (int4_failures != 0) {
-    std::println("render_assets: {} checks failed", int4_failures);
-    return 1;
-  }
-  std::println("render_assets: all checks passed ({} checks)", int4_checks);
-  return 0;
+  return ora::test::test_exit_code("render_assets");
 }

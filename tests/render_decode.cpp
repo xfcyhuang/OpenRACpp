@@ -8,6 +8,8 @@ import std;
 #include "game/tileset.hpp"
 #include "game/render/tmp_ra.hpp"
 #include "game/render/xor_delta.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_RENDER_GOLDEN_DIR
 #define ORA_RENDER_GOLDEN_DIR "tests/golden/render"
@@ -15,22 +17,7 @@ import std;
 
 namespace {
 
-int int4_failures{0};
-int int4_checks{0};
-int int4_reports{0};
 
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_checks;
-  if (!b_ok) {
-    ++int4_failures;
-    if (int4_reports < kMaxReports) {
-      ++int4_reports;
-      std::println("render_decode: {}", str_what);
-    }
-  }
-}
 
 std::optional<std::string> read_file_bytes(std::string_view str_path) {
   std::ifstream stream_in{std::filesystem::path{std::string{str_path}}, std::ios::binary};
@@ -360,10 +347,5 @@ int main() {
   run_shp_td();
   run_tileset_images();
 
-  if (int4_failures != 0) {
-    std::println("render_decode: {} checks failed", int4_failures);
-    return 1;
-  }
-  std::println("render_decode: all checks passed ({} checks)", int4_checks);
-  return 0;
+  return ora::test::test_exit_code("render_decode");
 }

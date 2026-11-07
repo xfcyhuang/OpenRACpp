@@ -15,6 +15,8 @@ import std;
 #include "game/combat/weapon.hpp"
 #include "game/miniyaml.hpp"
 #include "game/miniyaml_merge.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_COMBAT_GOLDEN_DIR
 #define ORA_COMBAT_GOLDEN_DIR "tests/golden/combat"
@@ -22,22 +24,7 @@ import std;
 
 namespace {
 
-int int4_failures{0};
-int int4_checks{0};
-int int4_reports{0};
 
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_checks;
-  if (!b_ok) {
-    ++int4_failures;
-    if (int4_reports < kMaxReports) {
-      ++int4_reports;
-      std::println("combat: {}", str_what);
-    }
-  }
-}
 
 std::optional<std::string> read_file_bytes(std::string_view str_path) {
   std::ifstream stream_in{std::filesystem::path{std::string(str_path)}, std::ios::binary};
@@ -467,11 +454,5 @@ int main() {
   test_damage_chains();
   test_duels();
 
-  std::fflush(nullptr);
-  if (int4_failures != 0) {
-    std::println("combat: {} of {} checks failed", int4_failures, int4_checks);
-    return 1;
-  }
-  std::println("combat: all {} checks passed", int4_checks);
-  return 0;
+  return ora::test::test_exit_code("combat");
 }

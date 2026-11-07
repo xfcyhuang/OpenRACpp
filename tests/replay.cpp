@@ -9,6 +9,8 @@ import std;
 #include "game/replay/replay_record.hpp"
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_REPLAY_GOLDEN_DIR
 #define ORA_REPLAY_GOLDEN_DIR "tests/golden/replay"
@@ -16,21 +18,7 @@ import std;
 
 namespace {
 
-constexpr int kMaxReports{20};
 
-int int4_failures{};
-int int4_reports{};
-int int4_checks{};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_checks;
-  if (b_ok) return;
-  ++int4_failures;
-  if (int4_reports < kMaxReports) {
-    ++int4_reports;
-    std::println("replay: check failed: {}", str_what);
-  }
-}
 
 void append_i4le(std::vector<std::uint8_t>& vec_out, std::int32_t int4_value) {
   const std::uint32_t u4{static_cast<std::uint32_t>(int4_value)};
@@ -775,6 +763,5 @@ int main() {
   test_replay_self_consistent();
   test_tamper_detect();
 
-  std::println("replay: {} checks, {} failures", int4_checks, int4_failures);
-  return int4_failures == 0 ? 0 : 1;
+  return ora::test::test_exit_code("replay");
 }

@@ -4,19 +4,11 @@ import std;
 #include "game/network/order_manager.hpp"
 #include "game/network/order_packet.hpp"
 #include "game/world/world.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 namespace {
 
-int g_failed{};
-int g_total{};
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++g_total;
-  if (b_ok) return;
-  ++g_failed;
-  if (g_failed <= kMaxReports) std::println("FAIL: {}", str_what);
-}
 
 std::string to_hex(std::span<const std::uint8_t> span_bytes) {
   std::string str_out;
@@ -905,6 +897,5 @@ int main() {
   test_order_manager_pipeline();
   test_golden_orders();
 
-  std::println("orders: {} checks, {} failed", g_total, g_failed);
-  return g_failed == 0 ? 0 : 1;
+  return ora::test::test_exit_code("orders");
 }

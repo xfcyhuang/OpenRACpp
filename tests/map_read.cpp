@@ -6,6 +6,8 @@ import std;
 #include "game/map_read.hpp"
 #include "game/tileset.hpp"
 #include "game/support/sha1.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_MAPS_GOLDEN_DIR
 #define ORA_MAPS_GOLDEN_DIR "tests/golden/maps"
@@ -17,22 +19,7 @@ namespace ogs = ora::game::support;
 namespace ogf = ora::game::filesystem;
 namespace ogm = ora::game;
 
-int int4_failures{0};
-int int4_checks{0};
-int int4_reports{0};
 
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_checks;
-  if (!b_ok) {
-    ++int4_failures;
-    if (int4_reports < kMaxReports) {
-      ++int4_reports;
-      std::println("map_read: {}", str_what);
-    }
-  }
-}
 
 void run_sha1_unit() {
   check(ogs::sha1_hex("") == "da39a3ee5e6b4b0d3255bfef95601890afd80709", "sha1 空串向量");
@@ -441,10 +428,5 @@ int main() {
   run_map_header_unit();
   run_map_info_golden();
 
-  if (int4_failures > 0) {
-    std::println("map_read: FAILED {}/{} checks", int4_failures, int4_checks);
-    return 1;
-  }
-  std::println("map_read: {} checks passed", int4_checks);
-  return 0;
+  return ora::test::test_exit_code("map_read");
 }

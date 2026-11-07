@@ -7,6 +7,8 @@ import std;
 #include "game/replay/replay_format.hpp"
 #include "game/replay/replay_player.hpp"
 #include "game/replay/replay_world.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_REPLAY_GOLDEN_DIR
 #define ORA_REPLAY_GOLDEN_DIR "tests/golden/replay"
@@ -17,21 +19,7 @@ import std;
 
 namespace {
 
-constexpr int kMaxReports{20};
 
-int int4_failures{};
-int int4_reports{};
-int int4_checks{};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_checks;
-  if (b_ok) return;
-  ++int4_failures;
-  if (int4_reports < kMaxReports) {
-    ++int4_reports;
-    std::println("replay_oracle: check failed: {}", str_what);
-  }
-}
 
 std::vector<std::uint8_t> read_file_bytes(std::string_view str_path) {
   std::ifstream fs{std::string{str_path}, std::ios::binary};
@@ -349,6 +337,5 @@ void test_assembly_and_frame1() {
 int main() {
   test_assembly_and_frame1();
 
-  std::println("replay_oracle: {} checks, {} failures", int4_checks, int4_failures);
-  return int4_failures == 0 ? 0 : 1;
+  return ora::test::test_exit_code("replay_oracle");
 }

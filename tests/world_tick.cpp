@@ -3,17 +3,11 @@ import std;
 #include "game/support/mersenne_twister.hpp"
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 namespace {
 
-int int4_failures{0};
-
-void check(bool b_ok, std::string_view str_what) {
-  if (!b_ok) {
-    ++int4_failures;
-    std::println("world_tick: check failed: {}", str_what);
-  }
-}
 
 constexpr std::int32_t kSeed{0};
 
@@ -397,9 +391,5 @@ int main() {
     }
   }
 
-  if (int4_failures == 0)
-    std::println("all world_tick checks passed");
-  else
-    std::println("{} world_tick checks failed", int4_failures);
-  return int4_failures == 0 ? 0 : 1;
+  return ora::test::test_exit_code("world_tick");
 }

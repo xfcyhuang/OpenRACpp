@@ -10,6 +10,8 @@ import std;
 #include "game/tileset.hpp"
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_ECONOMY_GOLDEN_DIR
 #define ORA_ECONOMY_GOLDEN_DIR "tests/golden/economy"
@@ -26,16 +28,6 @@ namespace ogf = ora::game::filesystem;
 namespace ogm = ora::game;
 namespace pfg = ora::game::pathfinding;
 
-int g_failed{};
-int g_total{};
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++g_total;
-  if (b_ok) return;
-  ++g_failed;
-  if (g_failed <= kMaxReports) std::println("FAIL: {}", str_what);
-}
 
 constexpr std::int32_t kSeed{0};
 constexpr std::int32_t kOrderTick{460};
@@ -691,6 +683,5 @@ int main() {
     }
   }
 
-  std::println("economy: {} checks, {} failed", g_total, g_failed);
-  return g_failed == 0 ? 0 : 1;
+  return ora::test::test_exit_code("economy");
 }

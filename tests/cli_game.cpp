@@ -9,6 +9,8 @@ import std;
 #include "launcher/cli_args.hpp"
 #include "launcher/game_session.hpp"
 #include "launcher/sandbox_recipe.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 namespace {
 
@@ -19,16 +21,6 @@ namespace opro = ora::game::production;
 namespace inp_view = ora::game::input;
 namespace ww = ora::game::world;
 
-int g_failed{};
-int g_total{};
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++g_total;
-  if (b_ok) return;
-  ++g_failed;
-  if (g_failed <= kMaxReports) std::println("FAIL: {}", str_what);
-}
 
 std::vector<std::string_view> args(std::initializer_list<std::string_view> vec_parts) {
   return std::vector<std::string_view>{vec_parts};
@@ -606,6 +598,5 @@ int main() {
   test_low_power_negative();
   test_parse_replay_flags();
   test_session_record_replay();
-  std::println("cli_game: {} checks, {} failed", g_total, g_failed);
-  return g_failed == 0 ? 0 : 1;
+  return ora::test::test_exit_code("cli_game");
 }
