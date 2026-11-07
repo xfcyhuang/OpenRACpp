@@ -31,8 +31,12 @@
 //                   原样入库作基线漂移哨兵。无头障碍 9-15 配方见 t12-combat.md §4.1
 //   hotkeys         ra 热键绑定表轻路径 dump（T22/issue #29）：mod.yaml Hotkeys: 列表序
 //                   Merge → 真·上游 HotkeyDefinition/Hotkey.TryParse → 合成 settings
-//                   Keys: 覆盖段（改键/冲突重算/Readonly 跳过）——files.txt + 9 yaml
+//                   Keys: 覆盖段（改键/冲突/Readonly 跳过）——files.txt + 9 yaml
 //                   原样入库（漂移哨兵）+ ra-bindings.txt（174 定义）+ ra-override.txt
+//   settings        settings.yaml 持久化轻路径 dump（T21/issue #28）：真·上游 Settings
+//                   类直驱（不装配 ModData）——fresh-default/all-types/roundtrip 互证、
+//                   未知段键保留、空行分裂、坏值零值替换+告警逐字、CLI 覆盖、Keys 段
+//                   无字段段形态、float 最短往返锚点；UUID 行级归一化后入库
 //
 // 每次动作前断言上游检出 HEAD == UPSTREAM.baseline 首行，防基准漂移。
 // resolved-rules 产物字节为上游命令 stdout 的原样捕获（UTF-8 无 BOM；末尾行尾来自
@@ -207,6 +211,7 @@ internal static partial class Program
                     (string)null,
                     (Func<byte[]>)(() => File.ReadAllBytes(
                         Path.Combine(openraRoot, "mods", "d2k", "bits", name))))),
+
             // fonts 模式（T23/issue #30）：FreeType interop 轻路径 dump——fixture TTF 原样
             // 入库（漂移哨兵兼 C++ 测试输入）+ ra mod.yaml Fonts: 三元组解析转储 + FTD1u8
             // metrics/位图（ASCII 95 cp × FreeSans 10/12/14/18/24、FreeSansBold 14 + 特殊
@@ -216,6 +221,19 @@ internal static partial class Program
             .. (FontsAvailable(openraRoot)
                 ? FontsArtifacts(openraRoot)
                 : Array.Empty<(string RelPath, string Mode, Func<byte[]> Produce)>()),
+            // settings 模式（T21/issue #28）：settings.yaml 段/默认值/未知段键保留、
+            // 读写往返字节恒等（UUID 行级归一化；9 用例 + 坏值告警逐字清单）
+            ("tests/golden/settings/fresh-default.yaml", null, () => DumpSettingsFreshDefault()),
+            ("tests/golden/settings/all-types.yaml", null, () => DumpSettingsAllTypes()),
+            ("tests/golden/settings/roundtrip.yaml", null, () => DumpSettingsRoundtrip()),
+            ("tests/golden/settings/unknown-preserved.yaml", null, () => DumpSettingsUnknownPreserved()),
+            ("tests/golden/settings/blank-split.yaml", null, () => DumpSettingsBlankSplit()),
+            ("tests/golden/settings/badval-substituted.yaml", null, () => DumpSettingsBadvalFile()),
+            ("tests/golden/settings/badval-warnings.txt", null, () => DumpSettingsBadvalWarnings()),
+            ("tests/golden/settings/cliargs.yaml", null, () => DumpSettingsCliArgs()),
+            ("tests/golden/settings/keys-rebind.yaml", null, () => DumpSettingsKeysRebind()),
+            ("tests/golden/settings/float-formats.txt", null, () => DumpSettingsFloatFormats()),
+
         ];
 
         var firstRuns = new Dictionary<string, (string RelPath, byte[] Bytes)[]>();

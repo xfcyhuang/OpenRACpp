@@ -1,0 +1,8 @@
+FieldLoader: Cannot parse `nothex` into field `Color` of type `OpenRA.Primitives.Color`; substituting default `00000000`
+FieldLoader: Cannot parse `zz` into field `CustomColors` of type `OpenRA.Primitives.Color`; substituting default `00000000`
+FieldLoader: Cannot parse `garbage` into field `MouseScroll` of type `OpenRA.MouseScrollType`; substituting default `Disabled`
+FieldLoader: Cannot parse `notanint` into field `SelectionDeadzone` of type `System.Int32`; substituting default `0`
+FieldLoader: Cannot parse `garbage` into field `SoundVolume` of type `System.Single`; substituting default `0`
+FieldLoader: Cannot parse `notabool` into field `Mute` of type `System.Boolean`; substituting default `False`
+FieldLoader: Cannot parse `garbage` into field `Mode` of type `OpenRA.WindowMode`; substituting default `Windowed`
+FieldLoader: Cannot parse `notanint2` into field `WindowedSize` of type `OpenRA.int2`; substituting default `0,0`

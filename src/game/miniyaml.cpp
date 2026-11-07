@@ -266,4 +266,30 @@ std::string miniyaml_write_to_string(const std::vector<MiniYamlNode>& vec_nodes)
   return str_out;
 }
 
+std::expected<void, std::string> miniyaml_write_to_file(
+    std::string_view str_path, const std::vector<MiniYamlNode>& vec_nodes) {
+  std::vector<std::string> vec_lines;
+  for (const MiniYamlNode& node : vec_nodes) append_node_lines(node, 0, vec_lines);
+
+  std::ofstream fs_file{std::string{str_path}, std::ios::binary | std::ios::trunc};
+  if (!fs_file) return std::unexpected("cannot open file for write: " + std::string{str_path});
+
+  constexpr std::string_view kNewline{
+#ifdef _WIN32
+      "\r\n"
+#else
+      "\n"
+#endif
+  };
+  for (const std::string& str_line : vec_lines) {
+    std::string_view str_trimmed{str_line};
+    while (!str_trimmed.empty() && is_ascii_space_char(str_trimmed.back()))
+      str_trimmed.remove_suffix(1);
+    fs_file.write(str_trimmed.data(), static_cast<std::streamsize>(str_trimmed.size()));
+    fs_file.write(kNewline.data(), static_cast<std::streamsize>(kNewline.size()));
+  }
+  if (!fs_file) return std::unexpected("cannot write file: " + std::string{str_path});
+  return {};
+}
+
 }

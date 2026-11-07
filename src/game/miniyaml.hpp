@@ -29,4 +29,7 @@ struct MiniYamlNode {
 
 [[nodiscard]] std::string miniyaml_write_to_string(const std::vector<MiniYamlNode>& vec_nodes);
 
+[[nodiscard]] std::expected<void, std::string> miniyaml_write_to_file(
+    std::string_view str_path, const std::vector<MiniYamlNode>& vec_nodes);
+
 }
