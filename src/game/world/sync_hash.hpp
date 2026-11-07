@@ -10,4 +10,4 @@ namespace ora::game::world {
 
 [[nodiscard]] std::string state_digest(const WorldModel& w);
 
-}  // namespace ora::game::world
+}

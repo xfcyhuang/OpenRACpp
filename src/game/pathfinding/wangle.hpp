@@ -52,4 +52,4 @@ constexpr std::int32_t wangle_wrap(std::int32_t int4_angle) { return int4_angle 
 [[nodiscard]] WVec wvec_rotate_matrix(WVec vec, const RotMatrix& mtx);
 [[nodiscard]] WVec wvec_rotate_yaw(WVec vec, std::int32_t int4_yaw);
 
-}  // namespace ora::game::pathfinding
+}

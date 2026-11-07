@@ -74,4 +74,4 @@ struct TraitSpec {
 [[nodiscard]] std::pair<std::string_view, std::string_view> trait_key_split(
     std::string_view str_key);
 
-}  // namespace ora::game::world
+}

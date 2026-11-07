@@ -18,7 +18,7 @@ void groups_remove_selection(std::array<std::vector<std::uint32_t>, kControlGrou
     }
 }
 
-}  // namespace
+}
 
 void selection_combine(SelectionModel& selection, std::span<const std::uint32_t> vec_new,
                        bool b_combine, bool b_click) {
@@ -83,4 +83,4 @@ void control_group_select(SelectionModel& selection, std::size_t idx_group) {
   selection_combine(selection, selection.arr_groups[idx_group], false, false);
 }
 
-}  // namespace ora::game::input
+}

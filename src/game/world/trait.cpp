@@ -55,7 +55,7 @@ void create_selectable(const TraitCreateCtx&, TraitModel& t) {
   if (t.int4_param == 0) t.int4_param = 10;
 }
 
-}  // namespace
+}
 
 const std::vector<TraitSpec>& trait_registry() {
   static const std::vector<TraitSpec> vec_registry{
@@ -125,4 +125,4 @@ std::pair<std::string_view, std::string_view> trait_key_split(std::string_view s
   return {str_key.substr(0, idx_at), str_key.substr(idx_at + 1)};
 }
 
-}  // namespace ora::game::world
+}

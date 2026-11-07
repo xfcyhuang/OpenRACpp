@@ -117,9 +117,6 @@ const world::TraitTemplate* find_world_template(const world::WorldModel& w, std:
   return nullptr;
 }
 
-// 经济面 actor id 视图：对齐上游剧本 ActorID 分配序——world=0、非观察玩家按
-// vec_players 序、之后按创建序；观察者玩家（Everyone）不参与经济面（上游剧本
-// 不创建该 actor）。观测行/A 行一律经此归一，保证与 oracle 黄金同一编号空间。
 [[nodiscard]] std::int32_t econ_view_id(const world::WorldModel& w, std::uint32_t u4_actor) {
   if (u4_actor >= w.vec_actors_all.size()) return -1;
   const world::ActorModel& actor{w.vec_actors_all[u4_actor]};
@@ -439,8 +436,7 @@ std::set<std::pair<std::int32_t, std::int32_t>> blocked_cells_build(
         for (std::int32_t int4_dx{0}; int4_dx < *opt_dx && static_cast<std::size_t>(int4_dx) < str_row.size();
              ++int4_dx) {
           const char ch_cell{str_row[static_cast<std::size_t>(int4_dx)]};
-          // '_' 格不属于建筑；'='（bib/TransitOnly）语义是可穿行不可停留——各
-          // BlockedByActor 档均不挡路径（探针实测 All 档回程路径穿 proc bib）。
+
           if (ch_cell == '_' || ch_cell == '=') continue;
           set_blocked.insert({actor.int4_pos_x + int4_dx, actor.int4_pos_y + static_cast<std::int32_t>(idx_row)});
         }
@@ -630,8 +626,6 @@ bool act_tick(world::WorldModel& w, HarvState& harv, std::int32_t int4_idx) {
         return false;
       }
 
-      // 上游 GetResource 返回值拷贝（struct），RemoveResource 归零清格会改写原格
-      // （Content=Empty）——先拷类型再删，避免引用悬挂读到清空后的空类型。
       const std::string str_type{resource_get(econ.layer, harv.move.cell_from).str_type};
       if (str_type.empty() ||
           resource_remove(econ.layer, econ, str_type, harv.move.cell_from) != 1)
@@ -743,10 +737,7 @@ bool act_tick(world::WorldModel& w, HarvState& harv, std::int32_t int4_idx) {
 
     case ActKind::kMove:
     case ActKind::kMoveReverse: {
-      // 载重减速（Harvester ISpeedModifier：100-(100-FullyLoadedSpeed)×Fullness/100，
-      // int 截断；Fullness=ContentsSum×100/Capacity 整除）。速度链对齐上游
-      // Util.ApplyPercentageModifiers(Speed, [fullnessMod, terrainSpeed])——decimal
-      // 累乘后单次截断：speed×mod×terrain/10000 一次整除，非逐级截断。
+
       const std::int32_t int4_modifier{
           100 - (100 - econ.cfg.int4_fully_loaded_speed) * harv_fullness(harv) / 100};
       pathfinding::MoveSimConfig cfg_move;
@@ -869,7 +860,7 @@ const char* move_part_name(pathfinding::PartKind kind) {
   return nullptr;
 }
 
-}  // namespace
+}
 
 [[nodiscard]] std::int32_t harv_cargo_sum(const HarvCargoState& cargo) {
   std::int32_t int4_sum{0};
@@ -983,8 +974,6 @@ void economy_on_actor_added(world::WorldModel& w, std::uint32_t u4_actor_id) {
   EconomyWorldState& econ{w.econ};
   const world::ActorModel& actor{w.vec_actors_all[u4_actor_id]};
 
-  // FreeActor 附送单位是独立的帧尾任务（上游 FreeActor.TraitEnabled），与
-  // DockHost/StoresPlayerResources 注册不互斥——proc 同时具备三者。
   if (find_world_template(w, actor.str_type, "FreeActor") != nullptr)
     w.deque_frame_end.push_back(world::FrameEndTask{.u4_kind = 3, .u4_actor = u4_actor_id});
 
@@ -1195,8 +1184,6 @@ std::expected<void, std::string> economy_setup(world::WorldModel& w, const MapBi
     str_harv_type.push_back(ch >= 'A' && ch <= 'Z' ? static_cast<char>(ch - 'A' + 'a') : ch);
   econ.cfg.str_harv_type = str_harv_type;
 
-  // 采矿车的 Locomotor 按名匹配（规则可同时声明 foot 等其它 Locomotor——
-  // 上游 Move 的 PathSearchOrder 语义里 harv 只用 heavywheeled）。
   std::string str_locomotor_name{"heavywheeled"};
   if (const world::TraitTemplate* ptr_mobile_tpl{find_world_template(w, str_harv_type, "Mobile")};
       ptr_mobile_tpl != nullptr && !ptr_mobile_tpl->str_param_type.empty())
@@ -1419,4 +1406,4 @@ std::expected<void, std::string> economy_setup(world::WorldModel& w, const MapBi
   return {};
 }
 
-}  // namespace ora::game::economy
+}

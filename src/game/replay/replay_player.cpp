@@ -7,7 +7,6 @@ namespace ora::game::replay {
 
 namespace {
 
-// 帧号取 data 前 4 字节（ReplayConnection ctor：packet 前 4 字节为 frame）
 [[nodiscard]] std::int32_t frame_of(const std::vector<std::uint8_t>& vec_data) {
   if (vec_data.size() < 4) return 0;
   return static_cast<std::int32_t>(static_cast<std::uint32_t>(vec_data[0]) |
@@ -16,7 +15,6 @@ namespace {
                                    (static_cast<std::uint32_t>(vec_data[3]) << 24));
 }
 
-// frame-0 包内的订单串里找指定 immediate 单的 TargetString（SyncInfo 提取）
 [[nodiscard]] std::optional<std::string> packet_find_target_string(
     std::span<const std::uint8_t> span_data, std::string_view str_order_name) {
   if (span_data.size() < 4) return std::nullopt;
@@ -31,7 +29,7 @@ namespace {
   return std::nullopt;
 }
 
-}  // namespace
+}
 
 std::expected<ReplayFeedModel, std::string> replay_feed_build(const ReplayFile& file) {
   ReplayFeedModel feed;
@@ -59,7 +57,7 @@ std::expected<ReplayFeedModel, std::string> replay_feed_build(const ReplayFile& 
     if (b_is_disconnect) continue;
 
     if (int4_frame == 0) {
-      // 引导/immediate 单：不终结 chunk；提取 SyncInfo（!IsValid 时最后一份生效）与 StartGame
+
       if (const auto opt_session{
               packet_find_target_string(record.vec_data, "SyncInfo")}) {
         auto res_session{replay_session_parse(*opt_session)};
@@ -89,4 +87,4 @@ std::expected<ReplayFeedModel, std::string> replay_feed_build(const ReplayFile& 
   return feed;
 }
 
-}  // namespace ora::game::replay
+}

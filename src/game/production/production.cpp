@@ -529,12 +529,7 @@ bool produce_unit(world::WorldModel& w, std::uint32_t u4_player, ProductionQueue
     if (ptr_exit == nullptr) continue;
     auto res_spawn{world::create_actor(w, str_item, u4_player, int4_exit_x, int4_exit_y, true)};
     if (!res_spawn.has_value()) return false;
-    // 出厂帧 rng 账本（与上游逐字节对齐，positive/negative 黄金实测）：
-    // ① 出口 shuffle 已在 select_exit 耗 1（Next(出口数)，len=2 恰 1 次）；
-    // ② 带 WithInfantryBody（IdleSequences 非空）的步兵出生同帧首次 idle 抽样
-    //    （WithInfantryBody.cs:207-208，INotifyIdle 的 Waiting→Idle 转换）：
-    //    IdleSequences.Random → Next(序列数) + idleDelay → Next(Min,Max)。
-    //    渲染面账本——T14 动画面接管后应移位至彼处（偏离登记见 docs/COVERAGE.md）。
+
     if (const world::TraitTemplate* ptr_body{find_template(w, str_item, "WithInfantryBody")}) {
       const std::vector<std::string_view> vec_idle{split_list(ptr_body->str_param_type)};
       if (!vec_idle.empty()) {
@@ -703,7 +698,7 @@ std::int32_t player_resources_sync_hash(const world::WorldModel& w, std::uint32_
   return res.int4_cash ^ res.int4_resources ^ res.int4_capacity;
 }
 
-}  // namespace
+}
 
 PowerState power_state(std::int32_t int4_provided, std::int32_t int4_drained) {
   if (int4_provided >= int4_drained) return PowerState::kNormal;
@@ -826,8 +821,6 @@ void production_on_actor_added(world::WorldModel& w, std::uint32_t u4_actor_id) 
   const world::ActorModel& actor{w.vec_actors_all[u4_actor_id]};
   if (actor.u4_owner >= w.prod.vec_players.size()) return;
 
-  // 上游 powerDrain 字典仅由 Power trait 的 AddedToWorld 事件驱动——无 Power trait
-  // 的 actor（world/player/mpspawn 等）不进账本（PowerManager.UpdateActor 挂钩）。
   std::int32_t int4_amount{0};
   bool b_has_power{false};
   for (const std::uint32_t u4_handle : actor.vec_trait_handles)
@@ -969,4 +962,4 @@ const std::vector<world::TraitSpec>& production_trait_specs() {
   return vec_specs;
 }
 
-}  // namespace ora::game::production
+}

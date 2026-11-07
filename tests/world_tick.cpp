@@ -4,11 +4,6 @@ import std;
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
 
-// T07（issue #8）：World/Tick/Actor/Trait 最小面与无头自洽。
-// 确定性三支柱（上游 World.cs:33 / TraitDictionary.cs:152-158 /
-// ActorInfo.cs:104-167）：Actor 遍历序 = ActorID 升序；同 actor trait
-// 分发序 = 构造序；构造序 = yaml 序（无 Requires 依赖时）。
-
 namespace {
 
 int int4_failures{0};
@@ -92,7 +87,7 @@ const ora::game::world::TraitModel& trait_of(const ora::game::world::WorldModel&
   return w.vec_traits[w.vec_actors_all[u4_actor_id].vec_trait_handles[idx_trait]];
 }
 
-}  // namespace
+}
 
 int main() {
   {

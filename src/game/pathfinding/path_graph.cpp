@@ -19,7 +19,7 @@ std::optional<std::int32_t> parse_int(std::string_view str_value) {
   return int4_out;
 }
 
-}  // namespace
+}
 
 std::expected<LocomotorDef, std::string> locomotor_def_from_node(const MiniYamlNode& node_locomotor) {
   LocomotorDef def;
@@ -105,4 +105,4 @@ std::int32_t terrain_speed_for_cell(const LocomotorMap& map, CPos cell) {
   return map.vec4_speed[static_cast<std::size_t>(cell.int4_x) * map.int4_height + cell.int4_y];
 }
 
-}  // namespace ora::game::pathfinding
+}

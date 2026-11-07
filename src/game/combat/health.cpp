@@ -5,7 +5,7 @@ namespace ora::game::combat {
 std::int32_t health_inflict(HealthState& hp, const DamagePacket& pkt_damage,
                             std::span<const std::int32_t> vec_victim_modifiers,
                             bool b_ignore_modifiers) {
-  // Overkill! Don't count extra hits as more kills!
+
   if (hp.b_dead) {
     hp.b_died_this_call = false;
     return 0;
@@ -13,7 +13,7 @@ std::int32_t health_inflict(HealthState& hp, const DamagePacket& pkt_damage,
 
   std::int32_t int4_damage{pkt_damage.int4_value};
   if (!b_ignore_modifiers && int4_damage > 0) {
-    // 链 3：decimal 逐修饰符精确乘积（*= m/100m 全精度），链末一次截断（Health.cs:176-187）
+
     __int128 int8_applied{int4_damage};
     for (const std::int32_t int4_modifier : vec_victim_modifiers) int8_applied *= int4_modifier;
     for (std::size_t idx{0}; idx < vec_victim_modifiers.size(); ++idx) int8_applied /= 100;
@@ -35,4 +35,4 @@ std::int32_t health_kill(HealthState& hp) {
   return health_inflict(hp, DamagePacket{hp.int4_max_hp}, {}, true);
 }
 
-}  // namespace ora::game::combat
+}

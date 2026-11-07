@@ -52,4 +52,4 @@ struct MouseInput {
   std::int32_t int4_tap_count{1};
 };
 
-}  // namespace ora::game::input
+}

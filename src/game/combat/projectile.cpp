@@ -7,7 +7,7 @@
 namespace ora::game::combat {
 
 std::int32_t wdist_from_pdf(support::MersenneTwister& rng, std::int32_t int4_samples) {
-  // WDist.FromPDF（WDist.cs:56-61）：N 样本 Next(-1024,1024) 求和除 N（int 向零截断）
+
   std::int32_t int4_sum{0};
   for (std::int32_t idx{0}; idx < int4_samples; ++idx)
     int4_sum += support::next(rng, -1024, 1024);
@@ -15,26 +15,22 @@ std::int32_t wdist_from_pdf(support::MersenneTwister& rng, std::int32_t int4_sam
 }
 
 pathfinding::WVec wvec_from_pdf2(support::MersenneTwister& rng) {
-  // WVec.FromPDF（WVec.cs:99-102）：X/Y 各 WDist.FromPDF(r,2) → 共 4 次 Next
+
   return pathfinding::WVec{wdist_from_pdf(rng, 2), wdist_from_pdf(rng, 2), 0};
 }
 
 pathfinding::WPos instant_hit_target_pos(const WeaponDef& weapon,
                                          pathfinding::WPos pos_passive) {
-  // InstantHit ctor（:52-67）：TargetActorCenter → GuidedTarget（不散布）；
-  // Inaccuracy>0 → PassiveTarget + FromPDF*max/1024；否则 PassiveTarget。
-  // M1Carbine 面无散布（Projectile 无 Inaccuracy 字段）。
+
   if (weapon.projectile.int4_inaccuracy > 0)
-    return pos_passive;  // 散布面在 bullet_create 同式——剧本武器不走此分支
+    return pos_passive;
   return pos_passive;
 }
 
 pathfinding::WPos wpos_lerp_quadratic(pathfinding::WPos pos_a, pathfinding::WPos pos_b,
                                       std::int32_t int4_pitch, std::int32_t int4_mul,
                                       std::int32_t int4_div) {
-  // WPos.LerpQuadratic（WPos.cs:58-72）：linear lerp + decimal 高度项。
-  // offset = (decimal)(b-a).Length * pitch.Tan() * mul * (div-mul) / (1024*div*div)
-  // —— decimal 精确商链末 (int) 截断 → int64 乘积一次除（值域内等价）。
+
   const pathfinding::WPos pos_lerped{pathfinding::wpos_lerp(pos_a, pos_b, int4_mul, int4_div)};
   if (int4_pitch == 0) return pos_lerped;
 
@@ -55,8 +51,7 @@ pathfinding::WPos wpos_lerp_quadratic(pathfinding::WPos pos_a, pathfinding::WPos
 
 Effect bullet_create(Arena& arena, const WeaponDef& weapon, pathfinding::WPos pos_source,
                      pathfinding::WPos pos_passive, std::uint32_t u4_owner) {
-  // Bullet ctor（:170-230）RNG 消耗序：LaunchAngle 双值 1 → Speed 双值 1 → Inaccuracy 4
-  // → 动画序列（1 元素 0）。25mm/155mm LaunchAngle/Speed 单值、序列 1 元素。
+
   Effect eff;
   eff.kind = Effect::Kind::kBullet;
   eff.u4_serial = arena.u4_next_effect_serial++;
@@ -76,8 +71,7 @@ Effect bullet_create(Arena& arena, const WeaponDef& weapon, pathfinding::WPos po
 
   eff.target = pos_passive;
   if (weapon.projectile.int4_inaccuracy > 0) {
-    // Util.GetProjectileInaccuracy（Util.cs:369-384，InaccuracyType.Maximum 默认）：
-    // inacc × |PassiveTarget - Source|.Length / Weapon.Range（修饰符空 → 原值）
+
     const pathfinding::WVec vec_flight{pathfinding::wvec_sub(pos_passive, pos_source)};
     const std::int32_t int4_dist{
         static_cast<std::int32_t>(pathfinding::isqrt64(pathfinding::wvec_length_squared(vec_flight)))};
@@ -101,24 +95,21 @@ Effect bullet_create(Arena& arena, const WeaponDef& weapon, pathfinding::WPos po
 
 void warhead_do_impact(Arena& arena, const WarheadDef& wh, pathfinding::WPos pos_impact,
                        std::uint32_t u4_owner) {
-  if (wh.kind == WarheadKind::kLeaveSmudge) return;  // 不同步、无伤害（upstream 登记）
+  if (wh.kind == WarheadKind::kLeaveSmudge) return;
 
   if (wh.kind == WarheadKind::kCreateEffect) {
-    // CreateEffectWarhead.DoImpact（:95-136）：
-    //   ActorTypeAtImpact 门闸（FindActorsOnCircle(pos,0) + HitShape 命中 + IsValidAgainst）
-    //   → 无有效 actor 且地形无效 → return（无 RNG）；Inaccuracy>0 → FromPDF 4 RNG
-    //   （消耗在 SpriteEffect 创建之前——动画不入面但 RNG 必做）；SpriteEffect 不创建。
+
     enum class ImpactActorType : std::uint8_t { kNone, kValid, kInvalid };
     ImpactActorType impact_actor{ImpactActorType::kNone};
     bool b_any_invalid{false};
     for (const CombatUnit& unit : arena.vec_units) {
       if (!unit.b_in_world) continue;
       const pathfinding::WVec vec_delta{pathfinding::wvec_sub(pos_impact, unit.pos_center)};
-      if (pathfinding::wvec_horizontal_length_squared(vec_delta) > 0) continue;  // 半径 0 圆
+      if (pathfinding::wvec_horizontal_length_squared(vec_delta) > 0) continue;
       const std::int32_t int4_edge{
           circle_distance_from_edge(unit.pos_center, pos_impact, unit.int4_hit_radius)};
       if (int4_edge > 0) continue;
-      // IsValidAgainst（piff/water 的 ValidTargets vs 单位 TargetTypes）
+
       bool b_valid{true};
       for (const std::string& str_invalid : wh.vec_invalid_targets)
         for (const std::string& str_type : unit.vec_target_types)
@@ -137,18 +128,17 @@ void warhead_do_impact(Arena& arena, const WarheadDef& wh, pathfinding::WPos pos
       impact_actor = ImpactActorType::kInvalid;
     if (impact_actor == ImpactActorType::kInvalid) return;
     if (impact_actor == ImpactActorType::kNone) {
-      // 地形门闸：ore-lord 剧本区域 = Clear → TargetTypes ["Ground"]
+
       bool b_terrain{false};
       for (const std::string& str_valid : wh.vec_valid_targets)
         if (str_valid == "Ground") b_terrain = true;
       if (!b_terrain) return;
     }
 
-    if (wh.int4_inaccuracy > 0) (void)wvec_from_pdf2(arena.rng_shared);  // 4 RNG（动画前）
+    if (wh.int4_inaccuracy > 0) (void)wvec_from_pdf2(arena.rng_shared);
     return;
   }
 
-  // SpreadDamageWarhead.DoImpact（:56-126）
   const std::int32_t int4_eff_last{
       wh.vec_falloff.empty() ? 0
                              : static_cast<std::int32_t>(wh.vec_falloff.size() - 1) * wh.int4_spread};
@@ -159,8 +149,7 @@ void warhead_do_impact(Arena& arena, const WarheadDef& wh, pathfinding::WPos pos
     const pathfinding::WVec vec_delta{pathfinding::wvec_sub(pos_impact, unit.pos_center)};
     if (pathfinding::wvec_horizontal_length_squared(vec_delta) > int8_eff_last_sq) continue;
 
-    // Warhead.IsValidAgainst（:64-78）：AffectsParent + 关系（默认全过）+ TargetTypes
-    if (unit.u4_id == u4_owner) continue;  // AffectsParent=false
+    if (unit.u4_id == u4_owner) continue;
     bool b_overlaps{false};
     bool b_invalid_hit{false};
     for (const std::string& str_valid : wh.vec_valid_targets)
@@ -171,7 +160,6 @@ void warhead_do_impact(Arena& arena, const WarheadDef& wh, pathfinding::WPos pos
         if (str_type == str_invalid) b_invalid_hit = true;
     if (!b_overlaps || b_invalid_hit) continue;
 
-    // Circle DistanceFromEdge（HitShape）→ falloff
     const std::int32_t int4_falloff_distance{
         circle_distance_from_edge(unit.pos_center, pos_impact, unit.int4_hit_radius)};
     if (int4_falloff_distance > int4_eff_last) continue;
@@ -179,7 +167,6 @@ void warhead_do_impact(Arena& arena, const WarheadDef& wh, pathfinding::WPos pos
     const std::int32_t int4_falloff{get_damage_falloff(wh.vec_falloff, wh.int4_spread,
                                                         int4_falloff_distance)};
 
-    // 链 2（含链 1）→ 链 3
     const std::int32_t int4_damage{
         warhead_inflict_damage(wh, std::vector<std::int32_t>{int4_falloff},
                                unit.str_armor_type)};
@@ -187,7 +174,7 @@ void warhead_do_impact(Arena& arena, const WarheadDef& wh, pathfinding::WPos pos
     (void)int4_applied;
 
     if (unit.health.b_died_this_call) {
-      // HP==0 → INotifyKilled（最小面空）→ RemoveOnDeath → Dispose（非立即）→ 帧尾移除
+
       unit.health.b_died_this_call = false;
       arena.deque_frame_end.push_back(
           FrameEndTask{.kind = FrameEndTask::Kind::kRemoveActor, .u4_actor = unit.u4_id});
@@ -197,7 +184,7 @@ void warhead_do_impact(Arena& arena, const WarheadDef& wh, pathfinding::WPos pos
 
 void weapon_impact(Arena& arena, const WeaponDef& weapon, pathfinding::WPos pos_impact,
                    std::uint32_t u4_owner) {
-  // WeaponInfo.Impact（:235-249）：逐 warhead（yaml 序）
+
   for (const WarheadDef& wh : weapon.vec_warheads) {
     if (wh.int4_delay > 0) {
       Effect eff;
@@ -218,18 +205,17 @@ void weapon_impact(Arena& arena, const WeaponDef& weapon, pathfinding::WPos pos_
 }
 
 void effects_tick(Arena& arena) {
-  // 列表序枚举（含本帧新增尾插项——与上游 List 枚举器一致）
+
   for (std::size_t idx{0}; idx < arena.vec_effects.size(); ++idx) {
     Effect& eff{arena.vec_effects[idx]};
     if (eff.kind == Effect::Kind::kInstantHit) {
-      // InstantHit.Tick（:69-89）：同帧结算（创建于 Activity/ITick 段、尾插可见）
-      // Blockable 面无 BlocksProjectiles actor（对射剧本）——挡弹检查恒过
+
       weapon_impact(arena, *eff.ptr_weapon, eff.pos_impact, eff.u4_owner);
       arena.deque_frame_end.push_back(
           FrameEndTask{.kind = FrameEndTask::Kind::kRemoveEffect,
                        .u4_effect_serial = eff.u4_serial});
     } else if (eff.kind == Effect::Kind::kBullet) {
-      // Bullet.Tick（:247-261）：插值 → ShouldExplode（flightLengthReached = ticks++ >= length）
+
       eff.last_pos = eff.pos;
       eff.pos = wpos_lerp_quadratic(eff.source, eff.target, eff.int4_angle, eff.int4_ticks,
                                     eff.int4_length);
@@ -237,7 +223,7 @@ void effects_tick(Arena& arena) {
       ++eff.int4_ticks;
 
       if (b_flight_length_reached) {
-        // Tick（:247-261）：ContrailLength>0 → 帧尾加 ContrailFader（任务序在 remove 前）
+
         if (eff.ptr_weapon != nullptr && eff.ptr_weapon->projectile.int4_contrail_length > 0) {
           Effect fader;
           fader.kind = Effect::Kind::kContrailFader;
@@ -249,21 +235,21 @@ void effects_tick(Arena& arena) {
           task.effect = fader;
           arena.deque_frame_end.push_back(std::move(task));
         }
-        // Explode（:366-377）：帧尾 remove，随后 Impact（任务序）
+
         arena.deque_frame_end.push_back(
             FrameEndTask{.kind = FrameEndTask::Kind::kRemoveEffect,
                          .u4_effect_serial = eff.u4_serial});
         weapon_impact(arena, *eff.ptr_weapon, eff.pos, eff.u4_owner);
       }
     } else if (eff.kind == Effect::Kind::kDelayedImpact) {
-      // DelayedImpact.Tick（:26-31）：--delay<=0 → 帧尾（remove + DoImpact 同一任务）
+
       if (--eff.int4_delay <= 0) {
         arena.deque_frame_end.push_back(
             FrameEndTask{.kind = FrameEndTask::Kind::kDelayedDoImpact,
                          .u4_effect_serial = eff.u4_serial});
       }
     } else if (eff.kind == Effect::Kind::kContrailFader) {
-      // ContrailFader.Tick（:26-31）：ticks++ == Length → 帧尾移除（存活 Length+1 tick）
+
       if (eff.int4_ticks++ == eff.int4_length) {
         arena.deque_frame_end.push_back(
             FrameEndTask{.kind = FrameEndTask::Kind::kRemoveEffect,
@@ -273,4 +259,4 @@ void effects_tick(Arena& arena) {
   }
 }
 
-}  // namespace ora::game::combat
+}

@@ -27,7 +27,7 @@ std::int32_t read_i4le(std::span<const std::uint8_t> span_bytes, std::size_t idx
                                    (static_cast<std::uint32_t>(span_bytes[idx_offset + 3]) << 24));
 }
 
-}  // namespace
+}
 
 std::vector<std::uint8_t> order_packet_from_orders(const std::vector<OrderModel>& vec_orders) {
   std::vector<std::uint8_t> vec_out;
@@ -99,4 +99,4 @@ std::optional<ParsedSyncPacket> try_parse_sync_packet(
   return parsed;
 }
 
-}  // namespace ora::game::network
+}

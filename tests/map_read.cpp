@@ -47,7 +47,6 @@ void run_sha1_unit() {
   check(ogs::sha1_hex(std::string(128, 'x')) == "150fa3fbdc899bd0b8f95a9fb6027f564d953762", "sha1 128 字节双块");
 }
 
-
 std::optional<std::string> read_file_bytes(std::string_view str_path) {
   std::ifstream stream_in{std::filesystem::path{std::string{str_path}}, std::ios::binary};
   if (!stream_in) return std::nullopt;

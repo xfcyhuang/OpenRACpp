@@ -99,4 +99,4 @@ void dispose_actor(WorldModel& w, std::uint32_t u4_actor_id);
 
 void world_tick(WorldModel& w);
 
-}  // namespace ora::game::world
+}

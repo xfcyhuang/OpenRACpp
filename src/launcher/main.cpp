@@ -1,10 +1,5 @@
 import std;
 
-
-// console 子系统：CLI 工具自持 main（否则 SDL_main.h 把 main 宏改名为 SDL_main，
-// lld 检测不到 main 符号即选 windows 子系统——GUI 进程不附加控制台，Ctrl+C 的
-// SetConsoleCtrlHandler 永远收不到事件；连带 SDL2 config 的 -mwindows 一并弃用，
-// 见 src/launcher/CMakeLists.txt）。
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <csignal>
@@ -238,15 +233,12 @@ struct UiState {
   bool b_screenshot{};
 };
 
-
 std::string screenshot_path(std::string_view str_name) {
   std::error_code ec;
   std::filesystem::create_directories("shots", ec);
   return std::format("shots/{}.bmp", str_name);
 }
 
-// tileset 解析路径：优先 exe 旁 data/temperat.yaml（POST_BUILD 拷贝位置），
-// 使 --map 真图路径从任意 CWD 启动均可用；缺省回落 CWD 相对路径。
 std::string resolve_tileset_path(char* sz_argv0) {
   std::error_code ec;
   const std::filesystem::path path_exe{sz_argv0 != nullptr ? sz_argv0 : ""};
@@ -279,8 +271,6 @@ void issue_orders(lch::GameSession& s, std::span<const net::OrderModel> vec_orde
   for (const net::OrderModel& order : vec_orders) lch::session_issue_order(s, order);
 }
 
-// T16 --record 引导段：SyncInfo/StartGame 两枚 from=0 引导包（Server.cs:1288/:1428 同型）
-// + [1] pacing 空包（session_setup 已 start_game，此处补记探针 StartGame 挂接点的等价物）
 namespace recorder_ns_local {
 
 void recorder_boot_packets(replay_ns::ReplayRecorderModel& recorder,
@@ -312,7 +302,7 @@ void recorder_finish(replay_ns::ReplayRecorderModel& recorder,
   if (ptr_log != nullptr) *ptr_log << str_line << '\n';
 }
 
-}  // namespace recorder_ns_local
+}
 
 std::optional<int> parse_dim(std::string_view str_value, std::size_t idx_part) {
   const std::size_t idx_comma{str_value.find(',')};
@@ -468,8 +458,6 @@ struct DemoState {
   bool b_shot_done{};
 };
 
-// 按 owner 视角取 actor：b_own=true 取己方（viewer）第 idx_skip 个，false 取敌方。
-// demo 步骤必须用己方单位下单（order_generator 只对 owner==viewer 的单位生成订单）。
 std::uint32_t demo_actor_of_owner(const lch::GameSession& s, std::string_view str_type,
                                   bool b_own, std::size_t idx_skip) {
   std::size_t idx_seen{0};
@@ -581,8 +569,7 @@ void demo_step(lch::GameSession& s, UiState& ui, DemoState& demo,
 
   switch (demo.int4_stage) {
     case 1: {
-      // 等渲染帧计数而非逻辑 tick：截图读 back buffer，必须保证此前已有帧
-      // 完成 draw+swap（首渲染帧截图时 back 从未被画，得到全黑图）。
+
       if (demo.int4_wait < 12) {
         ++demo.int4_wait;
         return;
@@ -690,8 +677,7 @@ void demo_step(lch::GameSession& s, UiState& ui, DemoState& demo,
     case 8: {
       const std::uint32_t u4_e1{demo_actor_of_owner(s, "e1", true, 1)};
       const std::uint32_t u4_foe{demo_actor_of_owner(s, "e1", false, 0)};
-      // 击杀完成判定先行：敌单位在击杀帧即从 in_world 移除，若有效性检查在前会
-      // 提前 return，令 killed 判定分支永远不可达（demo 死锁）。
+
       if (demo.int4_seq == 2 &&
           (demo_events_have(s, "killed ") || u4_foe == 0xffffffffu)) {
         save_screenshot(ptr_window, screenshot_path("demo-08-attack").c_str());
@@ -716,9 +702,7 @@ void demo_step(lch::GameSession& s, UiState& ui, DemoState& demo,
       return;
     }
     case 9: {
-      // 状态机以 placed ftur 事件计数驱动（PlaceBuilding 单 N 发 N+1 应用，若按
-      // 固定 seq 在放置后立即点下一个图标，panel_done_building_hit 会用旧队列
-      // 快照里的 Done item 再次拦截、误入放置模式，demo 死锁）。
+
       static constexpr std::int32_t arr_cells[][2]{
           {14, 31}, {17, 31}, {20, 31}, {23, 31}, {26, 31}};
       std::int32_t int4_placed{0};
@@ -937,7 +921,7 @@ void push_panel_draw(const lch::GameSession& s, const UiState& ui,
 }
 
 int run_headless(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0) {
-  // T16 --replay：先读 .orarep 构建重演 feed（世界按文件 Session 的 seed 重建）
+
   std::optional<replay_ns::ReplayFeedModel> opt_feed;
   std::int32_t int4_ticks{args.int4_headless_ticks};
   if (!args.str_replay.empty()) {
@@ -963,7 +947,7 @@ int run_headless(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv
       return 1;
     }
     opt_feed.emplace(std::move(*res_feed));
-    // 尾帧投影未消费：TickCount = 仿真帧 + 1（t16-t17 §5.3）
+
     int4_ticks = opt_feed->int4_tick_count - 1;
     std::println("replay: {} seed={} net-frame-interval={} final-tick={} clients={}",
                  args.str_replay, opt_feed->session.int4_seed,
@@ -980,8 +964,6 @@ int run_headless(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv
   }
   lch::GameSession& s{*res_session};
 
-  // T16 --record：录制器挂接（session_setup 已 start_game——[1] pacing 空包在此补记，
-  // 与探针 RecordingEchoConnection.StartGame 的记录点等价）
   replay_ns::ReplayRecorderModel recorder;
   if (!args.str_record.empty()) {
     s.om.ptr_recorder = &recorder;
@@ -1000,8 +982,7 @@ int run_headless(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv
   std::size_t sz_orders_fed{};
   flush_events(s, sz_printed, ptr_log);
   for (std::int32_t int4_tick{0}; int4_tick < int4_ticks; ++int4_tick) {
-    // 重演订单喂桥：管道外效果（Move/Attack 由 launcher 桥承载）按投喂帧对齐
-    // bridge_pending——与录制侧 session_issue_order 的 (frame+1) 同帧消费
+
     if (opt_feed.has_value()) {
       while (sz_orders_fed < opt_feed->vec_replayed_orders.size()) {
         const auto& [int4_frame, vec_bytes]{opt_feed->vec_replayed_orders[sz_orders_fed++]};
@@ -1020,7 +1001,6 @@ int run_headless(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv
 
   std::println("{}", lch::session_hud_line(s));
 
-  // T16 --record：Dispose 落盘（EndTimeUtc=当前 UTC 墙钟——记录流恒等口径不受影响）
   if (!args.str_record.empty()) {
     replay_ns::ReplayGameInfo info;
     info.str_mod = args.str_mod;
@@ -1034,7 +1014,6 @@ int run_headless(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv
     recorder_ns_local::recorder_finish(recorder, info, args.str_record, ptr_log);
   }
 
-  // T16 --replay：desync 检出面（逐帧对拍报告 / om 标志）
   if (opt_feed.has_value()) {
     for (const std::string& str_report : opt_feed->vec_desync_reports)
       std::println("ora: desync: {}", str_report);
@@ -1309,7 +1288,7 @@ std::optional<std::string> detect_content_dir(const lch::CliArgs& args) {
   return std::nullopt;
 }
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
   SDL_SetMainReady();

@@ -282,7 +282,7 @@ void log_frame_events(GameSession& s, std::int32_t int4_cash_prev, std::int32_t 
                                        state.power.int4_power_drained));
 }
 
-}  // namespace
+}
 
 std::expected<GameSession, std::string> session_setup(const SessionEnv& env) {
   auto res_loaded{env.str_map_path.empty()
@@ -427,4 +427,4 @@ std::vector<inp::ProductionQueueView> session_queue_views(const GameSession& s) 
   return vec_views;
 }
 
-}  // namespace ora::launcher
+}

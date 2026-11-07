@@ -48,4 +48,4 @@ struct LocomotorMap {
 
 [[nodiscard]] std::int32_t terrain_speed_for_cell(const LocomotorMap& map, CPos cell);
 
-}  // namespace ora::game::pathfinding
+}

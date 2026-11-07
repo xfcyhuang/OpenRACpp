@@ -131,7 +131,6 @@ void receive_orders(OrderManagerModel& om, std::int32_t int4_client, std::int32_
   om.str_fatal = std::format("Received packet from disconnected client '{}'", int4_client);
 }
 
-// 返回 true = 与参照不匹配（OutOfSync 语义：syncForFrame 首条为参照，同帧后续比对）
 [[nodiscard]] bool receive_sync(OrderManagerModel& om, std::int32_t int4_frame,
                                 std::int32_t int4_sync_hash, std::uint64_t u8_defeat_state) {
   bool b_mismatch{false};
@@ -149,8 +148,7 @@ void receive_orders(OrderManagerModel& om, std::int32_t int4_client, std::int32_
 
 void connection_receive(OrderManagerModel& om, world::WorldModel& w) {
   if (om.ptr_replay_feed != nullptr) {
-    // 重演（ReplayConnection.Receive 语义）：本地 sync 先排干成参照，再按
-    // chunk.Frame <= NetFrameNumber + orderLatency 投喂（replay_player 实装）
+
     replay::replay_feed_pump(*om.ptr_replay_feed, om, w);
     return;
   }
@@ -178,7 +176,7 @@ void connection_receive(OrderManagerModel& om, world::WorldModel& w) {
 void send_immediate_orders(OrderManagerModel& om) {
   if (om.vec_local_immediate.empty()) return;
   if (om.ptr_replay_feed != nullptr) {
-    // 重放中本地发单无效（ReplayConnection.SendImmediate 忽略）
+
     om.vec_local_immediate.clear();
     return;
   }
@@ -194,7 +192,7 @@ void send_orders(OrderManagerModel& om, const world::WorldModel& w) {
   if (!om.b_game_started || om.int4_sent_orders_frame >= static_cast<std::int32_t>(w.u4_net_frame))
     return;
   if (om.ptr_replay_feed != nullptr) {
-    // 重放中本地发单无效（ReplayConnection.Send 忽略），帧 pacing 由文件订单包承载
+
     om.vec_local.clear();
     om.int4_sent_orders_frame = static_cast<std::int32_t>(w.u4_net_frame);
     return;
@@ -203,7 +201,7 @@ void send_orders(OrderManagerModel& om, const world::WorldModel& w) {
   om.vec_local.clear();
   const std::int32_t int4_frame{static_cast<std::int32_t>(w.u4_net_frame)};
   if (om.ptr_recorder != nullptr)
-    // 记录「应用帧」= 发出帧 + 投影（NetworkConnection 走服务器 Ack 帧，Connection.cs:344-345）
+
     replay::recorder_receive(*om.ptr_recorder, kLocalClientId,
                              order_packet_serialize_frame(vec_packet, int4_frame + 1));
   om.deque_echo_orders.emplace_back(int4_frame, std::move(vec_packet));
@@ -232,12 +230,12 @@ void process_orders_frame(OrderManagerModel& om, world::WorldModel& w) {
   const std::int32_t int4_sync_hash{world::process_orders(w)};
   const std::vector<std::uint8_t> vec_sync{serialize_sync_packet(int4_frame, int4_sync_hash, 0)};
   if (om.ptr_recorder != nullptr)
-    // SendSync → 17 字节 sync 记录（Connection.cs:302）
+
     replay::recorder_receive(*om.ptr_recorder, kLocalClientId, vec_sync);
   om.vec_echo_sync.push_back(vec_sync);
 }
 
-}  // namespace
+}
 
 void order_manager_start_game(OrderManagerModel& om, world::WorldModel& w,
                               std::span<const std::int32_t> vec_client_ids) {
@@ -256,7 +254,7 @@ void order_manager_start_game(OrderManagerModel& om, world::WorldModel& w,
   om.vec_echo_sync.clear();
 
   if (om.ptr_recorder != nullptr)
-    // StartGame → [1] pacing 空包（服务器开局注入，Connection.cs:52-56 + Server.cs:1449-1466）
+
     replay::recorder_receive(*om.ptr_recorder, kLocalClientId,
                              order_packet_serialize_frame(std::vector<std::uint8_t>{}, 1));
 
@@ -306,7 +304,6 @@ bool run_frame(OrderManagerModel& om, world::WorldModel& w) {
   return b_ticked;
 }
 
-// 供 replay::replay_feed_pump（重演投喂）复用内部 receive_orders/receive_sync
 bool receive_sync_for_pump(OrderManagerModel& om, std::int32_t int4_frame,
                            std::int32_t int4_sync_hash, std::uint64_t u8_defeat_state) {
   return receive_sync(om, int4_frame, int4_sync_hash, u8_defeat_state);
@@ -317,13 +314,13 @@ void receive_orders_for_pump(OrderManagerModel& om, std::int32_t int4_client,
   receive_orders(om, int4_client, int4_frame, std::move(vec_bytes));
 }
 
-}  // namespace ora::game::network
+}
 
 namespace ora::game::replay {
 
 void replay_feed_pump(ReplayFeedModel& feed, network::OrderManagerModel& om,
                       world::WorldModel& w) {
-  // 1. 本地 sync 先排干（重演中 ProcessOrders 产生的 SendSync 入队，首到者成参照）
+
   for (const std::vector<std::uint8_t>& vec_packet : om.vec_echo_sync) {
     const auto opt_parsed{network::try_parse_sync_packet(vec_packet)};
     if (!opt_parsed.has_value()) continue;
@@ -343,7 +340,6 @@ void replay_feed_pump(ReplayFeedModel& feed, network::OrderManagerModel& om,
   }
   om.vec_echo_sync.clear();
 
-  // 2. chunk 按 Frame <= NetFrameNumber + OrderLatency 投喂（ReplayConnection.cs:111）
   while (!feed.deque_chunks.empty() &&
          feed.deque_chunks.front().int4_frame <=
              static_cast<std::int32_t>(w.u4_net_frame) + kReplayOrderLatency) {
@@ -355,7 +351,7 @@ void replay_feed_pump(ReplayFeedModel& feed, network::OrderManagerModel& om,
         const bool b_mismatch{network::receive_sync_for_pump(
             om, opt_sync->int4_frame, opt_sync->int4_sync_hash, opt_sync->u8_defeat_state)};
         if (b_mismatch) {
-          // local 侧值：本地已算出则用本地；否则用参照（首到者=先到的另一份录中包）
+
           const auto it_local{feed.map_local_syncs.find(opt_sync->int4_frame)};
           const auto it_reference{om.map_sync_reference.find(opt_sync->int4_frame)};
           const auto& ref = it_local != feed.map_local_syncs.end()
@@ -382,4 +378,4 @@ void replay_feed_pump(ReplayFeedModel& feed, network::OrderManagerModel& om,
   }
 }
 
-}  // namespace ora::game::replay
+}

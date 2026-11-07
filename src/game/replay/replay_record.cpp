@@ -22,7 +22,6 @@ void set_child_value(MiniYamlNode& node_parent, std::string_view str_key, std::s
   node_parent.vec_children.push_back(make_node(str_key, std::move(str_value)));
 }
 
-// 上游 FieldSaver 的 DateTime 格式（FieldSaver.cs:131-137）："yyyy-MM-dd HH-mm-ss" invariant。
 [[nodiscard]] std::string format_utc(const std::chrono::system_clock::time_point& tp_now) {
   const std::chrono::sys_days tp_day{std::chrono::floor<std::chrono::days>(tp_now)};
   const std::chrono::year_month_day ymd{tp_day};
@@ -34,7 +33,6 @@ void set_child_value(MiniYamlNode& node_parent, std::string_view str_key, std::s
                      hms.minutes().count(), hms.seconds().count());
 }
 
-// 上游 IsGameStart（ReplayRecorder.cs:29-35）：frame-0 包的订单串里含 "StartGame"。
 [[nodiscard]] bool packet_contains_start_game(std::span<const std::uint8_t> span_data) {
   if (span_data.size() < 4) return false;
   if (span_data[0] != 0 || span_data[1] != 0 || span_data[2] != 0 || span_data[3] != 0)
@@ -65,7 +63,7 @@ void set_child_value(MiniYamlNode& node_parent, std::string_view str_key, std::s
   return int4_fallback;
 }
 
-}  // namespace
+}
 
 std::string replay_session_yaml(const ReplaySessionInfo& info) {
   std::string str_out;
@@ -175,4 +173,4 @@ std::vector<std::uint8_t> make_boot_packet(std::string_view str_order,
   return network::order_packet_serialize_frame(network::order_packet_from_orders({order}), 0);
 }
 
-}  // namespace ora::game::replay
+}

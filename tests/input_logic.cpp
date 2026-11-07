@@ -10,9 +10,6 @@ import std;
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
 
-// T14（issue #15）：输入交互与基础 HUD 侧栏的无头测试。
-// 合成世界 + 合成 MouseInput → 断言选择集/订单（T08 serialize 字节对拍）/面板状态机。
-
 namespace {
 
 namespace wig = ora::game::input;
@@ -841,7 +838,7 @@ void test_input_pipeline_and_sync() {
   }
 }
 
-}  // namespace
+}
 
 int main() {
   test_screen_map();

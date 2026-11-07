@@ -319,7 +319,7 @@ game::Tileset sandbox_tileset() {
   return tileset;
 }
 
-}  // namespace
+}
 
 std::string_view sandbox_rules_text() { return kRules; }
 
@@ -443,4 +443,4 @@ std::expected<LoadedMap, std::string> load_oramap(std::string_view str_path,
   return out;
 }
 
-}  // namespace ora::launcher
+}

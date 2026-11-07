@@ -6,12 +6,6 @@ import std;
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
 
-// T10（issue #11）：建造/生产闭环含电力门槛。
-// 口径修正（调研实证）：上游 ra 语义是电力不足生产 ×LowPowerModifier/100 减速
-// （LowPowerModifier=300 → 每 3 tick 推进 1），非停摆；真停摆仅缺钱/出口堵/
-// 生产建筑被禁用。ProductionItem.Tick 的令牌桶照上游实码（Slowdown-100，
-// <0 时 +Modifier 并继续，>=0 跳过）。
-
 namespace {
 
 int g_failed{};
@@ -390,8 +384,7 @@ void test_positive_scenario() {
       {520, make_place_building("barr", 33, 34)},
       {540, make_start_production("e1", 1)},
   };
-  // 剧本截断在 e1 出厂帧（601）：E1 带武装，出厂后 AutoTarget idle 扫描每 3-8 tick
-  // 耗 SharedRandom（战斗面，T12）——生产链 rng 账本只覆盖到出厂 shuffle 为止。
+
   ScenarioRun run{run_scenario(kMapPositive, 601, vec_orders)};
   const auto& w{run.w};
 
@@ -451,8 +444,7 @@ void test_negative_scenario() {
       {570, make_place_building("powr", 33, 30)},
       {580, make_start_production("e1", 1)},
   };
-  // 剧本截断在 e1 出厂帧（761）。开局 0 vs 120 Critical（BARR -20 + 10×SILO -100）；
-  // POWR(+100) 放置 @571 后 100 vs 120 Low——两档电力下生产均为 ×3 减速（令牌桶）。
+
   ScenarioRun run{run_scenario(kMapNegative, 761, vec_orders)};
   const auto& w{run.w};
 
@@ -567,7 +559,7 @@ void test_golden_compare() {
   }
 }
 
-}  // namespace
+}
 
 int main() {
   test_power_state();

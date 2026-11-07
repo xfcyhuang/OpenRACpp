@@ -57,4 +57,4 @@ struct OrderReader {
 [[nodiscard]] std::optional<OrderModel> deserialize_order(OrderReader& reader,
                                                            const world::WorldModel* ptr_world);
 
-}  // namespace ora::game::network
+}

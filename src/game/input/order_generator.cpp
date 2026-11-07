@@ -66,7 +66,7 @@ struct UnitOrderChoice {
   network::TargetModel target;
 };
 
-}  // namespace
+}
 
 std::int32_t cpos_bits(std::int32_t int4_x, std::int32_t int4_y, std::int32_t int4_layer) {
   return ((int4_x & 0xfff) << 20) | ((int4_y & 0xfff) << 8) | (int4_layer & 0xff);
@@ -246,4 +246,4 @@ std::vector<network::OrderModel> order_generator_handle_mouse(
                                     world_px_to_cell(int4_px_y), int4_px_x, int4_px_y, mi);
 }
 
-}  // namespace ora::game::input
+}

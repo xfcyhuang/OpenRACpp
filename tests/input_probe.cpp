@@ -682,7 +682,7 @@ int run_probe(bool b_manual) {
   return int4_failures == 0 ? 0 : 1;
 }
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
   bool b_manual{false};

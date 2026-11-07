@@ -71,4 +71,4 @@ struct PanelDispatchResult {
                                                      std::uint32_t u4_queue_actor,
                                                      const MouseInput& mi);
 
-}  // namespace ora::game::input
+}

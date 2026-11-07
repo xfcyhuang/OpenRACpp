@@ -433,9 +433,7 @@ void run_hpf_cross_check(const GoldenPaths& gold) {
       CrossSpec{"nearpair all", "nearpair w100"},
       CrossSpec{"moveturn none", "moveturn w125"},
       CrossSpec{"moveturn all", "moveturn w125"},
-      // movepair（(35,17)→(12,12)）刻意不在交叉表：该远距对上 oracle HPF 走抽象层，
-      // 路径与局部 A* w100/w125 均不同（黄金 hpf movepair 行即实证），等价性断言
-      // 不成立——HPF 复刻是 T12+ 面，登记 docs/COVERAGE.md D025。
+
   };
 
   std::map<std::string, std::vector<pfg::CPos>> map_gold_astar;
@@ -455,7 +453,7 @@ void run_hpf_cross_check(const GoldenPaths& gold) {
   }
 }
 
-}  // namespace
+}
 
 int main() {
   run_queue_unit_tests();

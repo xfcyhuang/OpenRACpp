@@ -10,7 +10,6 @@ namespace {
 
 int int4_failures{0};
 
-
 void check(bool b_ok, std::string_view str_what) {
   if (!b_ok) {
     ++int4_failures;

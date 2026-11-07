@@ -6,7 +6,6 @@ namespace {
 
 constexpr char kAbstractActorPrefix{'^'};
 
-// ToLowerInvariant 的 ASCII 面（语料全 ASCII；与 D005 同口径）
 std::string to_lower_ascii(std::string_view str_in) {
   std::string str_out;
   str_out.reserve(str_in.size());
@@ -15,16 +14,13 @@ std::string to_lower_ascii(std::string_view str_in) {
   return str_out;
 }
 
-}  // namespace
+}
 
 std::expected<std::vector<std::string>, std::string> manifest_rules_files(
     std::string_view str_mod_yaml_path) {
   auto res_nodes{miniyaml_from_file(str_mod_yaml_path, true)};
   if (!res_nodes.has_value()) return std::unexpected(res_nodes.error());
 
-  // 上游 new MiniYaml(null, MiniYaml.Merge([nodes])).ToDictionary()——
-  // mod.yaml 单文件也走完整 Merge（跨文件继承/删除语义），输出顶层键唯一，
-  // 线性查首个 "Rules" 与字典查找等价
   auto res_merged{miniyaml_merge({std::move(*res_nodes)})};
   if (!res_merged.has_value()) return std::unexpected(res_merged.error());
 
@@ -37,7 +33,7 @@ std::expected<std::vector<std::string>, std::string> manifest_rules_files(
       return vec_files;
     }
 
-  return std::vector<std::string>{};  // 上游 YamlList：区块缺失 → 空列表
+  return std::vector<std::string>{};
 }
 
 std::expected<RulesetModel, std::string> ruleset_load_minimal(
@@ -56,7 +52,7 @@ std::expected<RulesetModel, std::string> ruleset_load_minimal(
   RulesetModel model;
   std::set<std::string> set_lower_seen;
   for (const MiniYamlNode& node : *res_merged) {
-    if (node.str_key.starts_with(kAbstractActorPrefix)) continue;  // ^ 过滤在 Merge 之后
+    if (node.str_key.starts_with(kAbstractActorPrefix)) continue;
 
     if (!set_lower_seen.insert(to_lower_ascii(node.str_key)).second)
       return std::unexpected(
@@ -73,4 +69,4 @@ std::expected<RulesetModel, std::string> ruleset_load_minimal(
   return model;
 }
 
-}  // namespace ora::game
+}

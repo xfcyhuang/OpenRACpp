@@ -163,7 +163,7 @@ void move_on_first_run(MoveSimState& st, const MoveSimConfig& cfg) {
     return;
   }
 
-  if (st.b_path_preset) return;  // 外部预置路径（MoveWithinRange 的 FindPathToTargetCells）
+  if (st.b_path_preset) return;
 
   std::vector<CPos> vec_path{astar_to_target_cell(*cfg.ptr_map, st.cell_to, st.cell_destination,
                                                   cfg.int4_heuristic_weight, true, cfg.ptr_set_blocked,
@@ -213,7 +213,7 @@ bool move_root_tick(MoveSimState& st, const MoveSimConfig& cfg) {
   return false;
 }
 
-}  // namespace
+}
 
 void move_queue(MoveSimState& st, CPos cell_destination) {
   st.b_has_activity = true;
@@ -259,4 +259,4 @@ std::int32_t facing_between(CPos cell, CPos cell_towards, std::int32_t int4_fall
   return wvec_yaw(vec_delta);
 }
 
-}  // namespace ora::game::pathfinding
+}

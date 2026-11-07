@@ -11,7 +11,7 @@ import std;
 namespace ora::game::world {
 struct WorldModel;
 struct FrameEndTask;
-}  // namespace ora::game::world
+}
 
 namespace ora::game::economy {
 
@@ -55,8 +55,7 @@ enum class ActKind : std::uint8_t {
   kWait = 5,
   kMove = 6,
   kTurn = 7,
-  // 上游 MoveOnto（MoveAdjacentTo 子类）的移动：FindPathToTargetCells 反向搜索，
-  // 观测行仍显示为 Move。
+
   kMoveReverse = 8,
 };
 
@@ -186,4 +185,4 @@ std::int32_t resource_remove(ResourceLayerState& layer, EconomyWorldState& econ,
 
 [[nodiscard]] const std::vector<world::TraitSpec>& economy_trait_specs();
 
-}  // namespace ora::game::economy
+}

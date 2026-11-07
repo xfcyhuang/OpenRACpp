@@ -247,7 +247,7 @@ TickRow snapshot_row(const pfg::MoveSimState& st, std::int32_t int4_tick) {
   return row;
 }
 
-}  // namespace
+}
 
 int main() {
   const auto str_golden{read_file_bytes(std::format("{}/ore-lord.move.txt", ORA_PATHFINDING_GOLDEN_DIR))};
@@ -330,9 +330,6 @@ int main() {
   check(idx_gold == vec_gold_tick.size(),
         std::format("move: consumed {} of {} golden tick rows", idx_gold, vec_gold_tick.size()));
 
-  // 第二段 (35,17)→(28,10)：近距西北对角（= paths.txt 的 moveturn 对，实测
-  // oracle A100==A125==HPF 逐格一致）→ 135° Turn + FirstHalf 弧线链。原定远距对
-  // (12,12) 上 oracle HPF 走抽象层、与局部 A* 不同路径（D025），逐 tick 对拍不可行。
   pfg::move_queue(st, pfg::CPos{28, 10});
 
   std::size_t idx_gold2{0};

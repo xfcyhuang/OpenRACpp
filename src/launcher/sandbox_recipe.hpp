@@ -37,4 +37,4 @@ struct LoadedMap {
 [[nodiscard]] std::expected<LoadedMap, std::string> load_oramap(
     std::string_view str_path, std::string_view str_tileset_path = "data/temperat.yaml");
 
-}  // namespace ora::launcher
+}

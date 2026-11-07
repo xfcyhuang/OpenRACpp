@@ -20,13 +20,6 @@ import std;
 #define ORA_COMBAT_GOLDEN_DIR "tests/golden/combat"
 #endif
 
-// T12（issue #13）：攻击/战斗/死亡闭环。
-//   单元部分：武器表解析（黄金 weapons yaml → WeaponDef）、三条独立 decimal
-//   取整链（DamageVersus 100 基数链 → InflictDamage 链 → Health victim 修饰链，
-//   每链末一次截断）锚点单测。
-//   剧本部分：四剧本交战至死亡逐 tick 对拍 tests/golden/combat/duels.txt +
-//   同进程双世界恒等（见 main 后半，实现随 slice 增长）。
-
 namespace {
 
 int int4_failures{0};
@@ -74,7 +67,6 @@ std::vector<std::string> read_lines(const std::string& str_text) {
   return vec_lines;
 }
 
-// —— 武器表装载：manifest 清单 + 逐文件（保序）解析合并（上游 MiniYaml.Load 同路径）——
 std::optional<ora::game::combat::WeaponTable> load_weapon_table() {
   const auto str_manifest{
       read_file_bytes(std::format("{}/weapons-manifest.txt", ORA_COMBAT_GOLDEN_DIR))};
@@ -84,7 +76,7 @@ std::optional<ora::game::combat::WeaponTable> load_weapon_table() {
   std::vector<std::string> vec_names;
   for (const std::string& str_entry : read_lines(*str_manifest)) {
     if (str_entry.empty()) continue;
-    // 入库文件名：ra|weapons/explosions.yaml → ra_weapons/explosions.yaml
+
     std::string str_rel{str_entry};
     const std::size_t idx_bar{str_rel.find('|')};
     if (idx_bar != std::string::npos) str_rel[idx_bar] = '_';
@@ -126,14 +118,14 @@ void test_weapon_table() {
     check(wh_m1->vec_warheads.size() == 7,
           std::format("m1carbine 7 warheads (got {})", wh_m1->vec_warheads.size()));
     if (wh_m1->vec_warheads.size() == 7) {
-      // 首个 SpreadDamage：Damage 1000、Versus 保序（None:150,Wood:30,Light:40,Heavy:10,Concrete:10）
+
       const auto& wh1{wh_m1->vec_warheads[0]};
       check(wh1.kind == ora::game::combat::WarheadKind::kSpreadDamage, "m1 wh1 SpreadDamage");
       check(wh1.int4_damage == 1000, "m1 wh1 damage 1000");
       const std::vector<std::pair<std::string, int>> vec_expect{
           {"None", 150}, {"Wood", 30}, {"Light", 40}, {"Heavy", 10}, {"Concrete", 10}};
       check(wh1.vec_versus == vec_expect, "m1 wh1 versus order/values");
-      // CreateEffect 六个：d0/d0/d2/d2/d4/d4，inacc 全 171
+
       const std::vector<int> vec_delays{0, 0, 2, 2, 4, 4};
       for (std::size_t idx{0}; idx < 6; ++idx) {
         const auto& whc{wh_m1->vec_warheads[idx + 1]};
@@ -176,40 +168,23 @@ void test_weapon_table() {
   }
 }
 
-// —— 三条独立 decimal 取整链（每链末一次截断；绝不合并）——
 void test_damage_chains() {
   using namespace ora::game::combat;
 
-  // 链语义锚点 1：M1Carbine 命中 None 甲（Versus None=150）——
-  //   DamageVersus 链：ApplyPercentageModifiers(100, [150]) = 150
-  //   InflictDamage 链：ApplyPercentageModifiers(1000, [falloff=100, 150]) = 1500
-  //   Health 链：无 victim 修饰 → 1500。5000-1500=3500（duelA t1）
   check(apply_percentage_modifiers(100, {150}) == 150, "chain1 versus 100*150%");
   check(apply_percentage_modifiers(1000, {100, 150}) == 1500, "chain2 1000*100%*150%");
 
-  // 链语义锚点 2：25mm 命中 None 甲（Versus None=32）——
-  //   2500 × falloff 100 × versus 32 = 800（duelB t22）
   check(apply_percentage_modifiers(2500, {100, 32}) == 800, "chain2 25mm 800");
 
-  // 链语义锚点 3：155mm 命中 None 甲（Versus None=60）带 falloff 70 ——
-  //   23000 × 70 × 60 / 10000 = 9660 —— 三链独立 vs 一次合并的差异锚点：
-  //   每链末截断在此例不敏感，但取整敏感例见下
   check(apply_percentage_modifiers(23000, {70, 60}) == 9660, "chain2 155mm 9660");
 
-  // 取整方向锚点：decimal 向零截断（非四舍五入、非向下取整——负数亦向零）
   check(apply_percentage_modifiers(10, {33}) == 3, "10*33% -> 3 (truncate)");
   check(apply_percentage_modifiers(10, {33, 33}) == 1, "10*33%*33% -> 1 (chain, no per-step)");
-  // 若逐步取整：10*33%=3（截），3*33%=0 —— 链内不逐步截断得 1。这是链语义的关键差异。
+
   check(apply_percentage_modifiers(100, {7}) == 7, "100*7% -> 7");
 
-  // DamageVersus 链独立截断后传 int 的锚点（DamageWarhead.cs:72-90）：
-  //   versus 链结果截断为 int 后再进 InflictDamage 链。
-  //   Versus [33, 33]：100×33%×33% = 10.89 -> 10；Damage 1000 × falloff 50 × versus 10：
-  //   = 1000×0.5×0.10 = 50。
   check(apply_percentage_modifiers(100, {33, 33}) == 10, "chain1 versus 100*33%*33% -> 10");
 
-  // Health victim 修饰链（Health.cs:172-187）：appliedDamage decimal 链末截断。
-  //   传入 Damage(1000)、victim 修饰 [50, 50]：1000×0.5×0.5 = 250。
   {
     HealthState hp;
     hp.int4_hp = 1000;
@@ -220,7 +195,6 @@ void test_damage_chains() {
     check(hp.int4_hp == 750, "health hp 750 after 250");
   }
 
-  // overkill 保护 + clamp 下界 0 + 死亡标志
   {
     HealthState hp;
     hp.int4_hp = 100;
@@ -232,7 +206,6 @@ void test_damage_chains() {
     check(hp.b_dead, "dead flag set at hp 0");
   }
 
-  // 死亡后再命中：IsDead 直接 return（不再扣、不重复触发）
   {
     HealthState hp;
     hp.int4_hp = 0;
@@ -242,14 +215,6 @@ void test_damage_chains() {
     check(!hp.b_died_this_call, "kill not re-triggered after death");
   }
 
-  // Falloff 链锚点（SpreadDamageWarhead.GetDamageFalloff + int2.Lerp 向零截断）：
-  //   effectiveRange = [0, 426, 852, 1278]、Falloff [100, 55, 20, 5]（区间左闭右开：
-  //   首个 outer > d 命中）
-  //   d=0 → Lerp(100,55,0,426) = 100
-  //   d=128 → Lerp(100,55,128,426) = 100 - 45*128/426 = 100-13 = 87
-  //   d=426 → 第二区间 Lerp(55,20,0,426) = 55
-  //   d=853 → 第三区间 Lerp(20,5,1,426) = 20 - 15*1/426 = 20
-  //   d=1279 → 超界 0
   check(get_damage_falloff(std::vector<int>{100, 55, 20, 5}, 426, 0) == 100, "falloff d=0 = 100");
   check(get_damage_falloff(std::vector<int>{100, 55, 20, 5}, 426, 128) == 87, "falloff d=128 lerp");
   check(get_damage_falloff(std::vector<int>{100, 55, 20, 5}, 426, 426) == 55, "falloff d=426 = 55");
@@ -257,13 +222,10 @@ void test_damage_chains() {
   check(get_damage_falloff(std::vector<int>{100, 55, 20, 5}, 426, 1279) == 0, "falloff beyond 0");
 }
 
-
-
 namespace ogf = ora::game::filesystem;
 namespace ogm = ora::game;
 namespace pfg = ora::game::pathfinding;
 
-// duelD 接近寻路：ore-lord 地形 + foot locomotor（探针 Locomotor@FOOT 同参）
 struct OreLordFootMap {
   ogm::MapBin bin_map;
   ogm::Tileset tileset;
@@ -329,7 +291,6 @@ std::optional<OreLordFootMap> load_ore_lord_foot() {
   return ore;
 }
 
-// —— 剧本对拍（探针 RunScenario 等价驱动）——
 struct DuelSpec {
   std::string str_name;
   std::string str_type_a;
@@ -340,7 +301,6 @@ struct DuelSpec {
   int int4_ticks;
 };
 
-// 生成与探针 dump 同序的行（spawn + 逐 tick hit/death/removed/tick/proj）
 std::vector<std::string> run_duel(const ora::game::combat::WeaponTable& table,
                                   const DuelSpec& spec) {
   namespace cbt = ora::game::combat;
@@ -445,7 +405,6 @@ void test_duels() {
                false, 600},
   };
 
-  // 黄金按 scenario 切片（spawn 行起）
   std::map<std::string, std::vector<std::string>> map_golden;
   std::string str_current;
   for (const std::string& str_line : read_lines(*str_golden)) {
@@ -463,7 +422,7 @@ void test_duels() {
   }
 
   for (const DuelSpec& spec : vec_specs) {
-    // 双跑恒等（同进程两个独立 Arena）
+
     const std::vector<std::string> vec_run1{run_duel(*opt_table, spec)};
     const std::vector<std::string> vec_run2{run_duel(*opt_table, spec)};
     check(vec_run1 == vec_run2, std::format("{}: double-run identical", spec.str_name));
@@ -498,7 +457,7 @@ void test_duels() {
       check(true, std::format("{}: {} lines match golden", spec.str_name, idx_gold));
   }
 }
-}  // namespace
+}
 
 int main() {
   test_weapon_table();

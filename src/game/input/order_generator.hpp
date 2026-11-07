@@ -55,4 +55,4 @@ namespace ora::game::input {
     const world::WorldModel& w, std::uint32_t u4_viewer_player, const SelectionModel& selection,
     const DragState& drag, const MouseInput& mi);
 
-}  // namespace ora::game::input
+}
