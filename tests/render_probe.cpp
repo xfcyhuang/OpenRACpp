@@ -319,11 +319,11 @@ int main(int argc, char* argv[]) {
     vec_tnk_rects.push_back(rect);
   }
 
-  if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-    std::println("render_probe: SKIP（SDL_Init 失败：{}）", SDL_GetError());
-    return kSkip;
-  }
   SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "system");
+  if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    std::println("render_probe: FAIL（SDL_Init 失败：{}）", SDL_GetError());
+    return 1;
+  }
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -336,17 +336,18 @@ int main(int argc, char* argv[]) {
       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, int4_view_w, int4_view_h,
       SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI)};
   if (window == nullptr) {
-    std::println("render_probe: SKIP（窗口创建失败：{}）", SDL_GetError());
+    std::println("render_probe: FAIL（窗口创建失败：{}）", SDL_GetError());
     SDL_Quit();
-    return kSkip;
+    return 1;
   }
   SDL_GLContext ctx{SDL_GL_CreateContext(window)};
   if (ctx == nullptr) {
-    std::println("render_probe: SKIP（GL context 创建失败：{}）", SDL_GetError());
+    std::println("render_probe: FAIL（GL context 创建失败：{}）", SDL_GetError());
     SDL_DestroyWindow(window);
     SDL_Quit();
-    return kSkip;
+    return 1;
   }
+  SDL_GL_SetSwapInterval(0);
 
   gl_clear_color = gl_load<void (*)(GLfloat, GLfloat, GLfloat, GLfloat)>("glClearColor");
   gl_clear = gl_load<void (*)(GLenum)>("glClear");
@@ -376,6 +377,11 @@ int main(int argc, char* argv[]) {
   gl_bind_vertex_array = gl_load<void (*)(unsigned)>("glBindVertexArray");
   gl_read_buffer = gl_load<void (*)(GLenum)>("glReadBuffer");
   gl_read_pixels = gl_load<void (*)(int, int, GLsizei, GLsizei, GLenum, GLenum, void*)>("glReadPixels");
+
+  gl_clear_color(0.0f, 0.0f, 0.0f, 1.0f);
+  gl_clear(GL_COLOR_BUFFER_BIT);
+  SDL_GL_SwapWindow(window);
+  SDL_PumpEvents();
 
   unsigned tex_atlas{};
   gl_gen_textures(1, &tex_atlas);
@@ -570,47 +576,67 @@ int main(int argc, char* argv[]) {
   }};
 
   const std::vector<std::pair<int, int>> vec_anchor_tiles{{2, 3}, {40, 20}, {60, 55}};
-  for (const auto& [int4_i, int4_j] : vec_anchor_tiles) {
-    if ((int4_i + 1) * kTile > int4_w || (int4_j + 1) * kTile > int4_h) continue;
-    const Bgra bgra_expect{fn_expected_terrain(int4_i, int4_j, 12, 12)};
-    if (bgra_expect.u1_a != 255) continue;
-    const std::size_t sz_off{static_cast<std::size_t>(int4_h - 1 - (int4_j * kTile + 12))
-            * static_cast<std::size_t>(int4_w) * 3
-        + static_cast<std::size_t>(int4_i * kTile + 12) * 3};
-    probe_check(vec1u_px[sz_off] == bgra_expect.u1_r && vec1u_px[sz_off + 1] == bgra_expect.u1_g
-            && vec1u_px[sz_off + 2] == bgra_expect.u1_b,
-        std::format("地形锚点 ({},{}): got {} {} {} want {} {} {}", int4_i, int4_j,
-            vec1u_px[sz_off], vec1u_px[sz_off + 1], vec1u_px[sz_off + 2], bgra_expect.u1_r,
-            bgra_expect.u1_g, bgra_expect.u1_b));
-  }
-
-  {
-    const SpriteRect& rect{vec_tnk_rects[0]};
-    const ogr::ShpTdFrame& frm{res_tnk->vec_frames[0]};
-    std::optional<std::pair<int, int>> opt_hit{};
-    for (int int4_y{0}; int4_y < rect.int4_h && !opt_hit.has_value(); ++int4_y)
-      for (int int4_x{0}; int4_x < rect.int4_w; ++int4_x)
-        if (frm.vec1u_data[static_cast<std::size_t>(int4_y) * rect.int4_w + int4_x] == 85) {
-          opt_hit = std::pair{int4_x, int4_y};
-          break;
-        }
-    probe_check(opt_hit.has_value(), "1tnk frame0 找不到索引 85 像素");
-    if (opt_hit.has_value()) {
-      const int int4_sx{vec_tnk_screen[0].first + opt_hit->first};
-      const int int4_sy{vec_tnk_screen[0].second + opt_hit->second};
-      const std::uint32_t u4_c{pal_player.arr4u_colors[85]};
-      const unsigned char u1_b{static_cast<unsigned char>(u4_c & 0xFF)};
-      const unsigned char u1_g{static_cast<unsigned char>((u4_c >> 8) & 0xFF)};
-      const unsigned char u1_r{static_cast<unsigned char>((u4_c >> 16) & 0xFF)};
-      const std::size_t sz_off{static_cast<std::size_t>(int4_h - 1 - int4_sy)
+  const auto fn_anchor_checks = [&](const std::vector<unsigned char>& vec_px) {
+    int int4_fails{0};
+    for (const auto& [int4_i, int4_j] : vec_anchor_tiles) {
+      if ((int4_i + 1) * kTile > int4_w || (int4_j + 1) * kTile > int4_h) continue;
+      const Bgra bgra_expect{fn_expected_terrain(int4_i, int4_j, 12, 12)};
+      if (bgra_expect.u1_a != 255) continue;
+      const std::size_t sz_off{static_cast<std::size_t>(int4_h - 1 - (int4_j * kTile + 12))
               * static_cast<std::size_t>(int4_w) * 3
-          + static_cast<std::size_t>(int4_sx) * 3};
-      probe_check(vec1u_px[sz_off] == u1_r && vec1u_px[sz_off + 1] == u1_g
-              && vec1u_px[sz_off + 2] == u1_b,
-          std::format("1tnk 锚点: got {} {} {} want {} {} {}", vec1u_px[sz_off],
-              vec1u_px[sz_off + 1], vec1u_px[sz_off + 2], u1_r, u1_g, u1_b));
+          + static_cast<std::size_t>(int4_i * kTile + 12) * 3};
+      const bool b_ok{vec_px[sz_off] == bgra_expect.u1_r && vec_px[sz_off + 1] == bgra_expect.u1_g
+          && vec_px[sz_off + 2] == bgra_expect.u1_b};
+      if (!b_ok) {
+        ++int4_fails;
+        std::println("render_probe: 地形锚点 ({},{}) 失败: got {} {} {} want {} {} {}", int4_i,
+            int4_j, vec_px[sz_off], vec_px[sz_off + 1], vec_px[sz_off + 2], bgra_expect.u1_r,
+            bgra_expect.u1_g, bgra_expect.u1_b);
+      }
     }
+
+    {
+      const SpriteRect& rect{vec_tnk_rects[0]};
+      const ogr::ShpTdFrame& frm{res_tnk->vec_frames[0]};
+      std::optional<std::pair<int, int>> opt_hit{};
+      for (int int4_y{0}; int4_y < rect.int4_h && !opt_hit.has_value(); ++int4_y)
+        for (int int4_x{0}; int4_x < rect.int4_w; ++int4_x)
+          if (frm.vec1u_data[static_cast<std::size_t>(int4_y) * rect.int4_w + int4_x] == 85) {
+            opt_hit = std::pair{int4_x, int4_y};
+            break;
+          }
+      if (!opt_hit.has_value()) {
+        ++int4_fails;
+        std::println("render_probe: 1tnk frame0 找不到索引 85 像素");
+      } else {
+        const int int4_sx{vec_tnk_screen[0].first + opt_hit->first};
+        const int int4_sy{vec_tnk_screen[0].second + opt_hit->second};
+        const std::uint32_t u4_c{pal_player.arr4u_colors[85]};
+        const unsigned char u1_b{static_cast<unsigned char>(u4_c & 0xFF)};
+        const unsigned char u1_g{static_cast<unsigned char>((u4_c >> 8) & 0xFF)};
+        const unsigned char u1_r{static_cast<unsigned char>((u4_c >> 16) & 0xFF)};
+        const std::size_t sz_off{static_cast<std::size_t>(int4_h - 1 - int4_sy)
+                * static_cast<std::size_t>(int4_w) * 3
+            + static_cast<std::size_t>(int4_sx) * 3};
+        const bool b_ok{vec_px[sz_off] == u1_r && vec_px[sz_off + 1] == u1_g
+            && vec_px[sz_off + 2] == u1_b};
+        if (!b_ok) {
+          ++int4_fails;
+          std::println("render_probe: 1tnk 锚点失败: got {} {} {} want {} {} {}", vec_px[sz_off],
+              vec_px[sz_off + 1], vec_px[sz_off + 2], u1_r, u1_g, u1_b);
+        }
+      }
+    }
+    return int4_fails;
+  };
+
+  int int4_anchor_fails{fn_anchor_checks(vec1u_px)};
+  if (int4_anchor_fails != 0) {
+    gl_read_buffer(GL_BACK);
+    gl_read_pixels(0, 0, int4_w, int4_h, GL_RGB, GL_UNSIGNED_BYTE, vec1u_px.data());
+    int4_anchor_fails = fn_anchor_checks(vec1u_px);
   }
+  int4_failures += int4_anchor_fails;
 
   SDL_GL_DeleteContext(ctx);
   SDL_DestroyWindow(window);

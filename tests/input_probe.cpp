@@ -446,6 +446,7 @@ constexpr std::initializer_list<ScriptedEvent> kScript{
 };
 
 int run_probe(bool b_manual) {
+  SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "system");
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     std::println("input_probe: SDL_Init failed: {}", SDL_GetError());
     return kSkip;
