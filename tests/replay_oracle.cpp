@@ -70,6 +70,10 @@ std::int32_t run_oracle_replay(const std::vector<std::uint8_t>& vec_orarep,
       replay_oracle_frame1(w);
     else
       replay_oracle_frame(w, ctx, int4_f);
+    if (!w.str_fatal.empty()) {
+      std::println("replay_oracle: data-plane fatal at f{}: {}", int4_f, w.str_fatal);
+      return 1000000 + int4_f;
+    }
     const auto it_sync{res_feed->map_recorded_syncs.find(int4_f + 1)};
     if (it_sync == res_feed->map_recorded_syncs.end()) continue;
     if (replay_oracle_sync_hash(w) != it_sync->second.first) return int4_f + 1;
@@ -206,6 +210,8 @@ void test_assembly_and_frame1() {
       replay_oracle_frame1(w2);
     else
       replay_oracle_frame(w2, *res_ctx, int4_n);
+    check(w2.str_fatal.empty(),
+          std::format("frame-{} data-plane reconciliation: {}", int4_n, w2.str_fatal));
     const std::int32_t int4_hash_n{replay_oracle_sync_hash(w2)};
     if (int4_n == 1) int4_hash2 = int4_hash_n;
 

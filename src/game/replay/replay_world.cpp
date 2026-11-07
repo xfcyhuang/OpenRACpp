@@ -574,61 +574,159 @@ void replay_oracle_apply_changes(ReplayOracleWorld& w, const OracleReplayContext
   if (int4_frame < 15) return;
   const auto it_changes{ctx.map_changes.find(int4_frame)};
   if (it_changes == ctx.map_changes.end()) return;
+  if (!w.str_fatal.empty()) return;
+  std::size_t sz_applied{};
+  std::size_t sz_skipped{};
+  const auto fn_fatal{[&](const OracleChange& change, const std::string& str_what) {
+    w.str_fatal = std::format("isync-changes f{} actor{} {} {}: {}", int4_frame,
+                              change.u4_actor, change.str_trait, change.str_field, str_what);
+  }};
+  const auto fn_parse_i32{[&](std::string_view str_text, std::int32_t& int4_out) {
+    const auto res{std::from_chars(str_text.data(), str_text.data() + str_text.size(), int4_out)};
+    return res.ec == std::errc{} && res.ptr == str_text.data() + str_text.size();
+  }};
+
   for (const OracleChange& change : it_changes->second) {
     const bool b_is_mobile{change.str_trait == "Mobile"};
-    if (b_mobile_only != b_is_mobile) continue;
-    const std::int32_t int4_value{[&] {
-      std::int32_t int4_out{};
-      std::from_chars(change.str_new.data(), change.str_new.data() + change.str_new.size(),
-                      int4_out);
-      return int4_out;
-    }()};
-    if (change.str_trait == "Mobile") {
-      FaceActor& actor{w.vec_actors[change.u4_actor]};
-      if (change.str_field == "Facing") {
-        actor.int4_facing = int4_value;
-      } else if (change.str_field == "FromCell" || change.str_field == "ToCell") {
-        const std::size_t idx_comma{change.str_new.find(',')};
-        std::int32_t int4_x{}, int4_y{};
-        std::from_chars(change.str_new.data(), change.str_new.data() + idx_comma, int4_x);
-        std::from_chars(change.str_new.data() + idx_comma + 1,
-                        change.str_new.data() + change.str_new.size(), int4_y);
-        if (change.str_field == "FromCell") {
-          actor.int4_from_x = int4_x;
-          actor.int4_from_y = int4_y;
-        } else {
-          actor.int4_to_x = int4_x;
-          actor.int4_to_y = int4_y;
-        }
-      } else if (change.str_field == "CenterPosition") {
-        const std::size_t idx_comma{change.str_new.find(',')};
-        const std::size_t idx_comma2{change.str_new.find(',', idx_comma + 1)};
-        std::from_chars(change.str_new.data(),
-                        change.str_new.data() + idx_comma, actor.int4_px);
-        std::from_chars(change.str_new.data() + idx_comma + 1,
-                        change.str_new.data() + idx_comma2, actor.int4_py);
-        std::from_chars(change.str_new.data() + idx_comma2 + 1,
-                        change.str_new.data() + change.str_new.size(), actor.int4_pz);
-      }
+    if (b_mobile_only != b_is_mobile) {
+      ++sz_skipped;
       continue;
     }
-    if (change.str_trait == "StoresResources" && change.str_field == "ContentHash")
-      w.vec_actors[change.u4_actor].int4_content_hash = int4_value;
-    else if (change.str_trait == "AutoTarget" && change.u4_actor >= 150)
-
-      w.vec_actors[change.u4_actor].int4_next_scan = int4_value;
-    else if (change.str_trait == "GainsExperience" && change.str_field == "Experience")
-      w.vec_actors[change.u4_actor].int4_experience = int4_value;
-    else if (change.str_trait == "PlayerExperience" && change.str_field == "Experience")
-      w.vec_players[w.vec_actors[change.u4_actor].u4_owner].int4_pexp = int4_value;
-    else if (change.str_trait == "PowerManager" && change.str_field == "PowerProvided")
-      w.vec_players[w.vec_actors[change.u4_actor].u4_owner].int4_power_provided = int4_value;
-    else if (change.str_trait == "FrozenActorLayer") {
-      if (change.str_field == "VisibilityHash")
-        w.vec_players[w.vec_actors[change.u4_actor].u4_owner].int4_frozen_vis = int4_value;
-      else if (change.str_field == "FrozenHash")
-        w.vec_players[w.vec_actors[change.u4_actor].u4_owner].int4_frozen_sum = int4_value;
+    if (change.u4_actor >= w.vec_actors.size()) {
+      fn_fatal(change, std::format("actor 越界 (vec_actors={})", w.vec_actors.size()));
+      return;
     }
+    FaceActor& actor{w.vec_actors[change.u4_actor]};
+    if (actor.u4_owner >= w.vec_players.size()) {
+      fn_fatal(change, std::format("owner {} 越界 (vec_players={})", actor.u4_owner,
+                                   w.vec_players.size()));
+      return;
+    }
+
+    // 机制面接管字段显式跳过表（跳过 + 对账计入，禁止静默吞行）：
+    // ClassicProductionQueue/PlayerResources=生产真机制、Health/TakeCover/
+    // AttackFrontal/ChangesHealth=攻击链真机制、FrozenUnderFog=冻结层真机制、
+    // AutoTarget(actor<150)=146/147 攻击链扫描机制。
+    const bool b_skip{(change.str_trait == "TakeCover" && change.str_field == "remainingDuration")
+                      || (change.str_trait == "PlayerResources" && change.str_field == "Cash")
+                      || (change.str_trait == "FrozenUnderFog" && change.str_field == "VisibilityHash")
+                      || (change.str_trait == "ClassicProductionQueue" && change.str_field == "Enabled")
+                      || (change.str_trait == "Health" && change.str_field == "HP")
+                      || (change.str_trait == "AttackFrontal" && change.str_field == "IsAiming")
+                      || (change.str_trait == "ChangesHealth" && change.str_field == "damageTicks")
+                      || (change.str_trait == "AutoTarget" && change.str_field == "nextScanTime"
+                          && change.u4_actor < 150)};
+    if (b_skip) {
+      ++sz_skipped;
+      continue;
+    }
+
+    // 当前值镜像（与 golden 同字段语义），用于 old 校验与新值应用
+    std::int32_t* ptr_current{nullptr};
+    std::int32_t int4_cur_x{}, int4_cur_y{}, int4_cur_z{};
+    bool b_tuple{};
+    if (change.str_trait == "Mobile") {
+      if (change.str_field == "Facing") {
+        ptr_current = &actor.int4_facing;
+      } else if (change.str_field == "FromCell" || change.str_field == "ToCell") {
+        b_tuple = true;
+        int4_cur_x = change.str_field == "FromCell" ? actor.int4_from_x : actor.int4_to_x;
+        int4_cur_y = change.str_field == "FromCell" ? actor.int4_from_y : actor.int4_to_y;
+      } else if (change.str_field == "CenterPosition") {
+        b_tuple = true;
+        int4_cur_x = actor.int4_px;
+        int4_cur_y = actor.int4_py;
+        int4_cur_z = actor.int4_pz;
+      }
+    } else if (change.str_trait == "StoresResources" && change.str_field == "ContentHash") {
+      ptr_current = &actor.int4_content_hash;
+    } else if (change.str_trait == "AutoTarget" && change.str_field == "nextScanTime") {
+      ptr_current = &actor.int4_next_scan;
+    } else if (change.str_trait == "GainsExperience" && change.str_field == "Experience") {
+      ptr_current = &actor.int4_experience;
+    } else if (change.str_trait == "PlayerExperience" && change.str_field == "Experience") {
+      ptr_current = &w.vec_players[actor.u4_owner].int4_pexp;
+    } else if (change.str_trait == "PowerManager" && change.str_field == "PowerProvided") {
+      ptr_current = &w.vec_players[actor.u4_owner].int4_power_provided;
+    } else if (change.str_trait == "FrozenActorLayer" && change.str_field == "VisibilityHash") {
+      ptr_current = &w.vec_players[actor.u4_owner].int4_frozen_vis;
+    } else if (change.str_trait == "FrozenActorLayer" && change.str_field == "FrozenHash") {
+      ptr_current = &w.vec_players[actor.u4_owner].int4_frozen_sum;
+    }
+    if (ptr_current == nullptr && !b_tuple) {
+      fn_fatal(change, "未知 (trait,field) 组合");
+      return;
+    }
+
+    if (b_tuple) {
+      const auto fn_parse_tuple{[&](std::string_view str_text, std::int32_t& int4_a,
+                                    std::int32_t& int4_b, std::int32_t* ptr_c) {
+        const std::size_t idx_comma{str_text.find(',')};
+        if (idx_comma == std::string_view::npos) return false;
+        const std::size_t idx_comma2{str_text.find(',', idx_comma + 1)};
+        if (ptr_c != nullptr && idx_comma2 == std::string_view::npos) return false;
+        if (!fn_parse_i32(str_text.substr(0, idx_comma), int4_a)) return false;
+        const std::size_t idx_tail{ptr_c != nullptr ? idx_comma2 + 1 : idx_comma + 1};
+        if (!fn_parse_i32(str_text.substr(idx_comma + 1,
+                                          (ptr_c != nullptr ? idx_comma2 : str_text.size())
+                                              - idx_comma - 1),
+                          int4_b))
+          return false;
+        if (ptr_c != nullptr
+            && !fn_parse_i32(str_text.substr(idx_tail, str_text.size() - idx_tail), *ptr_c))
+          return false;
+        return true;
+      }};
+      if (change.str_field == "CenterPosition") {
+        std::int32_t int4_old_x{}, int4_old_y{}, int4_old_z{};
+        if (!fn_parse_tuple(change.str_old, int4_old_x, int4_old_y, &int4_old_z)
+            || int4_old_x != int4_cur_x || int4_old_y != int4_cur_y
+            || int4_old_z != int4_cur_z) {
+          fn_fatal(change, std::format("old 校验失败: golden old={} 当前={},{},{}",
+                                       change.str_old, int4_cur_x, int4_cur_y, int4_cur_z));
+          return;
+        }
+        if (!fn_parse_tuple(change.str_new, actor.int4_px, actor.int4_py, &actor.int4_pz)) {
+          fn_fatal(change, std::format("new 值解析失败: {}", change.str_new));
+          return;
+        }
+      } else {
+        std::int32_t int4_old_x{}, int4_old_y{};
+        if (!fn_parse_tuple(change.str_old, int4_old_x, int4_old_y, nullptr)
+            || int4_old_x != int4_cur_x || int4_old_y != int4_cur_y) {
+          fn_fatal(change, std::format("old 校验失败: golden old={} 当前={},{}", change.str_old,
+                                       int4_cur_x, int4_cur_y));
+          return;
+        }
+        std::int32_t& ref_x{change.str_field == "FromCell" ? actor.int4_from_x : actor.int4_to_x};
+        std::int32_t& ref_y{change.str_field == "FromCell" ? actor.int4_from_y : actor.int4_to_y};
+        if (!fn_parse_tuple(change.str_new, ref_x, ref_y, nullptr)) {
+          fn_fatal(change, std::format("new 值解析失败: {}", change.str_new));
+          return;
+        }
+      }
+      ++sz_applied;
+      continue;
+    }
+
+    std::int32_t int4_old{};
+    if (!fn_parse_i32(change.str_old, int4_old) || int4_old != *ptr_current) {
+      fn_fatal(change, std::format("old 校验失败: golden old={} 当前={}", change.str_old,
+                                   *ptr_current));
+      return;
+    }
+    std::int32_t int4_value{};
+    if (!fn_parse_i32(change.str_new, int4_value)) {
+      fn_fatal(change, std::format("new 值解析失败: {}", change.str_new));
+      return;
+    }
+    *ptr_current = int4_value;
+    ++sz_applied;
+  }
+  if (sz_applied + sz_skipped != it_changes->second.size()) {
+    w.str_fatal = std::format("isync-changes f{}: 对账失败 applied={} skipped={} total={}",
+                              int4_frame, sz_applied, sz_skipped, it_changes->second.size());
+    return;
   }
 }
 
@@ -708,15 +806,21 @@ std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
     fn_token(tok_arrow);
     std::string_view tok_new;
     fn_token(tok_new);
-    if (tok_f != "f" || tok_actor != "actor" || tok_trait != "trait" || tok_field != "field")
+    if (tok_f != "f" || tok_actor != "actor" || tok_trait != "trait" || tok_field != "field"
+        || tok_arrow != "->")
       return std::unexpected("oracle changes: bad line: " + std::string{str_line});
     OracleChange change;
-    std::from_chars(tok_id.data(), tok_id.data() + tok_id.size(), change.u4_actor);
+    if (std::from_chars(tok_id.data(), tok_id.data() + tok_id.size(), change.u4_actor).ec
+        != std::errc{})
+      return std::unexpected("oracle changes: bad actor id: " + std::string{str_line});
     change.str_trait = std::string{tok_trait_name};
     change.str_field = std::string{tok_field_name};
+    change.str_old = std::string{tok_old};
     change.str_new = std::string{tok_new};
     std::int32_t int4_frame{};
-    std::from_chars(tok_frame.data(), tok_frame.data() + tok_frame.size(), int4_frame);
+    if (std::from_chars(tok_frame.data(), tok_frame.data() + tok_frame.size(), int4_frame).ec
+        != std::errc{})
+      return std::unexpected("oracle changes: bad frame: " + std::string{str_line});
 
     if (change.u4_actor == 146 && change.str_trait == "Mobile")
       ctx.int4_146_move_end = std::max(ctx.int4_146_move_end, int4_frame);
@@ -735,7 +839,11 @@ std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
     std::size_t idx_pos{2};
     const std::size_t idx_frame_end{str_line.find(' ', idx_pos)};
     std::int32_t int4_frame{};
-    std::from_chars(str_line.data() + idx_pos, str_line.data() + idx_frame_end, int4_frame);
+    if (idx_frame_end == std::string_view::npos
+        || std::from_chars(str_line.data() + idx_pos, str_line.data() + idx_frame_end, int4_frame)
+               .ec
+               != std::errc{})
+      return std::unexpected("oracle frames: bad frame line: " + std::string{str_line});
     idx_pos = str_line.find(" rng ", idx_pos);
     if (idx_pos == std::string_view::npos) continue;
     idx_pos += 5;
@@ -743,11 +851,14 @@ std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
     ++idx_pos;
     const std::size_t idx_cnt_end{str_line.find(' ', idx_pos)};
     std::int32_t int4_count{};
-    std::from_chars(str_line.data() + idx_pos,
-                    str_line.data() + (idx_cnt_end == std::string_view::npos
-                                           ? str_line.size()
-                                           : idx_cnt_end),
-                    int4_count);
+    if (std::from_chars(str_line.data() + idx_pos,
+                        str_line.data() + (idx_cnt_end == std::string_view::npos
+                                               ? str_line.size()
+                                               : idx_cnt_end),
+                        int4_count)
+            .ec
+        != std::errc{})
+      return std::unexpected("oracle frames: bad rng count line: " + std::string{str_line});
     ctx.map_rng_count.emplace(int4_frame, int4_count);
   }
   return ctx;
@@ -762,6 +873,7 @@ void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
   std::vector<FireDamage> vec_fires;
 
   replay_oracle_apply_changes(w, ctx, int4_frame, true);
+  if (!w.str_fatal.empty()) return;
 
   for (FaceActor& actor : w.vec_actors) {
     if (!actor.b_in_world || actor.ptr_face == nullptr) continue;
@@ -869,6 +981,7 @@ void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
   }
 
   replay_oracle_apply_changes(w, ctx, int4_frame, false);
+  if (!w.str_fatal.empty()) return;
 
   for (const FireDamage& fire : vec_fires) {
     FaceActor& victim{w.vec_actors[fire.u4_victim]};

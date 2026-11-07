@@ -126,12 +126,15 @@ struct ReplayOracleWorld {
     std::int32_t int4_hash{};
   };
   std::vector<SyncEffect> vec_sync_effects;
+
+  std::string str_fatal{};
 };
 
 struct OracleChange {
   std::uint32_t u4_actor{};
   std::string str_trait;
   std::string str_field;
+  std::string str_old;
   std::string str_new;
 };
 
