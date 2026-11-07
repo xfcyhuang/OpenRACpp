@@ -1,5 +1,6 @@
 import std;
 #include <cstdio>
+#include <cstdlib>
 
 #include "game/replay/replay_format.hpp"
 #include "game/replay/replay_player.hpp"
@@ -112,13 +113,18 @@ void test_assembly_and_frame1() {
 
   // f1 静态对拍:sync(1) = 装配后世界(ProcessOrders@f1,harv 未生、置位波未发)
   const std::int32_t int4_hash{replay_oracle_sync_hash(w)};
+  // 调试 dump 门控(ORA_PERTRAIT_DUMP_PREFIX=<路径前缀>:逐帧写 <前缀>-f{n}.txt,
+  // 与探针 pertrait-*.txt 同格式 diff 用;不设则不写,不落仓库垃圾文件)
+  const char* env_dump{std::getenv("ORA_PERTRAIT_DUMP_PREFIX")};
+  const std::string str_dump_prefix{env_dump == nullptr ? std::string{} : std::string{env_dump}};
   {
-    // 调试 dump(与探针 pertrait-init.txt 同格式 diff 用)
     const std::string str_dump{replay_oracle_pertrait_dump(w)};
-    FILE* ptr_file{std::fopen("replay-pertrait-init.txt", "wb")};
-    if (ptr_file != nullptr) {
-      std::fwrite(str_dump.data(), 1, str_dump.size(), ptr_file);
-      std::fclose(ptr_file);
+    if (!str_dump_prefix.empty()) {
+      FILE* ptr_file{std::fopen(std::format("{}-init.txt", str_dump_prefix).c_str(), "wb")};
+      if (ptr_file != nullptr) {
+        std::fwrite(str_dump.data(), 1, str_dump.size(), ptr_file);
+        std::fclose(ptr_file);
+      }
     }
   }
   const auto it_sync{res_feed->map_recorded_syncs.find(1)};
@@ -139,7 +145,7 @@ void test_assembly_and_frame1() {
       replay_oracle_frame(w2, int4_n);
     const std::int32_t int4_hash_n{replay_oracle_sync_hash(w2)};
     if (int4_n == 1) int4_hash2 = int4_hash_n;
-    if (int4_n >= 7) {  // 临时调试:f7/f8 末关键字段
+    if (!str_dump_prefix.empty() && int4_n >= 7) {  // 调试:f7+ 末关键字段(门控)
       const auto& a146{w2.vec_actors[146]};
       const auto& a147{w2.vec_actors[147]};
       std::println("  dbg f{}-end rng {} {} | 146 hp {} tc {} ns {} | 147 face {} aim {} ns {} | harv face {}", int4_n,
@@ -151,6 +157,14 @@ void test_assembly_and_frame1() {
     if (it_sync_n == res_feed->map_recorded_syncs.end()) {
       check(false, std::format("frame-{} sync packet missing", int4_n + 1));
       break;
+    }
+    if (!str_dump_prefix.empty()) {
+      FILE* ptr_file{std::fopen(std::format("{}-f{}.txt", str_dump_prefix, int4_n).c_str(), "wb")};
+      if (ptr_file != nullptr) {
+        const std::string str_dump{replay_oracle_pertrait_dump(w2)};
+        std::fwrite(str_dump.data(), 1, str_dump.size(), ptr_file);
+        std::fclose(ptr_file);
+      }
     }
     if (int4_hash_n != it_sync_n->second.first) {
       if (int4_first_div < 0) int4_first_div = int4_n + 1;
