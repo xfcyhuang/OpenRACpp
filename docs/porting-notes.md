@@ -734,3 +734,74 @@ cpp26.md 规定 `.hpp` / `.cpp` 内一律不写注释（P1-2 整改）。本文�
 - L9 `// 确定性三支柱（上游 World.cs:33 / TraitDictionary.cs:152-158 /`
   ActorInfo.cs:104-167）：Actor 遍历序 = ActorID 升序；同 actor trait
 
+## src/mods/common/wav_loader.cpp
+- `wav_try_parse`
+  上游 TryParseSound 全路径吞异常（WavLoader.cs:41-44），C++ 出口统一 nullopt。两处
+  退化路径与上游不等价（零语料、不可对拍，登记于此备查）：①fmt 在但无 data chunk
+  ——上游 LoadSound 仍返回 true（GetPCMInputStream 读时才炸），C++ 判 nullopt；
+  ②IMA 的 blockAlign<=0——上游 numBlocks 除零炸在惰性工厂里，C++ 判 nullopt。
+- `lengthInSeconds` 分母为 0（channels/rate/bits 全 0 的畸形头）时上游 float 除零得
+  Infinity，C++ 保守跳过除法保持 -1（UBSan -fsanitize=undefined 含
+  float-divide-by-zero，不能照抄；该值只进 MusicInfo.Length 截断，退化路径不可观测）。
+- 块跳转 `s.Position += chunkSize - 16` 的 uint32 环绕语义照抄（-fwrapv 下 size_t
+  加法放大后循环条件自然终止，与上游 Position 越界停循环等价）。
+
+## src/mods/common/ima_adpcm.cpp
+- `decode_ima_adpcm_sample`
+  StepTable 89 项 / IndexAdjust[-1,-1,-1,-1,2,4,6,8] 逐值照抄
+  （ImaAdpcmReader.cs:18-31）；delta = StepTable[index]*b/4 + StepTable[index]/8
+  为**整型截断除法**；整字节传参（低半字节符号位看 bit3，高位忽略——上游
+  `b & 8` / `b &= 7` 掩码行为）。
+- `load_ima_adpcm_block`
+  每输入字节产 4 输出字节（低半字节先）；高半字节传 `(byte)(b >> 4)`。
+
+## src/game/sound_info.cpp
+- `sound_info_from_yaml`
+  上游 Voices/Notifications 池字典重复键在 ParseDictionary 的 Dictionary.Add 抛
+  ArgumentException；C++ 归一为 expected 错误（D016 FieldLoader 异常→错误串口径），
+  消息为近似串（.NET 运行时消息不可逐字符移植）。
+- `parse_interrupt_type`
+  上游 Enum.TryParse 接受任意可装下底层类型的数字（含未定义值如 3）；C++ 只收
+  0/1/2（语料仅出现具名值），其余拒绝——与上游"接受后永不等于具名值"的观测差异
+  只在畸形 yaml 出现。
+- `string_to_lower_ascii`
+  上游 ToLowerInvariant 是 Unicode 文化感知；C++ ASCII 小写化（D011 tileset 先例，
+  语料全 ASCII）。
+
+## src/game/music_info.cpp
+- `music_info_from_yaml`
+  Hidden 走 bool.TryParse 语义（仅 true/false 全大小写，非法静默 false 不报错）；
+  Title 取节点标量值原样不 trim；Filename 的 key 用**原始大小写**（字典键才小写化，
+  U071）。
+
+## src/platforms/openal_loader.cpp
+- `load_openal`
+  探测序：`ORA_OPENAL_DLL` 环境变量（调研建议位，测试经 openal_probe_override
+  注入等价路径）→ exe 目录 soft_oal.dll → exe 目录 openal32.dll → LoadLibrary 默认
+  搜索（soft_oal/openal32）；符号缺失整库作废继续下一候选（上游 DllImport 缺符号
+  是 EntryPointNotFoundException 崩溃，D057①）。
+- windows.h 边界 TU（D056 豁免）：std 声明经 openal_loader.hpp 的 `import std;`
+  进入，仅 <windows.h> 走 #include。
+
+## src/platforms/sound_engine.cpp
+- AL 常量**实证修正**：AL_POSITION=0x1004、AL_VELOCITY=0x1006、AL_GAIN=0x100A
+  （soft_oal.dll alGetError 实测 0x1006 报 AL_INVALID_ENUM(0xA002)、0x100A 设读
+  恒等）——调研笔记 t18-audio.md §A.5 常量表此三项有误，以其为准者须改。
+  AL_ORIENTATION=0x100F、EFX AL_METERS_PER_UNIT=0x20004、ALC_DEVICE_SPECIFIER=
+  0x1005、ALC_ALL_DEVICES_SPECIFIER=0x1013 实测无误。
+- `try_get_source_from_pool`
+  收割路径改写 slot.snd（shared_ptr 置空）+ 缓冲 id 归零，等价上游
+  slot.SoundSource=null/slot.Sound=null；被收割 ISound 的 done=true 经共享
+  sound_state 传导给调用方持有副本（上游引用语义的值语义等价物）。
+- `engine_play_2d`
+  atten 公式 `(256 - activeCount*0.5f)/256` 用 float 精确常量 256.0f 展开保持
+  IEEE 序；同源限 3 判定用池槽 buffer id 代替上游 SoundSource 对象引用恒等
+  （每个 AddSoundSourceFromMemory 恰生成一个 buffer）。
+- `engine_dispose`
+  alDeleteSources 传实际池大小（上游传 PoolSize=256 常量与数组实长脱钩，U070①）。
+
+## src/game/sound/sound.cpp
+- `sound_facade_tick`
+  上游 Sound.Tick 的 MusicPlaying&&Complete→StopMusic+onMusicComplete 轮询形
+  （Sound.cs:217-225）；M2 无音乐（music nullopt 空转），.aud 票接 PlayMusic 时
+  补 onMusicComplete 回调位。

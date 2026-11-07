@@ -160,3 +160,30 @@ target_compile_definitions(ora_replay_oracle PRIVATE
   ORA_REPLAY_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/replay"
   ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps")
 add_test(NAME replay_oracle COMMAND ora_replay_oracle)
+
+add_executable(ora_audio audio.cpp)
+target_link_libraries(ora_audio PRIVATE
+  ora_std
+  ora_game
+  ora_mods_common
+  ora_platforms
+)
+target_compile_definitions(ora_audio PRIVATE
+  ORA_AUDIO_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/audio")
+add_test(NAME audio COMMAND ora_audio)
+
+set(ORA_SOFT_OAL_DLL "" CACHE FILEPATH
+  "soft_oal.dll 路径（nuget 缓存 openra-openal-cs/1.0.23/native/win-x64 或 openal-soft 发布包）；空则跳过设备探针 target")
+if(ORA_SOFT_OAL_DLL)
+  add_executable(ora_audio_probe audio_probe.cpp)
+  target_link_libraries(ora_audio_probe PRIVATE ora_std ora_game ora_platforms)
+  add_custom_command(TARGET ora_audio_probe POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${ORA_SOFT_OAL_DLL}"
+    $<TARGET_FILE_DIR:ora_audio_probe>)
+  add_test(NAME audio_probe COMMAND ora_audio_probe
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:ora_audio_probe>)
+  set_tests_properties(audio_probe PROPERTIES LABELS "audio" SKIP_RETURN_CODE 77)
+  message(STATUS "OpenAL audio probe enabled: ${ORA_SOFT_OAL_DLL}")
+else()
+  message(STATUS "ORA_SOFT_OAL_DLL 未设置（-DORA_SOFT_OAL_DLL=<soft_oal.dll 路径>）——audio_probe target 跳过")
+endif()

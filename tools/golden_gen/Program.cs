@@ -174,6 +174,26 @@ internal static partial class Program
             ("tests/golden/replay/ore-lord.orarep", "replay", null),
             ("tests/golden/replay/ore-lord.record-stream.bin", "replay", null),
             ("tests/golden/replay/ore-lord.frames.txt", "replay", null),
+            // audio 模式（T18/issue #27）：三 yaml 原样入库（漂移哨兵）+ SoundInfo/MusicInfo
+            // 规范化转储 + d2k WAV 语料原样入库（GPL-3，COPYING 同 render）+ 解码统计
+            ("tests/golden/audio/notifications.txt", null,
+                () => DumpAudioSoundInfo(openraRoot, Path.Combine("mods", "ra", "audio", "notifications.yaml"))),
+            ("tests/golden/audio/voices.txt", null,
+                () => DumpAudioSoundInfo(openraRoot, Path.Combine("mods", "ra", "audio", "voices.yaml"))),
+            ("tests/golden/audio/music.txt", null,
+                () => DumpAudioMusicInfo(openraRoot, Path.Combine("mods", "ra", "audio", "music.yaml"))),
+            .. (new[] { "notifications", "voices", "music" }).Select(name => (
+                $"tests/golden/audio/yaml/{name}.yaml",
+                (string)null,
+                (Func<byte[]>)(() => File.ReadAllBytes(
+                    Path.Combine(openraRoot, "mods", "ra", "audio", $"{name}.yaml"))))),
+            ("tests/golden/audio/wav/stats.txt", null, () => DumpWavStats(openraRoot)),
+            .. (new[] { "CHAT1REVERSE.WAV", "DEVASTATORMELTDOWN.WAV", "ORNIBOMB.WAV", "RELEASESARDAUKARS.WAV" })
+                .Select(name => (
+                    $"tests/golden/audio/wav/{name}",
+                    (string)null,
+                    (Func<byte[]>)(() => File.ReadAllBytes(
+                        Path.Combine(openraRoot, "mods", "d2k", "bits", name))))),
         ];
 
         var firstRuns = new Dictionary<string, (string RelPath, byte[] Bytes)[]>();

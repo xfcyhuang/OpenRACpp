@@ -4,6 +4,7 @@ module;
 #include <array>
 #include <bit>
 #include <charconv>
+#include <compare>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -18,6 +19,7 @@ module;
 #include <ios>
 #include <limits>
 #include <map>
+#include <memory>
 #include <optional>
 #include <print>
 #include <set>
@@ -65,6 +67,11 @@ using std::ios;
 using std::streampos;
 using std::streamsize;
 using std::map;
+using std::make_shared;
+using std::make_unique;
+using std::shared_ptr;
+using std::unique_ptr;
+using std::wstring;
 using std::nullopt;
 using std::nullopt_t;
 using std::optional;
@@ -126,6 +133,7 @@ using std::operator==;
 using std::operator!=;
 using std::operator<;
 using std::operator<=;
+using std::operator<=>;
 using std::operator>;
 using std::operator>=;
 using std::operator<<;
