@@ -1,0 +1,9 @@
+# music player scenario seed=3 shuffle=False repeat=True music-volume=0.5 background=- starting=- allow-mute-background=False mute-background=False
+init installed=11 available=True playlist=t01,t02,t04,t05,t08,t09,t10,t11,t12 random=t05,t02,t08,t09,t04,t01,t12,t11,t10
+op play -> play t05 vol=0.5 loop=True
+op complete -> play t08 vol=0.5 loop=True
+op play -> same
+op stop -> stopped
+op play -> same
+op complete -> same
+events t05 t08

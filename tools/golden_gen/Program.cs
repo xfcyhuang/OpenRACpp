@@ -234,6 +234,20 @@ internal static partial class Program
             ("tests/golden/settings/keys-rebind.yaml", null, () => DumpSettingsKeysRebind()),
             ("tests/golden/settings/float-formats.txt", null, () => DumpSettingsFloatFormats()),
 
+            // music 模式（T20/issue #32）：合成 12 轨曲库（t03/t07 隐藏、t06 缺失）+ 真源
+            // MersenneTwister/Util.Shuffle 洗牌序 + MusicPlaylist/Sound 音乐面逐行复刻剧本
+            // dump（顺序/洗牌/循环/背景曲四剧本 + 音量实时链），tests/golden/music/
+            ("tests/golden/music/music.yaml", null, () => MusicLibraryYaml()),
+            ("tests/golden/music/playlist-order.txt", null, () => DumpMusicPlaylistOrder()),
+            ("tests/golden/music/scenario-order.txt", null,
+                () => DumpMusicScenarioFile(MusicScenarioOrder())),
+            ("tests/golden/music/scenario-shuffle.txt", null,
+                () => DumpMusicScenarioFile(MusicScenarioShuffle())),
+            ("tests/golden/music/scenario-repeat.txt", null,
+                () => DumpMusicScenarioFile(MusicScenarioRepeat())),
+            ("tests/golden/music/scenario-background.txt", null,
+                () => DumpMusicScenarioFile(MusicScenarioBackground())),
+
         ];
 
         var firstRuns = new Dictionary<string, (string RelPath, byte[] Bytes)[]>();

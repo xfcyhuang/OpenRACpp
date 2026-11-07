@@ -187,6 +187,7 @@ sound_engine make_dummy_engine() {
   sound_engine engine{};
   engine.kind = sound_engine_kind::dummy;
   engine.ptr_state = nullptr;
+  engine.ptr_dummy = std::make_unique<dummy_engine_state>();
   return engine;
 }
 
@@ -220,6 +221,7 @@ sound_engine make_sound_engine(std::string_view str_device) {
       std::println("sound: can't create OpenAL device — using dummy engine");
       engine.kind = sound_engine_kind::dummy;
       engine.ptr_state = nullptr;
+      engine.ptr_dummy = std::make_unique<dummy_engine_state>();
       return engine;
     }
   }
@@ -231,6 +233,7 @@ sound_engine make_sound_engine(std::string_view str_device) {
     state.ptr_device = nullptr;
     engine.kind = sound_engine_kind::dummy;
     engine.ptr_state = nullptr;
+    engine.ptr_dummy = std::make_unique<dummy_engine_state>();
     return engine;
   }
   state.ops.fn_alc_make_context_current(state.ptr_context);
@@ -356,6 +359,37 @@ std::optional<sound> engine_play_2d(sound_engine& engine, const sound_source& sr
   return std::nullopt;
 }
 
+std::optional<sound> engine_play_2d_stream(sound_engine& engine, std::string_view str_name,
+                                           bool b_loop, float f4_volume) {
+  if (engine.kind == sound_engine_kind::dummy) {
+    dummy_engine_state& state{*engine.ptr_dummy};
+    state.vec_play_events.push_back(
+        sound_event{std::string{str_name}, f4_volume, b_loop});
+    auto ptr_snd_state{std::make_shared<sound_state>()};
+    ptr_snd_state->u4_al_source = static_cast<std::uint32_t>(state.int4_next_stream_id);
+    ptr_snd_state->b_done = false;
+    ptr_snd_state->f4_gain = f4_volume;
+    ++state.int4_next_stream_id;
+    sound snd{};
+    snd.ptr_state = std::move(ptr_snd_state);
+    return snd;
+  }
+  std::println("music: stream playback not supported on OpenAL engine (M2 face)");
+  return std::nullopt;
+}
+
+const std::vector<sound_event>& engine_play_events(const sound_engine& engine) {
+  static const std::vector<sound_event> vec_empty;
+  if (engine.kind != sound_engine_kind::dummy || engine.ptr_dummy == nullptr)
+    return vec_empty;
+  return engine.ptr_dummy->vec_play_events;
+}
+
+void engine_stream_finish([[maybe_unused]] sound_engine& engine, const sound& snd) {
+  if (snd.ptr_state == nullptr) return;
+  snd.ptr_state->b_done = true;
+}
+
 float engine_volume_get(const sound_engine& engine) {
   if (engine.kind == sound_engine_kind::dummy) return 0.0f;
   return engine.ptr_state->f4_volume;
@@ -476,7 +510,7 @@ std::optional<float> sound_volume_get(const sound_engine& engine, const sound& s
   if (snd.ptr_state == nullptr) return 0.0f;
   const sound_state& snd_state{*snd.ptr_state};
   if (snd_state.b_done) return std::nullopt;
-  if (engine.kind == sound_engine_kind::dummy) return std::nullopt;
+  if (engine.kind == sound_engine_kind::dummy) return snd_state.f4_gain;
   float f4_gain{0.0f};
   engine.ptr_state->ops.fn_al_get_source_f(snd_state.u4_al_source, kAlGain, &f4_gain);
   return f4_gain;
@@ -486,7 +520,10 @@ void sound_volume_set(sound_engine& engine, const sound& snd, float f4_volume) {
   if (snd.ptr_state == nullptr) return;
   sound_state& snd_state{*snd.ptr_state};
   if (snd_state.b_done) return;
-  if (engine.kind == sound_engine_kind::dummy) return;
+  if (engine.kind == sound_engine_kind::dummy) {
+    snd_state.f4_gain = f4_volume;
+    return;
+  }
   engine.ptr_state->ops.fn_al_source_f(snd_state.u4_al_source, kAlGain, f4_volume);
 }
 

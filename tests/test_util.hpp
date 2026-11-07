@@ -42,4 +42,14 @@ inline int test_exit_code(std::string_view str_suite) {
   return 0;
 }
 
+inline std::optional<std::string> read_text_file(const std::string& str_path) {
+  std::ifstream fs_file{str_path, std::ios::binary};
+  if (!fs_file.is_open()) return std::nullopt;
+  std::string str_out;
+  char buf_chars[4096];
+  while (fs_file.read(buf_chars, sizeof(buf_chars)) || fs_file.gcount() > 0)
+    str_out.append(buf_chars, static_cast<std::size_t>(fs_file.gcount()));
+  return str_out;
+}
+
 }

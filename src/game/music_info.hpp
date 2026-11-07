@@ -21,4 +21,7 @@ struct music_info {
 [[nodiscard]] std::expected<std::vector<std::pair<std::string, music_info>>, std::string>
 load_music_infos(std::string_view str_path);
 
+void music_infos_probe_exists(std::vector<std::pair<std::string, music_info>>& vec_tracks,
+                              std::string_view str_dir);
+
 }
