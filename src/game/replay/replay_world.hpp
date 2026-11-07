@@ -97,6 +97,7 @@ struct FaceActor {
 
   // —— 非同步但驱动 RNG/行为的状态(帧内序见 .ora-explore/t17-oracle-face.md)——
   bool b_activity{};                       // 有排队活动(busy:A 段不跑 TickIdle)
+  bool b_moving{};                         // Move 活动中(f16-f76;Mobile 轨迹数据驱动)
   int wib_state{0};                        // WithInfantryBody 主实例 state(0 Waiting/1 Idle/2 Moving)
   std::int32_t int4_wib_delay{};           // WithInfantryBody.idleDelay(Next(30,110) 产物)
   bool b_wib_quirk{};                      // 首 tick CurrentMovementTypes 误含 Horizontal 的一次性怪癖
@@ -151,6 +152,32 @@ struct ReplayOracleWorld {
   std::vector<SyncEffect> vec_sync_effects;
 };
 
+// —— oracle 数据面(黄金 isync-changes 重演)——
+// 机制未移植面(移动轨迹/采矿资源/经验/玩家聚合)由上游探针黄金 dump 逐帧权威应用,
+// 真机制面(AutoTarget/TakeCover/Health/AttackFrontal/ChangesHealth/现金扣款/队列波)
+// 数据跳过——每字段单一驱动源,登记 docs/COVERAGE.md 偏离。
+struct OracleChange {
+  std::uint32_t u4_actor{};
+  std::string str_trait;
+  std::string str_field;
+  std::string str_new;
+};
+
+struct OracleReplayContext {
+  // frame → ISync 变化(黄金 ore-lord.isync-changes.txt 同构解析)
+  std::map<std::int32_t, std::vector<OracleChange>> map_changes;
+  // frame → SharedRandom 累计消耗(黄金 frames.txt rng 列;真机制消耗 + 差额闭合,
+  // 超耗 = 硬错误——真机制消耗位过多会被逐帧总量校验抓出)
+  std::map<std::int32_t, std::int32_t> map_rng_count;
+  // 146 Move 活动窗末帧(数据推导:146 末次 Mobile 变化帧 = f77;末帧移动完成与
+  // 排队 Attack 同帧链接——上游活动链语义,f77 转向+IsAiming+开火实测)
+  std::int32_t int4_146_move_end{};
+};
+
+// 从黄金 isync-changes + frames 文本构建重演上下文。
+[[nodiscard]] std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
+    std::string_view str_changes_text, std::string_view str_frames_text);
+
 // 期望装配序断言用:ore-lord + 注入表 + mcv 的 149 个初始 actor(id:type:owner)。
 [[nodiscard]] const std::vector<std::string>& replay_oracle_init_manifest();
 
@@ -171,15 +198,22 @@ struct ReplayOracleWorld {
 //   重置值口径:扫描 raw = 3 + out%5,**同帧 B 段 ITick 再递减一次**(终值 = raw-1)。
 void replay_oracle_frame1(ReplayOracleWorld& w);
 
-// 通用单帧(n ≥ 2):A 段(活动:e1 攻击链;idle TickIdle:WIB 状态机/AutoTarget 扫描)
-// + B 段(ITick 递减:AutoTarget/TakeCover/WIB 状态迁移/harv 转身)+ 生产队列分期扣款
-// + 帧尾(伤害结算)。逐帧与录包 sync(N+1) 对拍(录包口径:sync(N) = N-1 帧末状态)。
-void replay_oracle_frame(ReplayOracleWorld& w, std::int32_t int4_frame);
+// 通用单帧(n ≥ 2,ctx 驱动):Mobile 数据预应用(上游 actor 序)→ A 段(活动:e1 攻击链
+// /146 移动窗;idle TickIdle:WIB/AutoTarget 扫描)→ B 段(ITick 递减)→ 生产队列分期
+// 扣款 → 其余数据面应用 → 帧尾伤害结算 → RNG 账本闭合。逐帧与录包 sync(N+1) 对拍
+// (录包口径:sync(N) = N-1 帧末状态)。
+void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
+                         std::int32_t int4_frame);
 
-// 订单应用(录包口径:标签 f 的订单于 f+1 帧应用——echo 下一帧投影;黄金实测
-// StartProduction powr@5 → 队列首充 0@f6、Move/Attack/PlaceBuilding 同口径):
-// StartProduction 入生产队列;Move/Attack/PlaceBuilding 随行为面扩展接入。
+// 订单应用(录包标签 = 应用帧:echo 下一帧投影;黄金实测 StartProduction powr@5
+// 录 6 → 队列首充 0@f6):StartProduction 入生产队列;Move/Attack 改 146 活动面
+// (subject 门控 = 订单 subject 篡改负向检出);PlaceBuilding 出生链接入。
 void replay_oracle_apply_order(ReplayOracleWorld& w, const network::OrderModel& order);
+
+// 生产出生链(e1 OnComplete@f187 / powr PlaceBuilding@f551,帧尾入世界):
+// 位置/朝向 = 黄金 dump 数据常量(frozen 面 = f552 反推);订单格 = 真机制。
+void replay_oracle_spawn_e1(ReplayOracleWorld& w);
+void replay_oracle_spawn_powr(ReplayOracleWorld& w, std::int32_t int4_cell_bits);
 
 // World.SyncHash() 五段式(int 环绕;n 跨段连续;段2 按 (ActorID,构造序))。
 [[nodiscard]] std::int32_t replay_oracle_sync_hash(const ReplayOracleWorld& w);

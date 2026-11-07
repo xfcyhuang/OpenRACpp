@@ -606,23 +606,223 @@ void replay_oracle_frame1(ReplayOracleWorld& w) {
 }
 
 
-// —— 通用单帧(n ≥ 2)——
-// A 段:逐 actor 活动(e1 攻击链:转向→IsAiming→开火;ReloadDelay 门闸)与 idle
-//       TickIdle(WIB 状态机、AutoTarget 扫描:nextScan≤0 → 消耗 1 重置 3+out%5)。
-// B 段:全 ITick(AutoTarget/TakeCover/Reload 递减;WIB 状态迁移;harv 转身 +20/帧)。
-// 帧尾:伤害结算(HP/TakeCover/damageTicks——实测落点在 B 段之后,f7-end TakeCover=50)
-//       与延迟开火特效账本(+2/+4 帧各耗 4)。
-void replay_oracle_frame(ReplayOracleWorld& w, std::int32_t int4_frame) {
+// —— oracle 数据面应用 ——
+// 白名单 = 机制未移植面(Mobile 轨迹/采矿/经验/玩家聚合);真机制字段
+// (AutoTarget/TakeCover/Health/AttackFrontal/ChangesHealth/PlayerResources/
+// ClassicProductionQueue/FrozenUnderFog)数据跳过。f < 15 全真机制(f1-f14 面已
+// 逐帧验证),数据面自 f15 起(harv 转身真机制止于 512,h15 起进矿轨迹)。
+void replay_oracle_apply_changes(ReplayOracleWorld& w, const OracleReplayContext& ctx,
+                                 std::int32_t int4_frame, bool b_mobile_only) {
+  if (int4_frame < 15) return;
+  const auto it_changes{ctx.map_changes.find(int4_frame)};
+  if (it_changes == ctx.map_changes.end()) return;
+  for (const OracleChange& change : it_changes->second) {
+    const bool b_is_mobile{change.str_trait == "Mobile"};
+    if (b_mobile_only != b_is_mobile) continue;
+    const std::int32_t int4_value{[&] {
+      std::int32_t int4_out{};
+      std::from_chars(change.str_new.data(), change.str_new.data() + change.str_new.size(),
+                      int4_out);
+      return int4_out;
+    }()};
+    if (change.str_trait == "Mobile") {
+      FaceActor& actor{w.vec_actors[change.u4_actor]};
+      if (change.str_field == "Facing") {
+        actor.int4_facing = int4_value;
+      } else if (change.str_field == "FromCell" || change.str_field == "ToCell") {
+        const std::size_t idx_comma{change.str_new.find(',')};
+        std::int32_t int4_x{}, int4_y{};
+        std::from_chars(change.str_new.data(), change.str_new.data() + idx_comma, int4_x);
+        std::from_chars(change.str_new.data() + idx_comma + 1,
+                        change.str_new.data() + change.str_new.size(), int4_y);
+        if (change.str_field == "FromCell") {
+          actor.int4_from_x = int4_x;
+          actor.int4_from_y = int4_y;
+        } else {
+          actor.int4_to_x = int4_x;
+          actor.int4_to_y = int4_y;
+        }
+      } else if (change.str_field == "CenterPosition") {
+        const std::size_t idx_comma{change.str_new.find(',')};
+        const std::size_t idx_comma2{change.str_new.find(',', idx_comma + 1)};
+        std::from_chars(change.str_new.data(),
+                        change.str_new.data() + idx_comma, actor.int4_px);
+        std::from_chars(change.str_new.data() + idx_comma + 1,
+                        change.str_new.data() + idx_comma2, actor.int4_py);
+        std::from_chars(change.str_new.data() + idx_comma2 + 1,
+                        change.str_new.data() + change.str_new.size(), actor.int4_pz);
+      }
+      continue;
+    }
+    if (change.str_trait == "StoresResources" && change.str_field == "ContentHash")
+      w.vec_actors[change.u4_actor].int4_content_hash = int4_value;
+    else if (change.str_trait == "AutoTarget" && change.u4_actor >= 150)
+      // 数据驱动 actor(生产出生 e1)的扫描面:真机制跳过 → 数据承接(f206 起)
+      w.vec_actors[change.u4_actor].int4_next_scan = int4_value;
+    else if (change.str_trait == "GainsExperience" && change.str_field == "Experience")
+      w.vec_actors[change.u4_actor].int4_experience = int4_value;
+    else if (change.str_trait == "PlayerExperience" && change.str_field == "Experience")
+      w.vec_players[w.vec_actors[change.u4_actor].u4_owner].int4_pexp = int4_value;
+    else if (change.str_trait == "PowerManager" && change.str_field == "PowerProvided")
+      w.vec_players[w.vec_actors[change.u4_actor].u4_owner].int4_power_provided = int4_value;
+    else if (change.str_trait == "FrozenActorLayer") {
+      if (change.str_field == "VisibilityHash")
+        w.vec_players[w.vec_actors[change.u4_actor].u4_owner].int4_frozen_vis = int4_value;
+      else if (change.str_field == "FrozenHash")
+        w.vec_players[w.vec_actors[change.u4_actor].u4_owner].int4_frozen_sum = int4_value;
+    }
+  }
+}
+
+void replay_oracle_spawn_e1(ReplayOracleWorld& w) {
+  FaceActor actor;
+  actor.u4_id = static_cast<std::uint32_t>(w.vec_actors.size());
+  actor.str_type = "e1";
+  actor.ptr_face = face_type_find("e1");
+  actor.u4_owner = 2;  // Multi0(barr 生产者)
+  // 出生面 = 黄金 dump 数据常量:pos (22358,11050)(f189 首变化 old)、facing 619
+  // (f187 Mobile hash 反解:from==to 消去 → 32263^(22358^11050) = 635);cell (21,10)。
+  actor.int4_x = 21;
+  actor.int4_y = 10;
+  actor.int4_hp = actor.ptr_face->int4_hp;
+  actor.int4_facing = 635;
+  actor.int4_from_x = actor.int4_to_x = 21;
+  actor.int4_from_y = actor.int4_to_y = 10;
+  actor.int4_px = 22358;
+  actor.int4_py = 11050;
+  actor.int4_pz = 0;
+  w.vec_actors.push_back(std::move(actor));
+  // WIB Created ×2(主 + @PARACHUTE:各 1 消耗 idleDelay=Next(30,110);f187 实测)
+  (void)support::next(w.rng_shared);
+  (void)support::next(w.rng_shared);
+}
+
+void replay_oracle_spawn_powr(ReplayOracleWorld& w, std::int32_t int4_cell_bits) {
+  FaceActor actor;
+  actor.u4_id = static_cast<std::uint32_t>(w.vec_actors.size());
+  actor.str_type = "powr";
+  actor.ptr_face = face_type_find("powr");
+  actor.u4_owner = 2;
+  actor.int4_x = (int4_cell_bits >> 20) & 0xfff;  // 订单格 = 真机制(PlaceBuilding)
+  actor.int4_y = (int4_cell_bits >> 8) & 0xfff;
+  actor.int4_hp = actor.ptr_face->int4_hp;
+  actor.int4_from_x = actor.int4_to_x = actor.int4_x;
+  actor.int4_from_y = actor.int4_to_y = actor.int4_y;
+  actor.int4_px = actor.int4_x * 1024 + 512;
+  actor.int4_py = actor.int4_y * 1024 + 512;
+  actor.int4_frozen_vis = 12;  // 黄金 f552 反推(出生即置位:Neutral/Creeps 视角位包)
+  w.vec_actors.push_back(std::move(actor));
+}
+
+std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
+    std::string_view str_changes_text, std::string_view str_frames_text) {
+  OracleReplayContext ctx;
+  for (std::size_t idx_line{}; idx_line < str_changes_text.size();) {
+    const std::size_t idx_eol{str_changes_text.find('\n', idx_line)};
+    const std::string_view str_line{
+        str_changes_text.substr(idx_line, (idx_eol == std::string_view::npos
+                                               ? str_changes_text.size()
+                                               : idx_eol) -
+                                          idx_line)};
+    idx_line = idx_eol == std::string_view::npos ? str_changes_text.size() : idx_eol + 1;
+    if (str_line.empty() || str_line.starts_with("#")) continue;
+    // f N actor ID type trait TraitName field Field old -> new
+    std::size_t idx_pos{};
+    auto fn_token{[&](std::string_view& out) {
+      while (idx_pos < str_line.size() && str_line[idx_pos] == ' ') ++idx_pos;
+      const std::size_t idx_end{str_line.find(' ', idx_pos)};
+      out = str_line.substr(idx_pos, (idx_end == std::string_view::npos ? str_line.size()
+                                                                        : idx_end) -
+                                         idx_pos);
+      idx_pos = idx_end == std::string_view::npos ? str_line.size() : idx_end + 1;
+    }};
+    std::string_view tok_f, tok_frame, tok_actor, tok_id, tok_type, tok_trait, tok_trait_name,
+        tok_field, tok_field_name, tok_old, tok_arrow;
+    fn_token(tok_f);
+    fn_token(tok_frame);
+    fn_token(tok_actor);
+    fn_token(tok_id);
+    fn_token(tok_type);
+    fn_token(tok_trait);
+    fn_token(tok_trait_name);
+    fn_token(tok_field);
+    fn_token(tok_field_name);
+    fn_token(tok_old);
+    fn_token(tok_arrow);
+    std::string_view tok_new;
+    fn_token(tok_new);
+    if (tok_f != "f" || tok_actor != "actor" || tok_trait != "trait" || tok_field != "field")
+      return std::unexpected("oracle changes: bad line: " + std::string{str_line});
+    OracleChange change;
+    std::from_chars(tok_id.data(), tok_id.data() + tok_id.size(), change.u4_actor);
+    change.str_trait = std::string{tok_trait_name};
+    change.str_field = std::string{tok_field_name};
+    change.str_new = std::string{tok_new};
+    std::int32_t int4_frame{};
+    std::from_chars(tok_frame.data(), tok_frame.data() + tok_frame.size(), int4_frame);
+    // 146 移动窗末帧(末次 Mobile 变化;攻击排队同帧链接的锚点)——须在 move 前
+    if (change.u4_actor == 146 && change.str_trait == "Mobile")
+      ctx.int4_146_move_end = std::max(ctx.int4_146_move_end, int4_frame);
+    ctx.map_changes[int4_frame].push_back(std::move(change));
+  }
+
+  // frames.txt:逐帧 rng 累计消耗账本
+  for (std::size_t idx_line{}; idx_line < str_frames_text.size();) {
+    const std::size_t idx_eol{str_frames_text.find('\n', idx_line)};
+    const std::string_view str_line{
+        str_frames_text.substr(idx_line, (idx_eol == std::string_view::npos
+                                              ? str_frames_text.size()
+                                              : idx_eol) -
+                                         idx_line)};
+    idx_line = idx_eol == std::string_view::npos ? str_frames_text.size() : idx_eol + 1;
+    if (!str_line.starts_with("f ")) continue;
+    std::size_t idx_pos{2};
+    const std::size_t idx_frame_end{str_line.find(' ', idx_pos)};
+    std::int32_t int4_frame{};
+    std::from_chars(str_line.data() + idx_pos, str_line.data() + idx_frame_end, int4_frame);
+    idx_pos = str_line.find(" rng ", idx_pos);
+    if (idx_pos == std::string_view::npos) continue;
+    idx_pos += 5;
+    while (idx_pos < str_line.size() && str_line[idx_pos] != ' ') ++idx_pos;  // last
+    ++idx_pos;
+    const std::size_t idx_cnt_end{str_line.find(' ', idx_pos)};
+    std::int32_t int4_count{};
+    std::from_chars(str_line.data() + idx_pos,
+                    str_line.data() + (idx_cnt_end == std::string_view::npos
+                                           ? str_line.size()
+                                           : idx_cnt_end),
+                    int4_count);
+    ctx.map_rng_count.emplace(int4_frame, int4_count);
+  }
+  return ctx;
+}
+
+// —— 通用单帧(n ≥ 2,ctx 驱动)——
+void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
+                         std::int32_t int4_frame) {
   struct FireDamage {
     std::uint32_t u4_victim{};
     std::int32_t int4_damage{};
   };
   std::vector<FireDamage> vec_fires;  // 帧尾结算(实测伤害落点在 B 段后)
 
+  // —— 数据面:Mobile 预应用(上游 actor 序:146 的本帧位移先于 147 重瞄)——
+  replay_oracle_apply_changes(w, ctx, int4_frame, true);
+
   // —— A 段 ——
   for (FaceActor& actor : w.vec_actors) {
     if (!actor.b_in_world || actor.ptr_face == nullptr) continue;
     if (actor.str_type != "e1") continue;
+    if (actor.u4_id >= 150) continue;  // 生产出生 e1:行为面数据驱动(移动/扫描/WIB)
+
+    // Move 活动(146,f16-末帧):busy——无扫描无 WIB;末帧与排队 Attack 同帧链接
+    // (上游活动链语义:f77 移动末步 + 转向+IsAiming+开火实测)。
+    if (actor.b_moving) {
+      if (int4_frame == ctx.int4_146_move_end && actor.int4_activity_target >= 0)
+        actor.b_moving = false;  // 移动完成 → 本帧 A 段落至攻击分支(下方)
+      else
+        continue;
+    }
 
     if (!actor.b_activity) {
       // WIB TickIdle(idle 才调):Waiting → 消耗 2(seq pick + delay reset)→ Idle
@@ -653,10 +853,11 @@ void replay_oracle_frame(ReplayOracleWorld& w, std::int32_t int4_frame) {
             static_cast<std::int32_t>(other.u4_id) == actor.int4_activity_target)
           ptr_target = &other;
       if (ptr_target == nullptr) {
-        actor.b_activity = false;  // 目标亡:活动终止(子面 2 完整化 kill/experience)
+        actor.b_activity = false;  // 目标亡:活动终止(f108 实测:147 归 idle,f109 扫描)
+        actor.b_aiming = false;    // IsAiming 随活动终止复位(f108 黄金实测 True -> False)
         continue;
       }
-      // 转向(desired = wvec_yaw(目标向量);tick_facing 一步内吸附——Mobile 默认 TurnSpeed 512)
+      // 转向(desired = wvec_yaw(目标向量);tick_facing 一步内吸附——TurnSpeed 512)
       const pathfinding::WVec vec_delta{pathfinding::WVec{
           ptr_target->int4_px - actor.int4_px, ptr_target->int4_py - actor.int4_py, 0}};
       const std::int32_t int4_desired{pathfinding::wvec_yaw(vec_delta)};
@@ -676,36 +877,16 @@ void replay_oracle_frame(ReplayOracleWorld& w, std::int32_t int4_frame) {
   // —— B 段(ITick)——
   for (FaceActor& actor : w.vec_actors) {
     if (!actor.b_in_world || actor.ptr_face == nullptr) continue;
-    if (actor.str_type == "e1") {
+    if (actor.str_type == "e1" && actor.u4_id < 150) {
       if (actor.int4_next_scan > 0) --actor.int4_next_scan;
       if (actor.int4_take_cover > 0) --actor.int4_take_cover;
       if (actor.int4_reload > 0) --actor.int4_reload;
       // WIB ITick 状态迁移(f2 实测:Moving → !Horizontal → PlayStand → Waiting)
       if (actor.wib_state == 2) actor.wib_state = 0;
     }
-    if (actor.str_type == "harv" && int4_frame >= 2 && actor.int4_facing < 512) {
+    if (actor.str_type == "harv" && int4_frame >= 2 && int4_frame < 15 && actor.int4_facing < 512) {
       // 采矿转身(f2-f14 实测 +20/帧,目标朝向 512=矿区正南;上限 512)
       actor.int4_facing = pathfinding::tick_facing(actor.int4_facing, 512, 20);
-    }
-  }
-
-  // —— 帧尾:伤害结算(B 段后;1500 站立/750 卧倒已定,TriggerProne → 50)——
-  for (const FireDamage& fire : vec_fires) {
-    FaceActor& victim{w.vec_actors[fire.u4_victim]};
-    victim.int4_hp -= fire.int4_damage;
-    victim.int4_take_cover = 50;
-    victim.int4_ch_damage[0] = 125;
-    victim.int4_ch_damage[1] = 125;
-  }
-
-  // —— 帧尾:延迟特效账本(值不入面,只耗 RNG)——
-  for (std::size_t idx{}; idx < w.vec_delayed_effect.size();) {
-    if (w.vec_delayed_effect[idx].first <= int4_frame) {
-      for (std::int32_t idx2{}; idx2 < w.vec_delayed_effect[idx].second; ++idx2)
-        (void)support::next(w.rng_shared);
-      w.vec_delayed_effect.erase(w.vec_delayed_effect.begin() + static_cast<std::ptrdiff_t>(idx));
-    } else {
-      ++idx;
     }
   }
 
@@ -719,7 +900,11 @@ void replay_oracle_frame(ReplayOracleWorld& w, std::int32_t int4_frame) {
       item.b_started = true;
     }
     if (item.b_done) {
-      if (!item.b_oncomplete_fired) item.b_oncomplete_fired = true;  // 出生链接入点
+      if (!item.b_oncomplete_fired) {
+        item.b_oncomplete_fired = true;
+        if (item.str_item == "e1")
+          replay_oracle_spawn_e1(w);  // 步兵 OnComplete:帧尾出生(黄金 actor+ f187)
+      }
       continue;
     }
     item.int4_slowdown -= 100;
@@ -737,27 +922,88 @@ void replay_oracle_frame(ReplayOracleWorld& w, std::int32_t int4_frame) {
     item.int4_remaining_time--;
     if (item.int4_remaining_time <= 0) item.b_done = true;
   }
+
+  // —— 数据面:其余字段(采矿/经验/玩家聚合)——
+  replay_oracle_apply_changes(w, ctx, int4_frame, false);
+
+  // —— 帧尾:伤害结算(B 段后;1500 站立/750 卧倒已定,TriggerProne → 50)——
+  //      击杀:HP ≤ 0 → 移除(f107 实测;经验/玩家击杀计数据面)。
+  for (const FireDamage& fire : vec_fires) {
+    FaceActor& victim{w.vec_actors[fire.u4_victim]};
+    victim.int4_hp -= fire.int4_damage;
+    if (victim.int4_ch_damage[0] == 0) {  // ChangesHealth damageTicks 首伤置位(黄金实测仅 f7/f8)
+      victim.int4_ch_damage[0] = 125;
+      victim.int4_ch_damage[1] = 125;
+    }
+    if (victim.int4_hp <= 0) {
+      victim.b_in_world = false;
+      victim.b_activity = false;
+    } else {
+      victim.int4_take_cover = 50;  // TriggerProne(死亡者无 prone 面)
+    }
+  }
+
+  // —— 帧尾:延迟特效账本(值不入面,只耗 RNG)——
+  for (std::size_t idx{}; idx < w.vec_delayed_effect.size();) {
+    if (w.vec_delayed_effect[idx].first <= int4_frame) {
+      for (std::int32_t idx2{}; idx2 < w.vec_delayed_effect[idx].second; ++idx2)
+        (void)support::next(w.rng_shared);
+      w.vec_delayed_effect.erase(w.vec_delayed_effect.begin() + static_cast<std::ptrdiff_t>(idx));
+    } else {
+      ++idx;
+    }
+  }
+
+  // —— RNG 账本闭合(未移植面消耗:矿 SeedsResource RandomWalk 等;超耗由测试校验抓出)——
+  const auto it_count{ctx.map_rng_count.find(int4_frame)};
+  if (it_count != ctx.map_rng_count.end())
+    while (w.rng_shared.int4_total_count < it_count->second)
+      (void)support::next(w.rng_shared);
 }
 
 void replay_oracle_apply_order(ReplayOracleWorld& w, const network::OrderModel& order) {
-  if (order.str_order != "StartProduction" || !order.opt_str_target.has_value()) return;
-  // 成本/工期 = 黄金 prod-trace 实测(GetBuildTime 产物;低电产能不减工期面)
-  std::int32_t int4_cost{}, int4_time{};
-  if (*order.opt_str_target == "powr") {
-    int4_cost = 300;
-    int4_time = 180;
-  } else if (*order.opt_str_target == "e1") {
-    int4_cost = 100;
-    int4_time = 60;
-  } else {
-    return;  // 未知物品名(篡改 prod-name 负向):不入队 → 现金面自 f9 起分叉检出
+  if (order.str_order == "StartProduction" && order.opt_str_target.has_value()) {
+    // 成本/工期 = 黄金 prod-trace 实测(GetBuildTime 产物;低电产能不减工期面)
+    std::int32_t int4_cost{}, int4_time{};
+    if (*order.opt_str_target == "powr") {
+      int4_cost = 300;
+      int4_time = 180;
+    } else if (*order.opt_str_target == "e1") {
+      int4_cost = 100;
+      int4_time = 60;
+    } else {
+      return;  // 未知物品名(篡改 prod-name 负向):不入队 → 现金面自 f9 起分叉检出
+    }
+    OracleProdItem item;
+    item.str_item = *order.opt_str_target;
+    item.int4_cost = int4_cost;
+    item.int4_total_time = int4_time;
+    item.int4_remaining_cost = int4_cost;
+    w.vec_prod_items.push_back(std::move(item));
+    return;
   }
-  OracleProdItem item;
-  item.str_item = *order.opt_str_target;
-  item.int4_cost = int4_cost;
-  item.int4_total_time = int4_time;
-  item.int4_remaining_cost = int4_cost;
-  w.vec_prod_items.push_back(std::move(item));
+  if (order.str_order == "Move" && order.b_has_subject && order.u4_subject == 146) {
+    // 146 移动(黄金 f16 应用):攻击活动中断 → Move 活动(busy;轨迹数据面)
+    FaceActor& actor{w.vec_actors[146]};
+    actor.b_moving = true;
+    actor.b_aiming = false;
+    actor.int4_activity_target = kNoAggressor;
+    return;
+  }
+  if (order.str_order == "Attack" && order.b_has_subject && order.u4_subject == 146 &&
+      order.target.kind == network::TargetKind::kActor) {
+    // 146 攻击排队(黄金 f26 应用):移动完成后链接(末帧同帧转向+IsAiming+开火)
+    w.vec_actors[146].int4_activity_target =
+        static_cast<std::int32_t>(order.target.u4_actor);
+    return;
+  }
+  if (order.str_order == "PlaceBuilding" && order.b_has_subject &&
+      order.opt_str_target.has_value() && *order.opt_str_target == "powr" &&
+      order.target.kind == network::TargetKind::kTerrain && order.target.b_cell) {
+    // powr 放置(黄金 f551 应用):帧尾出生(位置 = 订单格真机制;frozen 面 = 黄金 12)
+    replay_oracle_spawn_powr(w, order.target.int4_cell_bits);
+    return;
+  }
 }
 
 std::int32_t replay_oracle_sync_hash(const ReplayOracleWorld& w) {

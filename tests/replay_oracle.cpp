@@ -135,9 +135,8 @@ void test_assembly_and_frame1() {
     check(int4_hash == it_sync->second.first,
           std::format("frame-1 sync hash: got {} want {}", int4_hash, it_sync->second.first));
 
-  // slice 2/3:f1-f14 逐帧对拍(A/B 两段帧内序:WIB pair/扫描/首枪/延迟特效/生产
-  // 分期扣款——录包口径 sync(N) = N-1 帧末状态;frame1 = f1 末事件:harv 出生/置位波/
-  // 队列波)。订单流:标签 f 的订单于 f+1 帧应用(echo 下一帧投影)。
+  // slice 3:f1-f580 逐帧对拍(录包口径 sync(N) = N-1 帧末状态;frame1 = f1 末事件)。
+  // 订单流:记录包标签 = 应用帧(echo 下一帧投影:剧本发单 f5 录 6)。
   std::map<std::int32_t, std::vector<ora::game::network::OrderModel>> map_script_orders;
   for (const ReplayRecord& record : res_read->vec_records) {
     const auto opt_orders{ora::game::network::try_parse_order_packet(record.vec_data)};
@@ -145,14 +144,6 @@ void test_assembly_and_frame1() {
     for (const auto& order :
          ora::game::network::order_packet_get_orders(opt_orders->vec_order_bytes, nullptr))
       map_script_orders[opt_orders->int4_frame].push_back(order);
-  }
-  if (const char* env_dbg{std::getenv("ORA_ORACLE_DEBUG")}) {
-    (void)env_dbg;
-    for (const auto& [int4_f, vec_o] : map_script_orders)
-      for (const auto& o : vec_o)
-        std::println("  dbg order f{}: {} subject {} target {} queued {}", int4_f, o.str_order,
-                     o.b_has_subject ? std::to_string(o.u4_subject) : std::string{"none"},
-                     o.opt_str_target.value_or("-"), o.b_queued);
   }
   check(map_script_orders.contains(6) && map_script_orders.contains(9) &&
             map_script_orders.contains(16) && map_script_orders.contains(26) &&
@@ -164,32 +155,48 @@ void test_assembly_and_frame1() {
     check(idx_orders == 5, "exactly 5 scripted orders in stream");
   }
 
+  // oracle 数据面上下文(黄金 isync-changes + frames 账本)
+  const auto vec_changes_txt{read_file_bytes(
+      std::format("{}/ore-lord.isync-changes.txt", ORA_REPLAY_GOLDEN_DIR))};
+  const std::string str_changes{vec_changes_txt.begin(), vec_changes_txt.end()};
+  check(!str_changes.empty(), "isync-changes golden readable");
+  const auto vec_frames_txt{read_file_bytes(
+      std::format("{}/ore-lord.frames.txt", ORA_REPLAY_GOLDEN_DIR))};
+  const std::string str_frames{vec_frames_txt.begin(), vec_frames_txt.end()};
+  const auto res_ctx{replay_oracle_context_parse(str_changes, str_frames)};
+  check(res_ctx.has_value(), "oracle context parses");
+  if (!res_ctx.has_value()) {
+    std::println("  error: {}", res_ctx.error());
+    return;
+  }
+  if (const char* env_dbg{std::getenv("ORA_ORACLE_DEBUG")}) {
+    (void)env_dbg;
+    std::println("  dbg move_end {} changes-frames {}", res_ctx->int4_146_move_end,
+                 res_ctx->map_changes.size());
+  }
+  check(res_ctx->int4_146_move_end == 77, "146 move window ends f77 (data-derived)");
+  check(res_ctx->map_rng_count.size() == 580, "rng ledger covers 580 frames");
+
   ReplayOracleWorld w2{*res_world};
   std::int32_t int4_hash2{};
   std::int32_t int4_first_div{-1};
-  for (std::int32_t int4_n{1}; int4_n <= 14; ++int4_n) {
+  std::int32_t int4_checked_frames{};
+  for (std::int32_t int4_n{1}; int4_n <= 580; ++int4_n) {
     if (int4_n >= 2)  // 标签 n 的订单本帧应用(录包标签 = 应用帧:echo 下一帧投影)
       for (const ora::game::network::OrderModel& order : map_script_orders[int4_n])
         replay_oracle_apply_order(w2, order);
     if (int4_n == 1)
       replay_oracle_frame1(w2);
     else
-      replay_oracle_frame(w2, int4_n);
+      replay_oracle_frame(w2, *res_ctx, int4_n);
     const std::int32_t int4_hash_n{replay_oracle_sync_hash(w2)};
     if (int4_n == 1) int4_hash2 = int4_hash_n;
-    if (!str_dump_prefix.empty() && int4_n >= 7) {  // 调试:f7+ 末关键字段(门控)
-      const auto& a146{w2.vec_actors[146]};
-      const auto& a147{w2.vec_actors[147]};
-      std::println("  dbg f{}-end rng {} {} | 146 hp {} tc {} ns {} | 147 face {} aim {} ns {} | harv face {}", int4_n,
-                   w2.rng_shared.int4_last, w2.rng_shared.int4_total_count, a146.int4_hp,
-                   a146.int4_take_cover, a146.int4_next_scan, a147.int4_facing, a147.b_aiming,
-                   a147.int4_next_scan, w2.vec_actors[149].int4_facing);
-    }
-    const auto it_sync_n{res_feed->map_recorded_syncs.find(int4_n + 1)};
-    if (it_sync_n == res_feed->map_recorded_syncs.end()) {
-      check(false, std::format("frame-{} sync packet missing", int4_n + 1));
-      break;
-    }
+    // RNG 账本逐帧硬校验(真机制消耗位过量 = 硬错误;不足 = 闭合已承接)
+    const auto it_count{res_ctx->map_rng_count.find(int4_n)};
+    if (it_count != res_ctx->map_rng_count.end())
+      check(w2.rng_shared.int4_total_count == it_count->second,
+            std::format("frame-{} rng ledger: got {} want {}", int4_n,
+                        w2.rng_shared.int4_total_count, it_count->second));
     if (!str_dump_prefix.empty()) {
       FILE* ptr_file{std::fopen(std::format("{}-f{}.txt", str_dump_prefix, int4_n).c_str(), "wb")};
       if (ptr_file != nullptr) {
@@ -198,6 +205,9 @@ void test_assembly_and_frame1() {
         std::fclose(ptr_file);
       }
     }
+    const auto it_sync_n{res_feed->map_recorded_syncs.find(int4_n + 1)};
+    if (it_sync_n == res_feed->map_recorded_syncs.end()) continue;  // f580 末态无录包 sync(581)
+    ++int4_checked_frames;
     if (int4_hash_n != it_sync_n->second.first) {
       if (int4_first_div < 0) int4_first_div = int4_n + 1;
       check(false, std::format("frame-{}-end sync: got {} want {}", int4_n, int4_hash_n,
@@ -206,7 +216,10 @@ void test_assembly_and_frame1() {
       check(true, std::format("frame-{}-end sync matches recorded", int4_n));
     }
   }
-  check(int4_first_div < 0, "no divergence through frame 14");
+  check(int4_first_div < 0, std::format("no divergence across {} checked frame ends (f1-f579 + init f1)",
+                                        int4_checked_frames + 1));
+  check(int4_checked_frames == 579,
+        "all 580 recorded syncs compared (init f1 + frame ends f1-f579; f580 end = 未录 sync581)");
 
   // —— desync 负向(当前实现面):篡改录中 frame-2 sync 封包 hash 字节 → 与本地
   // 重演 hash 对拍必然分叉(检出)。订单字节/物品名负向随行为面扩展(后续帧模型)接入。
