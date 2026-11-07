@@ -21,6 +21,7 @@ struct sound_state {
   std::uint32_t u4_al_source{};
   float f4_sample_rate{};
   bool b_done{};
+  float f4_gain{1.0f};
 };
 
 struct sound {
@@ -52,9 +53,21 @@ struct openal_engine_state {
   std::vector<std::pair<std::uint32_t, pool_slot>> vec_pool;
 };
 
+struct sound_event {
+  std::string str_name{};
+  float f4_volume{0.0f};
+  bool b_loop{false};
+};
+
+struct dummy_engine_state {
+  std::vector<sound_event> vec_play_events;
+  std::int32_t int4_next_stream_id{1};
+};
+
 struct sound_engine {
   sound_engine_kind kind{};
   std::unique_ptr<openal_engine_state> ptr_state{};
+  std::unique_ptr<dummy_engine_state> ptr_dummy{};
 };
 
 [[nodiscard]] sound_engine make_sound_engine(std::string_view str_device);
@@ -73,6 +86,14 @@ void engine_dispose(sound_engine& engine);
                                                   bool b_relative, wpos pos, float f4_volume,
                                                   bool b_attenuate_volume,
                                                   std::int32_t int4_current_tick);
+
+[[nodiscard]] std::optional<sound> engine_play_2d_stream(sound_engine& engine,
+                                                         std::string_view str_name,
+                                                         bool b_loop, float f4_volume);
+
+[[nodiscard]] const std::vector<sound_event>& engine_play_events(const sound_engine& engine);
+
+void engine_stream_finish(sound_engine& engine, const sound& snd);
 
 [[nodiscard]] float engine_volume_get(const sound_engine& engine);
 void engine_volume_set(sound_engine& engine, float f4_volume);

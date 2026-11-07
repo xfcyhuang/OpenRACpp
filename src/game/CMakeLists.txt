@@ -1,4 +1,4 @@
-add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.cpp miniyaml.cpp miniyaml_merge.cpp settings.cpp ruleset.cpp
+add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.cpp sound/music_player.cpp miniyaml.cpp miniyaml_merge.cpp settings.cpp ruleset.cpp
   map_bin.cpp map_read.cpp tileset.cpp
   render/palette.cpp render/lcw.cpp render/xor_delta.cpp render/tmp_ra.cpp render/shp_td.cpp render/font.cpp
   pathfinding/priority_queue.cpp pathfinding/path_graph.cpp pathfinding/astar.cpp pathfinding/wangle.cpp pathfinding/move_sim.cpp
@@ -11,7 +11,7 @@ add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.c
   input/input_events.hpp input/screen_map.cpp input/selection.cpp input/selection_logic.cpp input/order_generator.cpp input/production_panel.cpp
   input/hotkey.cpp input/hotkey_registry.cpp input/tap_history.cpp input/viewport_controller.cpp input/hotkey_actions.cpp
   support/mersenne_twister.cpp support/sha1.cpp filesystem/inflate.cpp filesystem/zip_read.cpp)
-target_sources(ora_game PRIVATE game.hpp miniyaml.hpp miniyaml_merge.hpp settings.hpp ruleset.hpp
+target_sources(ora_game PRIVATE game.hpp sound/music_player.hpp miniyaml.hpp miniyaml_merge.hpp settings.hpp ruleset.hpp
   map_bin.hpp map_read.hpp tileset.hpp
   render/palette.hpp render/lcw.hpp render/xor_delta.hpp render/tmp_ra.hpp render/shp_td.hpp render/font.hpp render/stb_truetype.h
   pathfinding/priority_queue.hpp pathfinding/path_graph.hpp pathfinding/astar.hpp pathfinding/wangle.hpp pathfinding/move_sim.hpp

@@ -76,4 +76,14 @@ std::expected<std::vector<std::pair<std::string, music_info>>, std::string> load
   return vec_out;
 }
 
+void music_infos_probe_exists(std::vector<std::pair<std::string, music_info>>& vec_tracks,
+                              std::string_view str_dir) {
+  for (auto& [str_key, info] : vec_tracks) {
+    std::error_code ec_probe{};
+    const bool b_present{
+        std::filesystem::exists(std::filesystem::path{str_dir} / info.str_filename, ec_probe)};
+    info.b_exists = !ec_probe && b_present;
+  }
+}
+
 }
