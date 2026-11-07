@@ -1,0 +1,9 @@
+common|hotkeys/game.yaml
+common|hotkeys/observer.yaml
+common|hotkeys/production-common.yaml
+common|hotkeys/supportpowers.yaml
+common|hotkeys/viewport.yaml
+common|hotkeys/chat.yaml
+common|hotkeys/editor.yaml
+common|hotkeys/control-groups.yaml
+ra|hotkeys.yaml

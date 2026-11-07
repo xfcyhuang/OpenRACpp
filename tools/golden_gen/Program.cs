@@ -29,6 +29,10 @@
 //                   duelD 超程接近）——HP/朝向/位置/effects/RNG/SyncHash/弹道行
 //                   （tests/golden/combat/duels.txt）；武器 yaml 6 文件 + manifest
 //                   原样入库作基线漂移哨兵。无头障碍 9-15 配方见 t12-combat.md §4.1
+//   hotkeys         ra 热键绑定表轻路径 dump（T22/issue #29）：mod.yaml Hotkeys: 列表序
+//                   Merge → 真·上游 HotkeyDefinition/Hotkey.TryParse → 合成 settings
+//                   Keys: 覆盖段（改键/冲突重算/Readonly 跳过）——files.txt + 9 yaml
+//                   原样入库（漂移哨兵）+ ra-bindings.txt（174 定义）+ ra-override.txt
 //
 // 每次动作前断言上游检出 HEAD == UPSTREAM.baseline 首行，防基准漂移。
 // resolved-rules 产物字节为上游命令 stdout 的原样捕获（UTF-8 无 BOM；末尾行尾来自
@@ -165,6 +169,15 @@ internal static partial class Program
             ("tests/golden/production/positive.txt", "production-positive", null),
             ("tests/golden/production/negative.txt", "production-negative", null),
             ("tests/golden/economy/ore-lord.econ.txt", "economy", null),
+            // hotkeys 模式（T22/issue #29）：ra 绑定表 174 定义轻路径 dump + 合成 Keys
+            // 覆盖段（改键/冲突/Readonly 跳过）+ 9 个热键 yaml 原样入库（基线漂移哨兵）
+            ("tests/golden/hotkeys/files.txt", null, () => DumpHotkeysFilesManifest(openraRoot)),
+            .. HotkeySourceFiles(openraRoot).Select(f => (
+                $"tests/golden/hotkeys/yaml/{f.RelName}",
+                (string)null,
+                (Func<byte[]>)(() => File.ReadAllBytes(f.FullPath)))),
+            ("tests/golden/hotkeys/ra-bindings.txt", null, () => DumpHotkeys(openraRoot)),
+            ("tests/golden/hotkeys/ra-override.txt", null, () => DumpHotkeysOverride(openraRoot)),
             // replay 模式（T16/issue #17）：t16-scratch 探针配方——ore-lord + 全量 ra 规则（t07
             // 剥离 21 项）+ 注入剧本 actor（t13 ActorDefinitions 追加法），RecordingEchoConnection
             // 复刻 NetworkConnection 的 ReplayRecorder 挂接语义，580 帧五类订单（建造/生产/

@@ -9,6 +9,7 @@ add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.c
   production/production.cpp
   economy/economy.cpp
   input/input_events.hpp input/screen_map.cpp input/selection.cpp input/selection_logic.cpp input/order_generator.cpp input/production_panel.cpp
+  input/hotkey.cpp input/hotkey_registry.cpp input/tap_history.cpp input/viewport_controller.cpp input/hotkey_actions.cpp
   support/mersenne_twister.cpp support/sha1.cpp filesystem/inflate.cpp filesystem/zip_read.cpp)
 target_sources(ora_game PRIVATE game.hpp miniyaml.hpp miniyaml_merge.hpp ruleset.hpp
   map_bin.hpp map_read.hpp tileset.hpp
@@ -21,6 +22,7 @@ target_sources(ora_game PRIVATE game.hpp miniyaml.hpp miniyaml_merge.hpp ruleset
   production/production.hpp
   economy/economy.hpp
   input/screen_map.hpp input/selection.hpp input/selection_logic.hpp input/order_generator.hpp input/production_panel.hpp
+  input/hotkey.hpp input/hotkey_registry.hpp input/tap_history.hpp input/viewport_controller.hpp input/hotkey_actions.hpp
   support/mersenne_twister.hpp support/sha1.hpp filesystem/inflate.hpp filesystem/zip_read.hpp)
 target_include_directories(ora_game PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(ora_game PUBLIC ora_std)

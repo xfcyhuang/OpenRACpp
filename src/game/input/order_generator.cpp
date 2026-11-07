@@ -54,7 +54,19 @@ struct TargeterCandidate {
   std::int32_t int4_priority{};
 };
 
-bool targeter_accepts(const world::TraitSpec& spec, const network::TargetModel& target) {
+bool targeter_accepts(const world::TraitSpec& spec, const network::TargetModel& target,
+                      TargetModifiers tm) {
+  // 上游 AttackBase.CanTargetActor/CanTargetLocation（:431-489）：ForceMove 一票拒绝；
+  // actor 目标吃 spec 声明；地形目标吃 spec 声明或 ForceAttack（打地形）。
+  // 上游 Mobile.MoveOrderTargeter.CanTarget（:1065-1069）：只吃 Terrain，ForceMove
+  // 不拒正常移动器（仅 requireForceMove 单位需要，ra 无此用法）。
+  if (spec.str_order_id == "Attack") {
+    if (has_target_modifier(tm, TargetModifiers::kForceMove)) return false;
+    if (target.kind == network::TargetKind::kActor) return spec.b_order_actor_target;
+    if (target.kind == network::TargetKind::kTerrain)
+      return spec.b_order_terrain_target || has_target_modifier(tm, TargetModifiers::kForceAttack);
+    return false;
+  }
   if (target.kind == network::TargetKind::kActor) return spec.b_order_actor_target;
   if (target.kind == network::TargetKind::kTerrain) return spec.b_order_terrain_target;
   return false;
@@ -104,13 +116,60 @@ network::OrderModel make_move_order(std::uint32_t u4_subject, std::int32_t int4_
 
 network::OrderModel make_attack_order(std::uint32_t u4_subject, std::uint32_t u4_target_actor,
                                       std::int32_t int4_generation, bool b_queued) {
+  return make_attack_order_ex(u4_subject, make_actor_target(u4_target_actor, int4_generation),
+                              "Attack", b_queued);
+}
+
+network::OrderModel make_attack_order_ex(std::uint32_t u4_subject, const network::TargetModel& target,
+                                         std::string_view str_order_name, bool b_queued) {
   network::OrderModel order;
-  order.str_order = "Attack";
+  order.str_order = std::string(str_order_name);
   order.b_has_subject = true;
   order.u4_subject = u4_subject;
-  order.target = make_actor_target(u4_target_actor, int4_generation);
+  order.target = target;
   order.b_queued = b_queued;
   return order;
+}
+
+TargetModifiers target_modifiers_from_keys(ModifierKeys mods) {
+  TargetModifiers tm{TargetModifiers::kNone};
+  if (has_modifier(mods, ModifierKeys::kCtrl)) tm = tm | TargetModifiers::kForceAttack;
+  if (has_modifier(mods, ModifierKeys::kShift)) tm = tm | TargetModifiers::kForceQueue;
+  if (has_modifier(mods, ModifierKeys::kAlt)) tm = tm | TargetModifiers::kForceMove;
+  return tm;
+}
+
+std::vector<network::OrderModel> attack_move_generator_order(const world::WorldModel& w,
+                                                             std::uint32_t u4_viewer_player,
+                                                             const SelectionModel& selection,
+                                                             std::int32_t int4_cell_x,
+                                                             std::int32_t int4_cell_y,
+                                                             const MouseInput& mi) {
+  static_cast<void>(u4_viewer_player);
+  const bool b_queued{has_modifier(mi.mods, ModifierKeys::kShift)};
+  const std::string_view str_order{has_modifier(mi.mods, ModifierKeys::kCtrl) ? std::string_view{"AssaultMove"}
+                                                                              : std::string_view{"AttackMove"}};
+
+  std::vector<std::uint32_t> vec_subjects;
+  for (const std::uint32_t u4_id : selection.vec_actor_ids) {
+    if (u4_id >= w.vec_actors_all.size()) continue;
+    const world::ActorModel& actor{w.vec_actors_all[u4_id]};
+    if (actor.b_disposed) continue;
+    bool b_has_attack_move{false};
+    for (const std::uint32_t u4_handle : actor.vec_trait_handles)
+      if (w.vec_traits[u4_handle].str_kind == "AttackMoveProbe") b_has_attack_move = true;
+    if (b_has_attack_move) vec_subjects.push_back(u4_id);
+  }
+  if (vec_subjects.empty()) return {};
+
+  network::OrderModel order;
+  order.str_order = std::string(str_order);
+  order.b_has_subject = false;
+  order.target = make_cell_target(int4_cell_x, int4_cell_y);
+  order.b_queued = b_queued;
+  order.b_has_grouped = true;
+  order.vec_grouped = vec_subjects;
+  return std::vector<network::OrderModel>{order};
 }
 
 network::OrderModel make_create_group_order(std::uint32_t u4_player_actor,
@@ -176,7 +235,8 @@ std::vector<network::OrderModel> unit_order_generator_order(const world::WorldMo
   if (opt_actor.has_value())
     target = make_actor_target(*opt_actor, w.vec_actors_all[*opt_actor].int4_generation);
 
-  const bool b_queued{has_modifier(mi.mods, ModifierKeys::kShift)};
+  const TargetModifiers tm{target_modifiers_from_keys(mi.mods)};
+  const bool b_queued{has_target_modifier(tm, TargetModifiers::kForceQueue)};
   std::vector<UnitOrderChoice> vec_choices;
   for (const std::uint32_t u4_id : selection.vec_actor_ids) {
     if (u4_id >= w.vec_actors_all.size()) continue;
@@ -203,7 +263,7 @@ std::vector<network::OrderModel> unit_order_generator_order(const world::WorldMo
                                                             : make_cell_target(int4_cell_x,
                                                                                int4_cell_y)};
       for (const TargeterCandidate& cand : vec_targeters) {
-        if (!targeter_accepts(*cand.ptr_spec, target_pass)) continue;
+        if (!targeter_accepts(*cand.ptr_spec, target_pass, tm)) continue;
         vec_choices.push_back(UnitOrderChoice{u4_id, cand.ptr_spec, target_pass});
         b_found = true;
         break;
@@ -223,13 +283,19 @@ std::vector<network::OrderModel> unit_order_generator_order(const world::WorldMo
   vec_orders.push_back(make_create_group_order(u4_player_actor, vec_grouped));
 
   for (const UnitOrderChoice& choice : vec_choices) {
-    if (choice.ptr_spec->str_order_id == "Attack")
-      vec_orders.push_back(make_attack_order(choice.u4_actor, choice.target.u4_actor,
-                                             choice.target.int4_generation, b_queued));
-    else if (choice.ptr_spec->str_order_id == "Move")
+    // 上游 AttackBase.CanTargetActor/CanTargetLocation（:459-461,:483-488）：ForceAttack
+    // 时 OrderID 改写为 forceAttackOrderName（"ForceAttack"），不是 Attack+flag。
+    if (choice.ptr_spec->str_order_id == "Attack") {
+      const std::string_view str_name{has_target_modifier(tm, TargetModifiers::kForceAttack)
+                                          ? std::string_view{"ForceAttack"}
+                                          : std::string_view{"Attack"}};
+      vec_orders.push_back(make_attack_order_ex(choice.u4_actor, choice.target, str_name,
+                                                b_queued));
+    } else if (choice.ptr_spec->str_order_id == "Move") {
       vec_orders.push_back(make_move_order(choice.u4_actor, int4_cell_x, int4_cell_y, b_queued));
-    else
+    } else {
       continue;
+    }
   }
   return vec_orders;
 }

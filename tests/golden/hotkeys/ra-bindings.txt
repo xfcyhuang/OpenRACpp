@@ -1,0 +1,188 @@
+# baseline 1f594e32065615ed1847962c80ecfe6e868a11c3 OpenRA HotkeyManager/HotkeyDefinition
+# ra hotkey default bindings (174 definitions)
+# load order:
+#   common|hotkeys/game.yaml
+#   common|hotkeys/observer.yaml
+#   common|hotkeys/production-common.yaml
+#   common|hotkeys/supportpowers.yaml
+#   common|hotkeys/viewport.yaml
+#   common|hotkeys/chat.yaml
+#   common|hotkeys/editor.yaml
+#   common|hotkeys/control-groups.yaml
+#   ra|hotkeys.yaml
+# columns: name<TAB>KEYCODE<TAB>MODIFIERS<TAB>HasDuplicates (canonical Modifiers:F)
+CycleBase	H	None	False
+ToLastEvent	SPACE	None	False
+ToSelection	HOME	None	False
+SelectAllUnits	Q	None	False
+SelectUnitsByType	W	None	False
+CycleHarvesters	N	None	False
+Pause	PAUSE	None	False
+Sell	Z	None	False
+Repair	C	None	False
+PlaceBeacon	B	None	False
+CycleStatusBars	COMMA	None	False
+ToggleMute	M	None	False
+TogglePlayerStanceColor	UNKNOWN	None	False
+TakeScreenshot	P	Ctrl	False
+QuickSave	KP_ENTER	None	False
+AttackMove	A	None	False
+Stop	S	None	False
+Scatter	X	Ctrl	False
+Deploy	F	None	False
+Guard	D	None	False
+StanceAttackAnything	A	Alt	False
+StanceDefend	S	Alt	False
+StanceReturnFire	D	Alt	False
+StanceHoldFire	F	Alt	False
+StopMusic	AUDIOSTOP	None	False
+PauseMusic	AUDIOPLAY	None	False
+PrevMusic	AUDIOPREV	None	False
+NextMusic	AUDIONEXT	None	False
+ObserverCombinedView	MINUS	None	False
+ObserverWorldView	EQUALS	None	False
+ReplaySpeedSlow	F9	None	False
+ReplaySpeedRegular	F10	None	False
+ReplaySpeedFast	F11	None	False
+ReplaySpeedMax	F12	None	False
+StatisticsNone	F1	None	False
+StatisticsBasic	F2	None	False
+StatisticsEconomy	F3	None	False
+StatisticsProduction	F4	None	False
+StatisticsSupportPowers	F5	None	False
+StatisticsCombat	F6	None	False
+StatisticsArmy	F7	None	False
+StatisticsGraph	UNKNOWN	None	False
+StatisticsArmyGraph	UNKNOWN	None	False
+CycleProductionBuildings	TAB	Ctrl	False
+SelectProductionBuilding	TAB	None	False
+Production01	F1	None	False
+Production02	F2	None	False
+Production03	F3	None	False
+Production04	F4	None	False
+Production05	F5	None	False
+Production06	F6	None	False
+Production07	F7	None	False
+Production08	F8	None	False
+Production09	F9	None	False
+Production10	F10	None	False
+Production11	F11	None	False
+Production12	F12	None	False
+Production13	F1	Ctrl	False
+Production14	F2	Ctrl	False
+Production15	F3	Ctrl	False
+Production16	F4	Ctrl	False
+Production17	F5	Ctrl	False
+Production18	F6	Ctrl	False
+Production19	F7	Ctrl	False
+Production20	F8	Ctrl	False
+Production21	F9	Ctrl	False
+Production22	F10	Ctrl	False
+Production23	F11	Ctrl	False
+Production24	F12	Ctrl	False
+SupportPower01	UNKNOWN	None	False
+SupportPower02	UNKNOWN	None	False
+SupportPower03	UNKNOWN	None	False
+SupportPower04	UNKNOWN	None	False
+SupportPower05	UNKNOWN	None	False
+SupportPower06	UNKNOWN	None	False
+MapScrollUp	UP	None	False
+MapScrollDown	DOWN	None	False
+MapScrollLeft	LEFT	None	False
+MapScrollRight	RIGHT	None	False
+MapJumpToTopEdge	UP	Alt	False
+MapJumpToBottomEdge	DOWN	Alt	False
+MapJumpToLeftEdge	LEFT	Alt	False
+MapJumpToRightEdge	RIGHT	Alt	False
+MapBookmarkSave01	Q	Ctrl	False
+MapBookmarkRestore01	Q	Alt	False
+MapBookmarkSave02	W	Ctrl	False
+MapBookmarkRestore02	W	Alt	False
+MapBookmarkSave03	E	Ctrl	False
+MapBookmarkRestore03	E	Alt	False
+MapBookmarkSave04	R	Ctrl	False
+MapBookmarkRestore04	R	Alt	False
+ZoomIn	RIGHTBRACKET	None	False
+ZoomOut	LEFTBRACKET	None	False
+ResetZoom	PERIOD	None	False
+DisableUserInterface	EQUALS	Shift	False
+DisableAllUserInterface	EQUALS	Shift, Alt	False
+OpenTeamChat	RETURN	None	False
+OpenGeneralChat	RETURN	Shift	False
+ToggleChatMode	TAB	Shift	False
+Autocomplete	TAB	None	False
+EditorUndo	Z	Ctrl	False
+EditorRedo	Y	Ctrl	False
+EditorCopy	C	Ctrl	False
+EditorQuickSave	S	Ctrl	False
+EditorPaste	V	Ctrl	False
+EditorDeleteSelection	DELETE	None	False
+EditorSelectTab	E	None	False
+EditorTilesTab	R	None	False
+EditorOverlaysTab	T	None	False
+EditorActorsTab	Y	None	False
+EditorToolsTab	U	None	False
+EditorHistoryTab	I	None	False
+EditorSettingsTab	O	None	False
+EditorToggleGridOverlay	F1	None	False
+EditorToggleBuildableOverlay	F2	None	False
+EditorToggleMarkerOverlay	F3	None	False
+ControlGroupSelect01	NUMBER_1	None	False
+ControlGroupSelect02	NUMBER_2	None	False
+ControlGroupSelect03	NUMBER_3	None	False
+ControlGroupSelect04	NUMBER_4	None	False
+ControlGroupSelect05	NUMBER_5	None	False
+ControlGroupSelect06	NUMBER_6	None	False
+ControlGroupSelect07	NUMBER_7	None	False
+ControlGroupSelect08	NUMBER_8	None	False
+ControlGroupSelect09	NUMBER_9	None	False
+ControlGroupSelect10	NUMBER_0	None	False
+ControlGroupCreate01	NUMBER_1	Ctrl	False
+ControlGroupCreate02	NUMBER_2	Ctrl	False
+ControlGroupCreate03	NUMBER_3	Ctrl	False
+ControlGroupCreate04	NUMBER_4	Ctrl	False
+ControlGroupCreate05	NUMBER_5	Ctrl	False
+ControlGroupCreate06	NUMBER_6	Ctrl	False
+ControlGroupCreate07	NUMBER_7	Ctrl	False
+ControlGroupCreate08	NUMBER_8	Ctrl	False
+ControlGroupCreate09	NUMBER_9	Ctrl	False
+ControlGroupCreate10	NUMBER_0	Ctrl	False
+ControlGroupAddTo01	NUMBER_1	Shift, Ctrl	False
+ControlGroupAddTo02	NUMBER_2	Shift, Ctrl	False
+ControlGroupAddTo03	NUMBER_3	Shift, Ctrl	False
+ControlGroupAddTo04	NUMBER_4	Shift, Ctrl	False
+ControlGroupAddTo05	NUMBER_5	Shift, Ctrl	False
+ControlGroupAddTo06	NUMBER_6	Shift, Ctrl	False
+ControlGroupAddTo07	NUMBER_7	Shift, Ctrl	False
+ControlGroupAddTo08	NUMBER_8	Shift, Ctrl	False
+ControlGroupAddTo09	NUMBER_9	Shift, Ctrl	False
+ControlGroupAddTo10	NUMBER_0	Shift, Ctrl	False
+ControlGroupCombineWith01	NUMBER_1	Shift	False
+ControlGroupCombineWith02	NUMBER_2	Shift	False
+ControlGroupCombineWith03	NUMBER_3	Shift	False
+ControlGroupCombineWith04	NUMBER_4	Shift	False
+ControlGroupCombineWith05	NUMBER_5	Shift	False
+ControlGroupCombineWith06	NUMBER_6	Shift	False
+ControlGroupCombineWith07	NUMBER_7	Shift	False
+ControlGroupCombineWith08	NUMBER_8	Shift	False
+ControlGroupCombineWith09	NUMBER_9	Shift	False
+ControlGroupCombineWith10	NUMBER_0	Shift	False
+ControlGroupJumpTo01	NUMBER_1	Alt	False
+ControlGroupJumpTo02	NUMBER_2	Alt	False
+ControlGroupJumpTo03	NUMBER_3	Alt	False
+ControlGroupJumpTo04	NUMBER_4	Alt	False
+ControlGroupJumpTo05	NUMBER_5	Alt	False
+ControlGroupJumpTo06	NUMBER_6	Alt	False
+ControlGroupJumpTo07	NUMBER_7	Alt	False
+ControlGroupJumpTo08	NUMBER_8	Alt	False
+ControlGroupJumpTo09	NUMBER_9	Alt	False
+ControlGroupJumpTo10	NUMBER_0	Alt	False
+RemoveFromControlGroup	UNKNOWN	None	False
+ProductionTypeBuilding	E	None	False
+ProductionTypeDefense	R	None	False
+ProductionTypeInfantry	T	None	False
+ProductionTypeVehicle	Y	None	False
+ProductionTypeAircraft	U	None	False
+ProductionTypeNaval	I	None	False
+PowerDown	X	None	False
+# total=174 unbound=10 readonly=2 duplicates=0
