@@ -57,6 +57,42 @@ std::string golden_init_line() {
   return {};
 }
 
+// 全帧重演对拍(desync 负向重跑):返回首分歧记录 sync 帧(0 = 全对)。
+// 数据面 ctx 共享(黄金 dump 不受录包篡改影响);订单流从(可能篡改的)记录重解析。
+std::int32_t run_oracle_replay(const std::vector<std::uint8_t>& vec_orarep,
+                               const std::vector<std::uint8_t>& vec_oramap,
+                               const ora::game::replay::OracleReplayContext& ctx) {
+  using namespace ora::game::replay;
+  const auto res_read{replay_read(vec_orarep)};
+  if (!res_read.has_value()) return -1;
+  const auto res_feed{replay_feed_build(*res_read)};
+  if (!res_feed.has_value()) return -1;
+  std::map<std::int32_t, std::vector<ora::game::network::OrderModel>> map_orders;
+  for (const ReplayRecord& record : res_read->vec_records) {
+    const auto opt_orders{ora::game::network::try_parse_order_packet(record.vec_data)};
+    if (!opt_orders.has_value() || opt_orders->int4_frame == 0) continue;
+    for (const auto& order :
+         ora::game::network::order_packet_get_orders(opt_orders->vec_order_bytes, nullptr))
+      map_orders[opt_orders->int4_frame].push_back(order);
+  }
+  const auto res_world{replay_oracle_create(res_feed->session.int4_seed, vec_oramap)};
+  if (!res_world.has_value()) return -1;
+  ReplayOracleWorld w{*res_world};
+  for (std::int32_t int4_f{1}; int4_f <= 580; ++int4_f) {
+    if (int4_f >= 2)
+      for (const ora::game::network::OrderModel& order : map_orders[int4_f])
+        replay_oracle_apply_order(w, order);
+    if (int4_f == 1)
+      replay_oracle_frame1(w);
+    else
+      replay_oracle_frame(w, ctx, int4_f);
+    const auto it_sync{res_feed->map_recorded_syncs.find(int4_f + 1)};
+    if (it_sync == res_feed->map_recorded_syncs.end()) continue;
+    if (replay_oracle_sync_hash(w) != it_sync->second.first) return int4_f + 1;
+  }
+  return 0;
+}
+
 // —— slice 1:装配序与 f1 静态对拍(sync(1) = 装配后世界五段式)——
 
 void test_assembly_and_frame1() {
@@ -222,7 +258,7 @@ void test_assembly_and_frame1() {
         "all 580 recorded syncs compared (init f1 + frame ends f1-f579; f580 end = 未录 sync581)");
 
   // —— desync 负向(当前实现面):篡改录中 frame-2 sync 封包 hash 字节 → 与本地
-  // 重演 hash 对拍必然分叉(检出)。订单字节/物品名负向随行为面扩展(后续帧模型)接入。
+  // 重演 hash 对拍必然分叉(检出)。订单 subject/物品名负向 = 全帧重演重跑(下方)。
   {
     const auto res_read_orig{replay_read(vec_orarep)};
     check(res_read_orig.has_value(), "tamper-sync: file parses");
@@ -251,6 +287,75 @@ void test_assembly_and_frame1() {
                 "tamper-sync: tampered sync hash diverges from local replay hash (detected)");
       }
     }
+  }
+
+  // —— desync 负向全帧重演(三态):订单 subject 篡改 / prod-name 篡改 ——
+  // 原样重跑 = 全对(对照基线);篡改重跑 = 首分歧必现(检出)。
+  const auto vec_oramap_bytes{
+      read_file_bytes(std::format("{}/ore-lord.oramap", ORA_MAPS_GOLDEN_DIR))};
+  check(run_oracle_replay(vec_orarep, vec_oramap_bytes, *res_ctx) == 0,
+        "untampered full replay: no divergence (baseline)");
+  {
+    // 订单 subject 篡改:f16 Move 封包 subject 146 -> 147(字节位移 = 4 帧前缀 +
+    // 1 类型 + 1 名长 + 4 名 + 2 flags = 12;4 字节 subject 等长替换)
+    std::vector<std::uint8_t> vec_tampered{vec_orarep};
+    bool b_tampered{false};
+    for (const ReplayRecord& record : res_read->vec_records) {
+      const auto opt_orders{ora::game::network::try_parse_order_packet(record.vec_data)};
+      if (!opt_orders.has_value() || opt_orders->int4_frame != 16) continue;
+      if (const char* env_dbg{std::getenv("ORA_ORACLE_DEBUG")}) {
+        (void)env_dbg;
+        std::println("  dbg f16 order bytes: {}", [&] {
+          std::string s;
+          for (std::size_t i = 0; i < record.vec_data.size() && i < 40; ++i)
+            s += std::format("{:02x} ", record.vec_data[i]);
+          return s;
+        }());
+      }
+      // 记录头 8 字节(client+len)+ 帧前缀 4 + 订单内 subject 位移 8
+      // (1 类型 + 1 名长 + 4 名 + 2 flags)
+      const std::size_t idx_subject{record.idx_offset + 8 + 4 + 8};
+      const std::uint32_t u4_subject{static_cast<std::uint32_t>(vec_tampered[idx_subject]) |
+                                     (static_cast<std::uint32_t>(vec_tampered[idx_subject + 1])
+                                      << 8) |
+                                     (static_cast<std::uint32_t>(vec_tampered[idx_subject + 2])
+                                      << 16) |
+                                     (static_cast<std::uint32_t>(vec_tampered[idx_subject + 3])
+                                      << 24)};
+      check(u4_subject == 146, "tamper-order-subject: Move subject 146 located");
+      vec_tampered[idx_subject] = 147;  // 等长改写 subject -> 147
+      b_tampered = true;
+      break;
+    }
+    check(b_tampered, "tamper-order-subject: frame-16 order packet located");
+    if (b_tampered)
+      check(run_oracle_replay(vec_tampered, vec_oramap_bytes, *res_ctx) > 0,
+            "tamper-order-subject: full replay diverges (detected)");
+  }
+  {
+    // prod-name 篡改:f9 StartProduction e1 -> e2(等长改写 TargetString 尾字节;
+    // 未知物品名不入队 → 现金面自 f9 分叉)
+    std::vector<std::uint8_t> vec_tampered{vec_orarep};
+    bool b_tampered{false};
+    for (const ReplayRecord& record : res_read->vec_records) {
+      const auto opt_orders{ora::game::network::try_parse_order_packet(record.vec_data)};
+      if (!opt_orders.has_value() || opt_orders->int4_frame != 9) continue;
+      const std::size_t idx_base{record.idx_offset + 8 + 4};
+      // TargetString 尾字节位移:1 类型 + (1 + 15 名) + 2 flags + 4 subject = 23
+      // → 长度字节@23、'e'@24、'1'@25(7bit 名串紧跟 subject,deserialize_order 同序)
+      const std::size_t idx_name_len{idx_base + 1};
+      const std::size_t idx_target_string{
+          idx_base + 1 + 1 + vec_tampered[idx_name_len] + 2 + 4 + 1 + 1};
+      check(vec_tampered[idx_target_string] == '1',
+            "tamper-prod-name: StartProduction e1 target string located");
+      vec_tampered[idx_target_string] = '2';  // e1 -> e2(等长)
+      b_tampered = true;
+      break;
+    }
+    check(b_tampered, "tamper-prod-name: frame-9 order packet located");
+    if (b_tampered)
+      check(run_oracle_replay(vec_tampered, vec_oramap_bytes, *res_ctx) > 0,
+            "tamper-prod-name: full replay diverges (detected)");
   }
 }
 
