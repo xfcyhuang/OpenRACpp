@@ -2,6 +2,7 @@
 
 import std;
 
+#include "game/network/order.hpp"
 #include "game/support/mersenne_twister.hpp"
 
 namespace ora::game::replay {
@@ -118,6 +119,21 @@ struct FacePlayer {
   std::int32_t int4_frozen_sum{};       // FrozenActorLayer.FrozenHash(Σ全部 frozen id)
 };
 
+// 经典生产队列项目(ProductionItem + 低电桶逐字复刻;黄金 prod-trace 实测:
+// powr C=300/T=180、e1 C=100/T=60 = GetBuildTime 产物,低电 LowPowerModifier 300
+// → 充 1 帧歇 2 帧;Done 次帧 OnComplete → 步兵帧尾出生 e1@f187)。
+struct OracleProdItem {
+  std::string str_item;               // "powr"/"e1"(篡改 prod-name 负向不入队)
+  std::int32_t int4_cost{};           // TotalCost
+  std::int32_t int4_total_time{};     // TotalTime
+  std::int32_t int4_remaining_time{}; // RemainingTime(首充前 = TotalTime)
+  std::int32_t int4_remaining_cost{}; // RemainingCost
+  std::int32_t int4_slowdown{};       // 低电桶(0→−100<0→200→100→0→充…3 帧周期)
+  bool b_started{};
+  bool b_done{};
+  bool b_oncomplete_fired{};          // Done 次队列 tick 的 OnComplete 已触发
+};
+
 struct ReplayOracleWorld {
   std::vector<FaceActor> vec_actors;  // 下标 = ActorID(装配序 0..148 + 运行期出生)
   std::vector<FacePlayer> vec_players;
@@ -126,6 +142,8 @@ struct ReplayOracleWorld {
   std::vector<std::set<std::pair<std::int32_t, std::int32_t>>> vec_sight;
   // 延迟开火特效日程(命中帧 +2/+4 各耗 4;值不入对拍面,时点入 seg4 账本)
   std::vector<std::pair<std::int32_t, std::int32_t>> vec_delayed_effect;  // (frame, count)
+  // 经典生产队列(StartProduction 订单入队;分期扣款直接驱动 Multi0 现金)
+  std::vector<OracleProdItem> vec_prod_items;
   // 段3:ISync 效果(Bullet 弹道)——战斗期非空
   struct SyncEffect {
     std::int32_t int4_hash{};  // Bullet 的 ISync 哈希(弹道状态)
@@ -154,9 +172,14 @@ struct ReplayOracleWorld {
 void replay_oracle_frame1(ReplayOracleWorld& w);
 
 // 通用单帧(n ≥ 2):A 段(活动:e1 攻击链;idle TickIdle:WIB 状态机/AutoTarget 扫描)
-// + B 段(ITick 递减:AutoTarget/TakeCover/WIB 状态迁移/harv 转身)+ 帧尾(伤害结算)。
-// 逐帧与录包 sync(N+1) 对拍(录包口径:sync(N) = N-1 帧末状态)。
+// + B 段(ITick 递减:AutoTarget/TakeCover/WIB 状态迁移/harv 转身)+ 生产队列分期扣款
+// + 帧尾(伤害结算)。逐帧与录包 sync(N+1) 对拍(录包口径:sync(N) = N-1 帧末状态)。
 void replay_oracle_frame(ReplayOracleWorld& w, std::int32_t int4_frame);
+
+// 订单应用(录包口径:标签 f 的订单于 f+1 帧应用——echo 下一帧投影;黄金实测
+// StartProduction powr@5 → 队列首充 0@f6、Move/Attack/PlaceBuilding 同口径):
+// StartProduction 入生产队列;Move/Attack/PlaceBuilding 随行为面扩展接入。
+void replay_oracle_apply_order(ReplayOracleWorld& w, const network::OrderModel& order);
 
 // World.SyncHash() 五段式(int 环绕;n 跨段连续;段2 按 (ActorID,构造序))。
 [[nodiscard]] std::int32_t replay_oracle_sync_hash(const ReplayOracleWorld& w);

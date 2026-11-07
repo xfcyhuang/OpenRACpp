@@ -2,6 +2,8 @@ import std;
 #include <cstdio>
 #include <cstdlib>
 
+#include "game/network/order.hpp"
+#include "game/network/order_packet.hpp"
 #include "game/replay/replay_format.hpp"
 #include "game/replay/replay_player.hpp"
 #include "game/replay/replay_world.hpp"
@@ -133,12 +135,42 @@ void test_assembly_and_frame1() {
     check(int4_hash == it_sync->second.first,
           std::format("frame-1 sync hash: got {} want {}", int4_hash, it_sync->second.first));
 
-  // slice 2/3:f1-f8 逐帧对拍(A/B 两段帧内序:WIB pair/扫描/首枪/延迟特效——
-  // 录包口径 sync(N) = N-1 帧末状态;frame1 = f1 末事件:harv 出生/置位波/队列波)。
+  // slice 2/3:f1-f14 逐帧对拍(A/B 两段帧内序:WIB pair/扫描/首枪/延迟特效/生产
+  // 分期扣款——录包口径 sync(N) = N-1 帧末状态;frame1 = f1 末事件:harv 出生/置位波/
+  // 队列波)。订单流:标签 f 的订单于 f+1 帧应用(echo 下一帧投影)。
+  std::map<std::int32_t, std::vector<ora::game::network::OrderModel>> map_script_orders;
+  for (const ReplayRecord& record : res_read->vec_records) {
+    const auto opt_orders{ora::game::network::try_parse_order_packet(record.vec_data)};
+    if (!opt_orders.has_value() || opt_orders->int4_frame == 0) continue;
+    for (const auto& order :
+         ora::game::network::order_packet_get_orders(opt_orders->vec_order_bytes, nullptr))
+      map_script_orders[opt_orders->int4_frame].push_back(order);
+  }
+  if (const char* env_dbg{std::getenv("ORA_ORACLE_DEBUG")}) {
+    (void)env_dbg;
+    for (const auto& [int4_f, vec_o] : map_script_orders)
+      for (const auto& o : vec_o)
+        std::println("  dbg order f{}: {} subject {} target {} queued {}", int4_f, o.str_order,
+                     o.b_has_subject ? std::to_string(o.u4_subject) : std::string{"none"},
+                     o.opt_str_target.value_or("-"), o.b_queued);
+  }
+  check(map_script_orders.contains(6) && map_script_orders.contains(9) &&
+            map_script_orders.contains(16) && map_script_orders.contains(26) &&
+            map_script_orders.contains(551),
+        "scripted order packets present (6/9/16/26/551)");
+  {
+    std::size_t idx_orders{};
+    for (const auto& [int4_frame, vec_orders] : map_script_orders) idx_orders += vec_orders.size();
+    check(idx_orders == 5, "exactly 5 scripted orders in stream");
+  }
+
   ReplayOracleWorld w2{*res_world};
   std::int32_t int4_hash2{};
   std::int32_t int4_first_div{-1};
-  for (std::int32_t int4_n{1}; int4_n <= 8; ++int4_n) {
+  for (std::int32_t int4_n{1}; int4_n <= 14; ++int4_n) {
+    if (int4_n >= 2)  // 标签 n 的订单本帧应用(录包标签 = 应用帧:echo 下一帧投影)
+      for (const ora::game::network::OrderModel& order : map_script_orders[int4_n])
+        replay_oracle_apply_order(w2, order);
     if (int4_n == 1)
       replay_oracle_frame1(w2);
     else
@@ -174,7 +206,7 @@ void test_assembly_and_frame1() {
       check(true, std::format("frame-{}-end sync matches recorded", int4_n));
     }
   }
-  check(int4_first_div < 0, "no divergence through frame 8");
+  check(int4_first_div < 0, "no divergence through frame 14");
 
   // —— desync 负向(当前实现面):篡改录中 frame-2 sync 封包 hash 字节 → 与本地
   // 重演 hash 对拍必然分叉(检出)。订单字节/物品名负向随行为面扩展(后续帧模型)接入。

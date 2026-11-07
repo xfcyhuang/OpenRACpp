@@ -708,6 +708,56 @@ void replay_oracle_frame(ReplayOracleWorld& w, std::int32_t int4_frame) {
       ++idx;
     }
   }
+
+  // —— 经典生产队列分期扣款(ProductionItem.Tick + 低电桶逐字复刻)——
+  // TickInner 每帧跑 Queue[0];低电 Critical(LowPowerModifier 300):充 1 帧歇 2 帧;
+  // 充值公式:expected = (r==1 ? 0 : C*r/T),cost = RC − expected,TakeCash 后 r−−。
+  // Done 次队列 tick 触发 OnComplete(步兵出生链 = 子面接入)。
+  for (OracleProdItem& item : w.vec_prod_items) {
+    if (!item.b_started) {
+      item.int4_remaining_time = item.int4_total_time;
+      item.b_started = true;
+    }
+    if (item.b_done) {
+      if (!item.b_oncomplete_fired) item.b_oncomplete_fired = true;  // 出生链接入点
+      continue;
+    }
+    item.int4_slowdown -= 100;
+    if (item.int4_slowdown >= 0) continue;  // 低电歇帧(不充不递减)
+    item.int4_slowdown = 300 + item.int4_slowdown;
+    const std::int32_t int4_expected{item.int4_remaining_time == 1
+                                         ? 0
+                                         : item.int4_cost * item.int4_remaining_time /
+                                               item.int4_total_time};
+    const std::int32_t int4_charge{item.int4_remaining_cost - int4_expected};
+    if (int4_charge != 0) {
+      w.vec_players[2].int4_cash -= int4_charge;  // TakeCash(账本全程充足)
+      item.int4_remaining_cost -= int4_charge;
+    }
+    item.int4_remaining_time--;
+    if (item.int4_remaining_time <= 0) item.b_done = true;
+  }
+}
+
+void replay_oracle_apply_order(ReplayOracleWorld& w, const network::OrderModel& order) {
+  if (order.str_order != "StartProduction" || !order.opt_str_target.has_value()) return;
+  // 成本/工期 = 黄金 prod-trace 实测(GetBuildTime 产物;低电产能不减工期面)
+  std::int32_t int4_cost{}, int4_time{};
+  if (*order.opt_str_target == "powr") {
+    int4_cost = 300;
+    int4_time = 180;
+  } else if (*order.opt_str_target == "e1") {
+    int4_cost = 100;
+    int4_time = 60;
+  } else {
+    return;  // 未知物品名(篡改 prod-name 负向):不入队 → 现金面自 f9 起分叉检出
+  }
+  OracleProdItem item;
+  item.str_item = *order.opt_str_target;
+  item.int4_cost = int4_cost;
+  item.int4_total_time = int4_time;
+  item.int4_remaining_cost = int4_cost;
+  w.vec_prod_items.push_back(std::move(item));
 }
 
 std::int32_t replay_oracle_sync_hash(const ReplayOracleWorld& w) {
