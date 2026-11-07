@@ -9,6 +9,8 @@ import std;
 #include "game/pathfinding/move_sim.hpp"
 #include "game/pathfinding/path_graph.hpp"
 #include "game/tileset.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_PATHFINDING_GOLDEN_DIR
 #define ORA_PATHFINDING_GOLDEN_DIR "tests/golden/pathfinding"
@@ -24,22 +26,7 @@ namespace pfg = ora::game::pathfinding;
 namespace ogf = ora::game::filesystem;
 namespace ogm = ora::game;
 
-int int4_failures{0};
-int int4_checks{0};
-int int4_reports{0};
 
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_checks;
-  if (!b_ok) {
-    ++int4_failures;
-    if (int4_reports < kMaxReports) {
-      ++int4_reports;
-      std::println("pathfind_move: {}", str_what);
-    }
-  }
-}
 
 std::optional<std::string> read_file_bytes(std::string_view str_path) {
   std::ifstream stream_in{std::filesystem::path{std::string(str_path)}, std::ios::binary};
@@ -247,7 +234,7 @@ TickRow snapshot_row(const pfg::MoveSimState& st, std::int32_t int4_tick) {
   return row;
 }
 
-}  // namespace
+}
 
 int main() {
   const auto str_golden{read_file_bytes(std::format("{}/ore-lord.move.txt", ORA_PATHFINDING_GOLDEN_DIR))};
@@ -330,9 +317,6 @@ int main() {
   check(idx_gold == vec_gold_tick.size(),
         std::format("move: consumed {} of {} golden tick rows", idx_gold, vec_gold_tick.size()));
 
-  // 第二段 (35,17)→(28,10)：近距西北对角（= paths.txt 的 moveturn 对，实测
-  // oracle A100==A125==HPF 逐格一致）→ 135° Turn + FirstHalf 弧线链。原定远距对
-  // (12,12) 上 oracle HPF 走抽象层、与局部 A* 不同路径（D025），逐 tick 对拍不可行。
   pfg::move_queue(st, pfg::CPos{28, 10});
 
   std::size_t idx_gold2{0};
@@ -361,11 +345,5 @@ int main() {
   check(idx_gold2 == vec_gold_tick2.size(),
         std::format("move: consumed {} of {} golden tick2 rows", idx_gold2, vec_gold_tick2.size()));
 
-  std::fflush(nullptr);
-  if (int4_failures != 0) {
-    std::println("pathfind_move: {} of {} checks failed", int4_failures, int4_checks);
-    return 1;
-  }
-  std::println("pathfind_move: all {} checks passed", int4_checks);
-  return 0;
+  return ora::test::test_exit_code("pathfind_move");
 }

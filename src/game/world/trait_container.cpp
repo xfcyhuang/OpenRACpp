@@ -18,7 +18,7 @@ std::size_t binary_search_many(const std::vector<std::uint32_t>& vec_ids,
   return idx_start;
 }
 
-}  // namespace
+}
 
 void container_add(TraitContainerModel& container, std::uint32_t u4_actor_id,
                    std::uint32_t u4_trait_handle) {
@@ -53,4 +53,4 @@ void container_remove_actor(TraitContainerModel& container, std::uint32_t u4_act
                                         static_cast<std::ptrdiff_t>(idx_end));
 }
 
-}  // namespace ora::game::world
+}

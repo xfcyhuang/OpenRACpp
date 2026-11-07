@@ -18,7 +18,7 @@ namespace ora::launcher {
 struct SessionEnv {
   std::int32_t int4_seed{0};
   std::string str_map_path;
-  // 真图 tileset（temperat.yaml）解析路径：默认 CWD 相对，main 以 exe 旁绝对路径覆盖。
+
   std::string str_tileset_path{"data/temperat.yaml"};
 };
 
@@ -61,4 +61,4 @@ void session_tick(GameSession& s);
 [[nodiscard]] std::vector<game::input::ProductionQueueView> session_queue_views(
     const GameSession& s);
 
-}  // namespace ora::launcher
+}

@@ -3,7 +3,6 @@
 #include "game/input/screen_map.hpp"
 #include "game/world/trait.hpp"
 
-
 namespace ora::game::input {
 
 namespace {
@@ -18,7 +17,7 @@ const world::TraitModel* actor_trait_find(const world::WorldModel& w,
   return nullptr;
 }
 
-}  // namespace
+}
 
 std::int32_t pixel_distance(std::int32_t int4_dx, std::int32_t int4_dy) {
   return static_cast<std::int32_t>(std::sqrt(static_cast<double>(static_cast<std::int64_t>(int4_dx) * int4_dx +
@@ -143,4 +142,4 @@ void selection_handle_mouse(const world::WorldModel& w, std::uint32_t u4_viewer_
   }
 }
 
-}  // namespace ora::game::input
+}

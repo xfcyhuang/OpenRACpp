@@ -34,7 +34,7 @@ constexpr std::array<FlagSpec, 13> kFlags{{
     FlagSpec{"--help", false},
 }};
 
-}  // namespace
+}
 
 CliParseResult cli_args_parse(std::span<const std::string_view> vec_args) {
   CliParseResult res;
@@ -135,4 +135,4 @@ std::string cli_help_text() {
       "defaults: mod=ra map=built-in sandbox seed=0 tick-ms=40 windowed\n"};
 }
 
-}  // namespace ora::launcher
+}

@@ -54,4 +54,4 @@ struct DragState {
 void selection_handle_mouse(const world::WorldModel& w, std::uint32_t u4_viewer_player,
                             SelectionModel& selection, DragState& drag, const MouseInput& mi);
 
-}  // namespace ora::game::input
+}

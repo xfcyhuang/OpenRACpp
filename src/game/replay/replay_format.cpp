@@ -19,7 +19,7 @@ void append_i4le(std::vector<std::uint8_t>& vec_out, std::int32_t int4_value) {
                                    (static_cast<std::uint32_t>(span_bytes[idx_offset + 3]) << 24));
 }
 
-}  // namespace
+}
 
 std::optional<std::string_view> meta_find_value(const std::vector<MiniYamlNode>& vec_nodes,
                                                 std::string_view str_parent,
@@ -36,8 +36,6 @@ std::optional<std::string_view> meta_find_value(const std::vector<MiniYamlNode>&
 std::expected<ReplayFile, std::string> replay_read(std::span<const std::uint8_t> span_bytes) {
   ReplayFile file;
   std::size_t idx_pos{};
-
-  // —— 记录流：[client i32][len i32][data] *，client==kMetaStartMarker 止 ——
 
   while (true) {
     const auto opt_client{read_i4le(span_bytes, idx_pos)};
@@ -63,8 +61,6 @@ std::expected<ReplayFile, std::string> replay_read(std::span<const std::uint8_t>
     file.vec_records.push_back(std::move(record));
     idx_pos += 8 + sz_len;
   }
-
-  // —— 元数据块：[-1][version i32][yamlLen i32][yaml][dataLength i32][-2] ——
 
   const auto opt_version{read_i4le(span_bytes, idx_pos + 4)};
   const auto opt_yaml_len{read_i4le(span_bytes, idx_pos + 8)};
@@ -127,4 +123,4 @@ std::vector<std::uint8_t> replay_write(const ReplayFile& file) {
   return vec_out;
 }
 
-}  // namespace ora::game::replay
+}

@@ -93,7 +93,7 @@ std::uint32_t player_index_by_name(const WorldModel& w, std::string_view str_nam
   return kOwnerNone;
 }
 
-}  // namespace
+}
 
 std::expected<SyntheticMap, std::string> synthetic_map_from_yaml(std::string_view str_rules_text,
                                                                  std::string_view str_map_text) {
@@ -329,11 +329,6 @@ std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
     if (!res.has_value()) return std::unexpected(res.error());
   }
 
-  // SpawnStartingUnits 等价（mcvonly）：MCV 落 mpspawn。rng 账本 0 耗——
-  // StartingUnitsInfo.BaseActorFacing 默认 WAngle(512) 非 null（FacingInit 不抽样），
-  // 出生组选择 RandomOrDefault 单组命中走 Next(1)（diff<=1 短路，0 耗）。
-  // 规则集未定义 mcv（经济等无 SpawnStartingUnits 的最小规则集）时跳过——
-  // 上游无该 trait 的规则不生成起始单位。
   if (find_actor_type(w, "mcv") != nullptr) {
     for (std::size_t idx{0}; idx < w.vec_players.size(); ++idx) {
       if (!w.vec_players[idx].b_playable) continue;
@@ -439,4 +434,4 @@ void world_tick(WorldModel& w) {
   }
 }
 
-}  // namespace ora::game::world
+}

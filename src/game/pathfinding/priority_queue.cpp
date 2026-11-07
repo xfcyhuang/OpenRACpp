@@ -52,7 +52,7 @@ void bubble_into(LevelOrderQueue& q, std::int32_t int4_into_level, std::int32_t 
   }
 }
 
-}  // namespace
+}
 
 void queue_add(LevelOrderQueue& q, const GraphConnection& item) {
   std::int32_t int4_add_level{q.int4_level};
@@ -92,4 +92,4 @@ GraphConnection queue_pop(LevelOrderQueue& q) {
   return item_root;
 }
 
-}  // namespace ora::game::pathfinding
+}

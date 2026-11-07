@@ -54,7 +54,7 @@ constexpr std::int32_t kTanTable[257] = {
     41713, 55622, 83438, 166883, 2147483647,
 };
 
-}  // namespace
+}
 
 std::int32_t wangle_lerp(std::int32_t int4_a, std::int32_t int4_b, std::int32_t int4_mul,
                          std::int32_t int4_div) {
@@ -82,7 +82,7 @@ std::int32_t wangle_sin(std::int32_t int4_angle) {
 }
 
 std::int32_t wangle_tan(std::int32_t int4_angle_raw) {
-  // WAngle.Tan（WAngle.cs:89-107）：branchless 三角折叠 + 符号（表与 CosineTable 同源）
+
   const std::int32_t int4_angle{int4_angle_raw & 511};
   const std::int32_t int4_shifted{int4_angle - 257};
   const std::int32_t int4_mask{int4_shifted >> 31};
@@ -264,4 +264,4 @@ WVec wvec_rotate_yaw(WVec vec, std::int32_t int4_yaw) {
   return wvec_rotate_matrix(vec, wrot_as_matrix(wrot_from_yaw(int4_yaw)));
 }
 
-}  // namespace ora::game::pathfinding
+}

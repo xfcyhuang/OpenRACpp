@@ -40,4 +40,4 @@ struct ParsedSyncPacket {
 [[nodiscard]] std::optional<ParsedSyncPacket> try_parse_sync_packet(
     std::span<const std::uint8_t> span_packet);
 
-}  // namespace ora::game::network
+}

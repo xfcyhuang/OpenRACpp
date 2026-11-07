@@ -11,17 +11,17 @@ import std;
 namespace ora::game::world {
 struct WorldModel;
 struct FrameEndTask;
-}  // namespace ora::game::world
+}
 
 namespace ora::game::economy {
 
 constexpr std::uint32_t kNoActor{0xffffffffu};
 
 struct ResourceTypeSpec {
-  std::string str_name;
+  std::string str_name{};
   std::uint8_t u1_index{};
-  std::string str_terrain;
-  std::vector<std::string> vec_allowed_terrain;
+  std::string str_terrain{};
+  std::vector<std::string> vec_allowed_terrain{};
   std::int32_t int4_max_density{};
   std::int32_t int4_value{};
 };
@@ -42,7 +42,7 @@ struct ResourceLayerState {
 };
 
 struct HarvCargoState {
-  std::vector<std::pair<std::string, std::int32_t>> vec_contents;
+  std::vector<std::pair<std::string, std::int32_t>> vec_contents{};
   std::int32_t int4_capacity{20};
 };
 
@@ -55,8 +55,7 @@ enum class ActKind : std::uint8_t {
   kWait = 5,
   kMove = 6,
   kTurn = 7,
-  // 上游 MoveOnto（MoveAdjacentTo 子类）的移动：FindPathToTargetCells 反向搜索，
-  // 观测行仍显示为 Move。
+
   kMoveReverse = 8,
 };
 
@@ -186,4 +185,4 @@ std::int32_t resource_remove(ResourceLayerState& layer, EconomyWorldState& econ,
 
 [[nodiscard]] const std::vector<world::TraitSpec>& economy_trait_specs();
 
-}  // namespace ora::game::economy
+}

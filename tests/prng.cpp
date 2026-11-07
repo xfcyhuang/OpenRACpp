@@ -1,6 +1,8 @@
 import std;
 
 #include "game/support/mersenne_twister.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_PRNG_GOLDEN_DIR
 #define ORA_PRNG_GOLDEN_DIR "tests/golden/prng"
@@ -10,22 +12,7 @@ namespace {
 
 namespace ogs = ora::game::support;
 
-int int4_failures{0};
-int int4_checks{0};
-int int4_reports{0};
 
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_checks;
-  if (!b_ok) {
-    ++int4_failures;
-    if (int4_reports < kMaxReports) {
-      ++int4_reports;
-      std::println("prng: {}", str_what);
-    }
-  }
-}
 
 std::optional<std::uint32_t> parse_hex_u32(std::string_view str_text) {
   std::uint32_t u4_value{};
@@ -226,10 +213,5 @@ int main() {
   for (std::int32_t int4_seed : vec4_seeds)
     run_seed(int4_seed);
 
-  if (int4_failures != 0) {
-    std::println("prng: {}/{} checks failed", int4_failures, int4_checks);
-    return 1;
-  }
-  std::println("prng: all {} checks passed", int4_checks);
-  return 0;
+  return ora::test::test_exit_code("prng");
 }

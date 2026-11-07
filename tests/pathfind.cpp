@@ -8,6 +8,8 @@ import std;
 #include "game/pathfinding/path_graph.hpp"
 #include "game/pathfinding/priority_queue.hpp"
 #include "game/tileset.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_PATHFINDING_GOLDEN_DIR
 #define ORA_PATHFINDING_GOLDEN_DIR "tests/golden/pathfinding"
@@ -23,22 +25,7 @@ namespace pfg = ora::game::pathfinding;
 namespace ogf = ora::game::filesystem;
 namespace ogm = ora::game;
 
-int int4_failures{0};
-int int4_checks{0};
-int int4_reports{0};
 
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_checks;
-  if (!b_ok) {
-    ++int4_failures;
-    if (int4_reports < kMaxReports) {
-      ++int4_reports;
-      std::println("pathfind: {}", str_what);
-    }
-  }
-}
 
 std::optional<std::string> read_file_bytes(std::string_view str_path) {
   std::ifstream stream_in{std::filesystem::path{std::string(str_path)}, std::ios::binary};
@@ -433,9 +420,7 @@ void run_hpf_cross_check(const GoldenPaths& gold) {
       CrossSpec{"nearpair all", "nearpair w100"},
       CrossSpec{"moveturn none", "moveturn w125"},
       CrossSpec{"moveturn all", "moveturn w125"},
-      // movepair（(35,17)→(12,12)）刻意不在交叉表：该远距对上 oracle HPF 走抽象层，
-      // 路径与局部 A* w100/w125 均不同（黄金 hpf movepair 行即实证），等价性断言
-      // 不成立——HPF 复刻是 T12+ 面，登记 docs/COVERAGE.md D025。
+
   };
 
   std::map<std::string, std::vector<pfg::CPos>> map_gold_astar;
@@ -455,7 +440,7 @@ void run_hpf_cross_check(const GoldenPaths& gold) {
   }
 }
 
-}  // namespace
+}
 
 int main() {
   run_queue_unit_tests();
@@ -487,10 +472,5 @@ int main() {
   run_golden_paths_check(*opt_map, *opt_gold);
   run_hpf_cross_check(*opt_gold);
 
-  if (int4_failures != 0) {
-    std::println("pathfind: {} of {} checks failed", int4_failures, int4_checks);
-    return 1;
-  }
-  std::println("pathfind: all {} checks passed", int4_checks);
-  return 0;
+  return ora::test::test_exit_code("pathfind");
 }

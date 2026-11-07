@@ -7,6 +7,8 @@ import std;
 #include "game/replay/replay_format.hpp"
 #include "game/replay/replay_player.hpp"
 #include "game/replay/replay_world.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_REPLAY_GOLDEN_DIR
 #define ORA_REPLAY_GOLDEN_DIR "tests/golden/replay"
@@ -15,28 +17,9 @@ import std;
 #define ORA_MAPS_GOLDEN_DIR "tests/golden/maps"
 #endif
 
-// T17(issue #18,M1 收口):oracle 真回放逐帧 SyncHash 对拍。
-// 黄金 ore-lord.orarep = golden_gen replay 模式(ore-lord + 全量 ra 规则 + 注入剧本 5 actor
-// + mcv,seed 20261103,NetFrameInterval=1,580 帧)。C++ 侧重演 = replay_world 面重建世界
-// (ISync 段2 逐 trait 字段级)+ 逐帧 SyncHash 与录中 sync 封包对拍 + desync 负向检出。
-
 namespace {
 
-constexpr int kMaxReports{20};
 
-int int4_failures{};
-int int4_reports{};
-int int4_checks{};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_checks;
-  if (b_ok) return;
-  ++int4_failures;
-  if (int4_reports < kMaxReports) {
-    ++int4_reports;
-    std::println("replay_oracle: check failed: {}", str_what);
-  }
-}
 
 std::vector<std::uint8_t> read_file_bytes(std::string_view str_path) {
   std::ifstream fs{std::string{str_path}, std::ios::binary};
@@ -48,7 +31,6 @@ std::vector<std::uint8_t> read_file_bytes(std::string_view str_path) {
   return vec_out;
 }
 
-// 黄金 frames.txt 的 init actors 行(装配序 oracle 实测;装配序对拍锚点)
 std::string golden_init_line() {
   std::ifstream fs{std::format("{}/ore-lord.frames.txt", ORA_REPLAY_GOLDEN_DIR)};
   std::string str_line;
@@ -57,12 +39,14 @@ std::string golden_init_line() {
   return {};
 }
 
-// 全帧重演对拍(desync 负向重跑):返回首分歧记录 sync 帧(0 = 全对)。
-// 数据面 ctx 共享(黄金 dump 不受录包篡改影响);订单流从(可能篡改的)记录重解析。
 std::int32_t run_oracle_replay(const std::vector<std::uint8_t>& vec_orarep,
                                const std::vector<std::uint8_t>& vec_oramap,
                                const ora::game::replay::OracleReplayContext& ctx) {
-  using namespace ora::game::replay;
+  using ora::game::replay::ReplayOracleWorld;
+  using ora::game::replay::ReplayRecord;
+  using ora::game::replay::replay_oracle_create;
+  using ora::game::replay::replay_read;
+
   const auto res_read{replay_read(vec_orarep)};
   if (!res_read.has_value()) return -1;
   const auto res_feed{replay_feed_build(*res_read)};
@@ -86,6 +70,10 @@ std::int32_t run_oracle_replay(const std::vector<std::uint8_t>& vec_orarep,
       replay_oracle_frame1(w);
     else
       replay_oracle_frame(w, ctx, int4_f);
+    if (!w.str_fatal.empty()) {
+      std::println("replay_oracle: data-plane fatal at f{}: {}", int4_f, w.str_fatal);
+      return 1000000 + int4_f;
+    }
     const auto it_sync{res_feed->map_recorded_syncs.find(int4_f + 1)};
     if (it_sync == res_feed->map_recorded_syncs.end()) continue;
     if (replay_oracle_sync_hash(w) != it_sync->second.first) return int4_f + 1;
@@ -93,10 +81,13 @@ std::int32_t run_oracle_replay(const std::vector<std::uint8_t>& vec_orarep,
   return 0;
 }
 
-// —— slice 1:装配序与 f1 静态对拍(sync(1) = 装配后世界五段式)——
-
 void test_assembly_and_frame1() {
-  using namespace ora::game::replay;
+  using ora::game::replay::ReplayOracleWorld;
+  using ora::game::replay::ReplayRecord;
+  using ora::game::replay::ReplaySessionInfo;
+  using ora::game::replay::replay_oracle_context_parse;
+  using ora::game::replay::replay_oracle_create;
+  using ora::game::replay::replay_read;
 
   const std::vector<std::uint8_t> vec_orarep{
       read_file_bytes(std::format("{}/ore-lord.orarep", ORA_REPLAY_GOLDEN_DIR))};
@@ -123,7 +114,6 @@ void test_assembly_and_frame1() {
   }
   const ReplayOracleWorld& w{*res_world};
 
-  // 装配序:149 个初始 actor 与黄金 init 行逐项一致(id:type:owner)
   const std::string str_golden_init{golden_init_line()};
   check(!str_golden_init.empty(), "golden init line present");
   bool b_order_ok{w.vec_actors.size() == 149};
@@ -149,10 +139,8 @@ void test_assembly_and_frame1() {
   }
   if (b_order_ok) check(true, "assembly order matches golden init");
 
-  // f1 静态对拍:sync(1) = 装配后世界(ProcessOrders@f1,harv 未生、置位波未发)
   const std::int32_t int4_hash{replay_oracle_sync_hash(w)};
-  // 调试 dump 门控(ORA_PERTRAIT_DUMP_PREFIX=<路径前缀>:逐帧写 <前缀>-f{n}.txt,
-  // 与探针 pertrait-*.txt 同格式 diff 用;不设则不写,不落仓库垃圾文件)
+
   const char* env_dump{std::getenv("ORA_PERTRAIT_DUMP_PREFIX")};
   const std::string str_dump_prefix{env_dump == nullptr ? std::string{} : std::string{env_dump}};
   {
@@ -171,8 +159,6 @@ void test_assembly_and_frame1() {
     check(int4_hash == it_sync->second.first,
           std::format("frame-1 sync hash: got {} want {}", int4_hash, it_sync->second.first));
 
-  // slice 3:f1-f580 逐帧对拍(录包口径 sync(N) = N-1 帧末状态;frame1 = f1 末事件)。
-  // 订单流:记录包标签 = 应用帧(echo 下一帧投影:剧本发单 f5 录 6)。
   std::map<std::int32_t, std::vector<ora::game::network::OrderModel>> map_script_orders;
   for (const ReplayRecord& record : res_read->vec_records) {
     const auto opt_orders{ora::game::network::try_parse_order_packet(record.vec_data)};
@@ -191,7 +177,6 @@ void test_assembly_and_frame1() {
     check(idx_orders == 5, "exactly 5 scripted orders in stream");
   }
 
-  // oracle 数据面上下文(黄金 isync-changes + frames 账本)
   const auto vec_changes_txt{read_file_bytes(
       std::format("{}/ore-lord.isync-changes.txt", ORA_REPLAY_GOLDEN_DIR))};
   const std::string str_changes{vec_changes_txt.begin(), vec_changes_txt.end()};
@@ -218,16 +203,18 @@ void test_assembly_and_frame1() {
   std::int32_t int4_first_div{-1};
   std::int32_t int4_checked_frames{};
   for (std::int32_t int4_n{1}; int4_n <= 580; ++int4_n) {
-    if (int4_n >= 2)  // 标签 n 的订单本帧应用(录包标签 = 应用帧:echo 下一帧投影)
+    if (int4_n >= 2)
       for (const ora::game::network::OrderModel& order : map_script_orders[int4_n])
         replay_oracle_apply_order(w2, order);
     if (int4_n == 1)
       replay_oracle_frame1(w2);
     else
       replay_oracle_frame(w2, *res_ctx, int4_n);
+    check(w2.str_fatal.empty(),
+          std::format("frame-{} data-plane reconciliation: {}", int4_n, w2.str_fatal));
     const std::int32_t int4_hash_n{replay_oracle_sync_hash(w2)};
     if (int4_n == 1) int4_hash2 = int4_hash_n;
-    // RNG 账本逐帧硬校验(真机制消耗位过量 = 硬错误;不足 = 闭合已承接)
+
     const auto it_count{res_ctx->map_rng_count.find(int4_n)};
     if (it_count != res_ctx->map_rng_count.end())
       check(w2.rng_shared.int4_total_count == it_count->second,
@@ -242,7 +229,7 @@ void test_assembly_and_frame1() {
       }
     }
     const auto it_sync_n{res_feed->map_recorded_syncs.find(int4_n + 1)};
-    if (it_sync_n == res_feed->map_recorded_syncs.end()) continue;  // f580 末态无录包 sync(581)
+    if (it_sync_n == res_feed->map_recorded_syncs.end()) continue;
     ++int4_checked_frames;
     if (int4_hash_n != it_sync_n->second.first) {
       if (int4_first_div < 0) int4_first_div = int4_n + 1;
@@ -257,8 +244,6 @@ void test_assembly_and_frame1() {
   check(int4_checked_frames == 579,
         "all 580 recorded syncs compared (init f1 + frame ends f1-f579; f580 end = 未录 sync581)");
 
-  // —— desync 负向(当前实现面):篡改录中 frame-2 sync 封包 hash 字节 → 与本地
-  // 重演 hash 对拍必然分叉(检出)。订单 subject/物品名负向 = 全帧重演重跑(下方)。
   {
     const auto res_read_orig{replay_read(vec_orarep)};
     check(res_read_orig.has_value(), "tamper-sync: file parses");
@@ -289,15 +274,12 @@ void test_assembly_and_frame1() {
     }
   }
 
-  // —— desync 负向全帧重演(三态):订单 subject 篡改 / prod-name 篡改 ——
-  // 原样重跑 = 全对(对照基线);篡改重跑 = 首分歧必现(检出)。
   const auto vec_oramap_bytes{
       read_file_bytes(std::format("{}/ore-lord.oramap", ORA_MAPS_GOLDEN_DIR))};
   check(run_oracle_replay(vec_orarep, vec_oramap_bytes, *res_ctx) == 0,
         "untampered full replay: no divergence (baseline)");
   {
-    // 订单 subject 篡改:f16 Move 封包 subject 146 -> 147(字节位移 = 4 帧前缀 +
-    // 1 类型 + 1 名长 + 4 名 + 2 flags = 12;4 字节 subject 等长替换)
+
     std::vector<std::uint8_t> vec_tampered{vec_orarep};
     bool b_tampered{false};
     for (const ReplayRecord& record : res_read->vec_records) {
@@ -312,8 +294,7 @@ void test_assembly_and_frame1() {
           return s;
         }());
       }
-      // 记录头 8 字节(client+len)+ 帧前缀 4 + 订单内 subject 位移 8
-      // (1 类型 + 1 名长 + 4 名 + 2 flags)
+
       const std::size_t idx_subject{record.idx_offset + 8 + 4 + 8};
       const std::uint32_t u4_subject{static_cast<std::uint32_t>(vec_tampered[idx_subject]) |
                                      (static_cast<std::uint32_t>(vec_tampered[idx_subject + 1])
@@ -323,7 +304,7 @@ void test_assembly_and_frame1() {
                                      (static_cast<std::uint32_t>(vec_tampered[idx_subject + 3])
                                       << 24)};
       check(u4_subject == 146, "tamper-order-subject: Move subject 146 located");
-      vec_tampered[idx_subject] = 147;  // 等长改写 subject -> 147
+      vec_tampered[idx_subject] = 147;
       b_tampered = true;
       break;
     }
@@ -333,22 +314,20 @@ void test_assembly_and_frame1() {
             "tamper-order-subject: full replay diverges (detected)");
   }
   {
-    // prod-name 篡改:f9 StartProduction e1 -> e2(等长改写 TargetString 尾字节;
-    // 未知物品名不入队 → 现金面自 f9 分叉)
+
     std::vector<std::uint8_t> vec_tampered{vec_orarep};
     bool b_tampered{false};
     for (const ReplayRecord& record : res_read->vec_records) {
       const auto opt_orders{ora::game::network::try_parse_order_packet(record.vec_data)};
       if (!opt_orders.has_value() || opt_orders->int4_frame != 9) continue;
       const std::size_t idx_base{record.idx_offset + 8 + 4};
-      // TargetString 尾字节位移:1 类型 + (1 + 15 名) + 2 flags + 4 subject = 23
-      // → 长度字节@23、'e'@24、'1'@25(7bit 名串紧跟 subject,deserialize_order 同序)
+
       const std::size_t idx_name_len{idx_base + 1};
       const std::size_t idx_target_string{
           idx_base + 1 + 1 + vec_tampered[idx_name_len] + 2 + 4 + 1 + 1};
       check(vec_tampered[idx_target_string] == '1',
             "tamper-prod-name: StartProduction e1 target string located");
-      vec_tampered[idx_target_string] = '2';  // e1 -> e2(等长)
+      vec_tampered[idx_target_string] = '2';
       b_tampered = true;
       break;
     }
@@ -359,11 +338,10 @@ void test_assembly_and_frame1() {
   }
 }
 
-}  // namespace
+}
 
 int main() {
   test_assembly_and_frame1();
 
-  std::println("replay_oracle: {} checks, {} failures", int4_checks, int4_failures);
-  return int4_failures == 0 ? 0 : 1;
+  return ora::test::test_exit_code("replay_oracle");
 }

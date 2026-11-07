@@ -15,7 +15,7 @@ std::int32_t trait_sync_hash(const WorldModel& w, std::uint32_t u4_actor_id,
   return ptr_spec->fn_sync_hash(w, u4_actor_id, trait);
 }
 
-}  // namespace
+}
 
 std::int32_t sync_hash_upstream(const WorldModel& w) {
   std::int32_t int4_n{0};
@@ -99,4 +99,4 @@ std::string state_digest(const WorldModel& w) {
   return str_out;
 }
 
-}  // namespace ora::game::world
+}

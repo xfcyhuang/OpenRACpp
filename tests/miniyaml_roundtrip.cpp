@@ -1,6 +1,7 @@
 import std;
 
 #include "game/miniyaml.hpp"
+#include "test_util.hpp"
 
 #ifndef ORA_MINIYAML_GOLDEN_DIR
 #define ORA_MINIYAML_GOLDEN_DIR "tests/golden/miniyaml"
@@ -8,17 +9,10 @@ import std;
 
 namespace {
 
-constexpr int kMaxReports{20};
 
-int int4_failures{0};
-int int4_reports{0};
 
 void fail_line(std::string_view str_what) {
-  ++int4_failures;
-  if (int4_reports < kMaxReports) {
-    ++int4_reports;
-    std::println("miniyaml_roundtrip: check failed: {}", str_what);
-  }
+  ora::test::check(false, str_what);
 }
 
 std::string read_file_bytes(const std::filesystem::path& path_file) {
@@ -108,9 +102,11 @@ int main() {
   }
 
   std::println("miniyaml_roundtrip: {} identity, {} oracle-normalized, {} failed of {} files",
-               int4_identical, int4_normalized, int4_failures, vec_files.size());
-  if (int4_failures != 0) {
-    std::println("miniyaml_roundtrip: {} files failed", int4_failures);
+               int4_identical, int4_normalized, ora::test::test_stats().int4_failures,
+                vec_files.size());
+  if (ora::test::test_stats().int4_failures != 0) {
+    std::println("miniyaml_roundtrip: {} files failed",
+                 ora::test::test_stats().int4_failures);
     return 1;
   }
   std::println("miniyaml_roundtrip: all {} files byte-identical with oracle", vec_files.size());

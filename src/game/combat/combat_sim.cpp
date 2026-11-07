@@ -1,6 +1,6 @@
 #include "game/combat/combat_sim.hpp"
 
-#include <algorithm>
+import std;
 
 #include "game/combat/armament.hpp"
 #include "game/combat/projectile.hpp"
@@ -26,7 +26,6 @@ std::int32_t cpos_bits(pathfinding::CPos cell) {
   return ((cell.int4_x & 0xFFF) << 20) | ((cell.int4_y & 0xFFF) << 8);
 }
 
-// Util.FacingWithinTolerance（Util.cs:120-127）
 bool facing_within_tolerance(std::int32_t int4_facing, std::int32_t int4_desired,
                              std::int32_t int4_tolerance) {
   if (int4_tolerance == 0 && int4_facing == int4_desired) return true;
@@ -34,8 +33,6 @@ bool facing_within_tolerance(std::int32_t int4_facing, std::int32_t int4_desired
   return int4_delta <= int4_tolerance || int4_delta >= 1024 - int4_tolerance;
 }
 
-// Target.IsInRange（Target.cs:196-203）：Positions 任一 2D 水平距离 <= range（含等号）。
-// 最小面 Positions = [CenterPosition]
 bool position_in_range(pathfinding::WPos pos_origin, pathfinding::WPos pos_target,
                        std::int32_t int4_range) {
   const pathfinding::WVec vec{pathfinding::wvec_sub(pos_target, pos_origin)};
@@ -43,7 +40,6 @@ bool position_in_range(pathfinding::WPos pos_origin, pathfinding::WPos pos_targe
          static_cast<std::int64_t>(int4_range) * int4_range;
 }
 
-// Weapon.IsValidAgainst（WeaponInfo.cs:209-221）：CanTargetSelf + TargetTypes Overlap
 bool weapon_valid_against(const WeaponDef& weapon, const CombatUnit& victim,
                           std::uint32_t u4_firer) {
   bool b_overlaps{false};
@@ -57,16 +53,11 @@ bool weapon_valid_against(const WeaponDef& weapon, const CombatUnit& victim,
   return b_overlaps && !b_invalid_hit && !(victim.u4_id == u4_firer);
 }
 
-// AttackBase.ChooseArmamentsForTarget 关系门（TargetRelationships=Enemy——双玩家敌对）
 bool target_is_enemy(const Arena& arena, std::uint32_t u4_firer, std::uint32_t u4_victim) {
   (void)arena;
   return u4_firer != u4_victim;
 }
 
-// —— MoveWithinRange 子活动装配（MoveWithinRange.cs + PathFinder.FindPathToTargetCells）——
-// maxCells = (maxRange+1023)/1024、minCells = minRange/1024（:34-35）；annulus 候选
-// （TilesByDistance 序）CanStay/CanEnter/AtCorrectRange 过滤 → 多源反向 A*（swap：
-// 候选=源、当前位置=目标、HeuristicWeight 125、laneBias 反向奇偶）→ reverse → Move。
 void queue_move_within_range(Arena& arena, CombatUnit& unit, const CombatUnit& target) {
   auto& mwr{unit.move_within_range};
   const std::int32_t int4_max_range{unit.armament.ptr_weapon->int4_range};
@@ -74,7 +65,6 @@ void queue_move_within_range(Arena& arena, CombatUnit& unit, const CombatUnit& t
   mwr.int4_max_cells = (int4_max_range + 1023) / 1024;
   mwr.int4_min_cells = int4_min_range / 1024;
 
-  // CalculatePathToTarget（:51-66）：候选格缓存按 tick（此处一次性——目标静止）
   const pathfinding::CPos cell_target_location{target.cell_to};
   std::vector<pathfinding::CPos> vec_candidates;
   for (const pathfinding::CPos cell :
@@ -82,25 +72,22 @@ void queue_move_within_range(Arena& arena, CombatUnit& unit, const CombatUnit& t
                                           mwr.int4_min_cells, mwr.int4_max_cells)) {
     if (pathfinding::movement_cost_for_cell(*arena.ptr_locomotor_foot, cell) ==
         pathfinding::kCostUnreachable)
-      continue;  // CanStayInCell && CanEnterCell（BlockedByActor 面无阻挡）
+      continue;
     const pathfinding::WPos pos_cell{pathfinding::center_of_cell(cell)};
     if (!position_in_range(pos_cell, target.pos_center, int4_max_range)) continue;
     if (int4_min_range != 0 && position_in_range(pos_cell, target.pos_center, int4_min_range))
-      continue;  // AtCorrectRange（格心 + FromSubCell=格心面）
+      continue;
     vec_candidates.push_back(cell);
   }
 
-  if (vec_candidates.empty()) return;  // NoPath → Move 活动立即失败放弃
+  if (vec_candidates.empty()) return;
 
-  // FindPathToTargetCells：swap 多源反向搜索（accessible 过滤同 CanStay 面）。
-  // 返回序 = [A* target(攻击者当前格), ..., A* source(候选格)] —— swap 后恰好就是
-  // 单位的行走序（起点→终点），无需再 reverse（back() = 移动终点候选格）。
   std::vector<pathfinding::CPos> vec_path{
       pathfinding::astar_to_target_cell_multi(*arena.ptr_locomotor_foot, vec_candidates,
                                               unit.cell_to, 125, true, true)};
   if (vec_path.empty()) return;
 
-  if (vec_path.size() < 2) return;  // 已在候选格（ShouldStop 会截停）
+  if (vec_path.size() < 2) return;
 
   mwr.b_active = true;
   mwr.b_move_active = true;
@@ -109,8 +96,7 @@ void queue_move_within_range(Arena& arena, CombatUnit& unit, const CombatUnit& t
   mwr.move.cell_to = unit.cell_to;
   mwr.move.int4_facing = unit.int4_facing;
   mwr.move.pos_center = unit.pos_center;
-  // Move 活动：外部预置路径（path[0] = 当前格，从 path[1] 起逐格走；
-  // 内部形式 = 倒序 [终点, ..., 下一格]）
+
   mwr.move.vec_path.assign(vec_path.rbegin(), vec_path.rend() - 1);
   mwr.move.b_path_preset = true;
   mwr.move.b_has_activity = true;
@@ -118,7 +104,6 @@ void queue_move_within_range(Arena& arena, CombatUnit& unit, const CombatUnit& t
   mwr.move.cell_destination = vec_path.back();
 }
 
-// FireBarrel：创建 projectile（InstantHit 同帧尾插 / Bullet 含 RNG 消耗）
 void fire_barrel(Arena& arena, CombatUnit& unit, ArmamentState& arm,
                  pathfinding::WPos pos_muzzle, pathfinding::WPos pos_passive) {
   const WeaponDef& weapon{*arm.ptr_weapon};
@@ -129,13 +114,13 @@ void fire_barrel(Arena& arena, CombatUnit& unit, ArmamentState& arm,
     eff.u4_serial = arena.u4_next_effect_serial++;
     eff.ptr_weapon = &weapon;
     eff.u4_owner = unit.u4_id;
-    // InstantHit ctor：Inaccuracy>0 → PassiveTarget + FromPDF*max/1024；剧本面恒无散布
+
     eff.pos_impact = instant_hit_target_pos(weapon, pos_passive);
     eff.pos = pos_muzzle;
     eff.source = pos_muzzle;
     arena.vec_effects.push_back(std::move(eff));
   } else {
-    // Recoil 在 projectile 创建回调内设置（Armament.FireBarrel 的 delayed lambda）
+
     arena.vec_effects.push_back(
         bullet_create(arena, weapon, pos_muzzle, pos_passive, unit.u4_id));
   }
@@ -143,13 +128,11 @@ void fire_barrel(Arena& arena, CombatUnit& unit, ArmamentState& arm,
   arm.int4_recoil = arm.int4_recoil_amount;
 }
 
-// —— Activity 段：Attack 活动（AttackFrontal 型，Activities/Attack.cs）——
 void attack_activity_tick(Arena& arena, CombatUnit& unit) {
   if (!unit.b_attack_active) return;
 
   const CombatUnit* ptr_target{arena_unit(arena, unit.u4_attack_target)};
 
-  // MoveWithinRange 子活动的 child Move 一步（TickChild；返回 true = 移动仍挂起）
   const auto tick_move_child{[&arena](CombatUnit& u) {
     pathfinding::MoveSimConfig cfg;
     cfg.ptr_map = arena.ptr_locomotor_foot;
@@ -164,15 +147,14 @@ void attack_activity_tick(Arena& arena, CombatUnit& unit) {
     if (!u.move_within_range.move.b_has_activity) {
       u.move_within_range.b_move_active = false;
       u.move_within_range.b_active = false;
-      // Move 完成 → MWR 子活动链完成，同帧继续 TickAttack
+
       return false;
     }
     return true;
   }};
 
-  // 1. TickChild：MoveWithinRange 子活动（duelD 超程接近）
   if (unit.move_within_range.b_active) {
-    // MoveWithinRange/MoveAdjacentTo.Tick：ShouldStop → Cancel；否则 child Move tick
+
     const CombatUnit* ptr_move_target{ptr_target};
     const bool b_stop{
         ptr_move_target == nullptr
@@ -185,17 +167,16 @@ void attack_activity_tick(Arena& arena, CombatUnit& unit) {
       unit.move_within_range.b_active = false;
       unit.move_within_range.b_move_active = false;
     } else if (unit.move_within_range.b_move_active) {
-      if (tick_move_child(unit)) return;  // 移动中，活动挂起（IsAiming 保持上次值）
+      if (tick_move_child(unit)) return;
     }
   }
 
-  // 2. target 有效性（死/移除 → useLastVisibleTarget → FromPos 恒有效）
   const bool b_target_alive{ptr_target != nullptr && ptr_target->b_in_world};
   if (!b_target_alive) {
     if (unit.b_has_last_visible &&
         position_in_range(unit.pos_center, unit.pos_last_visible,
                           unit.int4_last_visible_max_range)) {
-      // 活动完成（OnLastRun → IsAiming=false）
+
       unit.b_attack_active = false;
       unit.b_is_aiming = false;
     }
@@ -205,7 +186,6 @@ void attack_activity_tick(Arena& arena, CombatUnit& unit) {
   const CombatUnit& target{*ptr_target};
   const pathfinding::WPos pos_target_center{target.pos_center};
 
-  // TickAttack（:164-252）
   const bool b_valid_armament{target_is_enemy(arena, unit.u4_id, target.u4_id) &&
                               weapon_valid_against(*unit.armament.ptr_weapon, target, unit.u4_id)};
   const std::int32_t int4_max_range{unit.armament.ptr_weapon->int4_range};
@@ -215,20 +195,17 @@ void attack_activity_tick(Arena& arena, CombatUnit& unit) {
                          position_in_range(unit.pos_center, pos_target_center, int4_min_range)};
 
   if (!b_valid_armament || !b_in_range || b_too_close) {
-    // NeedsToMove → QueueChild(MoveWithinRange)；IsAiming = false
+
     unit.b_is_aiming = false;
     if (!unit.move_within_range.b_active && arena.ptr_locomotor_foot != nullptr) {
-      // 移动指令仅一次（Attack 活动 QueueChild 后 child 接管直到完成）
+
       queue_move_within_range(arena, unit, target);
-      // Activity.TickOuter（Activity.cs:130-136）："Avoid a single tick delay if the
-      // childactivity was just queued" —— 新 child 同帧立即 tick（MWR → Move 首
-      // tick = Turn 一步，duelD GOLD t1 即 face 512）
+
       if (unit.move_within_range.b_move_active) (void)tick_move_child(unit);
     }
     return;
   }
 
-  // 转身（FacingTolerance 0：精确朝向；内联 TurnFacing 不排子活动）
   const pathfinding::WVec vec_to_target{pathfinding::wvec_sub(pos_target_center, unit.pos_center)};
   const std::int32_t int4_desired_yaw{pathfinding::wvec_yaw(vec_to_target)};
   if (!facing_within_tolerance(unit.int4_facing, int4_desired_yaw, unit.int4_facing_tolerance)) {
@@ -236,19 +213,18 @@ void attack_activity_tick(Arena& arena, CombatUnit& unit) {
                                                 unit.int4_turn_speed);
     if (!facing_within_tolerance(unit.int4_facing, int4_desired_yaw,
                                  unit.int4_facing_tolerance)) {
-      unit.b_is_aiming = true;  // NeedsToTurn
+      unit.b_is_aiming = true;
       return;
     }
   }
 
-  // Attacking → DoAttack → CheckFire
   unit.b_is_aiming = true;
-  armament_check_fire(unit, unit.armament, pos_target_center, b_valid_armament, true,
-                      [&arena](CombatUnit& u, ArmamentState& a, pathfinding::WPos m,
-                               pathfinding::WPos p) { fire_barrel(arena, u, a, m, p); });
+  static_cast<void>(armament_check_fire(
+      unit, unit.armament, pos_target_center, b_valid_armament, true,
+      [&arena](CombatUnit& u, ArmamentState& a, pathfinding::WPos m,
+               pathfinding::WPos p) { fire_barrel(arena, u, a, m, p); }));
 }
 
-// —— ITick 段：AttackFollow/AttackTurreted（tank）驱动 ——
 void attack_follow_tick(Arena& arena, CombatUnit& unit) {
   if (!unit.b_attack_active) {
     unit.b_is_aiming = false;
@@ -256,12 +232,11 @@ void attack_follow_tick(Arena& arena, CombatUnit& unit) {
   }
   const CombatUnit* ptr_target{arena_unit(arena, unit.u4_attack_target)};
   if (ptr_target == nullptr || !ptr_target->b_in_world) {
-    unit.b_is_aiming = false;  // RequestedTarget invalid → else 分支无 Opportunity
+    unit.b_is_aiming = false;
     return;
   }
   const CombatUnit& target{*ptr_target};
 
-  // CanAimAtTarget（AttackFollow.cs:86-103）：in range && min 外 && firing arc（512 容忍恒过）
   const bool b_valid_armament{target_is_enemy(arena, unit.u4_id, target.u4_id) &&
                               weapon_valid_against(*unit.armament.ptr_weapon, target, unit.u4_id)};
   const bool b_aim{b_valid_armament &&
@@ -273,7 +248,6 @@ void attack_follow_tick(Arena& arena, CombatUnit& unit) {
   unit.b_is_aiming = b_aim;
   if (!b_aim) return;
 
-  // DoAttack → AttackTurreted.CanAttack → Turreted.FaceTarget（转炮塔）
   const pathfinding::WVec vec_desired{pathfinding::wvec_sub(target.pos_center, unit.pos_center)};
   const std::int32_t int4_desired_local{
       vec_desired.int4_x == 0 && vec_desired.int4_y == 0 && vec_desired.int4_z == 0
@@ -286,14 +260,14 @@ void attack_follow_tick(Arena& arena, CombatUnit& unit) {
   unit.b_turret_desired_achieved = int4_desired_local == unit.int4_turret_yaw;
 
   if (unit.b_turret_desired_achieved) {
-    armament_check_fire(unit, unit.armament, target.pos_center, b_valid_armament,
-                        unit.b_turret_desired_achieved,
-                        [&arena](CombatUnit& u, ArmamentState& a, pathfinding::WPos m,
-                                 pathfinding::WPos p) { fire_barrel(arena, u, a, m, p); });
+    static_cast<void>(armament_check_fire(
+        unit, unit.armament, target.pos_center, b_valid_armament,
+        unit.b_turret_desired_achieved,
+        [&arena](CombatUnit& u, ArmamentState& a, pathfinding::WPos m,
+                 pathfinding::WPos p) { fire_barrel(arena, u, a, m, p); }));
   }
 }
 
-// —— 帧尾任务执行 ——
 void frame_end_run(Arena& arena, const FrameEndTask& task) {
   switch (task.kind) {
     case FrameEndTask::Kind::kRemoveEffect: {
@@ -325,7 +299,7 @@ void frame_end_run(Arena& arena, const FrameEndTask& task) {
   }
 }
 
-}  // namespace
+}
 
 const std::map<std::string, UnitTemplate, std::less<>>& unit_templates() {
   static const std::map<std::string, UnitTemplate, std::less<>> map_templates{
@@ -408,7 +382,7 @@ std::expected<std::uint32_t, std::string> arena_spawn(Arena& arena, std::string_
   unit.b_has_turret = tpl.b_has_turret;
   unit.int4_turret_turn_speed = tpl.int4_turret_turn_speed;
 
-  unit.u4_id = static_cast<std::uint32_t>(arena.vec_units.size() + 3);  // world0/p0/p1
+  unit.u4_id = static_cast<std::uint32_t>(arena.vec_units.size() + 3);
   unit.health.int4_hp = tpl.int4_max_hp;
   unit.health.int4_max_hp = tpl.int4_max_hp;
   unit.cell_from = cell;
@@ -431,7 +405,7 @@ void arena_attack_order(Arena& arena, std::uint32_t u4_unit, std::uint32_t u4_ta
 
   ptr_unit->b_attack_active = true;
   ptr_unit->u4_attack_target = u4_target;
-  // Attack ctor：lastVisibleTarget = FromTargetPositions；lastVisibleMaximumRange = 射程
+
   ptr_unit->pos_last_visible = ptr_target->pos_center;
   ptr_unit->b_has_last_visible = true;
   ptr_unit->int4_last_visible_max_range = ptr_unit->armament.ptr_weapon->int4_range;
@@ -450,15 +424,11 @@ const CombatUnit* arena_unit(const Arena& arena, std::uint32_t u4_id) {
 void arena_tick(Arena& arena) {
   ++arena.int4_world_tick;
 
-  // 1. Activity 段（actor id 序）：Attack 活动（frontal 型）；attack_follow 型活动
-  //    仅射程等待（无移动面）——不产生观察差异
   for (CombatUnit& unit : arena.vec_units) {
     if (!unit.b_in_world) continue;
     if (!unit.b_attack_follow) attack_activity_tick(arena, unit);
   }
 
-  // 2. ITick 段（trait 注册序：Turreted → AttackFollow → Armament；Turreted 在
-  //    IsAiming 时 no-op —— AttackFollow 先行设置）
   for (CombatUnit& unit : arena.vec_units) {
     if (!unit.b_in_world) continue;
     if (unit.b_attack_follow) attack_follow_tick(arena, unit);
@@ -468,10 +438,8 @@ void arena_tick(Arena& arena) {
     armament_tick(unit.armament);
   }
 
-  // 3. effects 段（列表序）
   effects_tick(arena);
 
-  // 4. 帧尾排干（直到空——含执行中新增）
   while (!arena.deque_frame_end.empty()) {
     const FrameEndTask task{arena.deque_frame_end.front()};
     arena.deque_frame_end.pop_front();
@@ -480,15 +448,10 @@ void arena_tick(Arena& arena) {
 }
 
 std::int32_t arena_sync_hash(const Arena& arena) {
-  // World.SyncHash（World.cs:482-510）+ Sync.EmitSyncOpcodes 聚合语义（int32 wrap）。
-  // ISync 槽序（探针实证 t12-sync 诊断）：p0/p1 Shroud(0) → 每 unit
-  // Health(HP) → BodyOrientation(qf) → Mobile(Facing ^ FromCell.Bits ^ ToCell.Bits ^
-  // CenterPosition——Sync.cs 属性序，from==to 时 Bits 抵消) → [Turreted(0)] →
-  // Attack(IsAiming)。effects：Bullet(pos^lastPos^target^source)。
+
   std::int32_t int4_n{0};
   std::int32_t int4_ret{0};
 
-  // actors 段：world(0)/p0(1)/p1(2) + units in world（id 序）
   const auto actor_term{[&](std::uint32_t u4_id) {
     int4_ret = wrap32(static_cast<std::int64_t>(int4_ret) +
                       static_cast<std::int64_t>(int4_n) * (1 + static_cast<std::int32_t>(u4_id)) *
@@ -501,7 +464,6 @@ std::int32_t arena_sync_hash(const Arena& arena) {
   for (const CombatUnit& unit : arena.vec_units)
     if (unit.b_in_world) actor_term(unit.u4_id);
 
-  // ISync 段（player Shroud 占位 ×2）
   ++int4_n;
   ++int4_n;
 
@@ -515,14 +477,13 @@ std::int32_t arena_sync_hash(const Arena& arena) {
     }};
     sync_term(unit.health.int4_hp);
     sync_term(unit.int4_quantized_facings);
-    // Mobile（Sync.cs GetProperties 声明序：Facing/FromCell/ToCell/CenterPosition）
+
     sync_term(unit.int4_facing ^ cpos_bits(unit.cell_from) ^ cpos_bits(unit.cell_to) ^
               wpos_hash_code(unit.pos_center));
-    if (unit.b_has_turret) sync_term(0);  // Turreted.QuantizedFacings 恒 0（默认面）
+    if (unit.b_has_turret) sync_term(0);
     sync_term(unit.b_is_aiming ? 1 : 0);
   }
 
-  // syncedEffects（Bullet）
   for (const Effect& eff : arena.vec_effects) {
     if (eff.kind != Effect::Kind::kBullet) continue;
     const std::int32_t int4_hash{wpos_hash_code(eff.pos) ^ wpos_hash_code(eff.last_pos) ^
@@ -568,4 +529,4 @@ std::string arena_dump_row(const Arena& arena, std::uint32_t u4_a, std::uint32_t
                      arena_sync_hash(arena));
 }
 
-}  // namespace ora::game::combat
+}

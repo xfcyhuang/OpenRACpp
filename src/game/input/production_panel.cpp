@@ -42,7 +42,7 @@ PanelHit panel_hit_test(PanelGeometry geo, std::int32_t int4_x, std::int32_t int
   return hit;
 }
 
-}  // namespace
+}
 
 PxRect panel_rect(PanelGeometry geo) {
   return PxRect{geo.int4_view_w - kPanelWidth, 0, kPanelWidth, geo.int4_view_h};
@@ -140,4 +140,4 @@ PanelDispatchResult panel_handle_mouse(ProductionPanelModel& panel, PanelGeometr
   return result;
 }
 
-}  // namespace ora::game::input
+}

@@ -43,7 +43,7 @@ std::optional<ParsedBounds> parse_bounds(std::string_view str_bounds) {
 
 std::int32_t wdist_px(std::int32_t int4_wdist) { return int4_wdist * 24 / 1024; }
 
-}  // namespace
+}
 
 std::int32_t view_to_world_px(std::int32_t int4_view_px) { return int4_view_px; }
 
@@ -97,4 +97,4 @@ std::vector<ActorBoundsPair> actors_in_box(const world::WorldModel& w, const PxR
   return vec_out;
 }
 
-}  // namespace ora::game::input
+}

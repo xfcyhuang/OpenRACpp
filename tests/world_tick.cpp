@@ -3,22 +3,11 @@ import std;
 #include "game/support/mersenne_twister.hpp"
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
-
-// T07（issue #8）：World/Tick/Actor/Trait 最小面与无头自洽。
-// 确定性三支柱（上游 World.cs:33 / TraitDictionary.cs:152-158 /
-// ActorInfo.cs:104-167）：Actor 遍历序 = ActorID 升序；同 actor trait
-// 分发序 = 构造序；构造序 = yaml 序（无 Requires 依赖时）。
+#include "test_util.hpp"
+using ora::test::check;
 
 namespace {
 
-int int4_failures{0};
-
-void check(bool b_ok, std::string_view str_what) {
-  if (!b_ok) {
-    ++int4_failures;
-    std::println("world_tick: check failed: {}", str_what);
-  }
-}
 
 constexpr std::int32_t kSeed{0};
 
@@ -92,7 +81,7 @@ const ora::game::world::TraitModel& trait_of(const ora::game::world::WorldModel&
   return w.vec_traits[w.vec_actors_all[u4_actor_id].vec_trait_handles[idx_trait]];
 }
 
-}  // namespace
+}
 
 int main() {
   {
@@ -402,9 +391,5 @@ int main() {
     }
   }
 
-  if (int4_failures == 0)
-    std::println("all world_tick checks passed");
-  else
-    std::println("{} world_tick checks failed", int4_failures);
-  return int4_failures == 0 ? 0 : 1;
+  return ora::test::test_exit_code("world_tick");
 }

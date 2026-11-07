@@ -23,9 +23,6 @@ struct MiniYamlNode {
 [[nodiscard]] std::expected<std::vector<MiniYamlNode>, std::string> miniyaml_from_file(
     std::string_view str_path, bool b_discard_comments_and_whitespace = true);
 
-// 同上，但节点 SourceLocation 名用 str_name 而非物理路径（上游
-// MiniYaml.Load 的 FromStream(stream, manifest 条目字符串) 语义——Location
-// 名进异常消息，如 "ra|rules/misc.yaml:12"）
 [[nodiscard]] std::expected<std::vector<MiniYamlNode>, std::string> miniyaml_from_file_named(
     std::string_view str_path, std::string_view str_name,
     bool b_discard_comments_and_whitespace = true);

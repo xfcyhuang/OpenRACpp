@@ -5,25 +5,11 @@ import std;
 #include "game/production/production.hpp"
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
-
-// T10（issue #11）：建造/生产闭环含电力门槛。
-// 口径修正（调研实证）：上游 ra 语义是电力不足生产 ×LowPowerModifier/100 减速
-// （LowPowerModifier=300 → 每 3 tick 推进 1），非停摆；真停摆仅缺钱/出口堵/
-// 生产建筑被禁用。ProductionItem.Tick 的令牌桶照上游实码（Slowdown-100，
-// <0 时 +Modifier 并继续，>=0 跳过）。
+#include "test_util.hpp"
+using ora::test::check;
 
 namespace {
 
-int g_failed{};
-int g_total{};
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++g_total;
-  if (b_ok) return;
-  ++g_failed;
-  if (g_failed <= kMaxReports) std::println("FAIL: {}", str_what);
-}
 
 constexpr std::int32_t kSeed{42};
 constexpr std::uint32_t kPlayerActorId{2};
@@ -245,7 +231,7 @@ ora::game::network::OrderModel make_place_building(std::string_view str_item, st
 }
 
 struct ScenarioRun {
-  std::string str_observations;
+  std::string str_observations{};
   ora::game::world::WorldModel w;
 };
 
@@ -289,10 +275,6 @@ std::string read_golden(std::string_view str_name) {
     str_out += '\n';
   }
   return str_out;
-}
-
-std::pair<std::int32_t, std::int32_t> decode_cell_bits(std::int32_t int4_bits) {
-  return {int4_bits >> 20, (static_cast<std::int16_t>(int4_bits >> 4)) >> 4};
 }
 
 void test_power_state() {
@@ -394,8 +376,7 @@ void test_positive_scenario() {
       {520, make_place_building("barr", 33, 34)},
       {540, make_start_production("e1", 1)},
   };
-  // 剧本截断在 e1 出厂帧（601）：E1 带武装，出厂后 AutoTarget idle 扫描每 3-8 tick
-  // 耗 SharedRandom（战斗面，T12）——生产链 rng 账本只覆盖到出厂 shuffle 为止。
+
   ScenarioRun run{run_scenario(kMapPositive, 601, vec_orders)};
   const auto& w{run.w};
 
@@ -455,8 +436,7 @@ void test_negative_scenario() {
       {570, make_place_building("powr", 33, 30)},
       {580, make_start_production("e1", 1)},
   };
-  // 剧本截断在 e1 出厂帧（761）。开局 0 vs 120 Critical（BARR -20 + 10×SILO -100）；
-  // POWR(+100) 放置 @571 后 100 vs 120 Low——两档电力下生产均为 ×3 减速（令牌桶）。
+
   ScenarioRun run{run_scenario(kMapNegative, 761, vec_orders)};
   const auto& w{run.w};
 
@@ -571,7 +551,7 @@ void test_golden_compare() {
   }
 }
 
-}  // namespace
+}
 
 int main() {
   test_power_state();
@@ -583,6 +563,5 @@ int main() {
   test_determinism();
   test_golden_compare();
 
-  std::println("production: {} checks, {} failed", g_total, g_failed);
-  return g_failed == 0 ? 0 : 1;
+  return ora::test::test_exit_code("production");
 }

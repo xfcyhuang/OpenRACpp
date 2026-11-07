@@ -39,6 +39,8 @@ using std::find;
 using std::reverse;
 using std::find_if;
 using std::greater;
+using std::initializer_list;
+using std::less;
 using std::lower_bound;
 using std::max;
 using std::min;

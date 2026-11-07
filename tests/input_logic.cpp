@@ -9,9 +9,8 @@ import std;
 #include "game/input/selection_logic.hpp"
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
-
-// T14（issue #15）：输入交互与基础 HUD 侧栏的无头测试。
-// 合成世界 + 合成 MouseInput → 断言选择集/订单（T08 serialize 字节对拍）/面板状态机。
+#include "test_util.hpp"
+using ora::test::check;
 
 namespace {
 
@@ -19,15 +18,6 @@ namespace wig = ora::game::input;
 namespace net = ora::game::network;
 namespace ww = ora::game::world;
 
-int int4_failures{0};
-int int4_total{0};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_total;
-  if (b_ok) return;
-  ++int4_failures;
-  std::println("input: check failed: {}", str_what);
-}
 
 constexpr std::string_view kRules{
     "player:\n"
@@ -841,7 +831,7 @@ void test_input_pipeline_and_sync() {
   }
 }
 
-}  // namespace
+}
 
 int main() {
   test_screen_map();
@@ -854,9 +844,5 @@ int main() {
   test_production_panel_mouse();
   test_input_pipeline_and_sync();
 
-  if (int4_failures == 0)
-    std::println("all input checks passed ({})", int4_total);
-  else
-    std::println("{} input checks failed of {}", int4_failures, int4_total);
-  return int4_failures == 0 ? 0 : 1;
+  return ora::test::test_exit_code("input");
 }

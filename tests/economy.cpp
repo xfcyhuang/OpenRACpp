@@ -1,6 +1,5 @@
 import std;
 
-
 #include "game/economy/economy.hpp"
 #include "game/filesystem/zip_read.hpp"
 #include "game/map_bin.hpp"
@@ -11,13 +10,8 @@ import std;
 #include "game/tileset.hpp"
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
-
-// T13（issue #14）：资源采集与经济最小面。
-// 剧本 A（调研笔记 t13-economy.md §3）：ore-lord 原图资源区 + 最小经济规则集 +
-// 注入 PROC@(11,13)/BARR@(15,14)（剔除全部 12 个 MINE → 全链零 SeedsResource RNG）+
-// PROC FreeActor 附送 HARV + startingcash=0 + t460 下单 E1。
-// 完整闭环：t167 首 bale → t350 满 20 → t581 到 dock → t600 起 1 bale/tick 变现
-// → t659 E1 出厂（rng 恰 +1，Exit shuffle）→ 终态 ore = 20×25 − 100 = 400。
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_ECONOMY_GOLDEN_DIR
 #define ORA_ECONOMY_GOLDEN_DIR "tests/golden/economy"
@@ -34,16 +28,6 @@ namespace ogf = ora::game::filesystem;
 namespace ogm = ora::game;
 namespace pfg = ora::game::pathfinding;
 
-int g_failed{};
-int g_total{};
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++g_total;
-  if (b_ok) return;
-  ++g_failed;
-  if (g_failed <= kMaxReports) std::println("FAIL: {}", str_what);
-}
 
 constexpr std::int32_t kSeed{0};
 constexpr std::int32_t kOrderTick{460};
@@ -126,8 +110,6 @@ std::optional<OreLordMap> load_ore_lord() {
   return ore;
 }
 
-// 最小经济规则集（oracle golden_gen economy 模式逐字段同源；Faction@→FactionInfo@
-// 为 C++ trait 注册表适配，faction 表内容一致：allies/soviet）。
 constexpr std::string_view kRulesEconomy{R"yaml(world:
 	FactionInfo@allies:
 		Name: Allies
@@ -456,7 +438,7 @@ EconRun run_economy(const OreLordMap& ore) {
 
 std::string observation_field(const std::string& str_obs, std::string_view str_line_prefix,
                               std::string_view str_key) {
-  // 逐行扫描（行数 ~2700，简单直白优于嵌套 find 推进）。
+
   std::size_t sz_pos{0};
   while (sz_pos < str_obs.size()) {
     const std::size_t sz_end{str_obs.find('\n', sz_pos)};
@@ -491,9 +473,6 @@ std::int32_t e_line_field(const std::string& str_obs, std::int32_t int4_tick,
   return int4_out;
 }
 
-// —— 金额公式单元（Refinery.AcceptResources 逐行：value=count×ResourceValues，
-//    UseStorage 仓限制 while 减 bale，溢出截断；矿石进 Resources 不进 Cash）——
-
 void test_refinery_accept() {
   ora::game::world::WorldModel w;
   w.econ.layer.map_types.emplace("Ore", eco::ResourceTypeSpec{.str_name = "Ore",
@@ -516,28 +495,24 @@ void test_refinery_accept() {
   check(eco::refinery_accept(w, 0, "Gems", 2) == 2, "accept: 2 gem bales accepted");
   check(res.int4_resources == 125, "accept: gems value 2x50 added");
 
-  // 仓限制减 bale：余量 5 装不下 25 → count 递减到 0（剩余留在车里）。
   res = {.int4_cash = 0, .int4_resources = 1995, .int4_capacity = 2000};
   check(eco::refinery_accept(w, 0, "Ore", 1) == 0, "accept: storage limit leaves bale in harv");
   check(res.int4_resources == 1995, "accept: nothing stored when 1 bale does not fit");
-  // 余量 30：25 装得下（1 bale），2 bale 50 装不下 → 只接受 1。
+
   res.int4_resources = 1970;
   check(eco::refinery_accept(w, 0, "Ore", 2) == 1, "accept: while-loop drops to fitting bales");
   check(res.int4_resources == 1995, "accept: stored exactly the fitting bale value");
 
-  // GiveResources 溢出截断（减 bale 循环已保证不溢出；直接边界不触发）。
   res = {.int4_cash = 0, .int4_resources = 0, .int4_capacity = 2000};
   check(eco::refinery_accept(w, 0, "Ore", 80) == 80, "accept: full load 80 bales accepted");
   check(res.int4_resources == 2000, "accept: 80x25=2000 exactly fills capacity");
 
-  // DiscardExcessResources：value 截到 limit、bale 数不减。
   w.econ.cfg.b_discard_excess = true;
   res = {.int4_cash = 0, .int4_resources = 1990, .int4_capacity = 2000};
   check(eco::refinery_accept(w, 0, "Ore", 1) == 1, "accept: discard branch returns full count");
   check(res.int4_resources == 2000, "accept: discard truncates value to storage limit");
   w.econ.cfg.b_discard_excess = false;
 
-  // UseStorage=false → 变现直接进 Cash。
   w.econ.cfg.b_use_storage = false;
   res = {.int4_cash = 100, .int4_resources = 0, .int4_capacity = 2000};
   check(eco::refinery_accept(w, 0, "Ore", 2) == 2, "accept: no-storage branch accepts");
@@ -546,8 +521,6 @@ void test_refinery_accept() {
 
   check(eco::refinery_accept(w, 0, "Unknown", 1) == 0, "accept: unknown resource type rejected");
 }
-
-// —— ResourceLayer.RemoveResource：密度 -1、归零清格（resCells--）——
 
 eco::EconomyWorldState make_layer_fixture(std::int32_t int4_w, std::int32_t int4_h) {
   eco::EconomyWorldState econ;
@@ -572,7 +545,7 @@ eco::EconomyWorldState make_layer_fixture(std::int32_t int4_w, std::int32_t int4
 void test_resource_remove() {
   auto econ{make_layer_fixture(4, 4)};
   auto& layer{econ.layer};
-  // 列主序（与 ResourceLayer 一致）：idx = x * height + y。
+
   layer.vec_cells[0 * 4 + 0] = eco::ResourceCellState{.str_type = "Ore", .u1_density = 3};
   layer.vec_cells[1 * 4 + 0] = eco::ResourceCellState{.str_type = "Ore", .u1_density = 1};
   layer.vec_cells[2 * 4 + 0] = eco::ResourceCellState{.str_type = "Gems", .u1_density = 2};
@@ -624,8 +597,6 @@ void test_cargo() {
   check(eco::harv_fullness(harv2) == 45, "cargo: 9/20 fullness 45");
 }
 
-// —— rng 账本断言：采集→变现全链 0 耗；E1 出厂恰 +1 ——
-
 void test_rng_ledger(const EconRun& run) {
   check(e_line_field(run.str_observations, 1, "cnt ") == 0, "rng: count 0 at first tick");
   check(e_line_field(run.str_observations, 167, "cnt ") == 0, "rng: 0 through first bale");
@@ -636,8 +607,6 @@ void test_rng_ledger(const EconRun& run) {
   check(e_line_field(run.str_observations, 659, "cnt ") == 1, "rng: exactly +1 on exit frame");
   check(run.w.rng_shared.int4_total_count == 1, "rng: final shared count 1");
 }
-
-// —— 剧本锚点断言（黄金语义抽查；逐字节对拍见 test_golden_compare）——
 
 void test_scenario_anchors(const EconRun& run) {
   check(run.w.econ.layer.int4_res_cells == 413, "anchors: final rescells 413");
@@ -690,7 +659,7 @@ void test_determinism(const OreLordMap& ore) {
         "determinism: state digests identical across runs");
 }
 
-}  // namespace
+}
 
 int main() {
   const auto opt_ore{load_ore_lord()};
@@ -714,6 +683,5 @@ int main() {
     }
   }
 
-  std::println("economy: {} checks, {} failed", g_total, g_failed);
-  return g_failed == 0 ? 0 : 1;
+  return ora::test::test_exit_code("economy");
 }

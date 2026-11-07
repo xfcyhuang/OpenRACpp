@@ -104,4 +104,4 @@ void production_frame_end_task(world::WorldModel& w, std::uint32_t u4_kind,
 
 [[nodiscard]] const std::vector<world::TraitSpec>& production_trait_specs();
 
-}  // namespace ora::game::production
+}

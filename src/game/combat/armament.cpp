@@ -7,23 +7,21 @@ namespace ora::game::combat {
 
 namespace {
 
-// Util.IndexFacing/QuantizeFacing（Util.cs）：量化朝向到最近整步
 std::int32_t quantize_facing(std::int32_t int4_facing, std::int32_t int4_facings) {
   if (int4_facings == 0) return int4_facing;
   const std::int32_t int4_step{1024 / int4_facings};
   return ((int4_facing + int4_step / 2) & 1023) / int4_step * int4_step;
 }
 
-// BodyOrientation.LocalToWorld（ClassicPerspectiveFudge，CameraPitch 40°=113）
 pathfinding::WVec local_to_world(pathfinding::WVec vec) {
   using pathfinding::wangle_sin;
   return pathfinding::WVec{vec.int4_y, -wangle_sin(113) * vec.int4_x / 1024, vec.int4_z};
 }
 
-}  // namespace
+}
 
 void armament_tick(ArmamentState& arm) {
-  // Armament.Tick（:211-236）；delayedActions 面恒空（Info.FireDelay=0）
+
   if (arm.int4_ticks_since_last_shot < arm.ptr_weapon->int4_reload_delay)
     ++arm.int4_ticks_since_last_shot;
   if (arm.int4_fire_delay > 0) --arm.int4_fire_delay;
@@ -34,13 +32,12 @@ void armament_tick(ArmamentState& arm) {
 bool armament_can_fire(const CombatUnit& unit, const ArmamentState& arm,
                        pathfinding::WPos pos_target, bool b_target_valid,
                        bool b_turret_desired_achieved) {
-  if (arm.int4_fire_delay > 0) return false;  // IsReloading（disabled 面无）
+  if (arm.int4_fire_delay > 0) return false;
   if (unit.b_has_turret && !b_turret_desired_achieved) return false;
 
   const pathfinding::WVec vec_delta{pathfinding::wvec_sub(pos_target, unit.pos_center)};
   const std::int64_t int8_dist_sq{pathfinding::wvec_horizontal_length_squared(vec_delta)};
 
-  // 射程 2D 水平距离含等号（Target.IsInRange）；MinRange 内禁射
   const std::int64_t int8_range_sq{
       static_cast<std::int64_t>(arm.ptr_weapon->int4_range) * arm.ptr_weapon->int4_range};
   const std::int64_t int8_min_sq{
@@ -64,7 +61,7 @@ bool armament_check_fire(
 
   arm.int4_ticks_since_last_shot = 0;
   do {
-    // Weapon.Burst == 1 轮换全部 LocalOffset，否则按 Burst 序号（单 barrel 面两者同）
+
     const std::size_t sz_barrels{arm.vec_barrel_offsets.empty() ? 1 : arm.vec_barrel_offsets.size()};
     const std::size_t idx_barrel{arm.ptr_weapon->int4_burst == 1
                                      ? static_cast<std::size_t>(arm.int4_current_barrel) % sz_barrels
@@ -82,7 +79,6 @@ bool armament_check_fire(
         armament_passive_target(unit, *arm.ptr_weapon, pos_target)};
     fn_fire(unit, arm, pos_muzzle_final, pos_passive);
 
-    // UpdateBurst（:365-392）
     if (--arm.int4_burst > 0) {
       arm.int4_fire_delay =
           arm.ptr_weapon->vec_burst_delays.size() == 1
@@ -90,7 +86,7 @@ bool armament_check_fire(
               : arm.ptr_weapon->vec_burst_delays[static_cast<std::size_t>(
                     arm.ptr_weapon->int4_burst - (arm.int4_burst + 1))];
     } else {
-      // ApplyPercentageModifiers(ReloadDelay, [])（reloadModifiers 空 → 原值）
+
       arm.int4_fire_delay = arm.ptr_weapon->int4_reload_delay;
       if (arm.int4_fire_delay <= 0) arm.int4_fire_delay = 1;
       arm.int4_burst = arm.ptr_weapon->int4_burst;
@@ -103,17 +99,17 @@ bool armament_check_fire(
 
 pathfinding::WVec armament_muzzle_offset(const CombatUnit& unit, const ArmamentState& arm,
                                          pathfinding::WVec vec_barrel) {
-  // CalculateMuzzleOffset（:401-418）
+
   pathfinding::WVec vec_local{vec_barrel.int4_x - arm.int4_recoil, vec_barrel.int4_y,
                               vec_barrel.int4_z};
 
   const std::int32_t int4_body_quantized{quantize_facing(unit.int4_facing, unit.int4_quantized_facings)};
 
   if (unit.b_has_turret) {
-    // turret.WorldOrientation（Turreted.QuantizedFacings=0 面不量化；facing.Orientation yaw 0）
+
     const std::int32_t int4_turret_world{pathfinding::wangle_wrap(unit.int4_turret_yaw)};
     vec_local = pathfinding::wvec_rotate_yaw(vec_local, int4_turret_world);
-    // + turret.Offset(0) rotate body —— 零向量旋转仍零，省略
+
   } else {
     vec_local = pathfinding::wvec_rotate_yaw(vec_local, int4_body_quantized);
   }
@@ -123,11 +119,10 @@ pathfinding::WVec armament_muzzle_offset(const CombatUnit& unit, const ArmamentS
 
 pathfinding::WPos armament_passive_target(const CombatUnit& unit, const WeaponDef& weapon,
                                           pathfinding::WPos pos_target_center) {
-  // TargetActorCenter ? CenterPosition : Positions.ClosestToIgnoringPath(muzzle)
-  // （HitShape 无 TargetableOffsets → Positions = [CenterPosition]）
+
   (void)unit;
   (void)weapon;
   return pos_target_center;
 }
 
-}  // namespace ora::game::combat
+}

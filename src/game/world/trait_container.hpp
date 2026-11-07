@@ -14,4 +14,4 @@ void container_add(TraitContainerModel& container, std::uint32_t u4_actor_id,
 
 void container_remove_actor(TraitContainerModel& container, std::uint32_t u4_actor_id);
 
-}  // namespace ora::game::world
+}

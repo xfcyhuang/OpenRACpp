@@ -9,37 +9,16 @@ import std;
 #include "game/replay/replay_record.hpp"
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_REPLAY_GOLDEN_DIR
 #define ORA_REPLAY_GOLDEN_DIR "tests/golden/replay"
 #endif
 
-// T16（issue #17）：回放记录与读放、字节恒等。
-// 恒等口径三层（调研 t16-t17 §0.5/§5.1）：
-//   ①记录流恒等（MetaStartMarker 之前，双跑可复现——元数据墙钟不影响）
-//   ②读→写整文件恒等（replay_write(replay_read(bytes)) == bytes，记录流透传 + 元数据 yaml 节点级往返）
-//   ③规范化恒等（钉死时间戳）——oracle golden_gen 黄金生成侧口径
-// .orarep 格式（ReplayRecorder.cs:87-89 / ReplayMetadata.cs:53-70）：
-//   Record := [clientID i32 LE][dataLen i32 LE][data]
-//   MetaBlock := [-1][version=1 i32][yamlLen i32][yaml UTF-8][dataLength=4+yamlLen i32][-2]
-
 namespace {
 
-constexpr int kMaxReports{20};
 
-int int4_failures{};
-int int4_reports{};
-int int4_checks{};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++int4_checks;
-  if (b_ok) return;
-  ++int4_failures;
-  if (int4_reports < kMaxReports) {
-    ++int4_reports;
-    std::println("replay: check failed: {}", str_what);
-  }
-}
 
 void append_i4le(std::vector<std::uint8_t>& vec_out, std::int32_t int4_value) {
   const std::uint32_t u4{static_cast<std::uint32_t>(int4_value)};
@@ -52,10 +31,6 @@ void append_record(std::vector<std::uint8_t>& vec_out, std::int32_t int4_client,
   append_i4le(vec_out, int4_client);
   append_i4le(vec_out, static_cast<std::int32_t>(span_data.size()));
   vec_out.insert(vec_out.end(), span_data.begin(), span_data.end());
-}
-
-std::vector<std::uint8_t> to_bytes(std::string_view str_text) {
-  return {str_text.begin(), str_text.end()};
 }
 
 std::string to_hex(std::span<const std::uint8_t> span_bytes) {
@@ -75,22 +50,19 @@ std::vector<std::uint8_t> read_file_bytes(std::string_view str_path) {
   return vec_out;
 }
 
-// —— 手工构造的最小合法 .orarep（两条记录 + 元数据块） ——
-
 std::vector<std::uint8_t> make_minimal_orarep() {
-  using namespace ora::game::replay;
+  using ora::game::replay::kMetaEndMarker;
+  using ora::game::replay::kMetaStartMarker;
+  using ora::game::replay::kMetaVersion;
   std::vector<std::uint8_t> vec_bytes;
 
-  // 记录 1：client 0 引导包（frame=0 + 0xFF 型 immediate 单首字节形态）
   const std::vector<std::uint8_t> vec_boot{0x00, 0x00, 0x00, 0x00, 0xff, 0x04, 'T', 'e',
                                            's',  't',  0x00, 0x00};
   append_record(vec_bytes, 0, vec_boot);
 
-  // 记录 2：client 1 帧 3 订单空包（len=4 只有帧头——pacing 空包）
   const std::vector<std::uint8_t> vec_pacing{0x03, 0x00, 0x00, 0x00};
   append_record(vec_bytes, 1, vec_pacing);
 
-  // 元数据块：[-1][1][yamlLen][yaml][4+yamlLen][-2]
   const std::string str_yaml{"Root:\n\tMod: ra\n\tFinalGameTick: 580\n"};
   const std::vector<std::uint8_t> vec_yaml{str_yaml.begin(), str_yaml.end()};
   append_i4le(vec_bytes, kMetaStartMarker);
@@ -102,10 +74,9 @@ std::vector<std::uint8_t> make_minimal_orarep() {
   return vec_bytes;
 }
 
-// —— slice 1：容器读→写往返恒等（最小样本） ——
-
 void test_format_roundtrip_minimal() {
-  using namespace ora::game::replay;
+  using ora::game::replay::ReplayFile;
+  using ora::game::replay::replay_read;
   const std::vector<std::uint8_t> vec_bytes{make_minimal_orarep()};
 
   const auto res_read{replay_read(vec_bytes)};
@@ -136,38 +107,29 @@ void test_format_roundtrip_minimal() {
                     to_hex(vec_bytes), to_hex(vec_written)));
 }
 
-// —— slice 1b：损坏形态报告（不崩溃） ——
-
 void test_format_corrupt() {
-  using namespace ora::game::replay;
+  using ora::game::replay::replay_read;
 
-  // 无元数据块（服务器 desync 自毁形态——上游 ReplayMetadata.Read 返 null 即不可用文件）
   std::vector<std::uint8_t> vec_no_meta;
   const std::vector<std::uint8_t> vec_frame1{0x01, 0x00, 0x00, 0x00};
   append_record(vec_no_meta, 1, vec_frame1);
   check(!replay_read(vec_no_meta).has_value(), "corrupt: no-metadata block rejected");
 
-  // 截断的记录头
   std::vector<std::uint8_t> vec_trunc{0x01, 0x00, 0x00};
   check(!replay_read(vec_trunc).has_value(), "corrupt: truncated header rejected");
 
-  // 元数据尾 marker 错误
   std::vector<std::uint8_t> vec_bad_tail{make_minimal_orarep()};
   vec_bad_tail.back() = 0xfd;
   check(!replay_read(vec_bad_tail).has_value(), "corrupt: bad end marker rejected");
 
-  // 元数据长度字段与实际不符
   std::vector<std::uint8_t> vec_bad_len{make_minimal_orarep()};
   vec_bad_len[vec_bad_len.size() - 8] = 0x99;
   check(!replay_read(vec_bad_len).has_value(), "corrupt: bad dataLength rejected");
 }
 
-// —— slice 1c：oracle 黄金 .orarep（上游真录制文件，探针 scenario-normalized）的
-//    读→写整文件恒等与形态校验。记录布局：2 引导包 + 581 帧包（5 带单）+ 580 sync = 1163 条，
-//    元数据 FinalGameTick=580（调研 t16-t17 §3.4）。 ——
-
 void test_format_golden() {
-  using namespace ora::game::replay;
+  using ora::game::replay::ReplayRecord;
+  using ora::game::replay::replay_read;
   const std::vector<std::uint8_t> vec_bytes{
       read_file_bytes(std::format("{}/ore-lord.orarep", ORA_REPLAY_GOLDEN_DIR))};
   check(!vec_bytes.empty(), "golden: file readable");
@@ -185,7 +147,6 @@ void test_format_golden() {
   check(res_read->int4_final_game_tick == 580,
         std::format("golden: FinalGameTick 580 (got {})", res_read->int4_final_game_tick));
 
-  // 引导包形态：client=0、frame=0、0xFF 型 immediate 单 [0xFF][nameLen][name][flags]
   const std::vector<std::uint8_t>& vec_boot0{res_read->vec_records[0].vec_data};
   const std::vector<std::uint8_t>& vec_boot1{res_read->vec_records[1].vec_data};
   check(vec_boot0.size() > 14 && vec_boot0[0] == 0 && vec_boot0[4] == 0xff &&
@@ -197,24 +158,20 @@ void test_format_golden() {
             std::string_view{reinterpret_cast<const char*>(vec_boot1.data() + 6), 9} == "StartGame",
         "golden: boot 1 is StartGame");
 
-  // 首条 pacing 空包：client=1、len=4、frame=1
   const ReplayRecord& rec_first{res_read->vec_records[2]};
   check(rec_first.int4_client == 1 && rec_first.vec_data.size() == 4 &&
             rec_first.vec_data[0] == 1,
         "golden: first pacing packet [1][]");
 
-  // sync 封包形态（17B、0x65）：黄金内首条 sync 在 frame 1
   const ReplayRecord& rec_sync{res_read->vec_records[4]};
   check(rec_sync.vec_data.size() == 17 && rec_sync.vec_data[4] == 0x65,
         "golden: sync packet 17B/0x65");
 
-  // 读→写整文件字节恒等（真实上游元数据 yaml 走 C++ MiniYaml 节点级往返）
   const std::vector<std::uint8_t> vec_written{replay_write(*res_read)};
   check(vec_written == vec_bytes,
         std::format("golden: read->write byte identity ({} vs {} bytes)", vec_bytes.size(),
                     vec_written.size()));
 
-  // 记录流恒等层：与入库 record-stream.bin 逐字节一致（MetaStartMarker 之前透传）
   const std::vector<std::uint8_t> vec_stream{
       read_file_bytes(std::format("{}/ore-lord.record-stream.bin", ORA_REPLAY_GOLDEN_DIR))};
   check(vec_stream.size() == 22533, std::format("golden: record stream 22533B (got {})",
@@ -226,13 +183,6 @@ void test_format_golden() {
                                                     vec_bytes.begin() + idx_meta},
         "golden: record stream prefix matches");
 }
-
-// —— slice 2/3：自录自放剧本（合成世界，T07 probe trait 面 + T10 生产链）——
-//
-// 世界：fact/barr@Multi0 + e1 攻击对（Move/Attack 形态单）+ RngProbe/SyncProbe（SyncHash 演化）。
-// 剧本订单（f 发 f+1 应用，全部经 OrderManager 正规管道）：
-//   f3 Move(e1→27,9)  f5 StartProduction(powr)  f8 StartProduction(e1)
-//   f12 Attack(e1→Creeps e1)  f20 immediate Chat（[0] 记录）  f30 PlaceBuilding(powr@35,40)
 
 namespace scenario {
 
@@ -450,11 +400,10 @@ std::uint32_t u4_owner_of(const ww::WorldModel& w, std::string_view str_name) {
 struct ScenarioResult {
   std::vector<std::uint8_t> vec_file;
   std::string str_dump;
-  ora::game::replay::ReplayFeedModel feed;  // 重演侧：逐帧对拍数据（录制侧为空）
+  ora::game::replay::ReplayFeedModel feed;
   bool b_out_of_sync{};
 };
 
-// 录制一遍剧本（自录侧：录制器挂接 + 引导包两枚 + 元数据）
 std::expected<ScenarioResult, std::string> record_run() {
   auto res_world{make_world(kSeed)};
   if (!res_world.has_value()) return std::unexpected(res_world.error());
@@ -515,7 +464,7 @@ std::expected<ScenarioResult, std::string> record_run() {
         break;
     }
     net::run_frame(om, w);
-    // 本帧 SentSync（探针口径）：ProcessOrders 尾部产的 sync 包恰在 echo 队尾（下一拍才排干）
+
     check(!om.vec_echo_sync.empty(),
           std::format("record: frame {} produced sync (fatal='{}')", int4_frame, om.str_fatal));
     const auto opt_sync{net::try_parse_sync_packet(om.vec_echo_sync.back())};
@@ -544,7 +493,6 @@ std::expected<ScenarioResult, std::string> record_run() {
   return ScenarioResult{*res_file, std::move(str_dump), {}, false};
 }
 
-// 重演一遍（自放侧：feed 挂接 + 文件 Session 重建世界 + 逐帧 run_frame）
 std::expected<ScenarioResult, std::string> replay_run(std::span<const std::uint8_t> span_file) {
   auto res_read{rep::replay_read(span_file)};
   if (!res_read.has_value()) return std::unexpected(res_read.error());
@@ -574,23 +522,22 @@ std::expected<ScenarioResult, std::string> replay_run(std::span<const std::uint8
                             w.rng_shared.int4_last, w.rng_shared.int4_total_count,
                             w.vec_in_world.size(), actor_dump_line(w));
   }
-  // 排干尾帧本地 sync（pump 在下一帧 tick_immediate 才收它——补一拍让 map_local_syncs 完整）
+
   net::tick_immediate(om, w);
 
   ScenarioResult result;
   result.vec_file.assign(span_file.begin(), span_file.end());
   result.str_dump = std::move(str_dump);
-  result.feed = std::move(*res_feed);  // om.ptr_replay_feed 自此悬空——重演循环已结束
+  result.feed = std::move(*res_feed);
   result.b_out_of_sync = om.b_out_of_sync;
   return result;
 }
 
-}  // namespace scenario
-
-// —— slice 2：录制形态（引导包两枚、[1] pacing、[N+1] 应用帧、sync 17B、[0] immediate）——
+}
 
 void test_record_layout() {
-  using namespace scenario;
+  using scenario::kFrames;
+  using scenario::record_run;
   const auto res_run{record_run()};
   check(res_run.has_value(), "record: run succeeds");
   if (!res_run.has_value()) {
@@ -602,20 +549,18 @@ void test_record_layout() {
   check(res_read.has_value(), "record: file parses");
   if (!res_read.has_value()) return;
 
-  // 布局：2 boot + [1] pacing + 60 帧 pacing/订单（[2]..[61]）+ [0]-Chat immediate + 60 sync
-  // = 124 条
   check(res_read->vec_records.size() == 2 + 1 + kFrames + 1 + kFrames,
         std::format("record: 124 records (got {})", res_read->vec_records.size()));
   check(res_read->int4_final_game_tick == kFrames, "record: FinalGameTick 60");
 
   const auto& vec_records{res_read->vec_records};
-  // boot 两枚（client=0 frame=0）
+
   check(vec_records[0].int4_client == 0 && vec_records[1].int4_client == 0, "record: boot from=0");
-  // [1] pacing 空包
+
   check(vec_records[2].int4_client == 1 && vec_records[2].vec_data.size() == 4 &&
             vec_records[2].vec_data[0] == 1,
         "record: [1] pacing packet");
-  // 首条帧单：f3 发 → [4] 应用帧（Move）
+
   bool b_found_move{};
   for (const auto& record : vec_records) {
     if (record.int4_client != 1 || record.vec_data.size() < 6) continue;
@@ -632,7 +577,6 @@ void test_record_layout() {
   }
   check(b_found_move, "record: Move order present");
 
-  // immediate Chat 单记 [0]
   bool b_found_chat{};
   for (const auto& record : vec_records) {
     if (record.int4_client != 1 || record.vec_data.size() < 6) continue;
@@ -647,7 +591,6 @@ void test_record_layout() {
   }
   check(b_found_chat, "record: Chat immediate order present");
 
-  // sync 封包 17B 且帧号覆盖 1..60
   std::int32_t int4_sync_count{};
   for (const auto& record : vec_records) {
     if (record.vec_data.size() == 17 && record.vec_data[4] == 0x65) ++int4_sync_count;
@@ -655,21 +598,20 @@ void test_record_layout() {
   check(int4_sync_count == kFrames, std::format("record: 60 sync packets (got {})",
                                                 int4_sync_count));
 
-  // 读→写恒等（自录文件）
   const std::vector<std::uint8_t> vec_written{ora::game::replay::replay_write(*res_read)};
   check(vec_written == res_run->vec_file, "record: self-recorded read->write identity");
 }
 
-// —— slice 3：自录自放逐帧 SyncHash 自洽 + 双跑记录流恒等 ——
-
 void test_replay_self_consistent() {
-  using namespace scenario;
+  using scenario::kFrames;
+  using scenario::kSeed;
+  using scenario::replay_run;
+  using scenario::record_run;
   const auto res_a{record_run()};
   const auto res_b{record_run()};
   check(res_a.has_value() && res_b.has_value(), "replay: two record runs succeed");
   if (!res_a.has_value() || !res_b.has_value()) return;
 
-  // ①记录流恒等（双跑；元数据 EndTimeUtc 墙钟不进比对）
   const auto res_read_a{ora::game::replay::replay_read(res_a->vec_file)};
   const auto res_read_b{ora::game::replay::replay_read(res_b->vec_file)};
   check(res_read_a.has_value() && res_read_b.has_value(), "replay: both files parse");
@@ -684,7 +626,6 @@ void test_replay_self_consistent() {
   check(b_identical, "record-stream-identical (double run)");
   check(res_a->str_dump == res_b->str_dump, "record-dump-identical (double run)");
 
-  // ②自放：重演逐帧 SyncHash 与录中 sync 封包比对（feed 机制 + 显式对拍）
   auto res_replay{replay_run(res_a->vec_file)};
   check(res_replay.has_value(), "replay: replay run succeeds");
   if (!res_replay.has_value()) {
@@ -719,8 +660,6 @@ void test_replay_self_consistent() {
         "replay: NetFrameInterval from file session");
 }
 
-// —— slice 4：篡改负向样本（Subject 字节 / 物品名字节 / sync 字节）必须检出 ——
-
 std::vector<std::uint8_t> tamper_copy(std::span<const std::uint8_t> span_file,
                                       std::string_view str_name,
                                       void (*fn_mutate)(std::vector<std::uint8_t>&,
@@ -730,7 +669,7 @@ std::vector<std::uint8_t> tamper_copy(std::span<const std::uint8_t> span_file,
   for (const auto& record : res_read->vec_records) {
     if (record.int4_client != 1 || record.vec_data.size() < 6) continue;
     if (record.vec_data[4] != 0xff) continue;
-    // 订单名匹配 str_name（[0xFF][len][name]）
+
     const std::size_t sz_len{record.vec_data[5]};
     if (record.vec_data.size() < 6 + sz_len) continue;
     if (std::string_view{reinterpret_cast<const char*>(record.vec_data.data() + 6), sz_len} !=
@@ -744,23 +683,22 @@ std::vector<std::uint8_t> tamper_copy(std::span<const std::uint8_t> span_file,
 }
 
 void test_tamper_detect() {
-  using namespace scenario;
+  using scenario::record_run;
+  using scenario::replay_run;
   const auto res_record{record_run()};
   check(res_record.has_value(), "tamper: record run succeeds");
   if (!res_record.has_value()) return;
   const std::span<const std::uint8_t> span_file{res_record->vec_file};
 
-  // ①StartProduction 单 Subject ActorID 低字节 ^1 → 订单被 ResolveOrder 丢弃 → 队列状态分叉
   const auto vec_subject{tamper_copy(
       span_file, "StartProduction",
       [](std::vector<std::uint8_t>& vec_bytes, const ora::game::replay::ReplayRecord& record) {
-        // data: [frame 4][FF][len][name][flags 2][Subject u32]——Subject 首字节 = 6+len+2
+
         const std::size_t idx_subject{record.idx_offset + 8 + 6 + record.vec_data[5] + 2};
         vec_bytes[idx_subject] ^= 0x01;
       })};
   check(!vec_subject.empty(), "tamper: subject target found");
 
-  // ②StartProduction TargetString "powr"→"qowr" → find_template 失败 → 队列不启动 → 分叉
   const auto vec_prodname{tamper_copy(
       span_file, "StartProduction",
       [](std::vector<std::uint8_t>& vec_bytes, const ora::game::replay::ReplayRecord& record) {
@@ -774,7 +712,6 @@ void test_tamper_detect() {
       })};
   check(!vec_prodname.empty(), "tamper: prodname target found");
 
-  // ③sync 封包 hash 字节 ^FF → 当帧检出
   std::vector<std::uint8_t> vec_sync{res_record->vec_file};
   {
     auto res_read{ora::game::replay::replay_read(span_file)};
@@ -783,7 +720,7 @@ void test_tamper_detect() {
       if (b_done) break;
       if (record.vec_data.size() == 17 && record.vec_data[4] == 0x65 &&
           record.vec_data[0] == 20) {
-        vec_sync[record.idx_offset + 8 + 6] ^= 0xff;  // hash 字节 1（data[6]）
+        vec_sync[record.idx_offset + 8 + 6] ^= 0xff;
         b_done = true;
       }
     }
@@ -802,10 +739,10 @@ void test_tamper_detect() {
     bool b_detected{false};
     std::string str_detail;
     if (!res_replay.has_value()) {
-      b_detected = true;  // 文件不可解析也视为检出（损坏）
+      b_detected = true;
       str_detail = res_replay.error();
     } else {
-      // 上游机制双验：om.b_out_of_sync（syncForFrame 比对）或显式逐帧对拍报告
+
       b_detected = res_replay->b_out_of_sync || !res_replay->feed.vec_desync_reports.empty();
       if (!res_replay->feed.vec_desync_reports.empty())
         str_detail = res_replay->feed.vec_desync_reports.front();
@@ -816,7 +753,7 @@ void test_tamper_detect() {
   }
 }
 
-}  // namespace
+}
 
 int main() {
   test_format_roundtrip_minimal();
@@ -826,6 +763,5 @@ int main() {
   test_replay_self_consistent();
   test_tamper_detect();
 
-  std::println("replay: {} checks, {} failures", int4_checks, int4_failures);
-  return int4_failures == 0 ? 0 : 1;
+  return ora::test::test_exit_code("replay");
 }

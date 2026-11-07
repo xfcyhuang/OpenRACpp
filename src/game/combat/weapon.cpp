@@ -16,7 +16,7 @@ std::optional<std::int32_t> parse_int(std::string_view str_value) {
 }
 
 std::optional<bool> parse_bool(std::string_view str_value) {
-  // FieldLoader → bool.TryParse（大小写不敏感）
+
   if (str_value == "True" || str_value == "true") return true;
   if (str_value == "False" || str_value == "false") return false;
   return std::nullopt;
@@ -44,11 +44,10 @@ std::optional<int> parse_wdist_token(std::string_view str_token) {
   const auto opt_sub{parse_int(str_token.substr(idx_c + 1))};
   if (!opt_cell.has_value() || !opt_sub.has_value()) return std::nullopt;
   std::int32_t int4_sub{*opt_sub};
-  if (*opt_cell < 0) int4_sub = -int4_sub;  // 上游：符号传播到小数部分
+  if (*opt_cell < 0) int4_sub = -int4_sub;
   return 1024 * *opt_cell + int4_sub;
 }
 
-// 逗号分隔列表（FieldLoader 数组语义；空白容许）
 std::vector<std::string> split_comma(std::string_view str_value) {
   std::vector<std::string> vec_parts;
   std::size_t sz_pos{0};
@@ -82,7 +81,6 @@ std::vector<std::string> parse_string_list(std::string_view str_value) {
   return vec_out;
 }
 
-// TargetTypes / DamageTypes 剥离：对拍面用 ValidTargets 字符串序列（保留原序）
 WarheadDef parse_warhead(const MiniYamlNode& node_warhead) {
   WarheadDef wh;
   const std::string_view str_type{node_warhead.str_value};
@@ -94,7 +92,7 @@ WarheadDef parse_warhead(const MiniYamlNode& node_warhead) {
   } else if (str_type == "LeaveSmudge") {
     wh.kind = WarheadKind::kLeaveSmudge;
   } else {
-    wh.kind = WarheadKind::kLeaveSmudge;  // 未知类型占位（三武器面不出现）
+    wh.kind = WarheadKind::kLeaveSmudge;
     wh.str_kind_name = std::string{str_type} + "Warhead";
   }
 
@@ -112,12 +110,12 @@ WarheadDef parse_warhead(const MiniYamlNode& node_warhead) {
   if (const MiniYamlNode* node{find_child(vec_children, "Falloff")})
     wh.vec_falloff = parse_wdist_list(node->str_value);
   else if (wh.kind == WarheadKind::kSpreadDamage)
-    // SpreadDamageWarheadInfo.Falloff 默认 [100, 37, 14, 5, 0]（:29）
+
     wh.vec_falloff = {100, 37, 14, 5, 0};
   if (const MiniYamlNode* node{find_child(vec_children, "Spread")}) {
     if (const auto opt{parse_wdist_token(node->str_value)}) wh.int4_spread = *opt;
   } else if (wh.kind == WarheadKind::kSpreadDamage)
-    wh.int4_spread = 43;  // SpreadDamageWarheadInfo.Spread 默认 WDist(43)（:26）
+    wh.int4_spread = 43;
   if (const MiniYamlNode* node{find_child(vec_children, "ValidTargets")})
     wh.vec_valid_targets = parse_string_list(node->str_value);
   if (const MiniYamlNode* node{find_child(vec_children, "InvalidTargets")})
@@ -169,7 +167,7 @@ ProjectileDef parse_projectile(const MiniYamlNode& node_projectile) {
   return proj;
 }
 
-}  // namespace
+}
 
 std::optional<int> wdist_parse(std::string_view str_value) { return parse_wdist_token(str_value); }
 
@@ -195,7 +193,6 @@ std::expected<WeaponTable, std::string> weapon_table_load(
     WeaponDef def;
     def.str_name_lower = to_lower_ascii(node.str_key);
 
-    // WeaponInfo ctor 的单源自合并（MergeSelfPartial；对已继承解析树幂等）
     auto res_self{miniyaml_merge({node.vec_children})};
     if (!res_self.has_value()) return std::unexpected(res_self.error());
 
@@ -234,4 +231,4 @@ std::expected<WeaponTable, std::string> weapon_table_load(
   return table;
 }
 
-}  // namespace ora::game::combat
+}

@@ -31,4 +31,4 @@ void control_group_add_to(SelectionModel& selection, const world::WorldModel& w,
 
 void control_group_select(SelectionModel& selection, std::size_t idx_group);
 
-}  // namespace ora::game::input
+}

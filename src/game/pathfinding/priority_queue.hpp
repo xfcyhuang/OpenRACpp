@@ -28,4 +28,4 @@ void queue_add(LevelOrderQueue& q, const GraphConnection& item);
 bool queue_empty(const LevelOrderQueue& q);
 GraphConnection queue_pop(LevelOrderQueue& q);
 
-}  // namespace ora::game::pathfinding
+}

@@ -9,11 +9,8 @@ import std;
 #include "launcher/cli_args.hpp"
 #include "launcher/game_session.hpp"
 #include "launcher/sandbox_recipe.hpp"
-
-// T15（issue #16）：CLI 直进沙盒对局的无头可测内核。
-// seam 1：GNU 风格参数解析（--mod/--map/--seed/--tick-ms/...，上游 Key=Value 语法
-// 偏离登记 COVERAGE）；seam 2：内置沙盒图组装时序（玩家/actor/资源层/队列）；
-// seam 3：同 seed 双跑 N tick digest 恒等 + 建造/生产/移动/攻击/经济闭环锚点断言。
+#include "test_util.hpp"
+using ora::test::check;
 
 namespace {
 
@@ -24,16 +21,6 @@ namespace opro = ora::game::production;
 namespace inp_view = ora::game::input;
 namespace ww = ora::game::world;
 
-int g_failed{};
-int g_total{};
-constexpr int kMaxReports{20};
-
-void check(bool b_ok, std::string_view str_what) {
-  ++g_total;
-  if (b_ok) return;
-  ++g_failed;
-  if (g_failed <= kMaxReports) std::println("FAIL: {}", str_what);
-}
 
 std::vector<std::string_view> args(std::initializer_list<std::string_view> vec_parts) {
   return std::vector<std::string_view>{vec_parts};
@@ -122,8 +109,6 @@ std::uint32_t actor_id_of_type(const lch::GameSession& s, std::string_view str_t
   return 0xffffffffu;
 }
 
-// 按 owner 视角取 e1：b_own=true 己方（viewer）第 idx_skip 个，false 敌方第 idx_skip 个。
-// vec_in_world 按 id 序：地图 e1own/e1foe 在生产 e1 之前，idx 语义必须走 owner。
 std::uint32_t actor_id_of_owner(const lch::GameSession& s, std::string_view str_type, bool b_own,
                                 std::size_t idx_skip) {
   std::size_t idx_seen{0};
@@ -279,10 +264,6 @@ bool queue_has_done(const lch::GameSession& s, std::string_view str_type,
   return false;
 }
 
-// T16（issue #17）：CLI --record/--replay 参数面 + GameSession 级自录自放
-// （录制含生产/移动/攻击订单——Move/Attack 效果走 launcher 桥，重演侧由
-// feed.vec_replayed_orders 按帧喂回 bridge_pending，digest 恒等是桥重演的强断言）。
-
 void test_parse_replay_flags() {
   const lch::CliParseResult res{lch::cli_args_parse(
       args({"--headless", "--ticks", "300", "--record", "run.orarep"}))};
@@ -305,7 +286,6 @@ void test_session_record_replay() {
   constexpr std::int32_t kSeed{20261103};
   constexpr std::int32_t kTicks{240};
 
-  // —— 录制侧 ——
   std::vector<std::uint8_t> vec_file;
   std::string str_digest_record;
   {
@@ -326,7 +306,7 @@ void test_session_record_replay() {
                                                 .int4_game_timestep = 40,
                                                 .vec_client_indices = {net::kLocalClientId}})));
     recorder_receive(recorder, 0, rep::make_boot_packet("StartGame", ""));
-    // session_setup 已 start_game：[1] pacing 空包在此补记（run_headless 同款）
+
     recorder_receive(recorder, net::kLocalClientId,
                      net::order_packet_serialize_frame(std::vector<std::uint8_t>{}, 1));
 
@@ -364,7 +344,6 @@ void test_session_record_replay() {
     vec_file = std::move(*res_file);
   }
 
-  // 读→写恒等（CLI 自录文件）
   {
     auto res_read{rep::replay_read(vec_file)};
     check(res_read.has_value(), "replay-cli: file parses");
@@ -372,7 +351,6 @@ void test_session_record_replay() {
       check(rep::replay_write(*res_read) == vec_file, "replay-cli: read->write identity");
   }
 
-  // —— 重放侧（桥喂单路径）——
   {
     auto res_read{rep::replay_read(vec_file)};
     check(res_read.has_value(), "replay-cli: replay parse");
@@ -382,7 +360,7 @@ void test_session_record_replay() {
     if (!res_feed.has_value()) return;
 
     lch::SessionEnv env;
-    env.int4_seed = res_feed->session.int4_seed;   // 文件 Session 的 seed
+    env.int4_seed = res_feed->session.int4_seed;
     auto res_session{lch::session_setup(env)};
     check(res_session.has_value(), "replay-cli: replay session setup");
     if (!res_session.has_value()) return;
@@ -605,7 +583,7 @@ void test_low_power_negative() {
   check(b_slowdown_seen, "lowpower: token-bucket slowdown observed while low");
 }
 
-}  // namespace
+}
 
 int main() {
   test_parse_defaults();
@@ -620,6 +598,5 @@ int main() {
   test_low_power_negative();
   test_parse_replay_flags();
   test_session_record_replay();
-  std::println("cli_game: {} checks, {} failed", g_total, g_failed);
-  return g_failed == 0 ? 0 : 1;
+  return ora::test::test_exit_code("cli_game");
 }

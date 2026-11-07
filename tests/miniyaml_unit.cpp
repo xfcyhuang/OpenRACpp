@@ -1,6 +1,8 @@
 import std;
 
 #include "game/miniyaml.hpp"
+#include "test_util.hpp"
+using ora::test::check;
 
 #ifndef ORA_MINIYAML_GOLDEN_DIR
 #define ORA_MINIYAML_GOLDEN_DIR "tests/golden/miniyaml"
@@ -8,15 +10,6 @@ import std;
 
 namespace {
 
-int int4_failures{0};
-
-
-void check(bool b_ok, std::string_view str_what) {
-  if (!b_ok) {
-    ++int4_failures;
-    std::println("miniyaml_unit: check failed: {}", str_what);
-  }
-}
 
 std::string roundtrip(std::string_view str_text) {
   auto res_nodes = ora::game::miniyaml_from_string(str_text, "unit", false);
@@ -235,10 +228,5 @@ int main() {
     check(!res_missing.has_value(), "missing file reports error");
   }
 
-  if (int4_failures != 0) {
-    std::println("miniyaml_unit: {} checks failed", int4_failures);
-    return 1;
-  }
-  std::println("miniyaml_unit: all checks passed");
-  return 0;
+  return ora::test::test_exit_code("miniyaml_unit");
 }

@@ -14,4 +14,4 @@ ActorModel* world_actor_by_id(WorldModel& w, std::uint32_t u4_id) {
   return const_cast<ActorModel*>(world_actor_by_id(static_cast<const WorldModel&>(w), u4_id));
 }
 
-}  // namespace ora::game::world
+}

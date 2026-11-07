@@ -51,4 +51,4 @@ struct ActorBoundsPair {
 [[nodiscard]] std::vector<ActorBoundsPair> actors_in_box(const world::WorldModel& w,
                                                          const PxRect& rect);
 
-}  // namespace ora::game::input
+}

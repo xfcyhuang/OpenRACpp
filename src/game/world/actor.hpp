@@ -25,4 +25,4 @@ struct ActorModel {
 
 [[nodiscard]] ActorModel* world_actor_by_id(WorldModel& w, std::uint32_t u4_id);
 
-}  // namespace ora::game::world
+}
