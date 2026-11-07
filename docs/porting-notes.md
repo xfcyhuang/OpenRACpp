@@ -805,3 +805,39 @@ cpp26.md 规定 `.hpp` / `.cpp` 内一律不写注释（P1-2 整改）。本文�
   上游 Sound.Tick 的 MusicPlaying&&Complete→StopMusic+onMusicComplete 轮询形
   （Sound.cs:217-225）；M2 无音乐（music nullopt 空转），.aud 票接 PlayMusic 时
   补 onMusicComplete 回调位。
+
+## src/game/input/hotkey.cpp
+- kKeycodeNames 与 Keycode 枚举由上游 OpenRA.Game/Input/Keycode.cs 生成脚本对齐
+  （238 项，含 MOUSE4/MOUSE5 与扩展键 N|(1<<30)；SDL 2.0.1 表）——再生成时两处必须
+  同步，枚举序即表序。
+- C# Enum.TryParse 对 flags 的逗号分段逐 token trim：`"  Ctrl"`（首段带空白）可解析，
+  `"B C"`（无逗号整体一段）不可——modifiers_from_string 的 trim 位置照此。
+
+## src/game/input/hotkey_registry.cpp
+- GetFirstDuplicate 遍历序 = 装载序（上游 .NET Dictionary 无删除保插入序）；C++ 用
+  平行 vector 保序，黄金 dump 行序即装载序，勿改按名排序输出。
+- hotkey_set 的 `value != Default` 用 hotkey_equal（左操作数 UNKNOWN 否决）——
+  Set(name, Invalid) 对 Default=Invalid 的定义恒"不等"→ 写 `UNKNOWN None` 节点，
+  上游 quirk 照抄（U074）。
+
+## src/game/input/selection_logic.cpp
+- BaseSelectionPriority 两条 if 顺序无害（Ctrl&&!Alt 与 Alt&&!Ctrl 互斥）；越权置
+  MaxValue 后关系扣减照减（敌方越权 = MaxValue-90）——测试勿假设"越权=全选一锅"。
+- 双击选同类的 eligible 过滤用玩家集（观战者=全体），不做 owner==viewer 硬过滤；
+  空地双击（无命中/owner 不 eligible）不改选区。
+
+## src/game/input/order_generator.cpp
+- targeter_accepts 按 str_order_id=="Attack" 分支是 AttackBase targeter 特有的
+  ForceMove 否决/ForceAttack 打地形公式；Move targeter 不拒 ForceMove（requireForceMove
+  ra 无用法）。新增 force 敏感 targeter 时在此扩展，勿改 TraitSpec 公共面。
+
+## src/game/input/viewport_controller.cpp
+- 滚动键置位条件 `Down && (isHotkey || 绑定无修饰键)` 是上游 quirk（U079）：Alt+UP
+  既置滚动位又（不吃事件地）命中 MapJumpToTopEdge——viewport_handle_key 返回值只看
+  isHotkey，与上游 `HandleMapScrollKey` 返回语义一致。
+
+## tests/hotkeys.cpp
+- 黄金对拍分两文件：ra-bindings.txt（默认表 174 定义）+ ra-override.txt（合成 Keys
+  段走构造覆盖路径）；合成段本身从 override 黄金头注释解析（单一事实源）。
+- canonical 修饰键序 = C# 声明序 Shift, Alt, Ctrl, Meta（Modifiers:F），**不是** yaml
+  源序——ControlGroupAddTo01 源写 `Ctrl, Shift`，dump 为 `Shift, Ctrl`。

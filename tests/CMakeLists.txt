@@ -187,3 +187,9 @@ if(ORA_SOFT_OAL_DLL)
 else()
   message(STATUS "ORA_SOFT_OAL_DLL 未设置（-DORA_SOFT_OAL_DLL=<soft_oal.dll 路径>）——audio_probe target 跳过")
 endif()
+
+add_executable(ora_hotkeys hotkeys.cpp)
+target_link_libraries(ora_hotkeys PRIVATE ora_std ora_game)
+target_compile_definitions(ora_hotkeys PRIVATE
+  ORA_HOTKEYS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/hotkeys")
+add_test(NAME hotkeys COMMAND ora_hotkeys)
