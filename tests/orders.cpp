@@ -27,7 +27,8 @@ std::string to_hex(std::span<const std::uint8_t> span_bytes) {
 }
 
 bool roundtrip_identity(const ora::game::network::OrderModel& order, std::string_view str_name) {
-  using namespace ora::game::network;
+  using ora::game::network::OrderModel;
+  using ora::game::network::OrderReader;
   const std::vector<std::uint8_t> vec_first{serialize_order(order)};
   OrderReader reader{vec_first};
   const std::optional<OrderModel> opt_parsed{deserialize_order(reader, nullptr)};
@@ -53,7 +54,8 @@ void check_hex(const ora::game::network::OrderModel& order, std::string_view str
 }
 
 void test_roundtrip_tier_a() {
-  using namespace ora::game::network;
+  using ora::game::network::OrderModel;
+  using ora::game::network::TargetKind;
 
   {
     const OrderModel order{};
@@ -258,7 +260,7 @@ std::optional<ora::game::network::OrderModel> parse_single(std::string_view str_
 }
 
 void test_deserialize_guards() {
-  using namespace ora::game::network;
+  using ora::game::network::TargetKind;
 
   check(!parse_single("").has_value(), "guard: empty input");
   check(!parse_single("ff").has_value(), "guard: truncated after type");
@@ -289,7 +291,9 @@ void test_deserialize_guards() {
 }
 
 void test_subject_world_semantics() {
-  using namespace ora::game::network;
+  using ora::game::network::OrderModel;
+  using ora::game::network::OrderReader;
+  using ora::game::network::TargetKind;
   using ora::game::world::WorldModel;
 
   WorldModel w;
@@ -377,7 +381,12 @@ void test_subject_world_semantics() {
 }
 
 void test_order_packet() {
-  using namespace ora::game::network;
+  using ora::game::network::OrderModel;
+  using ora::game::network::order_packet_from_orders;
+  using ora::game::network::order_packet_get_orders;
+  using ora::game::network::order_packet_serialize_frame;
+  using ora::game::network::serialize_sync_packet;
+  using ora::game::network::try_parse_order_packet;
 
   {
     OrderModel order_a;
@@ -469,7 +478,9 @@ void test_order_packet() {
 }
 
 void test_order_manager_pipeline() {
-  using namespace ora::game::network;
+  using ora::game::network::OrderManagerModel;
+  using ora::game::network::OrderModel;
+  using ora::game::network::TargetKind;
   namespace ws = ora::game::world;
 
   constexpr std::string_view kRules{
@@ -651,7 +662,9 @@ void test_order_manager_pipeline() {
 }
 
 std::optional<ora::game::network::OrderModel> build_golden_case(std::string_view str_name) {
-  using namespace ora::game::network;
+  using ora::game::network::OrderModel;
+  using ora::game::network::TargetKind;
+  using ora::game::network::TargetModel;
   using TK = TargetKind;
 
   auto make_cell = [](std::int32_t int4_x, std::int32_t int4_y, std::int32_t int4_layer,
@@ -837,7 +850,7 @@ std::optional<ora::game::network::OrderModel> build_golden_case(std::string_view
 }
 
 void test_golden_orders() {
-  using namespace ora::game::network;
+  using ora::game::network::OrderReader;
   using ora::game::world::WorldModel;
 
   std::ifstream stream_file{std::string(ORA_ORDERS_GOLDEN_DIR) + "/representative.txt"};

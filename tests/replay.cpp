@@ -63,7 +63,9 @@ std::vector<std::uint8_t> read_file_bytes(std::string_view str_path) {
 }
 
 std::vector<std::uint8_t> make_minimal_orarep() {
-  using namespace ora::game::replay;
+  using ora::game::replay::kMetaEndMarker;
+  using ora::game::replay::kMetaStartMarker;
+  using ora::game::replay::kMetaVersion;
   std::vector<std::uint8_t> vec_bytes;
 
   const std::vector<std::uint8_t> vec_boot{0x00, 0x00, 0x00, 0x00, 0xff, 0x04, 'T', 'e',
@@ -85,7 +87,8 @@ std::vector<std::uint8_t> make_minimal_orarep() {
 }
 
 void test_format_roundtrip_minimal() {
-  using namespace ora::game::replay;
+  using ora::game::replay::ReplayFile;
+  using ora::game::replay::replay_read;
   const std::vector<std::uint8_t> vec_bytes{make_minimal_orarep()};
 
   const auto res_read{replay_read(vec_bytes)};
@@ -117,7 +120,7 @@ void test_format_roundtrip_minimal() {
 }
 
 void test_format_corrupt() {
-  using namespace ora::game::replay;
+  using ora::game::replay::replay_read;
 
   std::vector<std::uint8_t> vec_no_meta;
   const std::vector<std::uint8_t> vec_frame1{0x01, 0x00, 0x00, 0x00};
@@ -137,7 +140,8 @@ void test_format_corrupt() {
 }
 
 void test_format_golden() {
-  using namespace ora::game::replay;
+  using ora::game::replay::ReplayRecord;
+  using ora::game::replay::replay_read;
   const std::vector<std::uint8_t> vec_bytes{
       read_file_bytes(std::format("{}/ore-lord.orarep", ORA_REPLAY_GOLDEN_DIR))};
   check(!vec_bytes.empty(), "golden: file readable");
@@ -544,7 +548,8 @@ std::expected<ScenarioResult, std::string> replay_run(std::span<const std::uint8
 }
 
 void test_record_layout() {
-  using namespace scenario;
+  using scenario::kFrames;
+  using scenario::record_run;
   const auto res_run{record_run()};
   check(res_run.has_value(), "record: run succeeds");
   if (!res_run.has_value()) {
@@ -610,7 +615,10 @@ void test_record_layout() {
 }
 
 void test_replay_self_consistent() {
-  using namespace scenario;
+  using scenario::kFrames;
+  using scenario::kSeed;
+  using scenario::replay_run;
+  using scenario::record_run;
   const auto res_a{record_run()};
   const auto res_b{record_run()};
   check(res_a.has_value() && res_b.has_value(), "replay: two record runs succeed");
@@ -687,7 +695,8 @@ std::vector<std::uint8_t> tamper_copy(std::span<const std::uint8_t> span_file,
 }
 
 void test_tamper_detect() {
-  using namespace scenario;
+  using scenario::record_run;
+  using scenario::replay_run;
   const auto res_record{record_run()};
   check(res_record.has_value(), "tamper: record run succeeds");
   if (!res_record.has_value()) return;

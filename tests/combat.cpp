@@ -169,7 +169,10 @@ void test_weapon_table() {
 }
 
 void test_damage_chains() {
-  using namespace ora::game::combat;
+  using ora::game::combat::DamagePacket;
+  using ora::game::combat::HealthState;
+  using ora::game::combat::apply_percentage_modifiers;
+  using ora::game::combat::get_damage_falloff;
 
   check(apply_percentage_modifiers(100, {150}) == 150, "chain1 versus 100*150%");
   check(apply_percentage_modifiers(1000, {100, 150}) == 1500, "chain2 1000*100%*150%");

@@ -54,7 +54,11 @@ std::string golden_init_line() {
 std::int32_t run_oracle_replay(const std::vector<std::uint8_t>& vec_orarep,
                                const std::vector<std::uint8_t>& vec_oramap,
                                const ora::game::replay::OracleReplayContext& ctx) {
-  using namespace ora::game::replay;
+  using ora::game::replay::ReplayOracleWorld;
+  using ora::game::replay::ReplayRecord;
+  using ora::game::replay::replay_oracle_create;
+  using ora::game::replay::replay_read;
+
   const auto res_read{replay_read(vec_orarep)};
   if (!res_read.has_value()) return -1;
   const auto res_feed{replay_feed_build(*res_read)};
@@ -86,7 +90,12 @@ std::int32_t run_oracle_replay(const std::vector<std::uint8_t>& vec_orarep,
 }
 
 void test_assembly_and_frame1() {
-  using namespace ora::game::replay;
+  using ora::game::replay::ReplayOracleWorld;
+  using ora::game::replay::ReplayRecord;
+  using ora::game::replay::ReplaySessionInfo;
+  using ora::game::replay::replay_oracle_context_parse;
+  using ora::game::replay::replay_oracle_create;
+  using ora::game::replay::replay_read;
 
   const std::vector<std::uint8_t> vec_orarep{
       read_file_bytes(std::format("{}/ore-lord.orarep", ORA_REPLAY_GOLDEN_DIR))};
