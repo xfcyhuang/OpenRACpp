@@ -54,10 +54,6 @@ void append_record(std::vector<std::uint8_t>& vec_out, std::int32_t int4_client,
   vec_out.insert(vec_out.end(), span_data.begin(), span_data.end());
 }
 
-std::vector<std::uint8_t> to_bytes(std::string_view str_text) {
-  return {str_text.begin(), str_text.end()};
-}
-
 std::string to_hex(std::span<const std::uint8_t> span_bytes) {
   std::string str_out;
   for (const std::uint8_t u1 : span_bytes) str_out += std::format("{:02x}", u1);

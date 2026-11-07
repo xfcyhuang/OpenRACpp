@@ -631,9 +631,6 @@ void place_building_resolve(const world::TraitResolveCtx& ctx, world::TraitModel
   if (order.str_order != "PlaceBuilding") return;
   if (!order.opt_str_target.has_value()) return;
 
-  const std::uint32_t u4_bits{static_cast<std::uint32_t>(order.target.int4_cell_bits)};
-  const std::int32_t int4_x{static_cast<std::int32_t>(u4_bits >> 20)};
-  const std::int32_t int4_y{(static_cast<std::int16_t>(order.target.int4_cell_bits >> 4)) >> 4};
   ctx.ref_world.deque_frame_end.push_back(
       world::FrameEndTask{.u4_kind = 2, .u4_player = ctx.ref_actor.u4_owner,
                           .u4_value = static_cast<std::uint32_t>(order.target.int4_cell_bits),

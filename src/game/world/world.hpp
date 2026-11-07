@@ -40,7 +40,7 @@ struct FrameEndTask {
   std::uint32_t u4_actor{};
   std::uint32_t u4_player{};
   std::uint32_t u4_value{};
-  std::string str_item;
+  std::string str_item{};
 };
 
 struct PlayerModel {

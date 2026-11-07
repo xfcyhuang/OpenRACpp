@@ -230,6 +230,7 @@ std::int32_t face_trait_hash(const ReplayOracleWorld& w, const FaceActor& actor,
                              std::int32_t int4_instance) {
   const FaceTypeSpec& face{*actor.ptr_face};
   switch (kind) {
+    case K::kClassicProductionQueue:
     case K::kDebugPauseState:
     case K::kShroud:
     case K::kMissionObjectives:
@@ -1023,7 +1024,7 @@ std::int32_t replay_oracle_sync_hash(const ReplayOracleWorld& w) {
   for (const FaceActor& actor : w.vec_actors) {
     if (!actor.b_in_world) continue;
     const std::int32_t int4_id_actor{static_cast<std::int32_t>(actor.u4_id)};
-    auto fn_add{[&](FaceTraitKind kind, std::int32_t int4_hash) {
+    auto fn_add{[&](FaceTraitKind, std::int32_t int4_hash) {
       int4_ret = wrap32(int4_ret + wrap32(static_cast<std::int64_t>(int4_n++) * (1 + int4_id_actor) * int4_hash));
     }};
     if (actor.str_type == "world") {

@@ -512,7 +512,6 @@ void test_order_manager_pipeline() {
   }
   ws::WorldModel w{std::move(*res_world)};
 
-  const std::uint32_t u4_world_actor{0};
   const std::uint32_t u4_player_actor{1};
   const std::uint32_t u4_unit0{3};
   const std::uint32_t u4_unit1{4};

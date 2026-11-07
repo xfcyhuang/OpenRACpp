@@ -47,17 +47,17 @@ struct SystemOrderEntry {
   void (*fn_handle)(OrderManagerModel&, world::WorldModel&, std::int32_t, const OrderModel&);
 };
 
-void run_chat(OrderManagerModel& om, world::WorldModel& w, std::int32_t int4_client,
+void run_chat(OrderManagerModel& om, world::WorldModel&, std::int32_t int4_client,
               const OrderModel& order) {
   system_chat(om, int4_client, order);
 }
 
-void run_command(OrderManagerModel& om, world::WorldModel& w, std::int32_t int4_client,
+void run_command(OrderManagerModel& om, world::WorldModel&, std::int32_t int4_client,
                  const OrderModel& order) {
   system_command(om, int4_client, order);
 }
 
-void run_pause_game(OrderManagerModel& om, world::WorldModel& w, std::int32_t int4_client,
+void run_pause_game(OrderManagerModel&, world::WorldModel& w, std::int32_t,
                     const OrderModel& order) {
   system_pause_game(w, order);
 }
@@ -169,8 +169,8 @@ void connection_receive(OrderManagerModel& om, world::WorldModel& w) {
   for (const std::vector<std::uint8_t>& vec_packet : om.vec_echo_sync) {
     const auto opt_frame{try_parse_sync_packet(vec_packet)};
     if (opt_frame.has_value())
-      receive_sync(om, opt_frame->int4_frame, opt_frame->int4_sync_hash,
-                   opt_frame->u8_defeat_state);
+      static_cast<void>(receive_sync(om, opt_frame->int4_frame, opt_frame->int4_sync_hash,
+                                     opt_frame->u8_defeat_state));
   }
   om.vec_echo_sync.clear();
 }

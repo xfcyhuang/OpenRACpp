@@ -243,9 +243,10 @@ void attack_activity_tick(Arena& arena, CombatUnit& unit) {
 
   // Attacking → DoAttack → CheckFire
   unit.b_is_aiming = true;
-  armament_check_fire(unit, unit.armament, pos_target_center, b_valid_armament, true,
-                      [&arena](CombatUnit& u, ArmamentState& a, pathfinding::WPos m,
-                               pathfinding::WPos p) { fire_barrel(arena, u, a, m, p); });
+  static_cast<void>(armament_check_fire(
+      unit, unit.armament, pos_target_center, b_valid_armament, true,
+      [&arena](CombatUnit& u, ArmamentState& a, pathfinding::WPos m,
+               pathfinding::WPos p) { fire_barrel(arena, u, a, m, p); }));
 }
 
 // —— ITick 段：AttackFollow/AttackTurreted（tank）驱动 ——
@@ -286,10 +287,11 @@ void attack_follow_tick(Arena& arena, CombatUnit& unit) {
   unit.b_turret_desired_achieved = int4_desired_local == unit.int4_turret_yaw;
 
   if (unit.b_turret_desired_achieved) {
-    armament_check_fire(unit, unit.armament, target.pos_center, b_valid_armament,
-                        unit.b_turret_desired_achieved,
-                        [&arena](CombatUnit& u, ArmamentState& a, pathfinding::WPos m,
-                                 pathfinding::WPos p) { fire_barrel(arena, u, a, m, p); });
+    static_cast<void>(armament_check_fire(
+        unit, unit.armament, target.pos_center, b_valid_armament,
+        unit.b_turret_desired_achieved,
+        [&arena](CombatUnit& u, ArmamentState& a, pathfinding::WPos m,
+                 pathfinding::WPos p) { fire_barrel(arena, u, a, m, p); }));
   }
 }
 

@@ -49,22 +49,22 @@ struct TraitResolveCtx {
 };
 
 struct TraitSpec {
-  std::string str_kind;
+  std::string str_kind{};
   bool b_implements_tick{};
   bool b_implements_sync{};
   bool b_implements_resolve{};
-  std::string str_int_param_key;
-  std::string str_str_param_key;
-  std::string str_str_param2_key;
-  std::string str_str_param3_key;
-  std::string str_order_id;
+  std::string str_int_param_key{};
+  std::string str_str_param_key{};
+  std::string str_str_param2_key{};
+  std::string str_str_param3_key{};
+  std::string str_order_id{};
   std::int32_t int4_order_priority{};
   bool b_order_actor_target{};
   bool b_order_terrain_target{};
-  std::function<void(const TraitCreateCtx&, TraitModel&)> fn_create;
-  std::function<void(const TraitTickCtx&, TraitModel&)> fn_tick;
-  std::function<std::int32_t(const WorldModel&, std::uint32_t, const TraitModel&)> fn_sync_hash;
-  std::function<void(const TraitResolveCtx&, TraitModel&)> fn_resolve;
+  std::function<void(const TraitCreateCtx&, TraitModel&)> fn_create{};
+  std::function<void(const TraitTickCtx&, TraitModel&)> fn_tick{};
+  std::function<std::int32_t(const WorldModel&, std::uint32_t, const TraitModel&)> fn_sync_hash{};
+  std::function<void(const TraitResolveCtx&, TraitModel&)> fn_resolve{};
 };
 
 [[nodiscard]] const std::vector<TraitSpec>& trait_registry();

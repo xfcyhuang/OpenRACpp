@@ -1026,7 +1026,6 @@ void economy_on_actor_removed(world::WorldModel& w, std::uint32_t u4_actor_id) {
 }
 
 void economy_frame_end_task(world::WorldModel& w, const world::FrameEndTask& task) {
-  EconomyWorldState& econ{w.econ};
   if (task.u4_actor >= w.vec_actors_all.size()) return;
   const world::ActorModel& host{w.vec_actors_all[task.u4_actor]};
   const world::TraitTemplate* ptr_free{find_world_template(w, host.str_type, "FreeActor")};

@@ -172,7 +172,6 @@ std::int64_t horizontal_distance_sq(pfg::WPos pos_a, pfg::WPos pos_b) {
 void bridge_fire(GameSession& s, FighterState& fighter, FighterState& target) {
   fighter.arm.vec_barrel_offsets.clear();
   fighter.arm.vec_barrel_offsets.emplace_back();
-  const pfg::WPos pos_muzzle{fighter.unit.pos_center};
   const bool b_fired{cmb::armament_check_fire(
       fighter.unit, fighter.arm, target.unit.pos_center, true, true,
       [&](cmb::CombatUnit&, cmb::ArmamentState&, pfg::WPos, pfg::WPos pos_passive) {

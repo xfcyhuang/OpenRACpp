@@ -18,10 +18,10 @@ namespace ora::game::economy {
 constexpr std::uint32_t kNoActor{0xffffffffu};
 
 struct ResourceTypeSpec {
-  std::string str_name;
+  std::string str_name{};
   std::uint8_t u1_index{};
-  std::string str_terrain;
-  std::vector<std::string> vec_allowed_terrain;
+  std::string str_terrain{};
+  std::vector<std::string> vec_allowed_terrain{};
   std::int32_t int4_max_density{};
   std::int32_t int4_value{};
 };
@@ -42,7 +42,7 @@ struct ResourceLayerState {
 };
 
 struct HarvCargoState {
-  std::vector<std::pair<std::string, std::int32_t>> vec_contents;
+  std::vector<std::pair<std::string, std::int32_t>> vec_contents{};
   std::int32_t int4_capacity{20};
 };
 

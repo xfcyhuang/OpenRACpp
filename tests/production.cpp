@@ -245,7 +245,7 @@ ora::game::network::OrderModel make_place_building(std::string_view str_item, st
 }
 
 struct ScenarioRun {
-  std::string str_observations;
+  std::string str_observations{};
   ora::game::world::WorldModel w;
 };
 
@@ -289,10 +289,6 @@ std::string read_golden(std::string_view str_name) {
     str_out += '\n';
   }
   return str_out;
-}
-
-std::pair<std::int32_t, std::int32_t> decode_cell_bits(std::int32_t int4_bits) {
-  return {int4_bits >> 20, (static_cast<std::int16_t>(int4_bits >> 4)) >> 4};
 }
 
 void test_power_state() {
