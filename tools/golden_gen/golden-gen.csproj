@@ -37,6 +37,10 @@
 
   <ItemGroup>
     <ProjectReference Include="$(OpenRaRoot)\OpenRA.Game\OpenRA.Game.csproj" />
+    <!-- T25 widgets 模式不 ProjectReference Mods.Common：上游 ObjectCreator 经
+         Support.AssemblyLoader 在隔离 ALC 加载 mod 程序集，宿主静态引用会产出第二份
+         Common 实例使 trait 类型身份分裂（v2rl Mobile 校验假失败）。宿主改为反射定位
+         ObjectCreator 已加载实例 + dynamic 交互（Game/runtime 类型跨 ALC 单一）。 -->
   </ItemGroup>
 
 </Project>

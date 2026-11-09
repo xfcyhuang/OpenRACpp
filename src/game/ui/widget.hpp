@@ -26,6 +26,15 @@ struct WidgetModel {
   bool b_click_through{};
   bool b_disabled{};
   bool b_depressed{};
+  bool b_moving{};
+  bool b_checked{};
+  bool b_has_double_click{};
+  bool b_record_mouse_down{};
+  float fp4_value{};
+  float fp4_min_value{};
+  float fp4_max_value{1.0f};
+  int int4_ticks{};
+  int int4_track_height{5};
   std::vector<std::string> vec_logic;
   std::string str_default_cursor;
   std::vector<std::pair<std::string, std::string>> vec_fields;
@@ -34,12 +43,20 @@ struct WidgetModel {
   WidgetBounds bounds{};
 };
 
+struct UiEventRecord {
+  std::string str_id;
+  std::string str_kind;
+};
+
 struct UiState {
   WidgetModel* ptr_mouse_focus{};
   WidgetModel* ptr_keyboard_focus{};
   WidgetModel* ptr_mouse_over{};
+  int int4_last_mouse_x{};
+  int int4_last_mouse_y{};
   std::vector<WidgetModel*> vec_entered;
   std::vector<WidgetModel*> vec_exited;
+  std::vector<UiEventRecord> vec_events;
 };
 
 struct WidgetInitCtx {
@@ -56,6 +73,26 @@ void widget_initialize(WidgetModel& w, const WidgetInitCtx& ctx);
 [[nodiscard]] WidgetBounds widget_event_bounds(const WidgetModel& w);
 
 [[nodiscard]] bool widget_event_bounds_contains(const WidgetModel& w, int int4_x, int int4_y);
+
+struct SliderGeometry {
+  int int4_track_origin_x{};
+  int int4_track_x{};
+  int int4_track_y{};
+  int int4_track_w{};
+  int int4_track_h{};
+  int int4_thumb_x{};
+  int int4_thumb_y{};
+  int int4_thumb_w{};
+  int int4_thumb_h{};
+};
+
+[[nodiscard]] SliderGeometry widget_slider_geometry(const WidgetModel& w);
+
+float widget_slider_value_from_px(const WidgetModel& w, int int4_x);
+
+void widget_slider_update_value(WidgetModel& w, UiState& st, float fp4_new);
+
+[[nodiscard]] bool widget_slider_thumb_contains(const WidgetModel& w, int int4_x, int int4_y);
 
 [[nodiscard]] bool widget_take_mouse_focus(WidgetModel& w, UiState& st);
 
