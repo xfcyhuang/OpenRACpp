@@ -50,6 +50,13 @@
 //                   GetStatefulImageName 真函数 + DrawPanel/FillRectWithSprite 公式照抄）、
 //                   chrome sheet 像素（pixels.txt，Png+FastCopyIntoSprite+PremultiplyAlpha
 //                   真源，D075 兑现）+ 三 PNG 语料原样入库
+//   lobby           遭遇战大堂最小面 dump（T27/issue #36）：lobby.yaml 族三语料原样入库
+//                   + 装载树 bounds + map.png 预览真值（真源 Png+FastCopyIntoSprite+
+//                   MapPreviewWidget.Draw 缩放公式；轻）+ 真图 PlayerReference 槽位表/
+//                   可选势力表（slots.txt）+ 脚本化大堂操作序列逐步真源
+//                   Session.Serialize()（session.txt；LobbyLogic/InterpretCommand 依赖
+//                   WorldRenderer/真 TCP Server 无头不可确定性驱动不进 oracle，照
+//                   LobbyCommands.cs handler 读源装配真源 Session 对象，序列化零复刻）
 //
 // 每次动作前断言上游检出 HEAD == UPSTREAM.baseline 首行，防基准漂移。
 // resolved-rules 产物字节为上游命令 stdout 的原样捕获（UTF-8 无 BOM；末尾行尾来自
@@ -282,6 +289,10 @@ internal static partial class Program
             // 偏离登记）+ 三页接线真源（bindings，SettingsUtils.Bind*Pref 真调用 +
             // Display leave 公式 + ListLayout 真布局 + HotkeyManager rekey 流）
             .. MainMenuArtifacts(openraRoot),
+            // lobby 模式（T27/issue #36）：遭遇战大堂最小面——lobby.yaml 族三语料原样
+            // 入库 + 装载树 bounds + map.png 预览真值（轻）+ 真图 PlayerReference 槽位表/
+            // 可选势力表 + 脚本化大堂操作序列逐步 Session.Serialize()（重组件）
+            .. LobbyArtifacts(openraRoot),
 
         ];
 
@@ -363,6 +374,7 @@ internal static partial class Program
         "replay" => ReplayGroup(openraRoot),
         "widgets" => WidgetsGroup(openraRoot),
         "mainmenu" => MainMenuGroup(openraRoot),
+        "lobby" => LobbyGroup(openraRoot),
         _ => throw new ArgumentException($"未知场景模式：{mode}"),
     };
 }

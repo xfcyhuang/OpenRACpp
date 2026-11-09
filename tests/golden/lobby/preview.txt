@@ -1,0 +1,24 @@
+# lobby preview oracle (T27/issue #36)
+# upstream lobby minimap = map.png decoded by Png and drawn via sheetBuilder.Add(p.Preview) (MapCache.LoadAsyncInternal);
+# no terrain-snapshot fallback exists in upstream lobby preview. C++ uses T25 png_decode directly.
+# scale/center via MapPreviewWidget.Draw: scale=min(rb.W/w,rb.H/h) float; w/h=(int)(scale*size); x=rb.X+(rb.W-w)/2 int div
+# widget bounds from true lobby-mappreview.yaml tree: MAP_LARGE/MAP_PREVIEW 1,1,172,172 (see chrome-trees)
+map ore-lord 61x61 sha256=2ad0ce7de2a6ce116791b00234cbbd7bd4bb8c54921462132254956cf2bdb140
+p 0,0 FF1C2024
+p 47,0 FF284428
+p 0,53 FF284428
+p 47,53 FF1C2024
+rect ore-lord 1,1,172,172
+map doubles 108x50 sha256=c08b1bf968d1293146f46ff956836aa7935211821c7f870228f491d854bb71da
+p 0,0 FF44443C
+p 47,0 FF5C74A4
+p 94,0 FF948060
+rect doubles 1,47,172,79
+map a-path-beyond 96x96 sha256=8333c2b7e490ba57f1a17a35591ca28c19aa6964a6f51dd1edd5b86ffc565c48
+p 0,0 FF5C74A4
+p 47,0 FF5C74A4
+p 94,0 FF5C74A4
+p 0,53 FF5C74A4
+p 47,53 FF5C74A4
+p 94,53 FF5C74A4
+rect a-path-beyond 1,1,172,172

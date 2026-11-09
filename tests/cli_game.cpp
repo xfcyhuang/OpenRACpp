@@ -123,7 +123,7 @@ std::uint32_t actor_id_of_owner(const lch::GameSession& s, std::string_view str_
 }
 
 void test_session_setup() {
-  auto res_session{lch::session_setup(lch::SessionEnv{.int4_seed = 42, .str_map_path = {}})};
+  auto res_session{lch::session_setup(lch::SessionEnv{.int4_seed = 42, .str_map_path = {}, .opt_lobby = {}})};
   if (!res_session.has_value()) {
     check(false, std::format("setup: {}", res_session.error()));
     return;
@@ -463,7 +463,7 @@ void run_script(lch::GameSession& s, std::vector<std::size_t>* ptr_trace,
 }
 
 void test_gameplay_loops() {
-  auto res_session{lch::session_setup(lch::SessionEnv{.int4_seed = 7, .str_map_path = {}})};
+  auto res_session{lch::session_setup(lch::SessionEnv{.int4_seed = 7, .str_map_path = {}, .opt_lobby = {}})};
   if (!res_session.has_value()) {
     check(false, std::format("loops: setup {}", res_session.error()));
     return;
@@ -476,7 +476,7 @@ void test_determinism_double_run() {
   std::vector<std::size_t> vec_first;
   std::string str_first;
   {
-    auto res_session{lch::session_setup(lch::SessionEnv{.int4_seed = 7, .str_map_path = {}})};
+    auto res_session{lch::session_setup(lch::SessionEnv{.int4_seed = 7, .str_map_path = {}, .opt_lobby = {}})};
     if (!res_session.has_value()) {
       check(false, "determinism: first setup failed");
       return;
@@ -488,7 +488,7 @@ void test_determinism_double_run() {
   std::vector<std::size_t> vec_second;
   std::string str_second;
   {
-    auto res_session{lch::session_setup(lch::SessionEnv{.int4_seed = 7, .str_map_path = {}})};
+    auto res_session{lch::session_setup(lch::SessionEnv{.int4_seed = 7, .str_map_path = {}, .opt_lobby = {}})};
     if (!res_session.has_value()) {
       check(false, "determinism: second setup failed");
       return;
@@ -517,7 +517,7 @@ void test_parse_demo_flag() {
 }
 
 void test_low_power_negative() {
-  auto res_session{lch::session_setup(lch::SessionEnv{.int4_seed = 11, .str_map_path = {}})};
+  auto res_session{lch::session_setup(lch::SessionEnv{.int4_seed = 11, .str_map_path = {}, .opt_lobby = {}})};
   if (!res_session.has_value()) {
     check(false, std::format("lowpower: setup {}", res_session.error()));
     return;

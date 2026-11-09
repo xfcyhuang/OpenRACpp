@@ -1,3 +1,7 @@
+## 语言约定
+
+思考与回复一律使用**中文**。
+
 ## Agent skills
 
 ### Issue tracker

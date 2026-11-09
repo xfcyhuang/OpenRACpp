@@ -260,3 +260,10 @@ target_link_libraries(ora_mainmenu PRIVATE ora_std ora_game)
 target_compile_definitions(ora_mainmenu PRIVATE
   ORA_MAINMENU_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/mainmenu")
 add_test(NAME mainmenu COMMAND ora_mainmenu)
+
+add_executable(ora_lobby lobby.cpp)
+target_link_libraries(ora_lobby PRIVATE ora_std ora_game ora_launcher_core)
+target_compile_definitions(ora_lobby PRIVATE
+  ORA_LOBBY_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/lobby"
+  ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps")
+add_test(NAME lobby COMMAND ora_lobby)

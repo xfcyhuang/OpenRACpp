@@ -1,5 +1,5 @@
-add_library(ora_launcher_core STATIC cli_args.cpp sandbox_recipe.cpp game_session.cpp)
-target_sources(ora_launcher_core PRIVATE cli_args.hpp sandbox_recipe.hpp game_session.hpp)
+add_library(ora_launcher_core STATIC cli_args.cpp sandbox_recipe.cpp game_session.cpp lobby_ui.cpp)
+target_sources(ora_launcher_core PRIVATE cli_args.hpp sandbox_recipe.hpp game_session.hpp lobby_ui.hpp)
 target_include_directories(ora_launcher_core PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(ora_launcher_core PUBLIC ora_std ora_game)
 

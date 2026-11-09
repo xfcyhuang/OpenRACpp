@@ -34,6 +34,9 @@ constexpr WidgetTypeSpec kTypeSpecs[]{
     {"TextField", false, false, false, false},
     {"HotkeyEntry", false, false, false, false},
     {"TooltipContainer", false, false, false, false},
+    {"ClientTooltipRegion", false, false, false, false},
+    {"MapPreview", false, false, false, false},
+    {"ProgressBar", false, false, false, false},
 };
 
 constexpr bool is_ascii_space(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }

@@ -26,6 +26,7 @@ import std;
 #include "game/settings.hpp"
 #include "game/sound/sfx.hpp"
 #include "game/sound/sound.hpp"
+#include "game/render/png_decode.hpp"
 #include "game/ui/chrome_provider.hpp"
 #include "game/ui/mainmenu_logic.hpp"
 #include "game/ui/settings_panel.hpp"
@@ -34,6 +35,7 @@ import std;
 #include "game/ui/widget_render.hpp"
 #include "launcher/cli_args.hpp"
 #include "launcher/game_session.hpp"
+#include "launcher/lobby_ui.hpp"
 
 namespace replay_ns = ora::game::replay;
 
@@ -42,6 +44,7 @@ namespace {
 namespace inp = ora::game::input;
 namespace lch = ora::launcher;
 namespace net = ora::game::network;
+namespace opro = ora::game::production;
 namespace ww = ora::game::world;
 
 constexpr int kViewW{1280};
@@ -84,13 +87,22 @@ static void (*gl_draw_arrays)(GLenum, GLint, GLsizei);
 static void (*gl_gen_vertex_arrays)(GLsizei, unsigned*);
 static void (*gl_bind_vertex_array)(unsigned);
 static void (*gl_read_pixels)(int, int, GLsizei, GLsizei, GLenum, GLenum, void*);
-static void (*gl_gen_textures)(GLsizei, unsigned*);
+static unsigned (*gl_gen_textures)(GLsizei, unsigned*);
 static void (*gl_bind_texture)(GLenum, unsigned);
 static void (*gl_tex_image_2d)(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum,
                                const void*);
 static void (*gl_tex_parameteri)(GLenum, GLenum, GLint);
-static void (*gl_get_uniform_location)(unsigned, const char*);
+static int (*gl_get_uniform_location)(unsigned, const char*);
 static void (*gl_uniform4f)(int, GLfloat, GLfloat, GLfloat, GLfloat);
+
+constexpr GLenum GL_TEXTURE_2D{0x0DE1};
+constexpr GLenum GL_TEXTURE_MIN_FILTER{0x2801};
+constexpr GLenum GL_TEXTURE_MAG_FILTER{0x2800};
+constexpr GLenum GL_TEXTURE_WRAP_S{0x2802};
+constexpr GLenum GL_TEXTURE_WRAP_T{0x2803};
+constexpr GLint GL_NEAREST{0x2600};
+constexpr GLint GL_REPEAT{0x2901};
+constexpr GLint GL_RGBA8{0x8058};
 
 constexpr GLenum GL_COLOR_BUFFER_BIT{0x4000};
 constexpr GLenum GL_TRIANGLES{0x0004};
@@ -102,13 +114,8 @@ constexpr GLenum GL_COMPILE_STATUS{0x8B81};
 constexpr GLenum GL_ARRAY_BUFFER{0x8892};
 constexpr GLenum GL_STATIC_DRAW{0x88E4};
 constexpr GLenum GL_RGB{0x1907};
-constexpr GLenum GL_UNSIGNED_BYTE{0x1401};
-constexpr GLenum GL_TEXTURE_2D{0x0DE1};
-constexpr GLenum GL_TEXTURE_MIN_FILTER{0x2801};
-constexpr GLenum GL_TEXTURE_MAG_FILTER{0x2800};
-constexpr GLenum GL_NEAREST{0x2600};
 constexpr GLenum GL_RGBA{0x1908};
-constexpr GLint GL_RGBA8{0x8058};
+constexpr GLenum GL_UNSIGNED_BYTE{0x1401};
 
 template <typename T>
 T gl_load(const char* sz_name) {
@@ -1046,6 +1053,329 @@ int run_headless(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv
   return 0;
 }
 
+
+namespace lob {
+
+struct ButtonRect {
+  std::string_view str_id;
+  int int4_x{};
+  int int4_y{};
+  int int4_w{};
+  int int4_h{};
+};
+
+const ora::game::ui::WidgetModel* widget_find(const ora::game::ui::WidgetModel& root,
+                                              std::string_view str_id) {
+  std::vector<const ora::game::ui::WidgetModel*> vec_stack{&root};
+  while (!vec_stack.empty()) {
+    const ora::game::ui::WidgetModel* ptr_w{vec_stack.back()};
+    vec_stack.pop_back();
+    if (ptr_w->str_id == str_id) return ptr_w;
+    for (const auto& ptr_child : ptr_w->vec_children) vec_stack.push_back(ptr_child.get());
+  }
+  return nullptr;
+}
+
+ora::game::ui::WidgetBounds widget_origin_bounds(const ora::game::ui::WidgetModel& w) {
+  int int4_ox{0};
+  int int4_oy{0};
+  const ora::game::ui::WidgetModel* ptr_iter{&w};
+  while (ptr_iter->ptr_parent != nullptr) {
+    int4_ox += ptr_iter->bounds.int4_x;
+    int4_oy += ptr_iter->bounds.int4_y;
+    ptr_iter = ptr_iter->ptr_parent;
+  }
+  return {int4_ox, int4_oy, w.bounds.int4_width, w.bounds.int4_height};
+}
+
+ButtonRect button_from_tree(const lch::LobbyRuntime& lobby, std::string_view str_id,
+                            int int4_fx, int int4_fy, int int4_fw, int int4_fh) {
+  if (lobby.b_tree_loaded) {
+    if (const ora::game::ui::WidgetModel* ptr_w{widget_find(lobby.tree_lobby, str_id)}) {
+      const ora::game::ui::WidgetBounds b{widget_origin_bounds(*ptr_w)};
+      return {str_id, b.int4_x, b.int4_y, b.int4_width, b.int4_height};
+    }
+  }
+  return {str_id, int4_fx, int4_fy, int4_fw, int4_fh};
+}
+
+struct PreviewQuad {
+  int int4_x{};
+  int int4_y{};
+  int int4_w{};
+  int int4_h{};
+};
+
+PreviewQuad preview_quad(int int4_png_w, int int4_png_h) {
+  constexpr int kRbX{1 + 62 + 706};
+  constexpr int kRbY{1 + 84 + 67};
+  constexpr int kRbW{172};
+  constexpr int kRbH{172};
+  if (int4_png_w <= 0 || int4_png_h <= 0) return {kRbX, kRbY, kRbW, kRbH};
+  const float fp4_scale{std::min(static_cast<float>(kRbW) / static_cast<float>(int4_png_w),
+                                 static_cast<float>(kRbH) / static_cast<float>(int4_png_h))};
+  const int int4_w{static_cast<int>(fp4_scale * static_cast<float>(int4_png_w))};
+  const int int4_h{static_cast<int>(fp4_scale * static_cast<float>(int4_png_h))};
+  return {kRbX + (kRbW - int4_w) / 2, kRbY + (kRbH - int4_h) / 2, int4_w, int4_h};
+}
+
+bool rect_contains(const ButtonRect& rect, int int4_x, int int4_y) {
+  return int4_x >= rect.int4_x && int4_x < rect.int4_x + rect.int4_w && int4_y >= rect.int4_y
+      && int4_y < rect.int4_y + rect.int4_h;
+}
+
+int run_lobby_phase(lch::LobbyRuntime& lobby, SDL_Window* ptr_window, unsigned u_prog_color) {
+  const auto res_png{ora::game::render::png_decode(lobby_current_map(lobby)->vec1u_map_png)};
+  std::vector<std::uint8_t> vec1u_rgba;
+  int int4_png_w{0};
+  int int4_png_h{0};
+  if (res_png.has_value()) {
+    int4_png_w = res_png->int4_width;
+    int4_png_h = res_png->int4_height;
+    vec1u_rgba.reserve(res_png->vec_u4_argb.size() * 4);
+    for (const std::uint32_t u4_px : res_png->vec_u4_argb) {
+      vec1u_rgba.push_back(static_cast<std::uint8_t>((u4_px >> 16) & 0xFF));
+      vec1u_rgba.push_back(static_cast<std::uint8_t>((u4_px >> 8) & 0xFF));
+      vec1u_rgba.push_back(static_cast<std::uint8_t>(u4_px & 0xFF));
+      vec1u_rgba.push_back(static_cast<std::uint8_t>((u4_px >> 24) & 0xFF));
+    }
+  }
+
+  const char* sz_vert_tex{"#version 150\n"
+                          "in vec2 pos;\n"
+                          "in vec2 uv;\n"
+                          "out vec2 vuv;\n"
+                          "void main() {\n"
+                          "  vuv = uv;\n"
+                          "  gl_Position = vec4(pos.x / 640.0 - 1.0, 1.0 - pos.y / 512.0, 0.0, 1.0);\n"
+                          "}\n"};
+  const char* sz_frag_tex{"#version 150\n"
+                          "in vec2 vuv;\n"
+                          "uniform sampler2D tex;\n"
+                          "out vec4 frag;\n"
+                          "void main() { frag = texture(tex, vuv); }\n"};
+
+  const auto make_shader_lobby = [&](GLenum type, const char* sz_src) {
+    const unsigned u_shader{gl_create_shader(type)};
+    gl_shader_source(u_shader, 1, &sz_src, nullptr);
+    gl_compile_shader(u_shader);
+    return u_shader;
+  };
+  const unsigned u_prog_tex{static_cast<unsigned>(gl_create_program())};
+  gl_attach_shader(u_prog_tex, make_shader_lobby(GL_VERTEX_SHADER, sz_vert_tex));
+  gl_attach_shader(u_prog_tex, make_shader_lobby(GL_FRAGMENT_SHADER, sz_frag_tex));
+  gl_link_program(u_prog_tex);
+  gl_use_program(u_prog_tex);
+  unsigned u_tex{0};
+  gl_gen_textures(1, &u_tex);
+  gl_bind_texture(GL_TEXTURE_2D, u_tex);
+  gl_tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  gl_tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  gl_tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  gl_tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  if (!vec1u_rgba.empty())
+    gl_tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA8, int4_png_w, int4_png_h, 0, GL_RGBA,
+                    GL_UNSIGNED_BYTE, vec1u_rgba.data());
+  const int idx_pos_tex{gl_get_attrib_location(static_cast<int>(u_prog_tex), "pos")};
+  const int idx_uv_tex{gl_get_attrib_location(static_cast<int>(u_prog_tex), "uv")};
+  gl_enable_vertex_attrib_array(idx_pos_tex);
+  gl_vertex_attrib_pointer(idx_pos_tex, 2, GL_FLOAT, GL_FALSE, 16, nullptr);
+  gl_enable_vertex_attrib_array(idx_uv_tex);
+  gl_vertex_attrib_pointer(idx_uv_tex, 2, GL_FLOAT, GL_FALSE, 16,
+                           reinterpret_cast<const void*>(8));
+  const int idx_pos_color{gl_get_attrib_location(u_prog_color, "pos")};
+  const int idx_col_color{gl_get_attrib_location(u_prog_color, "col")};
+
+  const ButtonRect rect_change{
+      button_from_tree(lobby, "CHANGEMAP_BUTTON", 768, 375, 174, 25)};
+  const ButtonRect rect_start{
+      button_from_tree(lobby, "START_GAME_BUTTON", 692, 639, 120, 25)};
+  const ButtonRect rect_quit{
+      button_from_tree(lobby, "DISCONNECT_BUTTON", 822, 639, 120, 25)};
+  const ButtonRect rect_faction{"FACTION_ROW", 330, 210, 150, 25};
+  const ButtonRect rect_team{"TEAM_ROW", 490, 210, 60, 25};
+
+  bool b_quit{false};
+  bool b_start{false};
+  std::uint32_t u4_next_render{SDL_GetTicks()};
+
+  while (!b_quit && !b_start) {
+    if (g_ctrl_c) b_quit = true;
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_QUIT) b_quit = true;
+      if (event.type == SDL_KEYDOWN) {
+        const SDL_Keycode key{event.key.keysym.sym};
+        if (key == SDLK_ESCAPE) b_quit = true;
+        if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+          if (lch::lobby_request_start(lobby)) b_start = true;
+        }
+        if (key == SDLK_p && (event.key.keysym.mod & KMOD_CTRL))
+          save_screenshot(ptr_window, screenshot_path("lobby").c_str());
+      }
+      if (event.type == SDL_MOUSEBUTTONDOWN) {
+        const int int4_x{event.button.x};
+        const int int4_y{event.button.y};
+        const bool b_left{event.button.button == SDL_BUTTON_LEFT};
+        const bool b_right{event.button.button == SDL_BUTTON_RIGHT};
+        if (!b_left && !b_right) continue;
+        const int int4_dir{b_left ? 1 : -1};
+        if (rect_contains(rect_change, int4_x, int4_y)) lch::lobby_cycle_map(lobby, int4_dir);
+        else if (rect_contains(rect_faction, int4_x, int4_y))
+          lch::lobby_cycle_faction(lobby, int4_dir);
+        else if (rect_contains(rect_team, int4_x, int4_y))
+          lch::lobby_cycle_team(lobby, int4_dir);
+        else if (b_left && rect_contains(rect_start, int4_x, int4_y)) {
+          if (lch::lobby_request_start(lobby)) b_start = true;
+        } else if (b_left && rect_contains(rect_quit, int4_x, int4_y))
+          b_quit = true;
+      }
+    }
+
+    const std::uint32_t u4_now{SDL_GetTicks()};
+    if (static_cast<std::int32_t>(u4_now - u4_next_render) < 0) {
+      const std::int32_t int4_sleep{static_cast<std::int32_t>(u4_next_render - u4_now)};
+      SDL_Delay(static_cast<std::uint32_t>(int4_sleep));
+      continue;
+    }
+    u4_next_render += kRenderFrameMs;
+
+    vec_quads.clear();
+    push_quad(0, 0, kViewW, kViewH, 0.05f, 0.07f, 0.1f, 1);
+    push_quad(62, 84, 900, 600, 0.08f, 0.1f, 0.14f, 0.96f);
+    push_quad(64, 86, 896, 596, 0.11f, 0.13f, 0.18f, 0.96f);
+
+    const lch::LobbyMapEntry* ptr_map{lch::lobby_current_map(lobby)};
+    if (ptr_map != nullptr) {
+      push_quad(768, 151, 174, 250, 0.05f, 0.06f, 0.08f, 1);
+      std::string str_map_row{ptr_map->str_name};
+      for (char& ch : str_map_row)
+        if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
+      const PreviewQuad pq{preview_quad(int4_png_w, int4_png_h)};
+      push_text(str_map_row, static_cast<GLfloat>(pq.int4_x), 336.0f, 2, 1, 0.85f, 0.4f);
+    }
+
+    push_text("ORA SKIRMISH LOBBY", 480.0f, 100.0f, 3, 1, 0.85f, 0.4f);
+
+    {
+      int int4_row_y{180};
+      for (const auto& [str_slot, slot] : lobby.server.lobby_info.vec_slots) {
+        const net::LobbyClient* ptr_client{lobby.server.lobby_info.client_in_slot(str_slot)};
+        std::string str_line{std::format("{}  {}", str_slot,
+                                         ptr_client == nullptr ? std::string{"OPEN"}
+                                                               : ptr_client->str_name)};
+        for (char& ch : str_line)
+          if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
+        push_text(str_line, 82.0f, static_cast<GLfloat>(int4_row_y), 2, 0.9f, 0.9f, 0.9f);
+        push_text(ptr_client == nullptr ? "-" : lch::lobby_faction_display(lobby),
+                  static_cast<GLfloat>(rect_faction.int4_x + 8),
+                  static_cast<GLfloat>(int4_row_y), 2, 0.5f, 0.85f, 1);
+        push_text(ptr_client == nullptr ? "-" : lch::lobby_team_display(lobby),
+                  static_cast<GLfloat>(rect_team.int4_x + 8),
+                  static_cast<GLfloat>(int4_row_y), 2, 1, 0.8f, 0.3f);
+        int4_row_y += 34;
+      }
+      push_text("SLOT       NAME      FACTION  TEAM", 82.0f, 160.0f, 1, 0.6f, 0.6f, 0.6f);
+    }
+
+    const auto upper_label = [](std::string str_in) {
+      for (char& ch : str_in)
+        if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
+      return str_in;
+    };
+    const auto draw_button = [&upper_label](const ButtonRect& rect, const std::string& str_label,
+                                            bool b_accent) {
+      const GLfloat fr{b_accent ? 0.25f : 0.16f};
+      const GLfloat fg{b_accent ? 0.45f : 0.2f};
+      const GLfloat fb{b_accent ? 0.2f : 0.26f};
+      push_quad(static_cast<GLfloat>(rect.int4_x), static_cast<GLfloat>(rect.int4_y),
+                static_cast<GLfloat>(rect.int4_w), static_cast<GLfloat>(rect.int4_h), fr, fg, fb,
+                1);
+      push_quad(static_cast<GLfloat>(rect.int4_x), static_cast<GLfloat>(rect.int4_y),
+                static_cast<GLfloat>(rect.int4_w), 2.0f, 0.5f, 0.6f, 0.7f, 1);
+      push_text(upper_label(str_label), static_cast<GLfloat>(rect.int4_x + 8),
+                static_cast<GLfloat>(rect.int4_y + 6), 2, 1, 1, 1);
+    };
+
+    draw_button(rect_change, "< MAP >", false);
+    draw_button(rect_faction,
+                std::format("< {} >", lch::lobby_faction_display(lobby)), false);
+    draw_button(rect_team, std::format("< {} >", lch::lobby_team_display(lobby)), false);
+    draw_button(rect_start, "START GAME", true);
+    draw_button(rect_quit, "DISCONNECT", false);
+
+    push_text("LEFT CLICK: NEXT   RIGHT CLICK: PREV   ENTER: START   CTRL P: SCREENSHOT",
+              90.0f, 700.0f, 1, 0.55f, 0.6f, 0.65f);
+
+    std::vector<GLfloat> vec_verts;
+    vec_verts.reserve(vec_quads.size() * 30);
+    for (const Quad& quad : vec_quads) {
+      const GLfloat fp4_verts[]{quad.fp4_x, quad.fp4_y, quad.fp4_r, quad.fp4_g, quad.fp4_b,
+                                quad.fp4_a,
+                                quad.fp4_x + quad.fp4_w, quad.fp4_y, quad.fp4_r, quad.fp4_g,
+                                quad.fp4_b, quad.fp4_a,
+                                quad.fp4_x, quad.fp4_y + quad.fp4_h, quad.fp4_r, quad.fp4_g,
+                                quad.fp4_b, quad.fp4_a,
+                                quad.fp4_x, quad.fp4_y + quad.fp4_h, quad.fp4_r, quad.fp4_g,
+                                quad.fp4_b, quad.fp4_a,
+                                quad.fp4_x + quad.fp4_w, quad.fp4_y, quad.fp4_r, quad.fp4_g,
+                                quad.fp4_b, quad.fp4_a,
+                                quad.fp4_x + quad.fp4_w, quad.fp4_y + quad.fp4_h, quad.fp4_r,
+                                quad.fp4_g, quad.fp4_b, quad.fp4_a};
+      vec_verts.insert(vec_verts.end(), fp4_verts, fp4_verts + 36);
+    }
+    gl_use_program(u_prog_color);
+    gl_enable_vertex_attrib_array(idx_pos_color);
+    gl_vertex_attrib_pointer(idx_pos_color, 2, GL_FLOAT, GL_FALSE, 24, nullptr);
+    gl_enable_vertex_attrib_array(idx_col_color);
+    gl_vertex_attrib_pointer(idx_col_color, 4, GL_FLOAT, GL_FALSE, 24,
+                             reinterpret_cast<const void*>(8));
+    gl_clear_color(0, 0, 0, 1);
+    gl_clear(GL_COLOR_BUFFER_BIT);
+    gl_buffer_data(GL_ARRAY_BUFFER, static_cast<long>(vec_verts.size() * sizeof(GLfloat)),
+                   vec_verts.data(), GL_STATIC_DRAW);
+    gl_draw_arrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vec_quads.size() * 6));
+
+    if (!vec1u_rgba.empty()) {
+      const PreviewQuad pq{preview_quad(int4_png_w, int4_png_h)};
+      const GLfloat fp4_verts[]{
+          static_cast<GLfloat>(pq.int4_x), static_cast<GLfloat>(pq.int4_y), 0, 0,
+          static_cast<GLfloat>(pq.int4_x + pq.int4_w), static_cast<GLfloat>(pq.int4_y), 1, 0,
+          static_cast<GLfloat>(pq.int4_x), static_cast<GLfloat>(pq.int4_y + pq.int4_h), 0, 1,
+          static_cast<GLfloat>(pq.int4_x), static_cast<GLfloat>(pq.int4_y + pq.int4_h), 0, 1,
+          static_cast<GLfloat>(pq.int4_x + pq.int4_w), static_cast<GLfloat>(pq.int4_y), 1, 0,
+          static_cast<GLfloat>(pq.int4_x + pq.int4_w), static_cast<GLfloat>(pq.int4_y + pq.int4_h),
+          1, 1};
+      gl_use_program(u_prog_tex);
+      gl_bind_texture(GL_TEXTURE_2D, u_tex);
+      gl_enable_vertex_attrib_array(idx_pos_tex);
+      gl_vertex_attrib_pointer(idx_pos_tex, 2, GL_FLOAT, GL_FALSE, 16, nullptr);
+      gl_enable_vertex_attrib_array(idx_uv_tex);
+      gl_vertex_attrib_pointer(idx_uv_tex, 2, GL_FLOAT, GL_FALSE, 16,
+                               reinterpret_cast<const void*>(8));
+      gl_buffer_data(GL_ARRAY_BUFFER, static_cast<long>(sizeof fp4_verts), fp4_verts,
+                     GL_STATIC_DRAW);
+      gl_draw_arrays(GL_TRIANGLES, 0, 6);
+    }
+
+    SDL_GL_SwapWindow(ptr_window);
+  }
+
+  // 退出前恢复 color program 顶点布局——对局循环假设 pos(stride24)+col(stride24)
+  // 初始布局仍生效，不恢复会把纹理 pass 的 pos/uv(stride16) 布局带进对局首帧。
+  gl_use_program(u_prog_color);
+  gl_enable_vertex_attrib_array(idx_pos_color);
+  gl_vertex_attrib_pointer(idx_pos_color, 2, GL_FLOAT, GL_FALSE, 24, nullptr);
+  gl_enable_vertex_attrib_array(idx_col_color);
+  gl_vertex_attrib_pointer(idx_col_color, 4, GL_FLOAT, GL_FALSE, 24,
+                           reinterpret_cast<const void*>(8));
+
+  return b_start ? 1 : 0;
+}
+
+}
+
 int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0) {
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     std::println("ora: SDL_Init failed: {}", SDL_GetError());
@@ -1094,6 +1424,12 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
   gl_gen_vertex_arrays = gl_load<decltype(gl_gen_vertex_arrays)>("glGenVertexArrays");
   gl_bind_vertex_array = gl_load<decltype(gl_bind_vertex_array)>("glBindVertexArray");
   gl_read_pixels = gl_load<decltype(gl_read_pixels)>("glReadPixels");
+  gl_gen_textures = gl_load<decltype(gl_gen_textures)>("glGenTextures");
+  gl_bind_texture = gl_load<decltype(gl_bind_texture)>("glBindTexture");
+  gl_tex_image_2d = gl_load<decltype(gl_tex_image_2d)>("glTexImage2D");
+  gl_tex_parameteri = gl_load<decltype(gl_tex_parameteri)>("glTexParameteri");
+  gl_get_uniform_location =
+      gl_load<decltype(gl_get_uniform_location)>("glGetUniformLocation");
 
   const char* sz_vert{"#version 150\n"
                       "in vec2 pos;\n"
@@ -1141,7 +1477,49 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
   gl_vertex_attrib_pointer(idx_col, 4, GL_FLOAT, GL_FALSE, 24,
                            reinterpret_cast<const void*>(8));
 
-  auto res_session{lch::session_setup(make_session_env(args, sz_argv0))};
+  std::optional<lch::LobbyStartConfig> opt_lobby_start;
+  if (args.b_lobby) {
+    const std::string str_maps_dir{args.str_maps_dir.empty() ? "tests/golden/maps"
+                                                             : args.str_maps_dir};
+    const std::string str_chrome_dir{args.str_chrome_dir.empty()
+                                         ? "tests/golden/lobby/fixture"
+                                         : args.str_chrome_dir};
+    lch::LobbyRuntime lobby;
+    const auto res_lobby{lch::lobby_runtime_create(lobby, str_maps_dir, str_chrome_dir)};
+    if (!res_lobby.has_value()) {
+      std::println("ora: lobby setup failed: {}", res_lobby.error());
+      SDL_GL_DeleteContext(ctx);
+      SDL_DestroyWindow(ptr_window);
+      SDL_Quit();
+      return 1;
+    }
+    std::println("lobby: {} maps from {} (tree {})", lobby.vec_entries.size(), str_maps_dir,
+                 lobby.b_tree_loaded ? "loaded" : "fallback");
+    if (lob::run_lobby_phase(lobby, ptr_window, u_prog) == 1) {
+      opt_lobby_start = lch::lobby_start_config(lobby);
+      std::println("lobby: start game map={} slots={} seed={}", opt_lobby_start->str_map_path,
+                   opt_lobby_start->vec_factions.size(), opt_lobby_start->int4_seed);
+    } else {
+      std::println("lobby: disconnected before start");
+      SDL_GL_DeleteContext(ctx);
+      SDL_DestroyWindow(ptr_window);
+      SDL_Quit();
+      return 0;
+    }
+  }
+
+  lch::SessionEnv env{make_session_env(args, sz_argv0)};
+  if (opt_lobby_start.has_value()) {
+    env.str_map_path = opt_lobby_start->str_map_path;
+    env.int4_seed = opt_lobby_start->int4_seed;
+    opro::LobbyModel lobby_model;
+    lobby_model.vec_playable_factions = opt_lobby_start->vec_factions;
+    lobby_model.int4_starting_cash = 5000;
+    lobby_model.str_techlevel = "unrestricted";
+    lobby_model.b_build_radius = true;
+    env.opt_lobby = std::move(lobby_model);
+  }
+  auto res_session{lch::session_setup(env)};
   if (!res_session.has_value()) {
     std::println("ora: setup failed: {}", res_session.error());
     SDL_GL_DeleteContext(ctx);
@@ -1986,11 +2364,11 @@ int main(int argc, char** argv) {
 
   SetConsoleCtrlHandler(console_ctrl_handler, TRUE);
 
-  // T26：窗口模式无参（无 --map/--demo/--record/--replay）进主菜单；
-  // 沙盒演示/装载图路径不变（--map、--demo、录制回放族）
+  // T26：窗口模式无参（无 --map/--demo/--record/--replay/--lobby）进主菜单；
+  // 沙盒演示/装载图/大堂路径不变（--map、--demo、--lobby、录制回放族）
   const bool b_menu_mode{!parsed.args.b_headless && parsed.args.str_map.empty()
                          && !parsed.args.b_demo && parsed.args.str_record.empty()
-                         && parsed.args.str_replay.empty()};
+                         && parsed.args.str_replay.empty() && !parsed.args.b_lobby};
   const int int4_result{parsed.args.b_headless ? run_headless(parsed.args, ptr_log, argv[0])
                           : b_menu_mode        ? run_menu_window(parsed.args, argv[0])
                                                : run_window(parsed.args, ptr_log, argv[0])};
