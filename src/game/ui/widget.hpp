@@ -115,6 +115,9 @@ void widget_slider_update_value(WidgetModel& w, UiState& st, float fp4_new);
 
 [[nodiscard]] const std::string* widget_get_cursor(const WidgetModel& w);
 
+// 上游 Widget.Get(id)（Widget.cs:190-197）：子树先序查找（子节点声明序优先于自身）。
+[[nodiscard]] WidgetModel* widget_find_by_id(WidgetModel& w, std::string_view str_id);
+
 [[nodiscard]] const std::string* widget_hit_test(const WidgetModel& w, int int4_x, int int4_y);
 
 }

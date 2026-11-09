@@ -11,6 +11,7 @@ import std;
 #include <system_error>
 #include <windows.h>
 
+#include "game/input/hotkey_registry.hpp"
 #include "game/input/input_events.hpp"
 #include "game/input/order_generator.hpp"
 #include "game/input/production_panel.hpp"
@@ -18,11 +19,19 @@ import std;
 #include "game/input/selection.hpp"
 #include "game/input/selection_logic.hpp"
 #include "game/network/order_packet.hpp"
+#include "game/render/font.hpp"
 #include "game/replay/replay_format.hpp"
 #include "game/replay/replay_player.hpp"
 #include "game/replay/replay_record.hpp"
+#include "game/settings.hpp"
 #include "game/sound/sfx.hpp"
 #include "game/sound/sound.hpp"
+#include "game/ui/chrome_provider.hpp"
+#include "game/ui/mainmenu_logic.hpp"
+#include "game/ui/settings_panel.hpp"
+#include "game/ui/widget.hpp"
+#include "game/ui/widget_loader.hpp"
+#include "game/ui/widget_render.hpp"
 #include "launcher/cli_args.hpp"
 #include "launcher/game_session.hpp"
 
@@ -75,6 +84,13 @@ static void (*gl_draw_arrays)(GLenum, GLint, GLsizei);
 static void (*gl_gen_vertex_arrays)(GLsizei, unsigned*);
 static void (*gl_bind_vertex_array)(unsigned);
 static void (*gl_read_pixels)(int, int, GLsizei, GLsizei, GLenum, GLenum, void*);
+static void (*gl_gen_textures)(GLsizei, unsigned*);
+static void (*gl_bind_texture)(GLenum, unsigned);
+static void (*gl_tex_image_2d)(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum,
+                               const void*);
+static void (*gl_tex_parameteri)(GLenum, GLenum, GLint);
+static void (*gl_get_uniform_location)(unsigned, const char*);
+static void (*gl_uniform4f)(int, GLfloat, GLfloat, GLfloat, GLfloat);
 
 constexpr GLenum GL_COLOR_BUFFER_BIT{0x4000};
 constexpr GLenum GL_TRIANGLES{0x0004};
@@ -87,6 +103,12 @@ constexpr GLenum GL_ARRAY_BUFFER{0x8892};
 constexpr GLenum GL_STATIC_DRAW{0x88E4};
 constexpr GLenum GL_RGB{0x1907};
 constexpr GLenum GL_UNSIGNED_BYTE{0x1401};
+constexpr GLenum GL_TEXTURE_2D{0x0DE1};
+constexpr GLenum GL_TEXTURE_MIN_FILTER{0x2801};
+constexpr GLenum GL_TEXTURE_MAG_FILTER{0x2800};
+constexpr GLenum GL_NEAREST{0x2600};
+constexpr GLenum GL_RGBA{0x1908};
+constexpr GLint GL_RGBA8{0x8058};
 
 template <typename T>
 T gl_load(const char* sz_name) {
@@ -1286,6 +1308,627 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
   return 0;
 }
 
+// —— T26 主菜单窗口（手动验收面）：chrome 装载 + MainMenuLogic 导航 + 设置面板 ——
+
+namespace menu_ns = ora::game::ui;
+namespace fr = ora::game::render;
+namespace hotk = ora::game::input;
+
+constexpr int kMenuWinW{1024};
+constexpr int kMenuWinH{768};
+
+// 语料根探查：环境变量 ORA_GOLDEN_DIR，或自 exe 目录向上找 tests/golden（开发布局）
+std::optional<std::filesystem::path> find_golden_root(char* sz_argv0) {
+  if (const char* sz_env{std::getenv("ORA_GOLDEN_DIR")};
+      sz_env != nullptr && *sz_env != '\0') {
+    const std::filesystem::path path_env{sz_env};
+    std::error_code ec;
+    if (std::filesystem::exists(path_env / "mainmenu" / "fixture" / "mainmenu.yaml", ec))
+      return path_env;
+  }
+  std::filesystem::path path_dir{std::filesystem::path{sz_argv0 != nullptr ? sz_argv0 : ""}
+                                     .parent_path()};
+  for (int int4_up{0}; int4_up < 6; ++int4_up) {
+    std::error_code ec;
+    if (std::filesystem::exists(path_dir / "tests" / "golden" / "mainmenu" / "fixture"
+                                   / "mainmenu.yaml",
+                                ec))
+      return path_dir / "tests" / "golden";
+    const std::filesystem::path path_parent{path_dir.parent_path()};
+    if (path_parent == path_dir) break;
+    path_dir = path_parent;
+  }
+  return std::nullopt;
+}
+
+// 设置文件路径：上游 SupportDir 形态的独立分支（不与真 OpenRA 混用）
+std::string menu_settings_path() {
+  const char* sz_appdata{std::getenv("APPDATA")};
+  if (sz_appdata == nullptr) return "openracpp-settings.yaml";
+  std::error_code ec;
+  const std::filesystem::path path_dir{std::string{sz_appdata} + "/OpenRACpp"};
+  std::filesystem::create_directories(path_dir, ec);
+  return (path_dir / "settings.yaml").string();
+}
+
+int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
+  static_cast<void>(args);
+  const auto opt_golden{find_golden_root(sz_argv0)};
+  if (!opt_golden.has_value()) {
+    std::println("ora: main menu corpus not found（ORA_GOLDEN_DIR 或 tests/golden 布局缺失）");
+    return 1;
+  }
+  const std::filesystem::path path_golden{*opt_golden};
+  const std::filesystem::path path_fixture{path_golden / "mainmenu" / "fixture"};
+
+  const auto load_yaml_nodes{[](const std::filesystem::path& path_file) {
+    auto res{ora::game::miniyaml_from_file(path_file.string())};
+    if (!res.has_value()) std::println("ora: corpus parse {}: {}", path_file.string(), res.error());
+    return res;
+  }};
+
+  const auto vec_menu{load_yaml_nodes(path_fixture / "mainmenu.yaml")};
+  const auto vec_settings{load_yaml_nodes(path_fixture / "settings.yaml")};
+  const auto vec_display{load_yaml_nodes(path_fixture / "settings-display.yaml")};
+  const auto vec_audio{load_yaml_nodes(path_fixture / "settings-audio.yaml")};
+  const auto vec_hotkeys{load_yaml_nodes(path_fixture / "settings-hotkeys.yaml")};
+  if (!vec_menu.has_value() || !vec_settings.has_value() || !vec_display.has_value()
+      || !vec_audio.has_value() || !vec_hotkeys.has_value())
+    return 1;
+  const auto loader_menu{menu_ns::widget_loader_from_nodes(*vec_menu)};
+  const auto loader_settings{menu_ns::widget_loader_from_nodes(*vec_settings)};
+  const auto loader_display{menu_ns::widget_loader_from_nodes(*vec_display)};
+  const auto loader_audio{menu_ns::widget_loader_from_nodes(*vec_audio)};
+  const auto loader_hotkeys{menu_ns::widget_loader_from_nodes(*vec_hotkeys)};
+  if (!loader_menu.has_value() || !loader_settings.has_value() || !loader_display.has_value()
+      || !loader_audio.has_value() || !loader_hotkeys.has_value()) {
+    std::println("ora: menu chrome loader build failed");
+    return 1;
+  }
+
+  // chrome 集合/指标（按钮九宫格与配色）
+  const auto vec_chrome{
+      load_yaml_nodes(path_golden / "chrome" / "fixture" / "ra-chrome.yaml")};
+  const auto vec_metrics_common{
+      load_yaml_nodes(path_golden / "chrome" / "fixture" / "common-metrics.yaml")};
+  const auto vec_metrics_ra{
+      load_yaml_nodes(path_golden / "chrome" / "fixture" / "ra-metrics.yaml")};
+  std::map<std::string, menu_ns::ChromeCollection> map_chrome;
+  std::map<std::string, std::string> map_metrics;
+  if (vec_chrome.has_value()) {
+    if (const auto res{menu_ns::chrome_provider_initialize({*vec_chrome})}; res.has_value())
+      map_chrome = std::move(*res);
+  }
+  if (vec_metrics_common.has_value() && vec_metrics_ra.has_value()) {
+    if (const auto res{
+            menu_ns::chrome_metrics_initialize({*vec_metrics_common, *vec_metrics_ra})};
+        res.has_value())
+      map_metrics = std::move(*res);
+  }
+
+  // 字体（T23 stb 光栅化：FreeSans 14px 单 sheet）
+  std::ifstream fs_ttf{path_golden / "fonts" / "fixture" / "FreeSans.ttf", std::ios::binary};
+  if (!fs_ttf.is_open()) {
+    std::println("ora: menu font corpus missing");
+    return 1;
+  }
+  const std::string str_ttf{std::istreambuf_iterator<char>{fs_ttf},
+                            std::istreambuf_iterator<char>{}};
+  auto res_face{fr::font_face_load(
+      {reinterpret_cast<const std::uint8_t*>(str_ttf.data()), str_ttf.size()})};
+  if (!res_face.has_value()) {
+    std::println("ora: font face: {}", res_face.error());
+    return 1;
+  }
+  const std::shared_ptr<const fr::FontFace> ptr_face{
+      std::make_shared<fr::FontFace>(std::move(*res_face))};
+  fr::SheetBuilder font_builder{};
+  font_builder.int4_sheet_size = 512;
+  font_builder.int4_margin = 1;
+  auto res_font{fr::spritefont_create(ptr_face, font_builder, 14, 11, 1.0f)};
+  if (!res_font.has_value()) {
+    std::println("ora: spritefont: {}", res_font.error());
+    return 1;
+  }
+  std::map<std::string, fr::SpriteFont> map_fonts;
+  // chrome 字体名折叠到同一 face 同一 sheet 0（观感票再分 Regular/Bold 度量；
+  // 单 sheet 使字体 id 0 与 chrome 占位 id ≥1 恒不冲突）
+  if (res_font.has_value())
+    for (const std::string_view str_name :
+         {"Regular", "Bold", "Tiny", "TinyBold", "Title", "FreeSans"})
+      map_fonts.emplace(std::string{str_name}, *res_font);
+
+  // 占位 ChromeSheetSet：不装载 chrome PNG 像素（HUD 渲染票 D075 回收项），
+  // 只为每集合分配独立 sheet id（≥1），使 chrome quad 与字体 sheet 0 分批
+  menu_ns::ChromeSheetSet chrome_sheets;
+  for (const auto& [str_name, col] : map_chrome)
+    chrome_sheets.map_sheets.emplace(
+        col.str_image, menu_ns::ChromeSheet{chrome_sheets.u4_next_id++, 1, 1, {0xFFFFFFFFu}});
+
+  // 热键注册表（黄金语料 9 文件）
+  std::vector<std::vector<ora::game::MiniYamlNode>> vec_hotkey_files;
+  {
+    std::ifstream fs_files{path_golden / "hotkeys" / "files.txt"};
+    std::string str_line;
+    while (std::getline(fs_files, str_line)) {
+      if (str_line.empty() || str_line.back() == '\r') {
+        if (!str_line.empty()) str_line.pop_back();
+        if (str_line.empty()) continue;
+      }
+      std::replace(str_line.begin(), str_line.end(), '|', '-');
+      std::replace(str_line.begin(), str_line.end(), '/', '-');
+      auto res_nodes{
+          ora::game::miniyaml_from_file((path_golden / "hotkeys" / "yaml" / str_line).string())};
+      if (!res_nodes.has_value()) {
+        std::println("ora: hotkey corpus {}: {}", str_line, res_nodes.error());
+        return 1;
+      }
+      vec_hotkey_files.push_back(std::move(*res_nodes));
+    }
+  }
+  const auto res_reg{hotk::hotkey_registry_load(vec_hotkey_files)};
+  hotk::HotkeyRegistryModel hotkeys{
+      res_reg.has_value() ? std::move(*res_reg) : hotk::HotkeyRegistryModel{}};
+
+  // 设置模型（落盘文件优先，重进生效验收路径）+ 音频门面
+  const std::string str_settings_path{menu_settings_path()};
+  auto res_sm{ora::game::settings_load(str_settings_path)};
+  if (!res_sm.has_value()) {
+    std::println("ora: settings load: {}", res_sm.error());
+    return 1;
+  }
+  ora::game::SettingsModel& sm{*res_sm};
+  ora::game::sound_facade sound{
+      ora::game::make_sound_facade_settings(sm.sound.str_device, sm.sound.b_mute, sm.sound)};
+  std::println("menu: settings={} sound={} engine", str_settings_path,
+               ora::platforms::engine_dummy(sound.engine) ? "dummy" : "openal");
+
+  // UI 树 + 菜单状态
+  menu_ns::WidgetInitCtx ctx_window{kMenuWinW, kMenuWinH, nullptr, "default"};
+  menu_ns::WidgetModel root;
+  root.str_type = "Container";
+  root.str_id = "ROOT";
+  root.bounds = menu_ns::WidgetBounds{0, 0, kMenuWinW, kMenuWinH};
+  if (const auto res_widget{
+          menu_ns::widget_loader_load_widget(*loader_menu, root, ctx_window, "MAINMENU")};
+      !res_widget.has_value()) {
+    std::println("ora: MAINMENU load: {}", res_widget.error());
+    return 1;
+  }
+
+  menu_ns::MainMenuEnv env{};
+  env.b_has_maps = true;
+  env.b_has_campaign = true;
+  env.b_has_missions = true;
+  env.b_load_panel_enabled = false;
+  env.b_has_content_installer = false;
+  menu_ns::MainMenuState menu;
+  menu_ns::main_menu_setup(menu);
+  menu_ns::main_menu_apply(menu, env, root);
+  menu_ns::main_menu_apply_disabled(env, root);
+
+  menu_ns::SettingsPanelState panel;
+  bool b_panel_open{false};
+
+  // —— 窗口/GL（纹理管线：sheet0=1x1 白供 chrome quad，字体 sheet 1..n）——
+  if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    std::println("ora: SDL_Init failed: {}", SDL_GetError());
+    return 1;
+  }
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+  SDL_Window* ptr_window{SDL_CreateWindow("ora main menu", SDL_WINDOWPOS_CENTERED,
+                                          SDL_WINDOWPOS_CENTERED, kMenuWinW, kMenuWinH,
+                                          SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI)};
+  if (ptr_window == nullptr) {
+    std::println("ora: window creation failed: {}", SDL_GetError());
+    SDL_Quit();
+    return 1;
+  }
+  SDL_GLContext ctx_gl{SDL_GL_CreateContext(ptr_window)};
+  if (ctx_gl == nullptr) {
+    std::println("ora: GL context failed: {}", SDL_GetError());
+    SDL_DestroyWindow(ptr_window);
+    SDL_Quit();
+    return 1;
+  }
+
+  gl_clear_color = gl_load<decltype(gl_clear_color)>("glClearColor");
+  gl_clear = gl_load<decltype(gl_clear)>("glClear");
+  gl_get_error = gl_load<decltype(gl_get_error)>("glGetError");
+  gl_create_shader = gl_load<decltype(gl_create_shader)>("glCreateShader");
+  gl_shader_source = gl_load<decltype(gl_shader_source)>("glShaderSource");
+  gl_compile_shader = gl_load<decltype(gl_compile_shader)>("glCompileShader");
+  gl_get_shader_iv = gl_load<decltype(gl_get_shader_iv)>("glGetShaderiv");
+  gl_create_program = gl_load<decltype(gl_create_program)>("glCreateProgram");
+  gl_attach_shader = gl_load<decltype(gl_attach_shader)>("glAttachShader");
+  gl_link_program = gl_load<decltype(gl_link_program)>("glLinkProgram");
+  gl_use_program = gl_load<decltype(gl_use_program)>("glUseProgram");
+  gl_gen_buffers = gl_load<decltype(gl_gen_buffers)>("glGenBuffers");
+  gl_bind_buffer = gl_load<decltype(gl_bind_buffer)>("glBindBuffer");
+  gl_buffer_data = gl_load<decltype(gl_buffer_data)>("glBufferData");
+  gl_get_attrib_location = gl_load<decltype(gl_get_attrib_location)>("glGetAttribLocation");
+  gl_enable_vertex_attrib_array =
+      gl_load<decltype(gl_enable_vertex_attrib_array)>("glEnableVertexAttribArray");
+  gl_vertex_attrib_pointer =
+      gl_load<decltype(gl_vertex_attrib_pointer)>("glVertexAttribPointer");
+  gl_draw_arrays = gl_load<decltype(gl_draw_arrays)>("glDrawArrays");
+  gl_gen_vertex_arrays = gl_load<decltype(gl_gen_vertex_arrays)>("glGenVertexArrays");
+  gl_bind_vertex_array = gl_load<decltype(gl_bind_vertex_array)>("glBindVertexArray");
+  gl_read_pixels = gl_load<decltype(gl_read_pixels)>("glReadPixels");
+  gl_gen_textures = gl_load<decltype(gl_gen_textures)>("glGenTextures");
+  gl_bind_texture = gl_load<decltype(gl_bind_texture)>("glBindTexture");
+  gl_tex_image_2d = gl_load<decltype(gl_tex_image_2d)>("glTexImage2D");
+  gl_tex_parameteri = gl_load<decltype(gl_tex_parameteri)>("glTexParameteri");
+  gl_get_uniform_location =
+      gl_load<decltype(gl_get_uniform_location)>("glGetUniformLocation");
+  gl_uniform4f = gl_load<decltype(gl_uniform4f)>("glUniform4f");
+
+  const auto make_shader = [&](GLenum type, const char* sz_src) {
+    const unsigned u_shader{gl_create_shader(type)};
+    gl_shader_source(u_shader, 1, &sz_src, nullptr);
+    gl_compile_shader(u_shader);
+    int int4_ok{0};
+    gl_get_shader_iv(u_shader, GL_COMPILE_STATUS, &int4_ok);
+    if (!int4_ok) {
+      std::println("ora: shader compile failed");
+      std::exit(1);
+    }
+    return u_shader;
+  };
+  const unsigned u_prog{static_cast<unsigned>(gl_create_program())};
+  gl_attach_shader(u_prog, make_shader(GL_VERTEX_SHADER,
+                                       "#version 150\n"
+                                       "in vec2 aPos;\n"
+                                       "in vec2 aUv;\n"
+                                       "in vec4 aCol;\n"
+                                       "out vec2 vUv;\n"
+                                       "out vec4 vCol;\n"
+                                       "void main() {\n"
+                                       "  vUv = aUv;\n"
+                                       "  vCol = aCol;\n"
+                                       "  gl_Position = vec4(aPos.x / 512.0 - 1.0, 1.0 - aPos.y / 384.0, 0.0, 1.0);\n"
+                                       "}\n"));
+  gl_attach_shader(u_prog, make_shader(GL_FRAGMENT_SHADER,
+                                       "#version 150\n"
+                                       "in vec2 vUv;\n"
+                                       "in vec4 vCol;\n"
+                                       "out vec4 frag;\n"
+                                       "uniform sampler2D uTex;\n"
+                                       "void main() {\n"
+                                       "  vec4 c = texture(uTex, vUv);\n"
+                                       "  frag = vec4(c.rgb * vCol.rgb, c.a * vCol.a);\n"
+                                       "}\n"));
+  gl_link_program(u_prog);
+  gl_use_program(u_prog);
+
+  unsigned u_vao{0};
+  unsigned u_vbo{0};
+  gl_gen_vertex_arrays(1, &u_vao);
+  gl_bind_vertex_array(u_vao);
+  gl_gen_buffers(1, &u_vbo);
+  gl_bind_buffer(GL_ARRAY_BUFFER, u_vbo);
+  const int idx_pos{gl_get_attrib_location(u_prog, "aPos")};
+  const int idx_uv{gl_get_attrib_location(u_prog, "aUv")};
+  const int idx_col{gl_get_attrib_location(u_prog, "aCol")};
+  gl_enable_vertex_attrib_array(idx_pos);
+  gl_vertex_attrib_pointer(idx_pos, 2, GL_FLOAT, GL_FALSE, 32, nullptr);
+  gl_enable_vertex_attrib_array(idx_uv);
+  gl_vertex_attrib_pointer(idx_uv, 2, GL_FLOAT, GL_FALSE, 32,
+                           reinterpret_cast<const void*>(8));
+  gl_enable_vertex_attrib_array(idx_col);
+  gl_vertex_attrib_pointer(idx_col, 4, GL_FLOAT, GL_FALSE, 32,
+                           reinterpret_cast<const void*>(16));
+  // sampler uTex 默认纹理单元 0；quad 按 sheet 分组提交（单 draw call 单纹理）
+
+  // 纹理表：id 0 = 1x1 白（chrome 像素不装载——HUD 渲染票 D075 回收项，sheet=0 的
+  // quad 以 tint 色块呈现）；id 1..n = 字体 sheet（A8 → 白 RGBA）
+  std::map<std::uint32_t, unsigned> map_textures;
+  {
+    unsigned tex_white{};
+    gl_gen_textures(1, &tex_white);
+    gl_bind_texture(GL_TEXTURE_2D, tex_white);
+    gl_tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    gl_tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    const std::uint8_t u1_white[]{255, 255, 255, 255};
+    gl_tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, u1_white);
+    map_textures.emplace(0, tex_white);
+  }
+  const auto upload_font_sheet{[&](std::uint32_t u4_id, const std::vector<std::uint8_t>& vec1u_a8,
+                                   int int4_size) {
+    std::vector<std::uint8_t> vec1u_rgba(vec1u_a8.size() * 4);
+    for (std::size_t sz_i{0}; sz_i < vec1u_a8.size(); ++sz_i) {
+      vec1u_rgba[sz_i * 4] = 255;
+      vec1u_rgba[sz_i * 4 + 1] = 255;
+      vec1u_rgba[sz_i * 4 + 2] = 255;
+      vec1u_rgba[sz_i * 4 + 3] = vec1u_a8[sz_i];
+    }
+    unsigned tex{};
+    gl_gen_textures(1, &tex);
+    gl_bind_texture(GL_TEXTURE_2D, tex);
+    gl_tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    gl_tex_parameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    gl_tex_image_2d(GL_TEXTURE_2D, 0, GL_RGBA8, int4_size, int4_size, 0, GL_RGBA,
+                    GL_UNSIGNED_BYTE, vec1u_rgba.data());
+    map_textures.emplace(u4_id, tex);
+  }};
+  for (std::size_t sz_sheet{0}; sz_sheet < font_builder.vec_vec1u_sheets.size(); ++sz_sheet)
+    upload_font_sheet(static_cast<std::uint32_t>(sz_sheet + 1),
+                      font_builder.vec_vec1u_sheets[sz_sheet], font_builder.int4_sheet_size);
+
+  menu_ns::UiState uist;
+  bool b_running{true};
+  std::uint64_t u8_frames{0};
+
+  // 输入馈送（事件泵与 ORA_MENU_AUTOTEST 驱动共用）
+  const auto feed_mouse{[&](inp::MouseInput mi) {
+    const std::size_t sz_base{uist.vec_events.size()};
+    static_cast<void>(menu_ns::ui_handle_input(root, uist, mi));
+    const std::span<const menu_ns::UiEventRecord> vec_new{
+        uist.vec_events.data() + sz_base, uist.vec_events.size() - sz_base};
+
+    if (b_panel_open) {
+      bool b_closed{false};
+      for (const menu_ns::UiEventRecord& rec : vec_new) {
+        if (rec.str_kind != "click") continue;
+        // C++ 折叠交互面：BACK=关面板保存（上游同）、RESET=直执行（上游确认
+        // 对话框直通——偏离登记）、MODE 下拉折叠为三态循环、分辨率文本/
+        // 改键输入无键盘捕获面（跳过——偏离登记）
+        if (rec.str_id == "BACK_BUTTON") {
+          menu_ns::settings_panel_close(panel, &menu);
+          // 上游 Ui.CloseWindow：窗口子树移除
+          for (auto it{root.vec_children.begin()}; it != root.vec_children.end(); ++it)
+            if ((*it)->str_id == "SETTINGS_PANEL") {
+              root.vec_children.erase(it);
+              break;
+            }
+          b_panel_open = false;
+          b_closed = true;
+          std::println("menu: settings saved -> {}", str_settings_path);
+          break;
+        }
+        if (rec.str_id == "RESET_BUTTON")
+          menu_ns::settings_panel_reset(panel, panel.active);
+        if (rec.str_id == "MODE_DROPDOWN") {
+          const auto next{sm.graphics.mode == ora::game::WindowMode::kPseudoFullscreen
+                              ? ora::game::WindowMode::kWindowed
+                          : sm.graphics.mode == ora::game::WindowMode::kWindowed
+                              ? ora::game::WindowMode::kFullscreen
+                              : ora::game::WindowMode::kPseudoFullscreen};
+          menu_ns::settings_panel_set_window_mode(panel, next);
+        }
+      }
+      if (!b_closed) menu_ns::settings_panel_dispatch(panel, vec_new);
+    } else {
+      menu_ns::main_menu_dispatch(menu, env, root, vec_new);
+      if (menu.b_quit) {
+        b_running = false;
+        std::println("menu: quit requested");
+      }
+      if (menu.b_settings_open && !b_panel_open) {
+        panel = menu_ns::SettingsPanelState{};
+        panel.ptr_settings = &sm;
+        panel.ptr_sound = &sound;
+        panel.ptr_hotkeys = &hotkeys;
+        const auto res_open{menu_ns::settings_panel_open(
+            panel, root, *loader_settings, *loader_display, *loader_audio,
+            *loader_hotkeys, ctx_window, str_settings_path)};
+        if (res_open.has_value()) {
+          b_panel_open = true;
+          std::println("menu: settings panel open (active={})",
+                       menu_ns::settings_panel_id_name(panel.active));
+        } else {
+          std::println("menu: settings panel open failed: {}", res_open.error());
+          menu_ns::main_menu_close_settings(menu);
+        }
+      }
+    }
+    menu_ns::main_menu_apply(menu, env, root);
+  }};
+  // 链可见判定：隐藏菜单内的按钮自身 b_visible 仍为 true（可见性路由在容器位），
+  // 驱动必须命中当前真正可达的实例（面板 BACK vs 三个菜单同名 BACK）
+  const auto chain_visible{[](const menu_ns::WidgetModel* ptr_w) {
+    for (const menu_ns::WidgetModel* ptr_p{ptr_w}; ptr_p != nullptr; ptr_p = ptr_p->ptr_parent)
+      if (!ptr_p->b_visible) return false;
+    return true;
+  }};
+  const auto find_reachable{[&](std::string_view str_id) -> menu_ns::WidgetModel* {
+    std::function<menu_ns::WidgetModel*(menu_ns::WidgetModel&)> visit{
+        [&](menu_ns::WidgetModel& w) -> menu_ns::WidgetModel* {
+          if (w.str_id == str_id && chain_visible(&w)) return &w;
+          for (const auto& ptr_child : w.vec_children)
+            if (menu_ns::WidgetModel* ptr_found{visit(*ptr_child)}) return ptr_found;
+          return nullptr;
+        }};
+    return visit(root);
+  }};
+  const auto click_widget{[&](std::string_view str_id) {
+    menu_ns::WidgetModel* ptr_w{find_reachable(str_id)};
+    if (ptr_w == nullptr) {
+      std::println("menu-autotest: {} not reachable", str_id);
+      return;
+    }
+    const menu_ns::WidgetBounds b{menu_ns::widget_event_bounds(*ptr_w)};
+    inp::MouseInput mi{};
+    mi.button = inp::MouseButton::kLeft;
+    mi.int4_tap_count = 1;
+    mi.int4_x = b.int4_x + b.int4_width / 2;
+    mi.int4_y = b.int4_y + b.int4_height / 2;
+    mi.event = inp::MouseInputEvent::kDown;
+    feed_mouse(mi);
+    mi.event = inp::MouseInputEvent::kUp;
+    feed_mouse(mi);
+  }};
+
+  // ORA_MENU_AUTOTEST 驱动面（验收探针）：逗号分隔步骤 wait<n>/shot<name>/
+  // click<id>/drag<id>:<frac>/print/quit，渲染帧节奏推进；截图落 ORA_MENU_SHOT_DIR
+  std::vector<std::string> vec_autotest;
+  if (const char* sz_autotest{std::getenv("ORA_MENU_AUTOTEST")};
+      sz_autotest != nullptr && *sz_autotest != '\0') {
+    std::string str_rest{sz_autotest};
+    std::size_t sz_comma{std::string::npos};
+    while ((sz_comma = str_rest.find(',')) != std::string::npos) {
+      vec_autotest.push_back(str_rest.substr(0, sz_comma));
+      str_rest = str_rest.substr(sz_comma + 1);
+    }
+    vec_autotest.push_back(std::move(str_rest));
+    std::println("menu-autotest: {} steps", vec_autotest.size());
+  }
+  std::string str_shot_dir{"."};
+  if (const char* sz_shot{std::getenv("ORA_MENU_SHOT_DIR")}; sz_shot != nullptr && *sz_shot != '\0')
+    str_shot_dir = sz_shot;
+  const auto autotest_step{[&](const std::string& str_step) {
+    if (str_step.starts_with("click")) {
+      click_widget(std::string_view{str_step}.substr(5));
+    } else if (str_step.starts_with("shot")) {
+      const std::string str_path{str_shot_dir + "/" + str_step.substr(4) + ".bmp"};
+      save_screenshot(ptr_window, str_path.c_str());
+      std::println("menu-autotest: shot {}", str_path);
+    } else if (str_step.starts_with("drag")) {
+      const std::size_t sz_colon{str_step.find(':')};
+      if (sz_colon == std::string::npos) return;
+      menu_ns::WidgetModel* ptr_w{find_reachable(str_step.substr(4, sz_colon - 4))};
+      const float fp4_frac{std::stof(str_step.substr(sz_colon + 1))};
+      if (ptr_w == nullptr) return;
+      const menu_ns::WidgetBounds b{menu_ns::widget_event_bounds(*ptr_w)};
+      inp::MouseInput mi{};
+      mi.button = inp::MouseButton::kLeft;
+      mi.event = inp::MouseInputEvent::kDown;
+      mi.int4_tap_count = 1;
+      mi.int4_x = b.int4_x + 1;
+      mi.int4_y = b.int4_y + b.int4_height / 2;
+      feed_mouse(mi);
+      mi.event = inp::MouseInputEvent::kMove;
+      mi.int4_x = b.int4_x + static_cast<int>(static_cast<float>(b.int4_width) * fp4_frac);
+      feed_mouse(mi);
+      mi.event = inp::MouseInputEvent::kUp;
+      feed_mouse(mi);
+    } else if (str_step == "print") {
+      std::println("menu-state: active={} vsync={} mode={} mute={} sound={:.3f} music={:.3f}"
+                   " video={:.3f}",
+                   b_panel_open ? menu_ns::settings_panel_id_name(panel.active) : "menu",
+                   sm.graphics.b_vsync ? 1 : 0, static_cast<int>(sm.graphics.mode),
+                   sm.sound.b_mute ? 1 : 0, sm.sound.fp_sound_volume, sm.sound.fp_music_volume,
+                   sm.sound.fp_video_volume);
+    } else if (str_step == "quit") {
+      b_running = false;
+    }
+  }};
+  std::size_t sz_next_step{0};
+  std::uint64_t u8_step_ready_frame{5};
+
+  std::println("menu: click SETTINGS 调整设置，BACK 保存返回，QUIT 退出（重进验证持久化）");
+
+  while (b_running) {
+    if (g_ctrl_c) b_running = false;
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_QUIT) b_running = false;
+      if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE
+          && !b_panel_open)
+        b_running = false;
+      if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) {
+        const bool b_down{event.type == SDL_MOUSEBUTTONDOWN};
+        inp::MouseInput mi;
+        mi.int4_x = event.button.x;
+        mi.int4_y = event.button.y;
+        mi.button = event.button.button == SDL_BUTTON_LEFT  ? inp::MouseButton::kLeft
+                    : event.button.button == SDL_BUTTON_RIGHT ? inp::MouseButton::kRight
+                                                              : inp::MouseButton::kNone;
+        mi.event = b_down ? inp::MouseInputEvent::kDown : inp::MouseInputEvent::kUp;
+        feed_mouse(mi);
+      }
+    }
+
+    // 绘制（sheet 分批：字体 sheet 0 → 字形纹理白字；chrome sheet ≥1 → 白纹理
+    // 灰 tint 色块呈现面板/按钮结构——chrome 像素不装载，D075 回收项）
+    menu_ns::UiRenderCtx rctx{&map_fonts, "Regular", 0xFFFFFFFFu, &map_chrome, &chrome_sheets,
+                              &map_metrics, &uist};
+    const std::vector<menu_ns::UiQuad> vec_quads{menu_ns::ui_draw_tree(root, rctx)};
+    if (u8_frames == 5) {
+      std::map<std::uint32_t, std::size_t> map_sheet_count;
+      for (const menu_ns::UiQuad& quad : vec_quads) ++map_sheet_count[quad.u4_sheet];
+      std::string str_sheets;
+      for (const auto& [u4_id, sz_n] : map_sheet_count)
+        str_sheets += std::format("{}:{} ", u4_id, sz_n);
+      std::println("menu-dbg: quads={} sheets[{}]", vec_quads.size(), str_sheets);
+    }
+    gl_clear_color(0.02f, 0.02f, 0.04f, 1);
+    gl_clear(GL_COLOR_BUFFER_BIT);
+    for (const auto& [u4_key, u4_tex] : map_textures) {
+      // 键 0 = 白纹理（chrome quad 灰 tint 批）；键 1..n = 字体 sheet n-1（字形批）
+      std::vector<GLfloat> vec_verts;
+      for (const menu_ns::UiQuad& quad : vec_quads) {
+        const bool b_font{static_cast<std::size_t>(quad.u4_sheet)
+                          < font_builder.vec_vec1u_sheets.size()};
+        const std::uint32_t u4_want{
+            b_font ? static_cast<std::uint32_t>(quad.u4_sheet + 1) : 0u};
+        if (u4_want != u4_key) continue;
+        const bool b_glyph_tex{b_font};
+        const float fp4_sheet{static_cast<float>(font_builder.int4_sheet_size)};
+        const float fp4_u0{b_glyph_tex ? static_cast<float>(quad.int4_src_x) / fp4_sheet : 0.0f};
+        const float fp4_v0{b_glyph_tex ? static_cast<float>(quad.int4_src_y) / fp4_sheet : 0.0f};
+        const float fp4_u1{
+            b_glyph_tex ? static_cast<float>(quad.int4_src_x + quad.int4_width) / fp4_sheet
+                        : 1.0f};
+        const float fp4_v1{
+            b_glyph_tex ? static_cast<float>(quad.int4_src_y + quad.int4_height) / fp4_sheet
+                        : 1.0f};
+        const float fp4_r{b_font ? static_cast<float>((quad.u4_rgba >> 16) & 0xFF) / 255.0f
+                                 : 0.40f};
+        const float fp4_g{b_font ? static_cast<float>((quad.u4_rgba >> 8) & 0xFF) / 255.0f
+                                 : 0.40f};
+        const float fp4_b{b_font ? static_cast<float>(quad.u4_rgba & 0xFF) / 255.0f : 0.45f};
+        const float fp4_a{static_cast<float>((quad.u4_rgba >> 24) & 0xFF) / 255.0f};
+        const float fp4_x0{static_cast<float>(quad.int4_x)};
+        const float fp4_y0{static_cast<float>(quad.int4_y)};
+        const float fp4_x1{static_cast<float>(quad.int4_x + quad.int4_width)};
+        const float fp4_y1{static_cast<float>(quad.int4_y + quad.int4_height)};
+        const GLfloat fp4_verts[]{
+            fp4_x0, fp4_y0, fp4_u0, fp4_v0, fp4_r, fp4_g, fp4_b, fp4_a,
+            fp4_x1, fp4_y0, fp4_u1, fp4_v0, fp4_r, fp4_g, fp4_b, fp4_a,
+            fp4_x0, fp4_y1, fp4_u0, fp4_v1, fp4_r, fp4_g, fp4_b, fp4_a,
+            fp4_x0, fp4_y1, fp4_u0, fp4_v1, fp4_r, fp4_g, fp4_b, fp4_a,
+            fp4_x1, fp4_y0, fp4_u1, fp4_v0, fp4_r, fp4_g, fp4_b, fp4_a,
+            fp4_x1, fp4_y1, fp4_u1, fp4_v1, fp4_r, fp4_g, fp4_b, fp4_a};
+        vec_verts.insert(vec_verts.end(), fp4_verts, fp4_verts + 48);
+      }
+      if (vec_verts.empty()) continue;
+      gl_bind_texture(GL_TEXTURE_2D, u4_tex);
+      gl_bind_buffer(GL_ARRAY_BUFFER, u_vbo);
+      gl_buffer_data(GL_ARRAY_BUFFER, static_cast<long>(vec_verts.size() * sizeof(GLfloat)),
+                     vec_verts.data(), GL_STATIC_DRAW);
+      gl_draw_arrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vec_verts.size() / 8));
+    }
+    SDL_GL_SwapWindow(ptr_window);
+    ++u8_frames;
+    // autotest 步进：wait<n> 定帧，其余步骤每 3 帧一步（画面刷新间隙）
+    if (sz_next_step < vec_autotest.size()
+        && u8_frames >= u8_step_ready_frame) {
+      const std::string& str_step{vec_autotest[sz_next_step]};
+      if (str_step.starts_with("wait")) {
+        u8_step_ready_frame = u8_frames + std::stoull(str_step.substr(4));
+      } else {
+        autotest_step(str_step);
+        u8_step_ready_frame = u8_frames + 3;
+      }
+      ++sz_next_step;
+    }
+    if (sz_next_step >= vec_autotest.size() && !vec_autotest.empty()
+        && u8_frames >= u8_step_ready_frame + 30)
+      b_running = false;  // 序列放完自动退出（防呆：quit 步缺失时也收尾）
+    SDL_Delay(10);
+  }
+
+  std::println("menu: exiting clean frames={}", u8_frames);
+  ora::platforms::engine_dispose(sound.engine);
+  SDL_GL_DeleteContext(ctx_gl);
+  SDL_DestroyWindow(ptr_window);
+  SDL_Quit();
+  return 0;
+}
+
 std::optional<std::string> detect_content_dir(const lch::CliArgs& args) {
   if (!args.str_content_dir.empty()) return args.str_content_dir;
   const char* sz_appdata{std::getenv("APPDATA")};
@@ -1343,9 +1986,14 @@ int main(int argc, char** argv) {
 
   SetConsoleCtrlHandler(console_ctrl_handler, TRUE);
 
-  const int int4_result{parsed.args.b_headless
-                            ? run_headless(parsed.args, ptr_log, argv[0])
-                            : run_window(parsed.args, ptr_log, argv[0])};
+  // T26：窗口模式无参（无 --map/--demo/--record/--replay）进主菜单；
+  // 沙盒演示/装载图路径不变（--map、--demo、录制回放族）
+  const bool b_menu_mode{!parsed.args.b_headless && parsed.args.str_map.empty()
+                         && !parsed.args.b_demo && parsed.args.str_record.empty()
+                         && parsed.args.str_replay.empty()};
+  const int int4_result{parsed.args.b_headless ? run_headless(parsed.args, ptr_log, argv[0])
+                          : b_menu_mode        ? run_menu_window(parsed.args, argv[0])
+                                               : run_window(parsed.args, ptr_log, argv[0])};
   if (ptr_log != nullptr) stream_log.close();
   return int4_result;
 }

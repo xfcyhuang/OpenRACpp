@@ -61,6 +61,10 @@ bool bounds_contains(const WidgetBounds& b, int int4_x, int int4_y) {
 
 bool widget_is_visible(const WidgetModel& w) { return w.b_visible; }
 
+bool is_slider_type(const WidgetModel& w) {
+  return w.str_type == "Slider" || w.str_type == "ExponentialSlider";
+}
+
 bool is_button_type(const WidgetModel& w) {
   return w.str_type == "Button" || w.str_type == "MenuButton" || w.str_type == "ProductionTypeButton"
       || w.str_type == "Checkbox" || w.str_type == "DropDownButton";
@@ -162,7 +166,7 @@ bool widget_handle_mouse_input(WidgetModel& w, UiState& st, const ora::game::inp
     }
     return w.b_depressed;
   }
-  if (w.str_type == "Slider") {
+  if (is_slider_type(w)) {
     if (mi.button != input::MouseButton::kLeft) return false;
     if (w.b_disabled) return false;
     if (mi.event == input::MouseInputEvent::kDown && !widget_take_mouse_focus(w, st)) return false;
@@ -248,6 +252,14 @@ bool ui_handle_key_press(WidgetModel& root, UiState& st, const ora::game::input:
 const std::string* widget_get_cursor(const WidgetModel& w) {
   if (w.str_type == "Container") return nullptr;
   return &w.str_default_cursor;
+}
+
+WidgetModel* widget_find_by_id(WidgetModel& w, std::string_view str_id) {
+  // 上游 Get：自身命中先于子树（self-first 深度优先）
+  if (w.str_id == str_id) return &w;
+  for (const auto& ptr_child : w.vec_children)
+    if (WidgetModel* ptr_found{widget_find_by_id(*ptr_child, str_id)}) return ptr_found;
+  return nullptr;
 }
 
 const std::string* widget_hit_test(const WidgetModel& w, int int4_x, int int4_y) {

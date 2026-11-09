@@ -276,6 +276,13 @@ internal static partial class Program
             // + 三 PNG 语料原样入库（漂移哨兵）
             .. WidgetsArtifacts(openraRoot),
 
+            // mainmenu 模式（T26/issue #35）：主菜单与设置面板——五 chrome 语料原样
+            // 入库（GPL）+ 装载树 bounds 真源（tree）+ 真 MainMenuLogic 导航驱动
+            // （nav，Renderer 桩 + ModData/MapCache；面板打开类按钮不可无头驱动，
+            // 偏离登记）+ 三页接线真源（bindings，SettingsUtils.Bind*Pref 真调用 +
+            // Display leave 公式 + ListLayout 真布局 + HotkeyManager rekey 流）
+            .. MainMenuArtifacts(openraRoot),
+
         ];
 
         var firstRuns = new Dictionary<string, (string RelPath, byte[] Bytes)[]>();
@@ -355,6 +362,7 @@ internal static partial class Program
         "economy" => EconomyGroup(openraRoot),
         "replay" => ReplayGroup(openraRoot),
         "widgets" => WidgetsGroup(openraRoot),
+        "mainmenu" => MainMenuGroup(openraRoot),
         _ => throw new ArgumentException($"未知场景模式：{mode}"),
     };
 }

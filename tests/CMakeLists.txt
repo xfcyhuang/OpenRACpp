@@ -255,3 +255,8 @@ target_compile_definitions(ora_widgets PRIVATE
   ORA_WIDGETS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/widgets"
   ORA_UI_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/chrome")
 add_test(NAME widgets COMMAND ora_widgets)
+add_executable(ora_mainmenu mainmenu.cpp)
+target_link_libraries(ora_mainmenu PRIVATE ora_std ora_game)
+target_compile_definitions(ora_mainmenu PRIVATE
+  ORA_MAINMENU_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/mainmenu")
+add_test(NAME mainmenu COMMAND ora_mainmenu)
