@@ -1,0 +1,29 @@
+# lobby slots oracle (T27/issue #36)
+# true Map(modData, oramap) PlayerDefinitions via MapPlayers PlayerReference fields (MakeSlotFromPlayerReference source data),
+# document order; slot lines only for Playable refs. factions = map rules world actor selectable FactionInfo InternalNames
+map ore-lord uid b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93
+player Neutral playable=False allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=allies team=0 bot=
+player Multi0 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Multi1 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Creeps playable=False allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=allies team=0 bot=
+factions england,france,germany,russia,ukraine,Random,RandomAllies,RandomSoviet
+map doubles uid c997e79e4b977546817c9f94b42cbe523ea1296c
+player Neutral playable=False allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=allies team=0 bot=
+player Multi0 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Creeps playable=False allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=allies team=0 bot=
+player Multi1 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Multi2 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Multi3 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+factions england,france,germany,russia,ukraine,Random,RandomAllies,RandomSoviet
+map a-path-beyond uid 7e767f4aef4530b9a79842a240db60a6bd8d9e6c
+player Neutral playable=False allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=allies team=0 bot=
+player Creeps playable=False allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Multi0 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Multi1 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Multi2 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Multi3 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Multi4 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Multi5 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Multi6 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+player Multi7 playable=True allowBots=True lockFaction=False lockColor=False lockTeam=False lockHandicap=False lockSpawn=False required=False faction=Random team=0 bot=
+factions england,france,germany,russia,ukraine,Random,RandomAllies,RandomSoviet

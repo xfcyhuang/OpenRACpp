@@ -315,6 +315,7 @@ std::expected<GameSession, std::string> session_setup(const SessionEnv& env) {
   lobby.int4_starting_cash = 5000;
   lobby.str_techlevel = "unrestricted";
   lobby.b_build_radius = true;
+  if (env.opt_lobby.has_value()) lobby = *env.opt_lobby;
 
   auto res_world{ww::world_create(loaded.map, env.int4_seed, lobby)};
   if (!res_world.has_value()) return std::unexpected(res_world.error());

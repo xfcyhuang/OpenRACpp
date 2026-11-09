@@ -1,0 +1,644 @@
+# lobby session oracle (T27/issue #36)
+# scripted lobby ops assembled into true-source Session per LobbyCommands.cs handler semantics;
+# each step dumped via upstream Session.Serialize() (FieldSaver + WriteToString, zero reimplementation).
+# normalizations: GameUid fixed constant (upstream Guid.NewGuid), RandomSeed fixed 0 (upstream DateTime seed),
+# ServerName '' (ServerSettings.Name default). color fixed literal (MakeValid not ported, see COVERAGE).
+color fixed C81E28
+step server-started ore-lord
+--- session ---
+DisabledSpawnPoints:
+Slot@Multi0:
+	PlayerReference: Multi0
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi1:
+	PlayerReference: Multi1
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+GlobalSettings:
+	ServerName:
+	Map: b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93
+	MapStatus: Playable
+	RandomSeed: 0
+	AllowSpectators: True
+	GameUid: 00000000-0000-0000-0000-000000000000
+	EnableSingleplayer: True
+	EnableMapGeneration: True
+	EnableGameSaves: False
+	EnableSyncReports: False
+	Dedicated: False
+	NetFrameInterval: 3
+	GameTimestep: 0
+	Options:
+--- end ---
+step join-client-0 Commander
+--- session ---
+DisabledSpawnPoints:
+Client@0:
+	Index: 0
+	PreferredColor: C81E28
+	Color: C81E28
+	Faction: Random
+	SpawnPoint: 0
+	Name: Commander
+	AnonymizedIPAddress:
+	Location:
+	ConnectionQuality: Good
+	State: Invalid
+	Team: 0
+	Handicap: 0
+	Slot: Multi0
+	Bot:
+	BotControllerClientIndex: 0
+	IsAdmin: True
+	Fingerprint:
+Slot@Multi0:
+	PlayerReference: Multi0
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi1:
+	PlayerReference: Multi1
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+GlobalSettings:
+	ServerName:
+	Map: b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93
+	MapStatus: Playable
+	RandomSeed: 0
+	AllowSpectators: True
+	GameUid: 00000000-0000-0000-0000-000000000000
+	EnableSingleplayer: True
+	EnableMapGeneration: True
+	EnableGameSaves: False
+	EnableSyncReports: False
+	Dedicated: False
+	NetFrameInterval: 3
+	GameTimestep: 0
+	Options:
+--- end ---
+cmd faction 0 russia -> ok
+step faction 0 russia
+--- session ---
+DisabledSpawnPoints:
+Client@0:
+	Index: 0
+	PreferredColor: C81E28
+	Color: C81E28
+	Faction: russia
+	SpawnPoint: 0
+	Name: Commander
+	AnonymizedIPAddress:
+	Location:
+	ConnectionQuality: Good
+	State: Invalid
+	Team: 0
+	Handicap: 0
+	Slot: Multi0
+	Bot:
+	BotControllerClientIndex: 0
+	IsAdmin: True
+	Fingerprint:
+Slot@Multi0:
+	PlayerReference: Multi0
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi1:
+	PlayerReference: Multi1
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+GlobalSettings:
+	ServerName:
+	Map: b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93
+	MapStatus: Playable
+	RandomSeed: 0
+	AllowSpectators: True
+	GameUid: 00000000-0000-0000-0000-000000000000
+	EnableSingleplayer: True
+	EnableMapGeneration: True
+	EnableGameSaves: False
+	EnableSyncReports: False
+	Dedicated: False
+	NetFrameInterval: 3
+	GameTimestep: 0
+	Options:
+--- end ---
+cmd faction 0 creepus -> rejected
+step faction 0 creepus
+--- session ---
+DisabledSpawnPoints:
+Client@0:
+	Index: 0
+	PreferredColor: C81E28
+	Color: C81E28
+	Faction: russia
+	SpawnPoint: 0
+	Name: Commander
+	AnonymizedIPAddress:
+	Location:
+	ConnectionQuality: Good
+	State: Invalid
+	Team: 0
+	Handicap: 0
+	Slot: Multi0
+	Bot:
+	BotControllerClientIndex: 0
+	IsAdmin: True
+	Fingerprint:
+Slot@Multi0:
+	PlayerReference: Multi0
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi1:
+	PlayerReference: Multi1
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+GlobalSettings:
+	ServerName:
+	Map: b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93
+	MapStatus: Playable
+	RandomSeed: 0
+	AllowSpectators: True
+	GameUid: 00000000-0000-0000-0000-000000000000
+	EnableSingleplayer: True
+	EnableMapGeneration: True
+	EnableGameSaves: False
+	EnableSyncReports: False
+	Dedicated: False
+	NetFrameInterval: 3
+	GameTimestep: 0
+	Options:
+--- end ---
+cmd team 0 2 -> ok
+step team 0 2
+--- session ---
+DisabledSpawnPoints:
+Client@0:
+	Index: 0
+	PreferredColor: C81E28
+	Color: C81E28
+	Faction: russia
+	SpawnPoint: 0
+	Name: Commander
+	AnonymizedIPAddress:
+	Location:
+	ConnectionQuality: Good
+	State: Invalid
+	Team: 2
+	Handicap: 0
+	Slot: Multi0
+	Bot:
+	BotControllerClientIndex: 0
+	IsAdmin: True
+	Fingerprint:
+Slot@Multi0:
+	PlayerReference: Multi0
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi1:
+	PlayerReference: Multi1
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+GlobalSettings:
+	ServerName:
+	Map: b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93
+	MapStatus: Playable
+	RandomSeed: 0
+	AllowSpectators: True
+	GameUid: 00000000-0000-0000-0000-000000000000
+	EnableSingleplayer: True
+	EnableMapGeneration: True
+	EnableGameSaves: False
+	EnableSyncReports: False
+	Dedicated: False
+	NetFrameInterval: 3
+	GameTimestep: 0
+	Options:
+--- end ---
+cmd team 0 0 -> ok
+step team 0 0
+--- session ---
+DisabledSpawnPoints:
+Client@0:
+	Index: 0
+	PreferredColor: C81E28
+	Color: C81E28
+	Faction: russia
+	SpawnPoint: 0
+	Name: Commander
+	AnonymizedIPAddress:
+	Location:
+	ConnectionQuality: Good
+	State: Invalid
+	Team: 0
+	Handicap: 0
+	Slot: Multi0
+	Bot:
+	BotControllerClientIndex: 0
+	IsAdmin: True
+	Fingerprint:
+Slot@Multi0:
+	PlayerReference: Multi0
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi1:
+	PlayerReference: Multi1
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+GlobalSettings:
+	ServerName:
+	Map: b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93
+	MapStatus: Playable
+	RandomSeed: 0
+	AllowSpectators: True
+	GameUid: 00000000-0000-0000-0000-000000000000
+	EnableSingleplayer: True
+	EnableMapGeneration: True
+	EnableGameSaves: False
+	EnableSyncReports: False
+	Dedicated: False
+	NetFrameInterval: 3
+	GameTimestep: 0
+	Options:
+--- end ---
+cmd map doubles -> ok
+step map doubles
+--- session ---
+DisabledSpawnPoints:
+Client@0:
+	Index: 0
+	PreferredColor: C81E28
+	Color: C81E28
+	Faction: russia
+	SpawnPoint: 0
+	Name: Commander
+	AnonymizedIPAddress:
+	Location:
+	ConnectionQuality: Good
+	State: Invalid
+	Team: 0
+	Handicap: 0
+	Slot: Multi0
+	Bot:
+	BotControllerClientIndex: 0
+	IsAdmin: True
+	Fingerprint:
+Slot@Multi0:
+	PlayerReference: Multi0
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi1:
+	PlayerReference: Multi1
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi2:
+	PlayerReference: Multi2
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi3:
+	PlayerReference: Multi3
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+GlobalSettings:
+	ServerName:
+	Map: c997e79e4b977546817c9f94b42cbe523ea1296c
+	MapStatus: Playable
+	RandomSeed: 0
+	AllowSpectators: True
+	GameUid: 00000000-0000-0000-0000-000000000000
+	EnableSingleplayer: True
+	EnableMapGeneration: True
+	EnableGameSaves: False
+	EnableSyncReports: False
+	Dedicated: False
+	NetFrameInterval: 3
+	GameTimestep: 0
+	Options:
+--- end ---
+cmd map ore-lord -> ok
+step map ore-lord
+--- session ---
+DisabledSpawnPoints:
+Client@0:
+	Index: 0
+	PreferredColor: C81E28
+	Color: C81E28
+	Faction: russia
+	SpawnPoint: 0
+	Name: Commander
+	AnonymizedIPAddress:
+	Location:
+	ConnectionQuality: Good
+	State: Invalid
+	Team: 0
+	Handicap: 0
+	Slot: Multi0
+	Bot:
+	BotControllerClientIndex: 0
+	IsAdmin: True
+	Fingerprint:
+Slot@Multi0:
+	PlayerReference: Multi0
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi1:
+	PlayerReference: Multi1
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+GlobalSettings:
+	ServerName:
+	Map: b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93
+	MapStatus: Playable
+	RandomSeed: 0
+	AllowSpectators: True
+	GameUid: 00000000-0000-0000-0000-000000000000
+	EnableSingleplayer: True
+	EnableMapGeneration: True
+	EnableGameSaves: False
+	EnableSyncReports: False
+	Dedicated: False
+	NetFrameInterval: 3
+	GameTimestep: 0
+	Options:
+--- end ---
+cmd faction 0 Random -> ok
+step faction 0 Random
+--- session ---
+DisabledSpawnPoints:
+Client@0:
+	Index: 0
+	PreferredColor: C81E28
+	Color: C81E28
+	Faction: Random
+	SpawnPoint: 0
+	Name: Commander
+	AnonymizedIPAddress:
+	Location:
+	ConnectionQuality: Good
+	State: Invalid
+	Team: 0
+	Handicap: 0
+	Slot: Multi0
+	Bot:
+	BotControllerClientIndex: 0
+	IsAdmin: True
+	Fingerprint:
+Slot@Multi0:
+	PlayerReference: Multi0
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi1:
+	PlayerReference: Multi1
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+GlobalSettings:
+	ServerName:
+	Map: b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93
+	MapStatus: Playable
+	RandomSeed: 0
+	AllowSpectators: True
+	GameUid: 00000000-0000-0000-0000-000000000000
+	EnableSingleplayer: True
+	EnableMapGeneration: True
+	EnableGameSaves: False
+	EnableSyncReports: False
+	Dedicated: False
+	NetFrameInterval: 3
+	GameTimestep: 0
+	Options:
+--- end ---
+cmd state Ready -> ok
+step state Ready
+--- session ---
+DisabledSpawnPoints:
+Client@0:
+	Index: 0
+	PreferredColor: C81E28
+	Color: C81E28
+	Faction: Random
+	SpawnPoint: 0
+	Name: Commander
+	AnonymizedIPAddress:
+	Location:
+	ConnectionQuality: Good
+	State: Ready
+	Team: 0
+	Handicap: 0
+	Slot: Multi0
+	Bot:
+	BotControllerClientIndex: 0
+	IsAdmin: True
+	Fingerprint:
+Slot@Multi0:
+	PlayerReference: Multi0
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi1:
+	PlayerReference: Multi1
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+GlobalSettings:
+	ServerName:
+	Map: b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93
+	MapStatus: Playable
+	RandomSeed: 0
+	AllowSpectators: True
+	GameUid: 00000000-0000-0000-0000-000000000000
+	EnableSingleplayer: True
+	EnableMapGeneration: True
+	EnableGameSaves: False
+	EnableSyncReports: False
+	Dedicated: False
+	NetFrameInterval: 3
+	GameTimestep: 0
+	Options:
+--- end ---
+cmd startgame -> ok
+step startgame
+--- session ---
+DisabledSpawnPoints:
+Client@0:
+	Index: 0
+	PreferredColor: C81E28
+	Color: C81E28
+	Faction: Random
+	SpawnPoint: 0
+	Name: Commander
+	AnonymizedIPAddress:
+	Location:
+	ConnectionQuality: Good
+	State: Ready
+	Team: 0
+	Handicap: 0
+	Slot: Multi0
+	Bot:
+	BotControllerClientIndex: 0
+	IsAdmin: True
+	Fingerprint:
+Slot@Multi0:
+	PlayerReference: Multi0
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+Slot@Multi1:
+	PlayerReference: Multi1
+	Closed: False
+	AllowBots: True
+	LockFaction: False
+	LockColor: False
+	LockTeam: False
+	LockHandicap: False
+	LockSpawn: False
+	Required: False
+GlobalSettings:
+	ServerName:
+	Map: b0a8d5bb32ba1eb4fa36b16a198db8b831b37f93
+	MapStatus: Playable
+	RandomSeed: 0
+	AllowSpectators: True
+	GameUid: 00000000-0000-0000-0000-000000000000
+	EnableSingleplayer: True
+	EnableMapGeneration: True
+	EnableGameSaves: True
+	EnableSyncReports: False
+	Dedicated: False
+	NetFrameInterval: 3
+	GameTimestep: 0
+	Options:
+--- end ---

@@ -1,0 +1,856 @@
+# lobby chrome trees oracle (T27/issue #36)
+# source: mods/common/chrome/{lobby,lobby-players,lobby-mappreview}.yaml; window=1024x768; top-level on dumb root (PARENT=0)
+# bounds via upstream IntegerExpression.Evaluate with Widget.Initialize substitution order (W/H before X/Y)
+# file lobby.yaml
+Background@SERVER_LOBBY	62,84,900,600
+	field	Logic	LobbyLogic
+	field	X	(WINDOW_WIDTH - WIDTH) / 2
+	field	Y	(WINDOW_HEIGHT - HEIGHT) / 2
+	field	Width	900
+	field	Height	600
+	Label@SERVER_NAME	0,16,900,25
+		field	Y	16
+		field	Align	Center
+		field	Width	PARENT_WIDTH
+		field	Height	25
+		field	Font	Bold
+	Container@MAP_PREVIEW_ROOT	706,67,174,250
+		field	X	PARENT_WIDTH - 20 - WIDTH
+		field	Y	67
+		field	Width	174
+		field	Height	250
+	DropDownButton@SLOTS_DROPDOWNBUTTON	20,291,185,25
+		field	X	20
+		field	Y	291
+		field	Width	185
+		field	Height	25
+		field	Font	Bold
+		field	Text	dropdownbutton-server-lobby-slots
+	Button@RESET_OPTIONS_BUTTON	20,291,185,25
+		field	X	20
+		field	Y	291
+		field	Width	185
+		field	Height	25
+		field	Font	Bold
+		field	Text	button-server-lobby-reset-options
+	Container@SKIRMISH_TABS	209,0,486,0
+		field	X	695 - WIDTH
+		field	Width	486
+		field	Visible	False
+		Button@PLAYERS_TAB	0,285,162,31
+			field	Y	285
+			field	Width	162
+			field	Height	31
+			field	Font	Bold
+			field	Text	button-skirmish-tabs-players-tab
+		Button@OPTIONS_TAB	162,285,162,31
+			field	X	162
+			field	Y	285
+			field	Width	162
+			field	Height	31
+			field	Font	Bold
+			field	Text	button-skirmish-tabs-options-tab
+		Button@MUSIC_TAB	324,285,162,31
+			field	X	2 * 162
+			field	Y	285
+			field	Width	162
+			field	Height	31
+			field	Font	Bold
+			field	Text	label-music-title
+	Container@MULTIPLAYER_TABS	209,0,486,0
+		field	X	695 - WIDTH
+		field	Width	486
+		field	Visible	False
+		Button@PLAYERS_TAB	0,285,121,31
+			field	Y	285
+			field	Width	121
+			field	Height	31
+			field	Font	Bold
+			field	Text	button-multiplayer-tabs-players-tab
+		Button@OPTIONS_TAB	121,285,122,31
+			field	X	121
+			field	Y	285
+			field	Width	122
+			field	Height	31
+			field	Font	Bold
+			field	Text	button-multiplayer-tabs-options-tab
+		Button@MUSIC_TAB	243,285,121,31
+			field	X	243
+			field	Y	285
+			field	Width	121
+			field	Height	31
+			field	Font	Bold
+			field	Text	label-music-title
+		Button@SERVERS_TAB	364,285,122,31
+			field	X	364
+			field	Y	285
+			field	Width	122
+			field	Height	31
+			field	Font	Bold
+			field	Text	button-multiplayer-tabs-servers-tab
+	Container@TOP_PANELS_ROOT	20,67,675,219
+		field	X	20
+		field	Y	67
+		field	Width	675
+		field	Height	219
+	Button@CHANGEMAP_BUTTON	706,291,174,25
+		field	X	PARENT_WIDTH - WIDTH - 20
+		field	Y	291
+		field	Width	174
+		field	Height	25
+		field	Text	button-server-lobby-changemap
+		field	Font	Bold
+	Container@LOBBYCHAT	20,321,860,259
+		field	X	20
+		field	Y	PARENT_HEIGHT - HEIGHT - 20
+		field	Width	PARENT_WIDTH - 40
+		field	Height	259
+		ScrollPanel@CHAT_DISPLAY	0,0,860,229
+			field	Width	PARENT_WIDTH
+			field	Height	PARENT_HEIGHT - 30
+			field	TopBottomSpacing	2
+			field	ItemSpacing	2
+		Button@CHAT_MODE	0,234,50,25
+			field	Y	PARENT_HEIGHT - HEIGHT
+			field	Width	50
+			field	Height	25
+			field	Text	button-lobbychat-chat-mode.label
+			field	Font	Bold
+			field	Key	ToggleChatMode
+			field	TooltipText	button-lobbychat-chat-mode.tooltip
+			field	TooltipContainer	TOOLTIP_CONTAINER
+		TextField@CHAT_TEXTFIELD	55,234,545,25
+			field	X	55
+			field	Y	PARENT_HEIGHT - HEIGHT
+			field	Width	PARENT_WIDTH - 260 - 55
+			field	Height	25
+	Button@START_GAME_BUTTON	630,555,120,25
+		field	X	PARENT_WIDTH - WIDTH - 150
+		field	Y	PARENT_HEIGHT - HEIGHT - 20
+		field	Width	120
+		field	Height	25
+		field	Text	button-server-lobby-start-game
+		field	Font	Bold
+	Button@DISCONNECT_BUTTON	760,555,120,25
+		field	X	PARENT_WIDTH - WIDTH - 20
+		field	Y	PARENT_HEIGHT - HEIGHT - 20
+		field	Width	120
+		field	Height	25
+		field	Text	button-server-lobby-disconnect
+		field	Font	Bold
+	Container@FACTION_DROPDOWN_PANEL_ROOT	0,0,0,0
+	TooltipContainer@TOOLTIP_CONTAINER	0,0,0,0
+# file lobby-players.yaml
+Container@LOBBY_PLAYER_BIN	0,0,0,0
+	field	Width	PARENT_WIDTH
+	field	Height	PARENT_HEIGHT
+	Container@LABEL_CONTAINER	5,-24,0,0
+		field	X	5
+		field	Y	0 - 24
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		Label@LABEL_LOBBY_NAME	0,0,180,25
+			field	Width	180
+			field	Height	25
+			field	Text	label-lobby-players-name
+			field	Align	Center
+			field	Font	Bold
+		Label@LABEL_LOBBY_COLOR	190,0,70,25
+			field	X	190
+			field	Width	70
+			field	Height	25
+			field	Text	label-lobby-players-color
+			field	Align	Center
+			field	Font	Bold
+		Label@LABEL_LOBBY_FACTION	270,0,140,25
+			field	X	270
+			field	Width	140
+			field	Height	25
+			field	Text	label-lobby-players-faction
+			field	Align	Center
+			field	Font	Bold
+		Label@LABEL_LOBBY_TEAM	420,0,48,25
+			field	X	420
+			field	Width	48
+			field	Height	25
+			field	Text	label-lobby-players-team
+			field	Align	Center
+			field	Font	Bold
+		Label@LABEL_LOBBY_HANDICAP	478,0,72,25
+			field	X	478
+			field	Width	72
+			field	Height	25
+			field	Text	label-lobby-players-handicap
+			field	Align	Center
+			field	Font	Bold
+		Label@LABEL_LOBBY_SPAWN	560,0,48,25
+			field	X	560
+			field	Width	48
+			field	Height	25
+			field	Text	label-lobby-players-spawn
+			field	Align	Center
+			field	Font	Bold
+		Label@LABEL_LOBBY_STATUS	617,0,44,25
+			field	X	617
+			field	Width	20 + 24
+			field	Height	25
+			field	Text	label-lobby-players-ready
+			field	Align	Left
+			field	Font	Bold
+	ScrollPanel@LOBBY_PLAYERS	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		field	TopBottomSpacing	5
+		field	ItemSpacing	5
+		Container@TEMPLATE_EDITABLE_PLAYER	5,0,475,25
+			field	X	5
+			field	Width	475
+			field	Height	25
+			field	Visible	false
+			Container@LATENCY	0,6,11,14
+				field	Y	6
+				field	Width	11
+				field	Height	14
+				field	Visible	false
+				ColorBlock@LATENCY_COLOR	2,2,7,10
+					field	X	2
+					field	Y	2
+					field	Width	PARENT_WIDTH - 4
+					field	Height	PARENT_HEIGHT - 4
+			ClientTooltipRegion@LATENCY_REGION	0,0,11,25
+				field	Width	11
+				field	Height	25
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	Template	LATENCY_TOOLTIP
+			TextField@NAME	15,0,165,25
+				field	X	15
+				field	Width	165
+				field	Height	25
+				field	Text	Name
+				field	LeftMargin	24
+				field	MaxLength	16
+				field	Visible	false
+				Image@PROFILE	3,3,0,0
+					field	ImageCollection	lobby-bits
+					field	X	3
+					field	Y	3
+					field	Visible	false
+				ClientTooltipRegion@PROFILE_TOOLTIP	3,3,16,16
+					field	X	3
+					field	Y	3
+					field	Width	16
+					field	Height	16
+					field	TooltipContainer	TOOLTIP_CONTAINER
+					field	Template	ANONYMOUS_PLAYER_TOOLTIP
+			DropDownButton@SLOT_OPTIONS	15,0,165,25
+				field	X	15
+				field	Width	165
+				field	Height	25
+				field	Text	label-lobby-players-name
+				field	Font	Regular
+				field	Visible	false
+			DropDownButton@COLOR	190,0,70,25
+				field	X	190
+				field	Width	70
+				field	Height	25
+				field	IgnoreChildMouseOver	true
+				ColorBlock@COLORBLOCK	5,6,35,13
+					field	X	5
+					field	Y	6
+					field	Width	PARENT_WIDTH - 35
+					field	Height	PARENT_HEIGHT - 12
+			DropDownButton@FACTION	270,0,140,25
+				field	X	270
+				field	Width	140
+				field	Height	25
+				field	IgnoreChildMouseOver	true
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	PanelRoot	FACTION_DROPDOWN_PANEL_ROOT
+				Image@FACTIONFLAG	5,5,30,15
+					field	X	5
+					field	Y	5
+					field	Width	30
+					field	Height	15
+				Label@FACTIONNAME	40,0,70,25
+					field	X	40
+					field	Width	70
+					field	Height	25
+					field	Text	label-lobby-players-faction
+			DropDownButton@TEAM_DROPDOWN	420,0,48,25
+				field	X	420
+				field	Width	48
+				field	Height	25
+				field	Text	label-lobby-players-team
+			DropDownButton@HANDICAP_DROPDOWN	478,0,72,25
+				field	X	478
+				field	Width	72
+				field	Height	25
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	TooltipText	dropdownbutton-lobby-players-handicap-tooltip
+			DropDownButton@SPAWN_DROPDOWN	560,0,48,25
+				field	X	560
+				field	Width	48
+				field	Height	25
+				field	Text	label-lobby-players-spawn
+			Checkbox@STATUS_CHECKBOX	617,2,20,20
+				field	X	617
+				field	Y	2
+				field	Width	20
+				field	Height	20
+				field	Visible	false
+			Image@STATUS_IMAGE	619,4,20,20
+				field	X	619
+				field	Y	4
+				field	Width	20
+				field	Height	20
+				field	ImageCollection	checkmark-tick
+				field	ImageName	checked
+				field	Visible	false
+		Container@TEMPLATE_NONEDITABLE_PLAYER	5,0,475,25
+			field	X	5
+			field	Width	475
+			field	Height	25
+			field	Visible	false
+			Container@LATENCY	0,6,11,14
+				field	Y	6
+				field	Width	11
+				field	Height	14
+				field	Visible	false
+				ColorBlock@LATENCY_COLOR	2,2,7,10
+					field	X	2
+					field	Y	2
+					field	Width	PARENT_WIDTH - 4
+					field	Height	PARENT_HEIGHT - 4
+			ClientTooltipRegion@LATENCY_REGION	0,0,11,25
+				field	Width	11
+				field	Height	25
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	Template	LATENCY_TOOLTIP
+			Image@PROFILE	18,3,0,0
+				field	ImageCollection	lobby-bits
+				field	X	18
+				field	Y	3
+				field	Visible	false
+			ClientTooltipRegion@PROFILE_TOOLTIP	18,3,16,16
+				field	X	18
+				field	Y	3
+				field	Width	16
+				field	Height	16
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	Template	ANONYMOUS_PLAYER_TOOLTIP
+			Label@NAME	39,0,146,25
+				field	X	39
+				field	Width	146
+				field	Height	25
+				field	Text	label-lobby-players-name
+			DropDownButton@PLAYER_ACTION	15,0,165,25
+				field	X	15
+				field	Width	165
+				field	Height	25
+				field	Font	Regular
+				field	Visible	false
+				field	Align	Left
+				field	LeftMargin	24
+				Image@PROFILE	3,3,0,0
+					field	ImageCollection	lobby-bits
+					field	X	3
+					field	Y	3
+					field	Visible	false
+				ClientTooltipRegion@PROFILE_TOOLTIP	3,3,16,16
+					field	X	3
+					field	Y	3
+					field	Width	16
+					field	Height	16
+					field	TooltipContainer	TOOLTIP_CONTAINER
+					field	Template	ANONYMOUS_PLAYER_TOOLTIP
+			ColorBlock@COLORBLOCK	195,6,35,13
+				field	X	195
+				field	Y	6
+				field	Width	35
+				field	Height	13
+			Container@FACTION	270,0,160,25
+				field	X	270
+				field	Width	160
+				field	Height	25
+				Image@FACTIONFLAG	5,5,30,15
+					field	X	5
+					field	Y	5
+					field	Width	30
+					field	Height	15
+				Label@FACTIONNAME	40,0,70,25
+					field	X	40
+					field	Width	70
+					field	Height	25
+					field	Text	label-lobby-players-faction
+			Label@TEAM	410,0,43,25
+				field	X	410
+				field	Width	43
+				field	Height	25
+				field	Text	label-lobby-players-team
+				field	Align	Center
+			DropDownButton@TEAM_DROPDOWN	420,0,48,25
+				field	X	420
+				field	Width	48
+				field	Height	25
+				field	Visible	false
+			Label@HANDICAP	478,0,47,25
+				field	X	478
+				field	Width	47
+				field	Height	25
+				field	Align	Center
+			DropDownButton@HANDICAP_DROPDOWN	478,0,72,25
+				field	X	478
+				field	Width	72
+				field	Height	25
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	TooltipText	dropdownbutton-lobby-players-handicap-tooltip
+			Label@SPAWN	560,0,23,25
+				field	X	560
+				field	Width	23
+				field	Height	25
+				field	Align	Center
+			DropDownButton@SPAWN_DROPDOWN	560,0,48,25
+				field	X	560
+				field	Width	48
+				field	Height	25
+				field	Visible	false
+			Image@STATUS_IMAGE	619,4,20,20
+				field	X	619
+				field	Y	4
+				field	Width	20
+				field	Height	20
+				field	ImageCollection	checkmark-tick
+				field	ImageName	checked
+				field	Visible	false
+		Container@TEMPLATE_EMPTY	5,0,475,25
+			field	X	5
+			field	Width	475
+			field	Height	25
+			field	Visible	false
+			Label@NAME	20,0,165,25
+				field	Width	165
+				field	Height	25
+				field	X	20
+				field	Text	label-lobby-players-name
+			DropDownButton@SLOT_OPTIONS	15,0,165,25
+				field	X	15
+				field	Width	165
+				field	Height	25
+				field	Text	label-lobby-players-name
+				field	Visible	false
+			Button@JOIN	190,0,418,25
+				field	X	190
+				field	Text	button-lobby-players-join
+				field	Width	418
+				field	Height	25
+		Container@TEMPLATE_EDITABLE_SPECTATOR	5,0,475,25
+			field	X	5
+			field	Width	475
+			field	Height	25
+			field	Visible	false
+			Container@LATENCY	0,6,11,14
+				field	Y	6
+				field	Width	11
+				field	Height	14
+				field	Visible	false
+				ColorBlock@LATENCY_COLOR	2,2,7,10
+					field	X	2
+					field	Y	2
+					field	Width	PARENT_WIDTH - 4
+					field	Height	PARENT_HEIGHT - 4
+			ClientTooltipRegion@LATENCY_REGION	0,0,11,25
+				field	Width	11
+				field	Height	25
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	Template	LATENCY_TOOLTIP
+			TextField@NAME	15,0,165,25
+				field	X	15
+				field	Width	165
+				field	Height	25
+				field	Text	Name
+				field	LeftMargin	24
+				field	MaxLength	16
+				Image@PROFILE	3,3,0,0
+					field	ImageCollection	lobby-bits
+					field	X	3
+					field	Y	3
+					field	Visible	false
+				ClientTooltipRegion@PROFILE_TOOLTIP	3,3,16,16
+					field	X	3
+					field	Y	3
+					field	Width	16
+					field	Height	16
+					field	TooltipContainer	TOOLTIP_CONTAINER
+					field	Template	ANONYMOUS_PLAYER_TOOLTIP
+			Label@SPECTATOR	190,0,418,25
+				field	X	190
+				field	Width	418
+				field	Height	25
+				field	Text	label-lobby-players-spectator
+				field	Align	Center
+				field	Font	Bold
+			Checkbox@STATUS_CHECKBOX	617,2,20,20
+				field	X	617
+				field	Y	2
+				field	Width	20
+				field	Height	20
+				field	Visible	false
+			Image@STATUS_IMAGE	619,4,20,20
+				field	X	619
+				field	Y	4
+				field	Width	20
+				field	Height	20
+				field	ImageCollection	checkmark-tick
+				field	ImageName	checked
+				field	Visible	false
+		Container@TEMPLATE_NONEDITABLE_SPECTATOR	5,0,475,25
+			field	X	5
+			field	Width	475
+			field	Height	25
+			field	Visible	false
+			Container@LATENCY	0,6,11,14
+				field	Y	6
+				field	Width	11
+				field	Height	14
+				field	Visible	false
+				ColorBlock@LATENCY_COLOR	2,2,7,10
+					field	X	2
+					field	Y	2
+					field	Width	PARENT_WIDTH - 4
+					field	Height	PARENT_HEIGHT - 4
+			ClientTooltipRegion@LATENCY_REGION	0,0,11,25
+				field	Width	11
+				field	Height	25
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	Template	LATENCY_TOOLTIP
+			Image@PROFILE	18,3,0,0
+				field	ImageCollection	lobby-bits
+				field	X	18
+				field	Y	3
+				field	Visible	false
+			ClientTooltipRegion@PROFILE_TOOLTIP	18,3,16,16
+				field	X	18
+				field	Y	3
+				field	Width	16
+				field	Height	16
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	Template	ANONYMOUS_PLAYER_TOOLTIP
+			Label@NAME	39,0,179,25
+				field	X	39
+				field	Width	179
+				field	Height	25
+				field	Text	label-lobby-players-name
+			DropDownButton@PLAYER_ACTION	15,0,165,25
+				field	X	15
+				field	Width	165
+				field	Height	25
+				field	Font	Regular
+				field	Visible	false
+				field	Align	Left
+				field	LeftMargin	24
+				Image@PROFILE	3,3,0,0
+					field	ImageCollection	lobby-bits
+					field	X	3
+					field	Y	3
+					field	Visible	false
+				ClientTooltipRegion@PROFILE_TOOLTIP	3,3,16,16
+					field	X	3
+					field	Y	3
+					field	Width	16
+					field	Height	16
+					field	TooltipContainer	TOOLTIP_CONTAINER
+					field	Template	ANONYMOUS_PLAYER_TOOLTIP
+			Label@SPECTATOR	190,0,418,25
+				field	X	190
+				field	Width	418
+				field	Height	25
+				field	Text	label-lobby-players-spectator
+				field	Align	Center
+				field	Font	Bold
+			Image@STATUS_IMAGE	619,4,20,20
+				field	X	619
+				field	Y	4
+				field	Width	20
+				field	Height	20
+				field	ImageCollection	checkmark-tick
+				field	ImageName	checked
+				field	Visible	false
+		Container@TEMPLATE_NEW_SPECTATOR	5,0,475,25
+			field	X	5
+			field	Width	475
+			field	Height	25
+			field	Visible	false
+			Checkbox@TOGGLE_SPECTATORS	15,0,165,20
+				field	X	15
+				field	Width	165
+				field	Height	20
+				field	Font	Regular
+				field	Text	checkbox-lobby-players-new-spectator-toggle
+			Button@SPECTATE	190,0,418,25
+				field	X	190
+				field	Width	418
+				field	Height	25
+				field	Text	button-lobby-players-spectate
+				field	Font	Regular
+ScrollPanel@FACTION_DROPDOWN_TEMPLATE	0,0,0,0
+	field	Width	DROPDOWN_WIDTH
+	ScrollItem@HEADER	2,0,-27,13
+		field	Background	scrollheader
+		field	Width	PARENT_WIDTH - 27
+		field	Height	13
+		field	X	2
+		field	Y	0
+		field	Visible	false
+		Label@LABEL	0,0,-27,10
+			field	Font	TinyBold
+			field	Width	PARENT_WIDTH
+			field	Height	10
+			field	Align	Center
+	ScrollItem@TEMPLATE	2,0,-27,25
+		field	Width	PARENT_WIDTH - 27
+		field	Height	25
+		field	X	2
+		field	Y	0
+		field	Visible	false
+		field	TooltipContainer	TOOLTIP_CONTAINER
+		Image@FLAG	5,5,30,15
+			field	X	5
+			field	Y	5
+			field	Width	30
+			field	Height	15
+		Label@LABEL	40,0,70,25
+			field	X	40
+			field	Width	70
+			field	Height	25
+# file lobby-mappreview.yaml
+Container@MAP_PREVIEW	0,0,0,0
+	field	Logic	MapPreviewLogic
+	field	Width	PARENT_WIDTH
+	field	Height	PARENT_HEIGHT
+	Container@MAP_LARGE	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		Background@MAP_BG	0,0,0,174
+			field	Width	PARENT_WIDTH
+			field	Height	174
+			field	Background	dialog3
+			MapPreview@MAP_PREVIEW	1,1,-2,172
+				field	X	1
+				field	Y	1
+				field	Width	PARENT_WIDTH - 2
+				field	Height	PARENT_HEIGHT - 2
+				field	TooltipContainer	TOOLTIP_CONTAINER
+		LabelWithTooltip@MAP_TITLE	0,173,0,25
+			field	Y	173
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Bold
+			field	Align	Center
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			field	TooltipTemplate	SIMPLE_TOOLTIP
+	Container@MAP_SMALL	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		Background@MAP_BG	0,0,0,142
+			field	Width	PARENT_WIDTH
+			field	Height	142
+			field	Background	dialog3
+			MapPreview@MAP_PREVIEW	1,1,-2,140
+				field	X	1
+				field	Y	1
+				field	Width	PARENT_WIDTH - 2
+				field	Height	PARENT_HEIGHT - 2
+				field	TooltipContainer	TOOLTIP_CONTAINER
+		LabelWithTooltip@MAP_TITLE	0,143,0,25
+			field	Y	143
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Bold
+			field	Align	Center
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			field	TooltipTemplate	SIMPLE_TOOLTIP
+	Container@MAP_AVAILABLE	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		Label@MAP_TYPE	0,188,0,25
+			field	Y	188
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	TinyBold
+			field	Align	Center
+			field	IgnoreMouseOver	true
+		Label@MAP_AUTHOR	0,201,0,25
+			field	Y	201
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Tiny
+			field	Align	Center
+	Container@MAP_INCOMPATIBLE	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		Label@MAP_STATUS_A	0,188,0,25
+			field	Y	188
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Tiny
+			field	Align	Center
+			field	Text	label-map-incompatible-status-a
+			field	IgnoreMouseOver	true
+		Label@MAP_STATUS_B	0,201,0,25
+			field	Y	201
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Tiny
+			field	Align	Center
+			field	Text	label-map-incompatible-status-b
+	Container@MAP_VALIDATING	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		Label@MAP_STATUS_VALIDATING	0,174,0,25
+			field	Y	174
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Tiny
+			field	Align	Center
+			field	Text	label-map-validating-status
+			field	IgnoreMouseOver	true
+		ProgressBar@MAP_VALIDATING_BAR	0,194,0,25
+			field	Y	194
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Indeterminate	True
+	Container@MAP_GENERATING	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		Label@MAP_STATUS_GENERATING	0,174,0,25
+			field	Y	174
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Tiny
+			field	Align	Center
+			field	Text	label-map-generating-status
+			field	IgnoreMouseOver	true
+		ProgressBar@MAP_GENERATING_BAR	0,194,0,25
+			field	Y	194
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Indeterminate	True
+	Container@MAP_GENERATION_ERROR	0,0,0,0
+		field	Width	PARENT_WIDTH
+		Label@a	0,158,0,25
+			field	Y	158
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	TinyBold
+			field	Align	Center
+			field	Text	label-map-generation-error-a
+		Label@b	0,171,0,25
+			field	Y	171
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	TinyBold
+			field	Align	Center
+			field	Text	label-map-generation-error-b
+	Container@MAP_DOWNLOAD_AVAILABLE	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		Label@MAP_TYPE	0,158,0,25
+			field	Y	158
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	TinyBold
+			field	Align	Center
+			field	IgnoreMouseOver	true
+		Label@MAP_AUTHOR	0,171,0,25
+			field	Y	171
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Tiny
+			field	Align	Center
+		Button@MAP_INSTALL	0,194,0,25
+			field	Y	194
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Bold
+			field	Text	button-map-download-available-install
+	Button@MAP_UPDATE	0,195,0,25
+		field	Y	195
+		field	Width	PARENT_WIDTH
+		field	Height	25
+		field	Font	Bold
+		field	Text	button-map-preview-update
+	Container@MAP_UPDATE_DOWNLOAD_AVAILABLE	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		Button@MAP_INSTALL	0,166,0,25
+			field	Y	166
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Bold
+			field	Text	button-map-update-download-available-install
+	Label@MAP_SEARCHING	0,158,0,25
+		field	Y	158
+		field	Width	PARENT_WIDTH
+		field	Height	25
+		field	Font	Tiny
+		field	Align	Center
+		field	Text	label-map-preview-searching
+		field	IgnoreMouseOver	true
+	Container@MAP_UNAVAILABLE	0,0,0,0
+		field	Width	PARENT_WIDTH
+		Label@a	0,158,0,25
+			field	Y	158
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	TinyBold
+			field	Align	Center
+			field	Text	label-map-unavailable-a
+		Label@b	0,171,0,25
+			field	Y	171
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	TinyBold
+			field	Align	Center
+			field	Text	label-map-unavailable-b
+	Label@MAP_ERROR	0,158,0,25
+		field	Y	158
+		field	Width	PARENT_WIDTH
+		field	Height	25
+		field	Font	Tiny
+		field	Align	Center
+		field	Text	label-map-preview-error
+	Container@MAP_DOWNLOADING	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		Label@MAP_STATUS_DOWNLOADING	0,158,0,25
+			field	Y	158
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Tiny
+			field	Align	Center
+		ProgressBar@MAP_PROGRESSBAR	0,194,0,25
+			field	Y	194
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Indeterminate	True
+	Button@MAP_RETRY	0,194,0,25
+		field	Y	194
+		field	Width	PARENT_WIDTH
+		field	Height	25
+		field	Font	Bold
+	Container@MAP_UPDATE_AVAILABLE	0,0,0,0
+		field	Width	PARENT_WIDTH
+		Label@a	0,158,0,25
+			field	Y	158
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Tiny
+			field	Align	Center
+			field	Text	label-map-update-available-a
+		Label@b	0,171,0,25
+			field	Y	171
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Font	Tiny
+			field	Align	Center
+			field	Text	label-map-update-available-b
