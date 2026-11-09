@@ -248,3 +248,10 @@ target_compile_definitions(ora_ui PRIVATE
   ORA_UI_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/chrome"
   ORA_FONTS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/fonts")
 add_test(NAME ui COMMAND ora_ui)
+
+add_executable(ora_widgets widgets.cpp)
+target_link_libraries(ora_widgets PRIVATE ora_std ora_game)
+target_compile_definitions(ora_widgets PRIVATE
+  ORA_WIDGETS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/widgets"
+  ORA_UI_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/chrome")
+add_test(NAME widgets COMMAND ora_widgets)

@@ -15,6 +15,7 @@ constexpr WidgetTypeSpec kTypeSpecs[]{
     {"ProductionTypeButton", false, false, true, false},
     {"Checkbox", false, false, true, false},
     {"DropDownButton", false, false, true, false},
+    {"Slider", false, false, false, false},
     {"ColorBlock", false, false, false, false},
     {"Radar", false, false, false, false},
     {"VideoPlayer", false, false, false, false},
@@ -93,14 +94,36 @@ std::expected<void, std::string> widget_apply_field(WidgetModel& w, std::string_
     return {};
   }
   if (str_key == "Visible" || str_key == "IgnoreMouseOver" || str_key == "IgnoreChildMouseOver"
-      || str_key == "ClickThrough" || str_key == "Disabled") {
+      || str_key == "ClickThrough" || str_key == "Disabled" || str_key == "Depressed") {
     const auto res_bool{parse_bool_field(str_value, str_key)};
     if (!res_bool) return std::unexpected(res_bool.error());
     if (str_key == "Visible") w.b_visible = *res_bool;
     else if (str_key == "IgnoreMouseOver") w.b_ignore_mouse_over = *res_bool;
     else if (str_key == "IgnoreChildMouseOver") w.b_ignore_child_mouse_over = *res_bool;
     else if (str_key == "ClickThrough") w.b_click_through = *res_bool;
+    else if (str_key == "Depressed") w.b_depressed = *res_bool;
     else w.b_disabled = *res_bool;
+    return {};
+  }
+  if (str_key == "MinimumValue" || str_key == "MaximumValue" || str_key == "Value") {
+    float fp4_value{};
+    const auto res{std::from_chars(str_value.data(), str_value.data() + str_value.size(), fp4_value)};
+    if (res.ec != std::errc{} || res.ptr != str_value.data() + str_value.size())
+      return std::unexpected(std::format(
+          "FieldLoader: Cannot parse `{}` into field `{}` of type `Single`", str_value, str_key));
+    if (str_key == "MinimumValue") w.fp4_min_value = fp4_value;
+    else if (str_key == "MaximumValue") w.fp4_max_value = fp4_value;
+    else w.fp4_value = fp4_value;
+    return {};
+  }
+  if (str_key == "Ticks" || str_key == "TrackHeight") {
+    int int4_value{};
+    const auto res{std::from_chars(str_value.data(), str_value.data() + str_value.size(), int4_value)};
+    if (res.ec != std::errc{} || res.ptr != str_value.data() + str_value.size())
+      return std::unexpected(std::format(
+          "FieldLoader: Cannot parse `{}` into field `{}` of type `Int32`", str_value, str_key));
+    if (str_key == "Ticks") w.int4_ticks = int4_value;
+    else w.int4_track_height = int4_value;
     return {};
   }
   w.vec_fields.emplace_back(std::string{str_key}, std::string{str_value});

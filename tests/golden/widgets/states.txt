@@ -1,0 +1,67 @@
+# widgets state machine oracle (T25/issue #34)
+# upstream widgets driven via Ui.HandleInput with synthetic MouseInput
+# per-step: ev <event> <button> <x>,<y> tap=<n> handled=<0|1> [dep] [checked] [value] mousefocus=<0|1> mouseover=<0|1> events=<a;b>
+scenario button-basic Button bounds=100,100,80,24
+ev Move Left 120,112 tap=1 handled=0 dep=0 mousefocus=0 mouseover=1 events=
+ev Down Left 120,112 tap=1 handled=1 dep=1 mousefocus=1 mouseover=1 events=down(120,112)
+ev Move Left 20,20 tap=1 handled=0 dep=0 mousefocus=1 mouseover=1 events=
+ev Move Left 120,112 tap=1 handled=1 dep=1 mousefocus=1 mouseover=1 events=
+ev Up Left 120,112 tap=1 handled=1 dep=0 mousefocus=0 mouseover=1 events=click
+ev Move Left 20,20 tap=1 handled=0 dep=0 mousefocus=0 mouseover=0 events=
+ev Up Left 20,20 tap=1 handled=0 dep=0 mousefocus=0 mouseover=0 events=
+end
+scenario button-double Button double=on
+ev Down Left 120,112 tap=1 handled=1 dep=1 mousefocus=1 mouseover=0 events=
+ev Up Left 120,112 tap=1 handled=1 dep=0 mousefocus=0 mouseover=0 events=click
+ev Down Left 120,112 tap=1 handled=1 dep=1 mousefocus=1 mouseover=0 events=
+ev Up Left 120,112 tap=2 handled=1 dep=0 mousefocus=0 mouseover=0 events=dblclick
+end
+scenario button-disabled Button disabled=1
+ev Move Left 120,112 tap=1 handled=0 dep=0 mousefocus=0 mouseover=1 events=
+ev Down Left 120,112 tap=1 handled=0 dep=0 mousefocus=0 mouseover=1 events=
+ev Up Left 120,112 tap=1 handled=0 dep=0 mousefocus=0 mouseover=1 events=
+ev Down Left 120,112 tap=2 handled=0 dep=0 mousefocus=0 mouseover=1 events=
+end
+scenario button-rightclick Button
+ev Down Right 120,112 tap=1 handled=0 dep=0 mousefocus=0 mouseover=0 events=
+ev Up Right 120,112 tap=1 handled=0 dep=0 mousefocus=0 mouseover=0 events=
+end
+scenario button-outside-release Button
+ev Down Left 120,112 tap=1 handled=1 dep=1 mousefocus=1 mouseover=0 events=
+ev Up Left 20,20 tap=1 handled=1 dep=0 mousefocus=0 mouseover=0 events=click
+end
+scenario checkbox-checked Checkbox bounds=40,40,200,20 checked=1
+ev Move Left 50,50 tap=1 handled=0 dep=0 checked=1 mousefocus=0 mouseover=1 events=
+ev Down Left 50,50 tap=1 handled=1 dep=1 checked=1 mousefocus=1 mouseover=1 events=
+ev Up Left 50,50 tap=1 handled=1 dep=0 checked=1 mousefocus=0 mouseover=1 events=click
+end
+scenario dropdown DropDownButton bounds=10,10,120,25
+ev Move Left 60,22 tap=1 handled=0 dep=0 mousefocus=0 mouseover=1 events=
+ev Down Left 60,22 tap=1 handled=1 dep=1 mousefocus=1 mouseover=1 events=
+ev Move Left 60,22 tap=1 handled=1 dep=1 mousefocus=1 mouseover=1 events=
+ev Up Left 60,22 tap=1 handled=1 dep=0 mousefocus=0 mouseover=1 events=click
+end
+scenario slider Slider bounds=10,50,200,16 min=0 max=1 value=0.25
+ev Down Left 60,58 tap=1 handled=1 value=0.228261 mousefocus=1 mouseover=0 events=change 0.228261
+ev Move Left 150,58 tap=1 handled=1 value=0.717391 mousefocus=1 mouseover=1 events=change 0.717391
+ev Move Left 5,58 tap=1 handled=0 value=0.000000 mousefocus=1 mouseover=1 events=change 0.000000
+ev Move Left 300,58 tap=1 handled=0 value=1.000000 mousefocus=1 mouseover=1 events=change 1.000000
+ev Up Left 300,58 tap=1 handled=0 value=1.000000 mousefocus=0 mouseover=1 events=
+ev Move Left 100,58 tap=1 handled=0 value=1.000000 mousefocus=0 mouseover=1 events=
+end
+scenario slider-disabled Slider disabled=1
+ev Down Left 60,58 tap=1 handled=0 value=0.250000 mousefocus=0 mouseover=0 events=
+ev Move Left 150,58 tap=1 handled=0 value=0.250000 mousefocus=0 mouseover=1 events=
+end
+scenario background Background bounds=0,0,200,100
+ev Move Left 50,50 tap=1 handled=1 mousefocus=0 mouseover=1 events=
+ev Down Left 50,50 tap=1 handled=1 mousefocus=0 mouseover=1 events=
+ev Up Left 50,50 tap=1 handled=1 mousefocus=0 mouseover=1 events=
+ev Down Right 50,50 tap=1 handled=1 mousefocus=0 mouseover=1 events=
+ev Move Left 300,300 tap=1 handled=0 mousefocus=0 mouseover=0 events=
+end
+scenario label Label bounds=0,0,100,20
+ev Move Left 50,10 tap=1 handled=0 mousefocus=0 mouseover=1 events=
+ev Down Left 50,10 tap=1 handled=0 mousefocus=0 mouseover=1 events=
+ev Up Left 50,10 tap=1 handled=0 mousefocus=0 mouseover=1 events=
+end

@@ -237,4 +237,30 @@ std::pair<int, int> chrome_get_minimum_panel_size(
           it->second.vec_panel_region[3] + it->second.vec_panel_region[7]};
 }
 
+std::expected<std::uint32_t, std::string> chrome_sheet_load(
+    ChromeSheetSet& set, std::string_view str_image_name, std::span<const std::uint8_t> span1u_png) {
+  const auto it{set.map_sheets.find(std::string{str_image_name})};
+  if (it != set.map_sheets.end()) return it->second.u4_id;
+  auto res_image{render::png_decode(span1u_png)};
+  if (!res_image) return std::unexpected(res_image.error());
+  const std::uint32_t u4_id{set.u4_next_id++};
+  ChromeSheet sheet;
+  sheet.u4_id = u4_id;
+  sheet.int4_width = res_image->int4_width;
+  sheet.int4_height = res_image->int4_height;
+  sheet.vec_u4_argb = std::move(res_image->vec_u4_argb);
+  set.map_sheets.emplace(std::string{str_image_name}, std::move(sheet));
+  return u4_id;
+}
+
+const ChromeSheet* chrome_sheet_for_collection(
+    const ChromeSheetSet& set, const std::map<std::string, ChromeCollection>& map_collections,
+    std::string_view str_collection) {
+  const auto it_col{map_collections.find(std::string{str_collection})};
+  if (it_col == map_collections.end()) return nullptr;
+  const auto it_sheet{set.map_sheets.find(it_col->second.str_image)};
+  if (it_sheet == set.map_sheets.end()) return nullptr;
+  return &it_sheet->second;
+}
+
 }  // namespace ora::game::ui

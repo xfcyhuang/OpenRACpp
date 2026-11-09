@@ -44,6 +44,12 @@
 //                   IntegerExpression.Evaluate 按 Widget.Initialize substitutions 公式，
 //                   顶层挂哑 root PARENT=0、窗口 1024x768）+ 表达式集求值表；
 //                   事件路由不进 oracle（上游虚方法面无头不可驱动），由 C++ ctest 覆盖
+//   widgets         六控件最小面 dump（T25/issue #34）：真源控件构造（ModData ra）+
+//                   合成 MouseInput 喂 Ui.HandleInput 的状态机逐步行（states.txt，含
+//                   OnClick/OnDoubleClick/OnChange 回调记录）、绘制调用序列（draw.txt，
+//                   GetStatefulImageName 真函数 + DrawPanel/FillRectWithSprite 公式照抄）、
+//                   chrome sheet 像素（pixels.txt，Png+FastCopyIntoSprite+PremultiplyAlpha
+//                   真源，D075 兑现）+ 三 PNG 语料原样入库
 //
 // 每次动作前断言上游检出 HEAD == UPSTREAM.baseline 首行，防基准漂移。
 // resolved-rules 产物字节为上游命令 stdout 的原样捕获（UTF-8 无 BOM；末尾行尾来自
@@ -264,6 +270,12 @@ internal static partial class Program
             // ChromeMetrics 覆盖表/装载树 bounds/表达式求值四份真源转储
             .. ChromeArtifacts(openraRoot),
 
+            // widgets 模式（T25/issue #34）：六控件最小面——状态机真源驱动 dump（states）
+            // + 绘制调用序列（draw，公式照抄 + GetStatefulImageName 真函数）+ chrome sheet
+            // 像素面（pixels，Png/FastCopyIntoSprite/PremultiplyAlpha 真源，D075 兑现）
+            // + 三 PNG 语料原样入库（漂移哨兵）
+            .. WidgetsArtifacts(openraRoot),
+
         ];
 
         var firstRuns = new Dictionary<string, (string RelPath, byte[] Bytes)[]>();
@@ -342,6 +354,7 @@ internal static partial class Program
         "production-negative" => ProductionGroup(openraRoot, positive: false),
         "economy" => EconomyGroup(openraRoot),
         "replay" => ReplayGroup(openraRoot),
+        "widgets" => WidgetsGroup(openraRoot),
         _ => throw new ArgumentException($"未知场景模式：{mode}"),
     };
 }
