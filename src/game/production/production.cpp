@@ -1,6 +1,7 @@
 #include "game/production/production.hpp"
 
 #include "game/network/order.hpp"
+#include "game/sound/sfx.hpp"
 #include "game/world/world.hpp"
 
 namespace ora::game::production {
@@ -27,6 +28,11 @@ std::vector<std::string_view> split_list(std::string_view str_value) {
     idx_start = idx_comma + 1;
   }
   return vec_out;
+}
+
+std::string_view player_faction(const world::WorldModel& w, std::uint32_t u4_player) {
+  return u4_player < w.vec_players.size() ? std::string_view{w.vec_players[u4_player].str_faction}
+                                          : std::string_view{};
 }
 
 const world::TraitTemplate* find_template(const world::WorldModel& w, std::string_view str_type,
@@ -810,6 +816,10 @@ void production_queue_state_build(world::WorldModel& w) {
           trait.int4_param > 0 ? trait.int4_param : 100;
       queue.b_enabled = true;
       queue.b_valid_faction = true;
+      for (const auto& [str_k, str_v] : trait.vec_kv) {
+        if (str_k == "ReadyAudio") queue.str_ready_audio = str_v;
+        if (str_k == "BlockedAudio") queue.str_blocked_audio = str_v;
+      }
       w.prod.vec_players[idx].vec_queues.push_back(std::move(queue));
     }
     w.prod.vec_players[idx].res.int4_cash = w.lobby.int4_starting_cash;
@@ -874,13 +884,28 @@ void production_frame_end_task(world::WorldModel& w, std::uint32_t u4_kind, std:
     if (!b_done) return;
 
     const world::TraitTemplate* ptr_building{find_template(w, str_item, "Building")};
-    if (ptr_building != nullptr) return;
+    if (ptr_building != nullptr) {
+      for (ProductionItemModel& item : queue.vec_queue)
+        if (item.b_done && item.str_item == str_item && !item.b_ready_notified) {
+          item.b_ready_notified = true;
+          if (w.ptr_sfx != nullptr && !queue.str_ready_audio.empty())
+            sfx_on_production_ready(*w.ptr_sfx, u4_player, player_faction(w, u4_player),
+                                         queue.str_ready_audio);
+        }
+      return;
+    }
     if (produce_unit(w, u4_player, queue, str_item)) {
       for (std::size_t idx{queue.vec_queue.size()}; idx-- > 0;)
         if (queue.vec_queue[idx].b_done && queue.vec_queue[idx].str_item == str_item) {
           end_production(queue, idx);
           break;
         }
+      if (w.ptr_sfx != nullptr && !queue.str_ready_audio.empty())
+        sfx_on_production_ready(*w.ptr_sfx, u4_player, player_faction(w, u4_player),
+                                     queue.str_ready_audio);
+    } else if (w.ptr_sfx != nullptr && !queue.str_blocked_audio.empty()) {
+      sfx_on_production_blocked(*w.ptr_sfx, u4_player, player_faction(w, u4_player),
+                                     queue.str_blocked_audio);
     }
     return;
   }
@@ -914,6 +939,19 @@ void production_frame_end_task(world::WorldModel& w, std::uint32_t u4_kind, std:
   auto res_building{world::create_actor(w, str_item, u4_player, int4_x, int4_y, true)};
   if (!res_building.has_value()) return;
   end_production(*ptr_queue, idx_item);
+  if (w.ptr_sfx != nullptr) {
+    std::vector<std::string> vec_build_sounds;
+    if (const world::TraitTemplate* ptr_tpl{find_template(w, str_item, "Building")})
+      for (const auto& [str_k, str_v] : ptr_tpl->vec_kv)
+        if (str_k == "BuildSounds")
+          for (const std::string_view str_part : split_list(str_v))
+            vec_build_sounds.emplace_back(str_part);
+    if (!vec_build_sounds.empty())
+      sfx_on_building_placed(*w.ptr_sfx, u4_player, vec_build_sounds,
+                                  ora::platforms::wpos{.int4_x = int4_x * 1024 + 512,
+                                                       .int4_y = int4_y * 1024 + 512,
+                                                       .int4_z = 0});
+  }
 }
 
 const std::vector<world::TraitSpec>& production_trait_specs() {

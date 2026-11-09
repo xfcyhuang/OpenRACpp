@@ -1,5 +1,7 @@
 #include "game/combat/combat_sim.hpp"
 
+#include "game/sound/sfx.hpp"
+
 import std;
 
 #include "game/combat/armament.hpp"
@@ -107,6 +109,13 @@ void queue_move_within_range(Arena& arena, CombatUnit& unit, const CombatUnit& t
 void fire_barrel(Arena& arena, CombatUnit& unit, ArmamentState& arm,
                  pathfinding::WPos pos_muzzle, pathfinding::WPos pos_passive) {
   const WeaponDef& weapon{*arm.ptr_weapon};
+
+  if (arena.ptr_sfx != nullptr && !weapon.vec_report.empty())
+    ora::game::sfx_on_weapon_fired(
+        *arena.ptr_sfx, weapon.vec_report,
+        ora::platforms::wpos{.int4_x = unit.pos_center.int4_x,
+                             .int4_y = unit.pos_center.int4_y,
+                             .int4_z = unit.pos_center.int4_z});
 
   if (weapon.projectile.kind == ProjectileKind::kInstantHit) {
     Effect eff;

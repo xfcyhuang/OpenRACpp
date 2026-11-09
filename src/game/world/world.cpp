@@ -376,6 +376,7 @@ std::expected<std::uint32_t, std::string> create_actor(WorldModel& w, std::strin
     trait.str_param_type = tpl.str_param_type;
     trait.str_param2 = tpl.str_param2;
     trait.str_param3 = tpl.str_param3;
+    trait.vec_kv = tpl.vec_kv;
     if (ptr_spec->fn_create) ptr_spec->fn_create(ctx_create, trait);
 
     const std::uint32_t u4_handle{static_cast<std::uint32_t>(w.vec_traits.size())};

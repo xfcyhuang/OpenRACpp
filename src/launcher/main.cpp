@@ -21,6 +21,7 @@ import std;
 #include "game/replay/replay_format.hpp"
 #include "game/replay/replay_player.hpp"
 #include "game/replay/replay_record.hpp"
+#include "game/sound/sfx.hpp"
 #include "game/sound/sound.hpp"
 #include "launcher/cli_args.hpp"
 #include "launcher/game_session.hpp"
@@ -1129,6 +1130,18 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
   lch::GameSession& s{*res_session};
   ora::game::sound_facade sound{ora::game::make_sound_facade("", false)};
   std::println("sound: {} engine", ora::platforms::engine_dummy(sound.engine) ? "dummy" : "openal");
+  ora::game::support::MersenneTwister rng_cosmetic{
+      ora::game::support::make_mersenne_twister(static_cast<std::int32_t>(SDL_GetTicks()))};
+  ora::game::sfx_sound_rules sfx_rules{};
+  ora::game::sfx_context sfx{.ptr_facade = &sound,
+                             .ptr_rules = &sfx_rules,
+                             .ptr_rng_cosmetic = &rng_cosmetic};
+  s.w.ptr_sfx = &sfx;
+  ora::platforms::engine_set_listener_position(
+      sound.engine,
+      ora::platforms::wpos{.int4_x = s.w.econ.map_move.int4_width * 1024 / 2,
+                           .int4_y = s.w.econ.map_move.int4_height * 1024 / 2,
+                           .int4_z = 2133});
   lch::session_tick(s);
 
   UiState ui;
@@ -1149,6 +1162,7 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
     if (u4_now - u4_next_logic > kLogicBehindDropMs) u4_next_logic = u4_now;
     if (static_cast<std::int32_t>(u4_now - u4_next_logic) >= 0) {
       u4_next_logic += static_cast<std::uint32_t>(args.int4_tick_ms);
+      ora::game::sfx_context_set_tick(sfx, s.w.int4_world_tick);
       lch::session_tick(s);
       static_cast<void>(ora::game::sound_facade_tick(sound));
       flush_events(s, sz_printed, ptr_log);

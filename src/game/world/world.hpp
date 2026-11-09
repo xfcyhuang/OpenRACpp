@@ -10,6 +10,10 @@ import std;
 #include "game/world/trait.hpp"
 #include "game/world/trait_container.hpp"
 
+namespace ora::game {
+struct sfx_context;
+}
+
 namespace ora::game::world {
 
 struct MapPlayerRef {
@@ -77,6 +81,7 @@ struct WorldModel {
   std::deque<FrameEndTask> deque_frame_end;
   std::uint32_t u4_next_aid{};
   std::uint32_t u4_world_owner_player{};
+  ora::game::sfx_context* ptr_sfx{nullptr};
 };
 
 [[nodiscard]] std::expected<SyntheticMap, std::string> synthetic_map_from_yaml(

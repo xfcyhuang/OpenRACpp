@@ -172,6 +172,19 @@ target_compile_definitions(ora_audio PRIVATE
   ORA_AUDIO_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/audio")
 add_test(NAME audio COMMAND ora_audio)
 
+add_executable(ora_sfx sfx.cpp)
+target_link_libraries(ora_sfx PRIVATE
+  ora_std
+  ora_game
+  ora_mods_common
+  ora_platforms
+)
+target_compile_definitions(ora_sfx PRIVATE
+  ORA_SFX_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/sfx"
+  ORA_AUDIO_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/audio"
+  ORA_COMBAT_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/combat")
+add_test(NAME sfx COMMAND ora_sfx)
+
 set(ORA_SOFT_OAL_DLL "" CACHE FILEPATH
   "soft_oal.dll 路径（nuget 缓存 openra-openal-cs/1.0.23/native/win-x64 或 openal-soft 发布包）；空则跳过设备探针 target")
 if(ORA_SOFT_OAL_DLL)

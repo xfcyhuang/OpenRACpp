@@ -10,6 +10,10 @@ import std;
 #include "game/pathfinding/wangle.hpp"
 #include "game/support/mersenne_twister.hpp"
 
+namespace ora::game {
+struct sfx_context;
+}
+
 namespace ora::game::combat {
 
 struct UnitTemplate {
@@ -117,6 +121,7 @@ struct Arena {
   std::deque<FrameEndTask> deque_frame_end;
   std::uint32_t u4_next_effect_serial{1};
   std::int32_t int4_world_tick{};
+  ora::game::sfx_context* ptr_sfx{nullptr};
 };
 
 [[nodiscard]] const std::map<std::string, UnitTemplate, std::less<>>& unit_templates();
