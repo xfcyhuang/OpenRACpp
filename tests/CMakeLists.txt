@@ -267,3 +267,7 @@ target_compile_definitions(ora_lobby PRIVATE
   ORA_LOBBY_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/lobby"
   ORA_MAPS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/maps")
 add_test(NAME lobby COMMAND ora_lobby)
+
+add_executable(ora_full_flow full_flow.cpp)
+target_link_libraries(ora_full_flow PRIVATE ora_std ora_game ora_launcher_core)
+add_test(NAME full_flow COMMAND ora_full_flow)

@@ -22,10 +22,13 @@ struct MainMenuEnv {
 };
 
 // 菜单导航状态机：menuType + 退出/设置窗口开关 + 导航序列记录（D078 折叠回调面）。
+// b_start_skirmish（T28）：SKIRMISH_BUTTON 的 StartSkirmishGame 出口位——上游连接
+// 本地服务器开 SERVER_LOBBY，C++ 由 launcher 流程状态机（launcher/flow_state）承接。
 struct MainMenuState {
   MenuType type{MenuType::kStartupPrompts};
   bool b_quit{};
   bool b_settings_open{};
+  bool b_start_skirmish{};
   std::vector<std::string> vec_nav;
 };
 
