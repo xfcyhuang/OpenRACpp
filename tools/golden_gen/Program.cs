@@ -37,6 +37,13 @@
 //                   类直驱（不装配 ModData）——fresh-default/all-types/roundtrip 互证、
 //                   未知段键保留、空行分裂、坏值零值替换+告警逐字、CLI 覆盖、Keys 段
 //                   无字段段形态、float 最短往返锚点；UUID 行级归一化后入库
+//   chrome          widget 框架与 chrome 装载 dump（T24/issue #33）：四语料原样入库
+//                   （ra chrome.yaml/ingame-player.yaml + common/ra metrics.yaml，GPL）
+//                   + 真源 FieldLoader.Load<ChromeProvider.Collection> 集合表（排序序）
+//                   + ChromeMetrics 双文件 Merge 覆盖表 + 装载树 bounds（真源
+//                   IntegerExpression.Evaluate 按 Widget.Initialize substitutions 公式，
+//                   顶层挂哑 root PARENT=0、窗口 1024x768）+ 表达式集求值表；
+//                   事件路由不进 oracle（上游虚方法面无头不可驱动），由 C++ ctest 覆盖
 //
 // 每次动作前断言上游检出 HEAD == UPSTREAM.baseline 首行，防基准漂移。
 // resolved-rules 产物字节为上游命令 stdout 的原样捕获（UTF-8 无 BOM；末尾行尾来自
@@ -251,6 +258,11 @@ internal static partial class Program
                 () => DumpMusicScenarioFile(MusicScenarioRepeat())),
             ("tests/golden/music/scenario-background.txt", null,
                 () => DumpMusicScenarioFile(MusicScenarioBackground())),
+
+            // chrome 模式（T24/issue #33）：widget 框架与 chrome 装载——四语料原样入库
+            // （ra chrome/ingame-player + common/ra metrics，GPL）+ ChromeProvider 集合表/
+            // ChromeMetrics 覆盖表/装载树 bounds/表达式求值四份真源转储
+            .. ChromeArtifacts(openraRoot),
 
         ];
 

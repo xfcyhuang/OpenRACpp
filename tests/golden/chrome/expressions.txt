@@ -1,0 +1,74 @@
+# chrome layout expressions oracle (T24/issue #33)
+# all X/Y/Width/Height expressions from mods/ra/chrome/ingame-player.yaml + chrome.yaml PanelRegion-free texts,
+# deduplicated in document order, evaluated with upstream IntegerExpression.Evaluate
+# subs: WINDOW_WIDTH=1024 WINDOW_HEIGHT=768 PARENT_WIDTH=238 PARENT_HEIGHT=250 WIDTH=62 HEIGHT=46
+# format: <expr><TAB>value
+10	10
+0 - 2	-2
+62	62
+46	46
+80	80
+5	5
+WINDOW_HEIGHT - HEIGHT - 5	717
+434	434
+44	44
+14	14
+WINDOW_HEIGHT - HEIGHT - 14	708
+275	275
+26	26
+34	34
+1	1
+68	68
+102	102
+136	136
+170	170
+204	204
+238	238
+294	294
+138	138
+9	9
+WINDOW_WIDTH - WIDTH - 260	702
+200	200
+25	25
+PARENT_WIDTH - WIDTH	176
+24	24
+PARENT_WIDTH - 30	208
+WINDOW_WIDTH - 250	774
+262	262
+7	7
+28	28
+6	6
+32	32
+64	64
+96	96
+192	192
+8	8
+40	40
+222	222
+220	220
+300	300
+250	250
+47	47
+190	190
+42	42
+2	2
+29	29
+240	240
+31	31
+93	93
+124	124
+155	155
+186	186
+22	22
+3	3
+211	211
+272	272
+PARENT_WIDTH	238
+23	23
+35	35
+50	50
+-21	-21
+4	4
+PARENT_WIDTH - WIDTH - 30	146
+PARENT_WIDTH + 4	242
+175	175

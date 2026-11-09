@@ -97,6 +97,19 @@ if(SDL2_FOUND)
     WORKING_DIRECTORY $<TARGET_FILE_DIR:ora_render_probe>)
   set_tests_properties(render_probe PROPERTIES LABELS "render" SKIP_RETURN_CODE 77)
   message(STATUS "SDL2 render probe enabled: ${SDL2_DIR}")
+
+  add_executable(ora_ui_probe ui_probe.cpp)
+  target_link_libraries(ora_ui_probe PRIVATE ora_std ora_game SDL2::SDL2main SDL2::SDL2)
+  target_include_directories(ora_ui_probe PRIVATE ${SDL2_INCLUDE_DIRS})
+  target_compile_definitions(ora_ui_probe PRIVATE
+    ORA_FONTS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/fonts")
+  add_custom_command(TARGET ora_ui_probe POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${SDL2_DIR}/../../../bin/SDL2.dll" $<TARGET_FILE_DIR:ora_ui_probe>)
+  add_test(NAME ui_probe COMMAND ora_ui_probe
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:ora_ui_probe>)
+  set_tests_properties(ui_probe PROPERTIES LABELS "render" SKIP_RETURN_CODE 77)
+  message(STATUS "SDL2 ui probe enabled: ${SDL2_DIR}")
 else()
   message(STATUS "SDL2 未找到（-DSDL2_DIR=<...>/lib/cmake/SDL2）——render_probe target 跳过")
 endif()
@@ -228,3 +241,10 @@ target_link_libraries(ora_settings PRIVATE ora_std ora_game)
 target_compile_definitions(ora_settings PRIVATE
   ORA_SETTINGS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/settings")
 add_test(NAME settings COMMAND ora_settings)
+
+add_executable(ora_ui ui.cpp)
+target_link_libraries(ora_ui PRIVATE ora_std ora_game)
+target_compile_definitions(ora_ui PRIVATE
+  ORA_UI_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/chrome"
+  ORA_FONTS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/fonts")
+add_test(NAME ui COMMAND ora_ui)
