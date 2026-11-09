@@ -71,7 +71,7 @@ std::expected<bool, std::string> sound_play_predefined(
 
   if (!str_name.empty() &&
       (u4_player == kSfxNoPlayer || u4_player == facade.u4_local_player)) {
-    const float f4_volume{facade_internal_sound_volume(facade) * f4_volume_modifier *
+    const float f4_volume{sound_facade_internal_sound_volume(facade) * f4_volume_modifier *
                           pool.f4_volume_modifier};
 
     const auto play_sound{[&]() -> std::optional<ora::platforms::sound> {

@@ -1,0 +1,5 @@
+# baseline 1f594e32065615ed1847962c80ecfe6e868a11c3 music playlist shuffle n=9
+playlist t01,t02,t04,t05,t08,t09,t10,t11,t12
+seed 1 draws 8 random t08,t09,t02,t01,t11,t10,t12,t05,t04
+seed 2 draws 8 random t01,t12,t10,t02,t09,t08,t04,t05,t11
+seed 3 draws 8 random t05,t02,t08,t09,t04,t01,t12,t11,t10

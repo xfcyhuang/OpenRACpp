@@ -1164,7 +1164,7 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
       u4_next_logic += static_cast<std::uint32_t>(args.int4_tick_ms);
       ora::game::sfx_context_set_tick(sfx, s.w.int4_world_tick);
       lch::session_tick(s);
-      ora::game::sound_facade_tick(sound);
+      static_cast<void>(ora::game::sound_facade_tick(sound));
       flush_events(s, sz_printed, ptr_log);
       if (!s.om.str_fatal.empty()) {
         std::println("ora: order manager fatal: {}", s.om.str_fatal);

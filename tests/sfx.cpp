@@ -100,7 +100,7 @@ void test_play_gates() {
 void test_play_volume_chain() {
   sound_facade facade{make_dummy_facade()};
   facade.u4_local_player = kLocalPlayer;
-  facade.f4_sound_volume_modifier = 0.8f;
+  facade.fp_sound_volume_modifier = 0.8f;
   const auto snd{sound_play(facade, sound_type::world, "click1", wpos_at(0, 0), 0.5f)};
   check(snd.has_value(), "volume chain play returns sound");
   check(facade.vec_log.size() == 1u && facade.vec_log[0] ==

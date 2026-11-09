@@ -26,6 +26,9 @@ module;
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
+#include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -38,7 +41,10 @@ using std::array;
 using std::ceil;
 using std::bit_cast;
 using std::clamp;
+using std::decay_t;
+using std::erase_if;
 using std::find;
+using std::remove;
 using std::reverse;
 using std::find_if;
 using std::greater;
@@ -51,6 +57,7 @@ using std::numeric_limits;
 using std::sort;
 using std::sqrt;
 using std::stable_sort;
+using std::to_underlying;
 using std::unique;
 using std::byte;
 using std::deque;
@@ -64,6 +71,7 @@ using std::from_chars_result;
 using std::getline;
 using std::hash;
 using std::ifstream;
+using std::ofstream;
 using std::ios;
 using std::istreambuf_iterator;
 using std::ofstream;
@@ -72,7 +80,9 @@ using std::streamsize;
 using std::map;
 using std::make_shared;
 using std::make_unique;
+using std::apply;
 using std::shared_ptr;
+using std::tuple;
 using std::unique_ptr;
 using std::u16string;
 using std::u16string_view;
@@ -91,6 +101,8 @@ using std::size_t;
 using std::span;
 using std::string;
 using std::string_view;
+using std::chars_format;
+using std::error_code;
 using std::to_chars;
 using std::to_chars_result;
 using std::to_string;
@@ -131,6 +143,9 @@ using std::filesystem::recursive_directory_iterator;
 using std::filesystem::begin;
 using std::filesystem::end;
 using std::filesystem::exists;
+using std::filesystem::create_directories;
+using std::filesystem::remove_all;
+using std::filesystem::temp_directory_path;
 }
 using std::operator+;
 using std::operator-;

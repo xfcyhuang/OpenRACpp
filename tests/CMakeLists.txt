@@ -212,3 +212,19 @@ target_link_libraries(ora_fonts PRIVATE ora_std ora_game)
 target_compile_definitions(ora_fonts PRIVATE
   ORA_FONTS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/fonts")
 add_test(NAME fonts COMMAND ora_fonts)
+
+add_executable(ora_music music.cpp)
+target_link_libraries(ora_music PRIVATE
+  ora_std
+  ora_game
+  ora_platforms
+)
+target_compile_definitions(ora_music PRIVATE
+  ORA_MUSIC_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/music")
+add_test(NAME music COMMAND ora_music)
+
+add_executable(ora_settings settings.cpp)
+target_link_libraries(ora_settings PRIVATE ora_std ora_game)
+target_compile_definitions(ora_settings PRIVATE
+  ORA_SETTINGS_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/settings")
+add_test(NAME settings COMMAND ora_settings)

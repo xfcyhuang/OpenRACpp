@@ -870,3 +870,41 @@ cpp26.md 规定 `.hpp` / `.cpp` 内一律不写注释（P1-2 整改）。本文�
   孤立代理按单 code unit 出一个 .notdef 方框——语义等价非偏离）。
 - deviceScale 路径：`(uint)` 截断复刻 + set_scale 清缓存；ds≠1 的跨库对拍无
   黄金（不测语义，只测机制），ds=1 面全量对拍。
+
+## src/game/settings.cpp
+- 全文件无注释（cpp26.md）；上游锚点全表见 .ora-explore/t21-settings.md 与
+  upstream.md U085-U087，偏离见 COVERAGE.md D059（修正）/D065-D067。
+- 字段表 = tuple<FieldEntry>（成员指针绑定 yaml 名↔字段，避免对含 std::string 的
+  非标准布局用 offsetof 触发 -Winvalid-offsetof）；访问统一经 (void*, FieldTypeId)
+  switch——`&model.*entry.ptr_member` 必须加括号（`.*` 优先级低于一元 `&`，
+  裸写会解析成 `(&model).*p` 编译错）。
+- float 格式化：std::to_chars(scientific) 取最短数字+指数后按 .NET Single 规则重排
+  （定点窗 exp∈[-4,8]，科学计数 `E±XX` 2 位指数最小，U086）；**to_chars 指数带
+  `+` 而 from_chars 不吃**——解析指数前手工跳 `+`，否则正指数值全变空串
+  （format(1.25f)==format(1.0f)=="" → UIScale 被当成默认值剔除，本票实测踩过）。
+- settings_keys_assign = 逐条 RemoveAll+追加（HotkeyManager.Set 语义），勿整表
+  替换——文件已载的 Keys 节点（如 Autocomplete: F2）不在 vec_settings 里，整表
+  替换会把它们连同注释一起丢掉。
+- 装载警告两阶段：先全字段装载（声明序）后 CLI 覆盖（声明序）——上游就是两个
+  循环，合并成单循环会让 CLI 告警插进装载告警中间，badval-warnings.txt 对拍即炸。
+- 段绑定持 vec_yaml 下标（SettingsModel.sz_player 等），vector 增长使引用失效——
+  新增段一律走 section_index_get_or_create，勿缓存 MiniYamlNode& 跨 append。
+- enum_storage_read/write 用 memcpy 于 enum class 存储（底层均为 int）；零值 =
+  枚举首成员（WindowMode 零值是 Windowed 不是 PseudoFullscreen，别照抄默认值表）。
+- settings_load 对缺失文件 = 空表 + 六空段节点（GetOrCreate 追加语义，
+  vec_yaml.size()==6 非 0）；save 过滤无子节点段后每段（含末段）追加 spacer。
+
+## tests/settings.cpp
+- UUID 归一化 = 行级（`\tUUID: <36位guid>` → `<UUID>`），是 fresh-default/all-types
+  对拍前提；roundtrip 用例对 RAW 字节（文件 UUID 透传不重掷，无需归一化）。
+- 黄金 badval 不含 int 集坏元素（FrozenSet<int> 迭代序=排序序不可移植，D065）；
+  int 集零值元素行为（vec=={5,0} 插入序）在 C++ 侧断言。
+- D059 断言三件套：错误串逐字（`...of type `OpenRA.Hotkey``）、坏值后注册表不变
+  （先验证后应用）、readonly/未知名节点先行跳过（上游循环形状）。
+
+## tools/golden_gen/GoldenGen.Settings.cs
+- 轻路径直驱真 Settings 类（不装配 ModData——SettingsModule.Save 会碰
+  Game.Settings 静态，模式内一律走实例 Save()）；每产物独立双跑（check 语义）。
+- roundtrip 产物 = 重跑 all-types 场景落盘后 reload+resave（双跑各自独立，非读
+  all-types 黄金）；UUID 行级归一化用正则（producer 侧），与 C++ 测试的手工扫描
+  各自实现互为印证。

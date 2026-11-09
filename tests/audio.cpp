@@ -791,8 +791,9 @@ int main() {
     pl::openal_probe_override("ora-audio-test-no-such-dir/soft_oal.dll");
     ora::game::sound_facade facade{ora::game::make_sound_facade("Null Device", false)};
     check(pl::engine_dummy(facade.engine), "facade falls back to dummy engine");
-    ora::game::sound_facade_tick(facade);
-    check(!facade.b_music_playing, "facade tick without music is no-op");
+    check(ora::game::sound_facade_tick(facade) == ora::game::sound_tick_event::k_none,
+          "facade tick without music is no-op");
+    check(!facade.b_music_playing, "facade tick without music keeps flag clear");
     ora::game::sound_facade facade_muted{ora::game::make_sound_facade("Null Device", true)};
     check(pl::engine_volume_get(facade_muted.engine) == 0.0f, "facade mute zeroes volume");
     pl::openal_probe_override("");

@@ -1,0 +1,20 @@
+Player:
+	Name: Tester2
+
+UnknownSection:
+	SomeKey: SomeValue
+	Nested:
+		Deep: 5
+
+Sound:
+	UnknownInKnown: keepme
+	SoundVolume: 0.4
+	MusicVolume: 0.3
+	Mute: True
+
+Server: # trailing on section
+	Name: x
+
+Debug:
+	UUID: <UUID>
+

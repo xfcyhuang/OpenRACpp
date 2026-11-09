@@ -115,22 +115,26 @@ std::expected<HotkeyRegistryModel, std::string> hotkey_registry_load(
   return reg;
 }
 
-void hotkey_registry_apply_settings(HotkeyRegistryModel& reg,
-                                    std::span<const MiniYamlNode> vec_keys_nodes) {
+std::expected<void, std::string> hotkey_registry_apply_settings(
+    HotkeyRegistryModel& reg, std::span<const MiniYamlNode> vec_keys_nodes) {
+  std::vector<std::size_t> vec_targets;
+  std::vector<HotkeyModel> vec_values;
   for (const MiniYamlNode& node : vec_keys_nodes) {
     const std::optional<std::size_t> idx{hotkey_registry_find(reg, node.str_key)};
     if (!idx.has_value()) continue;
     if (reg.vec_definitions[*idx].b_readonly) continue;
 
     auto res{hotkey_try_parse(node.str_value)};
-    if (!res.has_value()) {
-      std::println("hotkeys: cannot parse `{}' for {} ({}); keeping default", node.str_value,
-                   node.str_key, res.error());
-      continue;
-    }
-    reg.vec_keys[*idx] = *res;
+    if (!res.has_value())
+      return std::unexpected(std::format(
+          "FieldLoader: Cannot parse `{}` into field `{}` of type `OpenRA.Hotkey`",
+          node.str_value, node.str_key));
+    vec_targets.push_back(*idx);
+    vec_values.push_back(*res);
   }
+  for (std::size_t i{0}; i < vec_targets.size(); ++i) reg.vec_keys[vec_targets[i]] = vec_values[i];
   hotkey_registry_recompute_duplicates(reg);
+  return {};
 }
 
 std::optional<std::size_t> hotkey_registry_find(const HotkeyRegistryModel& reg,
