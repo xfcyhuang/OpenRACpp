@@ -63,6 +63,10 @@ struct sound_event {
 struct dummy_engine_state {
   std::vector<sound_event> vec_play_events;
   std::int32_t int4_next_stream_id{1};
+  // engine_volume_set 调用记录（D068 口径：上游 DummySoundEngine.Volume set{} 空体
+  // 且 get 恒 0 的语义不变；记录面供无头测试观测 MuteAudio/UnmuteAudio 的 master
+  // 0/1 调用序——对应 oracle 侧 MenuRecordingSoundEngine 的 master= 留痕）
+  std::vector<float> vec_master_sets;
 };
 
 struct sound_engine {
@@ -93,6 +97,9 @@ void engine_dispose(sound_engine& engine);
                                                          bool b_loop, float f4_volume);
 
 [[nodiscard]] const std::vector<sound_event>& engine_play_events(const sound_engine& engine);
+
+// dummy 引擎的 engine_volume_set 调用记录（真引擎/OpenAL 无记录面，返回空）
+[[nodiscard]] const std::vector<float>& engine_master_sets(const sound_engine& engine);
 
 void engine_stream_finish(sound_engine& engine, const sound& snd);
 

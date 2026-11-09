@@ -1,0 +1,37 @@
+# settings panel bindings oracle (T26/issue #35)
+# real SettingsUtils.Bind*Pref on real widgets + real Game.Settings fields;
+# display-leave formula transcribed from DisplaySettingsLogic.cs:274-285; ListLayout real AdjustChildren
+slider-bind	SOUND_VOLUME	initial=0.500000
+slider-change	SOUND_VOLUME	0.75	field=0.750000
+sound-volume-chain	setSoundVolume=0.750000
+volumes	Sound=0.750000	Music=0.250000	Video=0.600000
+checkbox-bind	MUTE_SOUND	checked=1	field.Mute=True
+mute-chain	master=0.000000,master=1.000000
+display-leave	untouched	windowed=1024,768	restart=0
+display-leave	mode-windowed	windowed=1024,768	restart=1
+display-leave	size-changed	windowed=1280,720	restart=1
+display-leave	bad-text	windowed=0,0	restart=1
+display-leave	video-display	windowed=1024,768	restart=1
+display-leave	gl-profile	windowed=1024,768	restart=1
+tab-stride	0,35
+tab	0	0,0
+tab	1	0,35
+tab	2	0,70
+scroll-row	y=5	h=13
+scroll-row	y=28	h=20
+scroll-row	y=58	h=50
+scroll-row	y=118	h=50
+scroll-row	y=178	h=50
+scroll-row	y=238	h=20
+scroll-content-height	263
+hotkey-definitions	174
+hotkey-row	CycleBase	H None	H None	default-same=1	readonly=0
+hotkey-row	ToLastEvent	SPACE None	SPACE None	default-same=1	readonly=0
+hotkey-row	ToSelection	HOME None	HOME None	default-same=1	readonly=0
+hotkey-row	ToggleChatMode	TAB Shift	TAB Shift	default-same=1	readonly=1
+hotkey-rekey	CycleBase	E Ctrl	current=E Ctrl
+hotkey-settings-node	CycleBase	E Ctrl
+hotkey-rekey-default	CycleBase	nodes=0
+hotkey-readonly	ToggleChatMode	current=TAB Shift
+hotkey-duplicate	ToSelection	ToLastEvent
+hotkey-duplicate-cleared	ToLastEvent	1

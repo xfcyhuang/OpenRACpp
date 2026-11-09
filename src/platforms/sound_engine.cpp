@@ -395,8 +395,17 @@ float engine_volume_get(const sound_engine& engine) {
   return engine.ptr_state->f4_volume;
 }
 
+const std::vector<float>& engine_master_sets(const sound_engine& engine) {
+  static const std::vector<float> vec_empty{};
+  if (engine.kind != sound_engine_kind::dummy) return vec_empty;
+  return engine.ptr_dummy->vec_master_sets;
+}
+
 void engine_volume_set(sound_engine& engine, float f4_volume) {
-  if (engine.kind == sound_engine_kind::dummy) return;
+  if (engine.kind == sound_engine_kind::dummy) {
+    engine.ptr_dummy->vec_master_sets.push_back(f4_volume);
+    return;
+  }
   openal_engine_state& state{*engine.ptr_state};
   state.f4_volume = f4_volume;
   state.ops.fn_al_listener_f(kAlGain, f4_volume);

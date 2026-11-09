@@ -1,0 +1,854 @@
+# mainmenu/settings chrome tree oracle (T26/issue #35)
+# source: mods/common/chrome/{mainmenu,settings,settings-display,settings-audio,settings-hotkeys}.yaml
+# window=1024x768; top-level mounted on dumb root (PARENT=0); format as chrome/ingame-player-tree.txt
+file	mainmenu.yaml
+Container@MAINMENU	0,0,0,0
+	field	Logic	MainMenuLogic
+	LogicKeyListener@GLOBAL_KEYHANDLER	0,0,0,0
+		field	Logic	MusicHotkeyLogic, ScreenshotHotkeyLogic, MuteHotkeyLogic
+	Background@BORDER	-15,-15,1054,798
+		field	Background	mainmenu-border
+		field	X	0 - 15
+		field	Y	0 - 15
+		field	Width	WINDOW_WIDTH + 30
+		field	Height	WINDOW_HEIGHT + 30
+	Image@LOGO	728,30,0,0
+		field	X	WINDOW_WIDTH - 296
+		field	Y	30
+		field	ImageCollection	logos
+		field	ImageName	logo
+	Label@VERSION_LABEL	728,276,276,25
+		field	Logic	VersionLabelLogic
+		field	X	WINDOW_WIDTH - 296
+		field	Y	296 - 20
+		field	Width	296 - 20
+		field	Height	25
+		field	Align	Center
+		field	Font	Regular
+		field	Shadow	true
+	Container@MENUS	38,224,200,320
+		field	X	13 + (WINDOW_WIDTH - 522) / 4 - WIDTH / 2
+		field	Y	WINDOW_HEIGHT / 2 - HEIGHT / 2
+		field	Width	200
+		field	Height	320
+		Background@MAIN_MENU	0,0,200,320
+			field	Width	PARENT_WIDTH
+			field	Height	PARENT_HEIGHT
+			Label@MAINMENU_LABEL_TITLE	0,22,200,30
+				field	X	0
+				field	Y	22
+				field	Width	200
+				field	Height	30
+				field	Text	label-main-menu-title
+				field	Align	Center
+				field	Font	Bold
+			Button@SINGLEPLAYER_BUTTON	30,60,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	60
+				field	Width	140
+				field	Height	30
+				field	Text	label-singleplayer-title
+				field	Font	Bold
+			Button@MULTIPLAYER_BUTTON	30,100,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	100
+				field	Width	140
+				field	Height	30
+				field	Text	label-multiplayer-title
+				field	Font	Bold
+			Button@SETTINGS_BUTTON	30,140,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	140
+				field	Width	140
+				field	Height	30
+				field	Text	button-settings-title
+				field	Font	Bold
+			Button@EXTRAS_BUTTON	30,180,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	180
+				field	Width	140
+				field	Height	30
+				field	Text	button-extras-title
+				field	Font	Bold
+			Button@CONTENT_BUTTON	30,220,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	220
+				field	Width	140
+				field	Height	30
+				field	Text	button-main-menu-content
+				field	Font	Bold
+			Button@QUIT_BUTTON	30,260,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	260
+				field	Width	140
+				field	Height	30
+				field	Text	button-quit
+				field	Font	Bold
+		Background@SINGLEPLAYER_MENU	0,0,200,320
+			field	Width	PARENT_WIDTH
+			field	Height	PARENT_HEIGHT
+			Label@SINGLEPLAYER_MENU_TITLE	0,20,200,30
+				field	X	0
+				field	Y	20
+				field	Width	200
+				field	Height	30
+				field	Text	label-singleplayer-title
+				field	Align	Center
+				field	Font	Bold
+			Button@SKIRMISH_BUTTON	30,60,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	60
+				field	Width	140
+				field	Height	30
+				field	Text	button-singleplayer-menu-skirmish
+				field	Font	Bold
+			Button@MISSIONS_BUTTON	30,100,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	100
+				field	Width	140
+				field	Height	30
+				field	Text	label-missions-title
+				field	Font	Bold
+			Button@LOAD_BUTTON	30,140,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	140
+				field	Width	140
+				field	Height	30
+				field	Text	button-singleplayer-menu-load
+				field	Font	Bold
+			Button@BACK_BUTTON	30,260,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Key	escape
+				field	Y	260
+				field	Width	140
+				field	Height	30
+				field	Text	button-back
+				field	Font	Bold
+		Background@EXTRAS_MENU	0,0,200,320
+			field	Width	PARENT_WIDTH
+			field	Height	PARENT_HEIGHT
+			Label@EXTRAS_MENU_TITLE	0,20,200,30
+				field	X	0
+				field	Y	20
+				field	Width	200
+				field	Height	30
+				field	Text	button-extras-title
+				field	Align	Center
+				field	Font	Bold
+			Button@REPLAYS_BUTTON	30,60,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	60
+				field	Width	140
+				field	Height	30
+				field	Text	button-extras-menu-replays
+				field	Font	Bold
+			Button@MUSIC_BUTTON	30,100,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	100
+				field	Width	140
+				field	Height	30
+				field	Text	label-music-title
+				field	Font	Bold
+			Button@MAP_EDITOR_BUTTON	30,140,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	140
+				field	Width	140
+				field	Height	30
+				field	Text	label-map-editor-title
+				field	Font	Bold
+			Button@ASSETBROWSER_BUTTON	30,180,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	180
+				field	Width	140
+				field	Height	30
+				field	Text	button-extras-menu-assetbrowser
+				field	Font	Bold
+			Button@CREDITS_BUTTON	30,220,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	220
+				field	Width	140
+				field	Height	30
+				field	Text	label-credits-title
+				field	Font	Bold
+			Button@BACK_BUTTON	30,260,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Key	escape
+				field	Y	260
+				field	Width	140
+				field	Height	30
+				field	Text	button-back
+				field	Font	Bold
+		Background@MAP_EDITOR_MENU	0,0,200,320
+			field	Width	PARENT_WIDTH
+			field	Height	PARENT_HEIGHT
+			Label@MAP_EDITOR_MENU_TITLE	0,20,200,30
+				field	X	0
+				field	Y	20
+				field	Width	200
+				field	Height	30
+				field	Text	label-map-editor-title
+				field	Align	Center
+				field	Font	Bold
+			Button@NEW_MAP_BUTTON	30,60,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	60
+				field	Width	140
+				field	Height	30
+				field	Text	button-map-editor-new-map
+				field	Font	Bold
+			Button@LOAD_MAP_BUTTON	30,100,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Y	100
+				field	Width	140
+				field	Height	30
+				field	Text	button-map-editor-load-map
+				field	Font	Bold
+			Button@BACK_BUTTON	30,260,140,30
+				field	X	PARENT_WIDTH / 2 - WIDTH / 2
+				field	Key	escape
+				field	Y	260
+				field	Width	140
+				field	Height	30
+				field	Text	button-back
+				field	Font	Bold
+	Container@PERFORMANCE_INFO	0,0,0,0
+		field	Logic	PerfDebugLogic
+		Label@PERF_TEXT	30,698,170,40
+			field	X	30
+			field	Y	WINDOW_HEIGHT - 70
+			field	Width	170
+			field	Height	40
+			field	Contrast	true
+		Background@GRAPH_BG	784,528,210,210
+			field	ClickThrough	true
+			field	Background	dialog4
+			field	X	WINDOW_WIDTH - 240
+			field	Y	WINDOW_HEIGHT - 240
+			field	Width	210
+			field	Height	210
+			PerfGraph@GRAPH	5,5,200,200
+				field	X	5
+				field	Y	5
+				field	Width	200
+				field	Height	200
+	Background@NEWS_BG	297,35,430,55
+		field	X	(WINDOW_WIDTH - WIDTH) / 2
+		field	Y	35
+		field	Width	430
+		field	Height	55
+		DropDownButton@NEWS_BUTTON	15,15,400,25
+			field	Background	newsbutton
+			field	X	15
+			field	Y	15
+			field	Width	400
+			field	Height	25
+			field	Text	dropdownbutton-news-bg-button
+			field	Font	Bold
+	Container@UPDATE_NOTICE	448,95,128,0
+		field	X	(WINDOW_WIDTH - WIDTH) / 2
+		field	Y	95
+		field	Width	128
+		Label@A	0,0,128,25
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Align	Center
+			field	Shadow	true
+			field	Text	label-update-notice-a
+		Label@B	0,20,128,25
+			field	Y	20
+			field	Width	PARENT_WIDTH
+			field	Height	25
+			field	Align	Center
+			field	Shadow	true
+			field	Text	label-update-notice-b
+	Container@PLAYER_PROFILE_CONTAINER	25,25,0,0
+		field	Logic	LoadLocalPlayerProfileLogic
+		field	X	25
+		field	Y	25
+file	settings.yaml
+Background@SETTINGS_PANEL	62,84,900,600
+	field	Logic	SettingsLogic
+	field	X	(WINDOW_WIDTH - WIDTH) / 2
+	field	Y	(WINDOW_HEIGHT -  HEIGHT) / 2
+	field	Width	900
+	field	Height	600
+	Label@SETTINGS_LABEL_TITLE	0,20,900,25
+		field	Y	20
+		field	Width	PARENT_WIDTH
+		field	Height	25
+		field	Text	button-settings-title
+		field	Align	Center
+		field	Font	Bold
+	Button@RESET_BUTTON	190,555,160,25
+		field	X	20 + 10 + WIDTH
+		field	Y	PARENT_HEIGHT - 45
+		field	Width	160
+		field	Height	25
+		field	Text	button-settings-panel-reset
+		field	Font	Bold
+	Button@BACK_BUTTON	720,555,160,25
+		field	Key	escape
+		field	X	PARENT_WIDTH - 180
+		field	Y	PARENT_HEIGHT - 45
+		field	Width	160
+		field	Height	25
+		field	Text	button-back
+		field	Font	Bold
+	Container@SETTINGS_TAB_CONTAINER	20,50,900,25
+		field	X	20
+		field	Y	50
+		field	Width	PARENT_WIDTH
+		field	Height	25
+		Button@BUTTON_TEMPLATE	0,0,160,25
+			field	Width	160
+			field	Height	25
+			field	Font	Bold
+	Container@PANEL_CONTAINER	0,0,900,600
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		Container@PANEL_TEMPLATE	190,50,690,495
+			field	X	190
+			field	Y	50
+			field	Width	PARENT_WIDTH - 190 - 20
+			field	Height	PARENT_HEIGHT - 105
+	TooltipContainer@SETTINGS_TOOLTIP_CONTAINER	0,0,0,0
+file	settings-display.yaml
+Container@DISPLAY_PANEL	0,0,0,0
+	field	Logic	DisplaySettingsLogic
+	field	Width	PARENT_WIDTH
+	field	Height	PARENT_HEIGHT
+	ScrollPanel@SETTINGS_SCROLLPANEL	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		field	CollapseHiddenChildren	True
+		field	TopBottomSpacing	5
+		field	ItemSpacing	10
+		Background@DISPLAY_SECTION_HEADER	5,0,-34,13
+			field	X	5
+			field	Width	PARENT_WIDTH - 24 - 10
+			field	Height	13
+			field	Background	separator
+			field	ClickThrough	True
+			Label@LABEL	0,0,-34,13
+				field	Width	PARENT_WIDTH
+				field	Height	PARENT_HEIGHT
+				field	Font	TinyBold
+				field	Align	Center
+				field	Text	label-display-section-header
+		Container@ROW	0,0,-24,50
+			field	Width	PARENT_WIDTH - 24
+			field	Height	50
+			Container@BATTLEFIELD_CAMERA_DROPDOWN_CONTAINER	10,0,-32,0
+				field	X	10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Label@BATTLEFIELD_CAMERA	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Text	label-battlefield-camera-dropdown
+				DropDownButton@BATTLEFIELD_CAMERA_DROPDOWN	0,25,-32,25
+					field	Y	25
+					field	Width	PARENT_WIDTH
+					field	Height	25
+					field	Font	Regular
+			Container@TARGET_LINES_DROPDOWN_CONTAINER	-2,0,-32,0
+				field	X	PARENT_WIDTH / 2 + 10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Label@TARGET_LINES	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Text	label-target-lines-dropdown-container
+				DropDownButton@TARGET_LINES_DROPDOWN	0,25,-32,25
+					field	Y	25
+					field	Width	PARENT_WIDTH
+					field	Height	25
+					field	Font	Regular
+		Container@ROW	0,0,-24,50
+			field	Width	PARENT_WIDTH - 24
+			field	Height	50
+			Container@UI_SCALE_DROPDOWN_CONTAINER	10,0,-32,0
+				field	X	10
+				field	Width	PARENT_WIDTH / 2 - 20
+				LabelForInput@UI_SCALE	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Text	label-ui-scale-dropdown
+					field	For	UI_SCALE_DROPDOWN
+				DropDownButton@UI_SCALE_DROPDOWN	0,25,-32,25
+					field	Y	25
+					field	Width	PARENT_WIDTH
+					field	Height	25
+					field	Font	Regular
+			Container@STATUS_BAR_DROPDOWN_CONTAINER	-2,0,-32,0
+				field	X	PARENT_WIDTH / 2 + 10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Label@STATUS_BARS	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Text	label-status-bar-dropdown-container-bars
+				DropDownButton@STATUS_BAR_DROPDOWN	0,25,-32,25
+					field	Y	25
+					field	Width	PARENT_WIDTH
+					field	Height	25
+					field	Font	Regular
+		Container@ROW	0,0,-24,20
+			field	Width	PARENT_WIDTH - 24
+			field	Height	20
+			Container@CURSORDOUBLE_CHECKBOX_CONTAINER	10,0,-32,0
+				field	X	10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Checkbox@CURSORDOUBLE_CHECKBOX	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Regular
+					field	Text	checkbox-cursordouble-container
+			Container@PLAYER_STANCE_COLORS_CHECKBOX_CONTAINER	-2,0,-32,0
+				field	X	PARENT_WIDTH / 2 + 10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Checkbox@PLAYER_STANCE_COLORS_CHECKBOX	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Regular
+					field	Text	checkbox-player-stance-colors-container.label
+					field	TooltipText	checkbox-player-stance-colors-container.tooltip
+					field	TooltipContainer	SETTINGS_TOOLTIP_CONTAINER
+		Container@ROW	0,0,-24,20
+			field	Width	PARENT_WIDTH - 24
+			field	Height	20
+			Container@UI_FEEDBACK_CHECKBOX_CONTAINER	10,0,-22,0
+				field	X	10
+				field	Width	PARENT_WIDTH / 2 - 10
+				Checkbox@UI_FEEDBACK_CHECKBOX	0,0,-22,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Regular
+					field	Text	checkbox-ui-feedback-container.label
+					field	TooltipText	checkbox-ui-feedback-container.tooltip
+					field	TooltipContainer	SETTINGS_TOOLTIP_CONTAINER
+			Container@TRANSIENTS_CHECKBOX_CONTAINER	-2,0,-32,0
+				field	X	PARENT_WIDTH / 2 + 10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Checkbox@TRANSIENTS_CHECKBOX	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Regular
+					field	Text	checkbox-transients-container.label
+					field	TooltipText	checkbox-transients-container.tooltip
+					field	TooltipContainer	SETTINGS_TOOLTIP_CONTAINER
+		Container@ROW	0,0,-24,20
+			field	Width	PARENT_WIDTH - 24
+			field	Height	20
+			Container@PAUSE_SHELLMAP_CHECKBOX_CONTAINER	10,0,-22,0
+				field	X	10
+				field	Width	PARENT_WIDTH / 2 - 10
+				Checkbox@PAUSE_SHELLMAP_CHECKBOX	0,0,-22,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Regular
+					field	Text	checkbox-pause-shellmap-container
+		Container@SPACER	0,0,0,0
+		Background@VIDEO_SECTION_HEADER	5,0,-34,13
+			field	X	5
+			field	Width	PARENT_WIDTH - 24 - 10
+			field	Height	13
+			field	Background	separator
+			field	ClickThrough	True
+			Label@LABEL	0,0,-34,13
+				field	Width	PARENT_WIDTH
+				field	Height	PARENT_HEIGHT
+				field	Font	TinyBold
+				field	Align	Center
+				field	Text	label-video-section-header
+		Container@ROW	0,0,-24,50
+			field	Width	PARENT_WIDTH - 24
+			field	Height	50
+			Container@VIDEO_MODE_DROPDOWN_CONTAINER	10,0,-32,0
+				field	X	10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Label@VIDEO_MODE	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Text	label-video-mode-dropdown-container
+				DropDownButton@MODE_DROPDOWN	0,25,-32,25
+					field	Y	25
+					field	Width	PARENT_WIDTH
+					field	Height	25
+					field	Font	Regular
+					field	Text	dropdownbutton-video-mode-dropdown-container
+			Container@WINDOW_RESOLUTION_CONTAINER	-2,0,-32,0
+				field	X	PARENT_WIDTH / 2 + 10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Label@WINDOW_SIZE	0,0,135,20
+					field	Width	135
+					field	Height	20
+					field	Text	label-window-resolution-container-size
+				Label@RESOLUTION_PRESET_LABEL	135,0,-167,20
+					field	X	135
+					field	Width	PARENT_WIDTH - 135
+					field	Height	20
+					field	Text	label-resolution-preset
+				TextField@WINDOW_WIDTH	0,25,55,25
+					field	Y	25
+					field	Width	55
+					field	Height	25
+					field	MaxLength	5
+					field	Type	Integer
+				Label@X	55,25,15,25
+					field	X	55
+					field	Y	25
+					field	Text	label-window-resolution-container-x
+					field	Font	Bold
+					field	Height	25
+					field	Width	15
+					field	Align	Center
+				TextField@WINDOW_HEIGHT	70,25,55,25
+					field	X	70
+					field	Y	25
+					field	Width	55
+					field	Height	25
+					field	MaxLength	5
+					field	Type	Integer
+				DropDownButton@RESOLUTION_PRESET_DROPDOWN	135,25,-167,25
+					field	X	135
+					field	Y	25
+					field	Width	PARENT_WIDTH - 135
+					field	Height	25
+					field	Font	Regular
+			Container@DISPLAY_SELECTION_CONTAINER	-2,0,-32,0
+				field	X	PARENT_WIDTH / 2 + 10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Label@DISPLAY_SELECTION_LABEL	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Text	label-display-selection-container
+				DropDownButton@DISPLAY_SELECTION_DROPDOWN	0,25,-32,25
+					field	Y	25
+					field	Width	PARENT_WIDTH
+					field	Height	25
+					field	Font	Regular
+					field	Text	dropdownbutton-display-selection-container-dropdown
+		Container@ROW	0,0,-24,50
+			field	Width	PARENT_WIDTH - 24
+			field	Height	50
+			Container@FRAME_LIMIT_CHECKBOX_CONTAINER	10,0,-32,0
+				field	X	10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Checkbox@FRAME_LIMIT_CHECKBOX	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Regular
+			Container@FRAME_LIMIT_SLIDER_CONTAINER	0,0,-32,0
+				field	Width	PARENT_WIDTH / 2 - 20
+				Slider@FRAME_LIMIT_SLIDER	20,25,-52,20
+					field	X	20
+					field	Y	25
+					field	Width	PARENT_WIDTH - 20
+					field	Height	20
+					field	Ticks	20
+					field	MinimumValue	50
+					field	MaximumValue	240
+			Container@VSYNC_CHECKBOX_CONTAINER	-2,0,-32,0
+				field	X	PARENT_WIDTH / 2 + 10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Checkbox@VSYNC_CHECKBOX	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Regular
+					field	Text	checkbox-vsync-container
+			Container@FRAME_LIMIT_GAMESPEED_CHECKBOX_CONTAINER	-2,25,-32,0
+				field	X	PARENT_WIDTH / 2 + 10
+				field	Y	25
+				field	Width	PARENT_WIDTH / 2 - 20
+				Checkbox@FRAME_LIMIT_GAMESPEED_CHECKBOX	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Regular
+					field	Text	checkbox-frame-limit-gamespeed-container
+		Container@ROW	0,0,-24,50
+			field	Width	PARENT_WIDTH - 24
+			field	Height	50
+			Container@GL_PROFILE_DROPDOWN_CONTAINER	10,0,-32,0
+				field	X	10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Label@GL_PROFILE	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Text	label-gl-profile-dropdown-container
+				DropDownButton@GL_PROFILE_DROPDOWN	0,25,-32,25
+					field	Y	25
+					field	Width	PARENT_WIDTH
+					field	Height	25
+					field	Font	Regular
+		Container@ROW	0,0,-24,30
+			field	Width	PARENT_WIDTH - 24
+			field	Height	30
+			Container@RESTART_REQUIRED_CONTAINER	10,0,-44,0
+				field	X	10
+				field	Width	PARENT_WIDTH - 20
+				Label@VIDEO_RESTART_REQUIRED_DESC	0,0,-44,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Tiny
+					field	Text	label-restart-required-container-video-desc
+					field	Align	Center
+file	settings-audio.yaml
+Container@AUDIO_PANEL	0,0,0,0
+	field	Logic	AudioSettingsLogic
+	field	Width	PARENT_WIDTH
+	field	Height	PARENT_HEIGHT
+	ScrollPanel@SETTINGS_SCROLLPANEL	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		field	CollapseHiddenChildren	True
+		field	TopBottomSpacing	5
+		field	ItemSpacing	10
+		Background@AUDIO_SECTION_HEADER	5,0,-34,13
+			field	X	5
+			field	Width	PARENT_WIDTH - 24 - 10
+			field	Height	13
+			field	Background	separator
+			field	ClickThrough	True
+			Label@LABEL	0,0,-34,13
+				field	Width	PARENT_WIDTH
+				field	Height	PARENT_HEIGHT
+				field	Font	TinyBold
+				field	Align	Center
+				field	Text	label-audio-section-header
+		Container@ROW	0,0,-24,20
+			field	Width	PARENT_WIDTH - 24
+			field	Height	20
+			Container@NO_AUDIO_DEVICE_CONTAINER	10,0,-34,0
+				field	X	10
+				field	Width	PARENT_WIDTH - 10
+				Label@NO_AUDIO_DEVICE	0,0,-34,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Align	Center
+					field	Text	label-no-audio-device-container
+		Container@ROW	0,0,-24,50
+			field	Width	PARENT_WIDTH - 24
+			field	Height	50
+			Container@CASH_TICKS_CONTAINER	10,0,-32,0
+				field	X	10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Checkbox@CASH_TICKS	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Regular
+					field	Text	checkbox-cash-ticks-container
+			Container@MUTE_SOUND_CONTAINER	10,30,-32,0
+				field	X	10
+				field	Y	30
+				field	Width	PARENT_WIDTH / 2 - 20
+				Checkbox@MUTE_SOUND	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Regular
+					field	Text	checkbox-mute-sound-container
+			Container@SOUND_VOLUME_CONTAINER	-2,0,-32,0
+				field	X	PARENT_WIDTH / 2 + 10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Label@SOUND_LABEL	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Text	label-sound-volume-container
+				ExponentialSlider@SOUND_VOLUME	0,30,-32,20
+					field	Y	30
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Ticks	7
+		Container@ROW	0,0,-24,50
+			field	Width	PARENT_WIDTH - 24
+			field	Height	50
+			Container@MUTE_BACKGROUND_MUSIC_CONTAINER	10,0,-32,0
+				field	X	10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Checkbox@MUTE_BACKGROUND_MUSIC	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Regular
+					field	Text	checkbox-mute-background-music-container.label
+					field	TooltipText	checkbox-mute-background-music-container.tooltip
+					field	TooltipContainer	SETTINGS_TOOLTIP_CONTAINER
+			Container@MUSIC_VOLUME_CONTAINER	-2,0,-32,0
+				field	X	PARENT_WIDTH / 2 + 10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Label@MUSIC_LABEL	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Text	label-music-title-volume-container
+				ExponentialSlider@MUSIC_VOLUME	0,25,-32,20
+					field	Y	25
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Ticks	7
+		Container@ROW	0,0,-24,50
+			field	Width	PARENT_WIDTH - 24
+			field	Height	50
+			Container@AUDIO_DEVICE_CONTAINER	10,0,-32,0
+				field	X	10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Label@AUDIO_DEVICE_LABEL	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Text	label-audio-device-container
+				DropDownButton@AUDIO_DEVICE	0,25,-32,25
+					field	Y	25
+					field	Width	PARENT_WIDTH
+					field	Height	25
+			Container@VIDEO_VOLUME_CONTAINER	-2,0,-32,0
+				field	X	PARENT_WIDTH / 2 + 10
+				field	Width	PARENT_WIDTH / 2 - 20
+				Label@VIDEO_LABEL	0,0,-32,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Text	label-video-volume-container
+				ExponentialSlider@VIDEO_VOLUME	0,25,-32,20
+					field	Y	25
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Ticks	7
+		Container@ROW	0,0,-24,20
+			field	Width	PARENT_WIDTH - 24
+			field	Height	20
+			Container@RESTART_REQUIRED_CONTAINER	10,0,-34,0
+				field	X	10
+				field	Width	PARENT_WIDTH - 10
+				Label@AUDIO_RESTART_REQUIRED_DESC	0,0,-34,20
+					field	Width	PARENT_WIDTH
+					field	Height	20
+					field	Font	Tiny
+					field	Align	Center
+					field	Text	label-restart-required-container-audio-desc
+file	settings-hotkeys.yaml
+Container@HOTKEYS_PANEL	0,0,0,0
+	field	Logic	HotkeysSettingsLogic
+	field	Width	PARENT_WIDTH
+	field	Height	PARENT_HEIGHT
+	Label@FILTER_INPUT_LABEL	0,0,103,25
+		field	Width	103
+		field	Height	25
+		field	Font	Bold
+		field	Text	label-hotkeys-panel-filter-input
+	TextField@FILTER_INPUT	108,0,180,25
+		field	X	108
+		field	Width	180
+		field	Height	25
+	Label@CONTEXT_DROPDOWN_LABEL	-300,0,100,25
+		field	X	PARENT_WIDTH - WIDTH - 195 - 5
+		field	Width	100
+		field	Height	25
+		field	Font	Bold
+		field	Text	label-hotkeys-panel-context-dropdown
+		field	Align	Right
+	DropDownButton@CONTEXT_DROPDOWN	-195,0,195,25
+		field	X	PARENT_WIDTH - WIDTH
+		field	Width	195
+		field	Height	25
+		field	Font	Bold
+	ScrollPanel@HOTKEY_LIST	0,35,0,-100
+		field	Y	35
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT - 65 - 35
+		field	TopBottomSpacing	5
+		field	ItemSpacing	5
+		Container@HEADER	0,0,-34,18
+			field	Width	PARENT_WIDTH - 24 - 10
+			field	Height	18
+			Background@BACKGROUND	0,0,-34,13
+				field	Width	PARENT_WIDTH
+				field	Height	13
+				field	Background	separator
+				field	ClickThrough	True
+			Label@LABEL	0,0,-34,13
+				field	Width	PARENT_WIDTH
+				field	Height	13
+				field	Font	TinyBold
+				field	Align	Center
+		Container@TEMPLATE	0,0,-22,30
+			field	Width	(PARENT_WIDTH - 24) / 2 - 10
+			field	Height	30
+			field	Visible	false
+			Label@FUNCTION	0,-1,-147,25
+				field	Y	0 - 1
+				field	Width	PARENT_WIDTH - 120 - 5
+				field	Height	25
+				field	Align	Right
+			Button@HOTKEY	-142,0,120,25
+				field	X	PARENT_WIDTH - WIDTH
+				field	Width	120
+				field	Height	25
+				field	TooltipContainer	SETTINGS_TOOLTIP_CONTAINER
+	Container@HOTKEY_EMPTY_LIST	0,0,0,0
+		field	Width	PARENT_WIDTH
+		field	Height	PARENT_HEIGHT
+		field	Visible	false
+		Label@HOTKEY_EMPTY_LIST_MESSAGE	0,0,0,0
+			field	Width	PARENT_WIDTH
+			field	Height	PARENT_HEIGHT
+			field	Align	Center
+			field	Text	label-hotkey-empty-list-message
+	Background@HOTKEY_REMAP_BGND	0,-65,0,65
+		field	Y	PARENT_HEIGHT - HEIGHT
+		field	Width	PARENT_WIDTH
+		field	Height	65
+		field	Background	dialog3
+		Container@HOTKEY_REMAP_DIALOG	0,0,0,65
+			field	Width	PARENT_WIDTH
+			field	Height	PARENT_HEIGHT
+			Label@HOTKEY_LABEL	15,19,200,25
+				field	X	15
+				field	Y	19
+				field	Width	200
+				field	Height	25
+				field	Font	Bold
+				field	Align	Right
+			HotkeyEntry@HOTKEY_ENTRY	220,20,300,25
+				field	X	15 + 200 + 5
+				field	Y	20
+				field	Width	300
+				field	Height	25
+			Container@NOTICES	220,42,300,25
+				field	X	15 + 200 + 5
+				field	Y	42
+				field	Width	300
+				field	Height	25
+				Label@ORIGINAL_NOTICE	0,0,300,25
+					field	Width	PARENT_WIDTH
+					field	Height	PARENT_HEIGHT
+					field	Font	Tiny
+				Label@DUPLICATE_NOTICE	0,0,300,25
+					field	Width	PARENT_WIDTH
+					field	Height	PARENT_HEIGHT
+					field	Font	Tiny
+				Label@READONLY_NOTICE	0,0,300,25
+					field	Width	PARENT_WIDTH
+					field	Height	PARENT_HEIGHT
+					field	Font	Tiny
+					field	Text	label-notices-readonly-notice
+			Button@OVERRIDE_HOTKEY_BUTTON	-240,20,70,25
+				field	X	PARENT_WIDTH - 3 * WIDTH - 30
+				field	Y	20
+				field	Width	70
+				field	Height	25
+				field	Text	button-hotkey-remap-dialog-override
+				field	Font	Bold
+			Button@CLEAR_HOTKEY_BUTTON	-160,20,65,25
+				field	X	PARENT_WIDTH - 2 * WIDTH - 30
+				field	Y	20
+				field	Width	65
+				field	Height	25
+				field	Text	button-hotkey-remap-dialog-clear.label
+				field	Font	Bold
+				field	TooltipText	button-hotkey-remap-dialog-clear.tooltip
+				field	TooltipContainer	SETTINGS_TOOLTIP_CONTAINER
+				field	TooltipTemplate	SIMPLE_TOOLTIP
+			Button@RESET_HOTKEY_BUTTON	-85,20,65,25
+				field	X	PARENT_WIDTH - WIDTH - 20
+				field	Y	20
+				field	Width	65
+				field	Height	25
+				field	Text	button-hotkey-remap-dialog-reset.label
+				field	Font	Bold
+				field	TooltipText	button-hotkey-remap-dialog-reset.tooltip
+				field	TooltipContainer	SETTINGS_TOOLTIP_CONTAINER
+				field	TooltipTemplate	SIMPLE_TOOLTIP
