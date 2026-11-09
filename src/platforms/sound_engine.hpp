@@ -31,6 +31,7 @@ struct sound_source {
   std::uint32_t u4_al_buffer{};
   std::int32_t int4_sample_rate{};
   bool b_valid{};
+  std::string str_name{};
 };
 
 enum class sound_engine_kind : std::uint8_t { dummy, openal };

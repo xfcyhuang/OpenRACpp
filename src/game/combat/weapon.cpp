@@ -120,6 +120,12 @@ WarheadDef parse_warhead(const MiniYamlNode& node_warhead) {
     wh.vec_valid_targets = parse_string_list(node->str_value);
   if (const MiniYamlNode* node{find_child(vec_children, "InvalidTargets")})
     wh.vec_invalid_targets = parse_string_list(node->str_value);
+  if (const MiniYamlNode* node{find_child(vec_children, "Explosions")})
+    wh.vec_explosions = parse_string_list(node->str_value);
+  if (const MiniYamlNode* node{find_child(vec_children, "ImpactSounds")})
+    wh.vec_impact_sounds = parse_string_list(node->str_value);
+  if (const MiniYamlNode* node{find_child(vec_children, "ImpactSoundChance")})
+    if (const auto opt{parse_int(node->str_value)}) wh.int4_impact_sound_chance = *opt;
   if (const MiniYamlNode* node_versus{find_child(vec_children, "Versus")}) {
     for (const MiniYamlNode& node_entry : node_versus->vec_children) {
       const auto opt_value{parse_int(node_entry.str_value)};
@@ -219,6 +225,8 @@ std::expected<WeaponTable, std::string> weapon_table_load(
       def.vec_valid_targets = parse_string_list(n->str_value);
     if (const MiniYamlNode* n{find_child(vec_children, "InvalidTargets")})
       def.vec_invalid_targets = parse_string_list(n->str_value);
+    if (const MiniYamlNode* n{find_child(vec_children, "Report")})
+      def.vec_report = parse_string_list(n->str_value);
     if (const MiniYamlNode* n{find_child(vec_children, "Projectile")})
       def.projectile = parse_projectile(*n);
     for (const MiniYamlNode& node_child : vec_children)

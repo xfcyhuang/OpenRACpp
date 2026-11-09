@@ -1,5 +1,7 @@
 #include "game/combat/projectile.hpp"
 
+#include "game/sound/sfx.hpp"
+
 #include <cstdint>
 
 #include "game/combat/warhead_damage.hpp"
@@ -138,6 +140,15 @@ void warhead_do_impact(Arena& arena, const WarheadDef& wh, pathfinding::WPos pos
     }
 
     if (wh.int4_inaccuracy > 0) (void)wvec_from_pdf2(arena.rng_shared);
+    if (arena.ptr_sfx != nullptr)
+      ora::game::sfx_on_warhead_impact(
+          *arena.ptr_sfx,
+          ora::game::sfx_impact_sounds{.vec_explosions = wh.vec_explosions,
+                                       .vec_impact_sounds = wh.vec_impact_sounds,
+                                       .int4_chance = wh.int4_impact_sound_chance},
+          ora::platforms::wpos{.int4_x = pos_impact.int4_x,
+                               .int4_y = pos_impact.int4_y,
+                               .int4_z = pos_impact.int4_z});
     return;
   }
 

@@ -207,6 +207,11 @@ internal static partial class Program
                     (string)null,
                     (Func<byte[]>)(() => File.ReadAllBytes(
                         Path.Combine(openraRoot, "mods", "d2k", "bits", name))))),
+            // sfx 模式（T19/issue #31）：世界事件音效序列——真上游 Sound 门面
+            // （Play/PlayToPlayer/PlayPredefined/PlayNotification）+ 录制引擎 + 名字回注
+            // 假文件系统 + 真 ra audio SoundInfo + 播种 CosmeticRandom（池洗牌确定化）。
+            // World/Player/Actor 最小反射体（LocalPlayer/Selection/ActorID）。
+            ("tests/golden/sfx/sequence.txt", null, () => SfxDumpSequence(openraRoot)),
             // fonts 模式（T23/issue #30）：FreeType interop 轻路径 dump——fixture TTF 原样
             // 入库（漂移哨兵兼 C++ 测试输入）+ ra mod.yaml Fonts: 三元组解析转储 + FTD1u8
             // metrics/位图（ASCII 95 cp × FreeSans 10/12/14/18/24、FreeSansBold 14 + 特殊

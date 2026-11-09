@@ -31,6 +31,7 @@ struct ProductionItemModel {
   bool b_started{};
   bool b_paused{};
   bool b_done{};
+  bool b_ready_notified{};
 };
 
 struct ProductionQueueState {
@@ -39,6 +40,8 @@ struct ProductionQueueState {
   bool b_enabled{};
   bool b_valid_faction{true};
   std::vector<ProductionItemModel> vec_queue;
+  std::string str_ready_audio;
+  std::string str_blocked_audio;
 };
 
 struct PowerManagerState {

@@ -1,4 +1,5 @@
 #include "launcher/game_session.hpp"
+#include "game/sound/sfx.hpp"
 
 #include "game/combat/warhead_damage.hpp"
 #include "game/economy/economy.hpp"
@@ -176,6 +177,24 @@ void bridge_fire(GameSession& s, FighterState& fighter, FighterState& target) {
       fighter.unit, fighter.arm, target.unit.pos_center, true, true,
       [&](cmb::CombatUnit&, cmb::ArmamentState&, pfg::WPos, pfg::WPos pos_passive) {
         const cmb::WeaponDef& weapon{*fighter.arm.ptr_weapon};
+        if (s.w.ptr_sfx != nullptr) {
+          if (!weapon.vec_report.empty())
+            sfx_on_weapon_fired(
+                *s.w.ptr_sfx, weapon.vec_report,
+                ora::platforms::wpos{.int4_x = fighter.unit.pos_center.int4_x,
+                                     .int4_y = fighter.unit.pos_center.int4_y,
+                                     .int4_z = fighter.unit.pos_center.int4_z});
+          for (const cmb::WarheadDef& wh : weapon.vec_warheads)
+            if (wh.kind == cmb::WarheadKind::kCreateEffect)
+              sfx_on_warhead_impact(
+                  *s.w.ptr_sfx,
+                  ora::game::sfx_impact_sounds{.vec_explosions = wh.vec_explosions,
+                                               .vec_impact_sounds = wh.vec_impact_sounds,
+                                               .int4_chance = wh.int4_impact_sound_chance},
+                  ora::platforms::wpos{.int4_x = pos_passive.int4_x,
+                                       .int4_y = pos_passive.int4_y,
+                                       .int4_z = pos_passive.int4_z});
+        }
         for (const cmb::WarheadDef& wh : weapon.vec_warheads) {
           if (wh.kind != cmb::WarheadKind::kSpreadDamage) continue;
           const std::int32_t int4_damage{
