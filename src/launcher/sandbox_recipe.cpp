@@ -67,6 +67,8 @@ player:
 	ClassicProductionQueue@Building:
 		Type: Building
 		LowPowerModifier: 300
+		ReadyAudio: UnitReady
+		BlockedAudio: NoBuild
 	ClassicProductionQueue@Defense:
 		Type: Defense
 		LowPowerModifier: 300
@@ -125,6 +127,7 @@ powr:
 		Dimensions: 2,3
 		LocalCenterOffset: 0,-512,0
 		RequiresBaseProvider: True
+		BuildSounds: placedown1.aud,placedown2.aud
 	GivesBuildableArea:
 	ProvidesPrerequisite:
 		Prerequisite: anypower
@@ -293,9 +296,14 @@ constexpr std::string_view kWeapons{
     "carbine:\n"
     "\tReloadDelay: 20\n"
     "\tRange: 5c0\n"
+    "\tReport: gun11.aud\n"
     "\tProjectile: InstantHit\n"
     "\tWarhead@Damage: SpreadDamage\n"
     "\t\tDamage: 40\n"
+    "\t\tValidTargets: Ground, GroundActor\n"
+    "\tWarhead@Effect: CreateEffect\n"
+    "\t\tExplosions: piff\n"
+    "\t\tImpactSounds: kaboom12.aud\n"
     "\t\tValidTargets: Ground, GroundActor\n"};
 
 constexpr std::int32_t kSandboxSize{40};

@@ -23,6 +23,9 @@ struct WarheadDef {
   int int4_spread{};
   std::vector<std::string> vec_valid_targets;
   std::vector<std::string> vec_invalid_targets;
+  std::vector<std::string> vec_explosions;
+  std::vector<std::string> vec_impact_sounds;
+  int int4_impact_sound_chance{100};
 };
 
 enum class ProjectileKind : std::uint8_t {
@@ -53,6 +56,7 @@ struct WeaponDef {
   std::vector<WarheadDef> vec_warheads;
   std::vector<std::string> vec_valid_targets{"Ground", "Water"};
   std::vector<std::string> vec_invalid_targets;
+  std::vector<std::string> vec_report;
 };
 
 struct WeaponTable {

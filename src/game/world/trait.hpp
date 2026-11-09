@@ -21,6 +21,7 @@ struct TraitModel {
   std::string str_param2;
   std::string str_param3;
   bool b_sync_flag{};
+  std::vector<std::pair<std::string, std::string>> vec_kv;
 };
 
 struct TraitTemplate {

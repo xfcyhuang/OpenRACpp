@@ -1,4 +1,4 @@
-add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.cpp sound/music_player.cpp miniyaml.cpp miniyaml_merge.cpp settings.cpp ruleset.cpp
+add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.cpp sound/music_player.cpp sound/sfx.cpp miniyaml.cpp miniyaml_merge.cpp settings.cpp ruleset.cpp
   map_bin.cpp map_read.cpp tileset.cpp
   ui/expression.cpp ui/widget.cpp ui/widget_loader.cpp ui/chrome_provider.cpp ui/widget_render.cpp
   render/palette.cpp render/lcw.cpp render/xor_delta.cpp render/tmp_ra.cpp render/shp_td.cpp render/font.cpp
@@ -12,7 +12,7 @@ add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.c
   input/input_events.hpp input/screen_map.cpp input/selection.cpp input/selection_logic.cpp input/order_generator.cpp input/production_panel.cpp
   input/hotkey.cpp input/hotkey_registry.cpp input/tap_history.cpp input/viewport_controller.cpp input/hotkey_actions.cpp
   support/mersenne_twister.cpp support/sha1.cpp filesystem/inflate.cpp filesystem/zip_read.cpp)
-target_sources(ora_game PRIVATE game.hpp sound/music_player.hpp miniyaml.hpp miniyaml_merge.hpp settings.hpp ruleset.hpp
+target_sources(ora_game PRIVATE game.hpp sound/music_player.hpp miniyaml.hpp miniyaml_merge.hpp settings.hpp ruleset.hpp sound/sfx.hpp
   map_bin.hpp map_read.hpp tileset.hpp
   ui/expression.hpp ui/widget.hpp ui/widget_loader.hpp ui/chrome_provider.hpp ui/widget_render.hpp
   render/palette.hpp render/lcw.hpp render/xor_delta.hpp render/tmp_ra.hpp render/shp_td.hpp render/font.hpp render/stb_truetype.h
@@ -27,4 +27,4 @@ target_sources(ora_game PRIVATE game.hpp sound/music_player.hpp miniyaml.hpp min
   input/hotkey.hpp input/hotkey_registry.hpp input/tap_history.hpp input/viewport_controller.hpp input/hotkey_actions.hpp
   support/mersenne_twister.hpp support/sha1.hpp filesystem/inflate.hpp filesystem/zip_read.hpp)
 target_include_directories(ora_game PUBLIC ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(ora_game PUBLIC ora_std)
+target_link_libraries(ora_game PUBLIC ora_std ora_platforms)
