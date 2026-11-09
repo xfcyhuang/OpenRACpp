@@ -8,6 +8,7 @@ import std;
 #include "game/combat/weapon.hpp"
 #include "game/input/production_panel.hpp"
 #include "game/network/order_manager.hpp"
+#include "game/production/production.hpp"
 #include "game/pathfinding/move_sim.hpp"
 #include "game/world/sync_hash.hpp"
 #include "game/world/world.hpp"
@@ -20,6 +21,7 @@ struct SessionEnv {
   std::string str_map_path;
 
   std::string str_tileset_path{"data/temperat.yaml"};
+  std::optional<game::production::LobbyModel> opt_lobby;
 };
 
 struct MoverState {

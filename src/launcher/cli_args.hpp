@@ -15,6 +15,9 @@ struct CliArgs {
   bool b_headless{};
   std::int32_t int4_headless_ticks{600};
   bool b_demo{};
+  bool b_lobby{};
+  std::string str_maps_dir;
+  std::string str_chrome_dir;
   std::string str_record;
   std::string str_replay;
 };

@@ -98,7 +98,9 @@ std::expected<PngImage, std::string> png_decode(std::span<const std::uint8_t> sp
         return std::unexpected(std::string{"Compression method not supported"});
       if (u1u_interlace != 0)
         return std::unexpected(std::string{"Interlacing not supported"});
-      if (u1u_bit_depth != 8 || (u1u_color_type != 2 && u1u_color_type != 3 && u1u_color_type != 6))
+      const bool b_indexed_low{u1u_color_type == 3 && u1u_bit_depth >= 1 && u1u_bit_depth <= 8};
+      const bool b_plain_8{(u1u_color_type == 2 || u1u_color_type == 6) && u1u_bit_depth == 8};
+      if (u1u_color_type == 3 ? !b_indexed_low : !b_plain_8)
         return std::unexpected(std::string{"Unknown pixel format"});
       if (int4_width <= 0 || int4_height <= 0)
         return std::unexpected(std::string{"Invalid PNG file - no end chunk found."});
@@ -148,7 +150,13 @@ std::expected<PngImage, std::string> png_decode(std::span<const std::uint8_t> sp
   const int int4_px_stride{u1u_color_type == 3 ? 1 : u1u_color_type == 2 ? 3 : 4};
   const std::size_t sz_row_stride{
       static_cast<std::size_t>(int4_width) * static_cast<std::size_t>(int4_px_stride)};
-  const std::size_t sz_expected{sz_row_stride * static_cast<std::size_t>(int4_height)
+  const int int4_pixels_per_byte{u1u_bit_depth == 0 ? 1 : 8 / static_cast<int>(u1u_bit_depth)};
+  const std::size_t sz_source_row_stride{
+      int4_pixels_per_byte <= 1
+          ? sz_row_stride
+          : (sz_row_stride + static_cast<std::size_t>(int4_pixels_per_byte) - 1)
+                / static_cast<std::size_t>(int4_pixels_per_byte)};
+  const std::size_t sz_expected{sz_source_row_stride * static_cast<std::size_t>(int4_height)
       + static_cast<std::size_t>(int4_height)};
   if (res_inflated->size() != sz_expected)
     return std::unexpected(std::string{"Invalid PNG file - IDAT length mismatch."});
@@ -163,9 +171,23 @@ std::expected<PngImage, std::string> png_decode(std::span<const std::uint8_t> sp
   std::size_t sz_src{0};
   for (int int4_y{0}; int4_y < int4_height; ++int4_y) {
     const std::uint8_t u1u_filter{(*res_inflated)[sz_src++]};
-    for (std::size_t sz_i{0}; sz_i < sz_row_stride; ++sz_i)
+    for (std::size_t sz_i{0}; sz_i < sz_source_row_stride; ++sz_i)
       vec1u_line[sz_i] = (*res_inflated)[sz_src + sz_i];
-    sz_src += sz_row_stride;
+    sz_src += sz_source_row_stride;
+
+    if (int4_pixels_per_byte > 1) {
+      const std::uint32_t u4_mask{(1u << u1u_bit_depth) - 1};
+      for (std::size_t sz_i{sz_source_row_stride}; sz_i-- > 0;) {
+        const std::uint8_t u1u_packed{vec1u_line[sz_i]};
+        for (int int4_j{0}; int4_j < int4_pixels_per_byte; ++int4_j) {
+          const std::size_t sz_dest{sz_i * static_cast<std::size_t>(int4_pixels_per_byte)
+              + static_cast<std::size_t>(int4_j)};
+          if (sz_dest < sz_row_stride)
+            vec1u_line[sz_dest] = static_cast<std::uint8_t>(
+                (u1u_packed >> (8 - (int4_j + 1) * static_cast<int>(u1u_bit_depth))) & u4_mask);
+        }
+      }
+    }
 
     switch (u1u_filter) {
       case 0:

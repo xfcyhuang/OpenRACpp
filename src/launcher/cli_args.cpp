@@ -18,7 +18,7 @@ struct FlagSpec {
   bool b_takes_value{};
 };
 
-constexpr std::array<FlagSpec, 13> kFlags{{
+constexpr std::array<FlagSpec, 16> kFlags{{
     FlagSpec{"--mod", true},
     FlagSpec{"--map", true},
     FlagSpec{"--seed", true},
@@ -32,6 +32,9 @@ constexpr std::array<FlagSpec, 13> kFlags{{
     FlagSpec{"--headless", false},
     FlagSpec{"--demo", false},
     FlagSpec{"--help", false},
+    FlagSpec{"--lobby", false},
+    FlagSpec{"--maps-dir", true},
+    FlagSpec{"--chrome-dir", true},
 }};
 
 }
@@ -68,6 +71,7 @@ CliParseResult cli_args_parse(std::span<const std::string_view> vec_args) {
       if (str_arg == "--fullscreen") args.b_fullscreen = true;
       if (str_arg == "--headless") args.b_headless = true;
       if (str_arg == "--demo") args.b_demo = true;
+      if (str_arg == "--lobby") args.b_lobby = true;
       ++idx;
       continue;
     }
@@ -94,6 +98,10 @@ CliParseResult cli_args_parse(std::span<const std::string_view> vec_args) {
       args.str_record = std::string{str_value};
     } else if (str_arg == "--replay") {
       args.str_replay = std::string{str_value};
+    } else if (str_arg == "--maps-dir") {
+      args.str_maps_dir = std::string{str_value};
+    } else if (str_arg == "--chrome-dir") {
+      args.str_chrome_dir = std::string{str_value};
     } else if (str_arg == "--seed") {
       const auto opt{parse_int(str_value)};
       if (!opt.has_value()) {
