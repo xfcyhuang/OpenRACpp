@@ -114,8 +114,10 @@ void main_menu_dispatch(MainMenuState& st, const MainMenuEnv& env, WidgetModel& 
       st.b_quit = true;
       st.vec_nav.push_back("quit");
     } else if (rec.str_id == "SKIRMISH_BUTTON") {
-      // StartSkirmishGame（:446-458）：SwitchMenu(None) + 本地服务器/大厅不在本票
+      // StartSkirmishGame（:446-458）：SwitchMenu(None) + 连接本地服务器开大堂——
+      // T28：连接面由 launcher 流程状态机承接，此处置出口位
       main_menu_switch(st, MenuType::kNone);
+      st.b_start_skirmish = true;
       st.vec_nav.push_back("start-skirmish");
     } else if (rec.str_id == "MISSIONS_BUTTON") {
       open_panel(st, "MISSIONBROWSER_PANEL");

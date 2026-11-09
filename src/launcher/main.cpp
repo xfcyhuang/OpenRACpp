@@ -11,6 +11,7 @@ import std;
 #include <system_error>
 #include <windows.h>
 
+#include "game/input/hotkey_actions.hpp"
 #include "game/input/hotkey_registry.hpp"
 #include "game/input/input_events.hpp"
 #include "game/input/order_generator.hpp"
@@ -18,12 +19,14 @@ import std;
 #include "game/input/screen_map.hpp"
 #include "game/input/selection.hpp"
 #include "game/input/selection_logic.hpp"
+#include "game/music_info.hpp"
 #include "game/network/order_packet.hpp"
 #include "game/render/font.hpp"
 #include "game/replay/replay_format.hpp"
 #include "game/replay/replay_player.hpp"
 #include "game/replay/replay_record.hpp"
 #include "game/settings.hpp"
+#include "game/sound/music_player.hpp"
 #include "game/sound/sfx.hpp"
 #include "game/sound/sound.hpp"
 #include "game/render/png_decode.hpp"
@@ -34,6 +37,7 @@ import std;
 #include "game/ui/widget_loader.hpp"
 #include "game/ui/widget_render.hpp"
 #include "launcher/cli_args.hpp"
+#include "launcher/flow_state.hpp"
 #include "launcher/game_session.hpp"
 #include "launcher/lobby_ui.hpp"
 
@@ -46,6 +50,7 @@ namespace lch = ora::launcher;
 namespace net = ora::game::network;
 namespace opro = ora::game::production;
 namespace ww = ora::game::world;
+namespace hotk = ora::game::input;
 
 constexpr int kViewW{1280};
 constexpr int kViewH{1024};
@@ -246,6 +251,37 @@ inp::ModifierKeys mods_from_sdl(std::uint16_t u2_mods) {
   if (u2_mods & KMOD_ALT) mods |= inp::ModifierKeys::kAlt;
   if (u2_mods & KMOD_SHIFT) mods |= inp::ModifierKeys::kShift;
   return mods;
+}
+
+// autotest 步骤串拆分（逗号分隔）
+std::vector<std::string> autotest_split_commas(std::string str_in) {
+  std::vector<std::string> vec_out;
+  std::size_t sz_comma{std::string::npos};
+  while ((sz_comma = str_in.find(',')) != std::string::npos) {
+    vec_out.push_back(str_in.substr(0, sz_comma));
+    str_in = str_in.substr(sz_comma + 1);
+  }
+  vec_out.push_back(std::move(str_in));
+  return vec_out;
+}
+
+// autotest 轮次表（T28 验收探针）：环境串按分号分组=每轮序列（无分号=单组，仅首轮）；
+// int4_round 随相位进入递增，超出组数返回空（该轮转交互模式）
+std::vector<std::string> autotest_round_steps(const char* sz_env, int& int4_round) {
+  if (sz_env == nullptr || *sz_env == '\0') return {};
+  std::vector<std::vector<std::string>> vec_rounds;
+  std::string str_rest{sz_env};
+  std::size_t sz_semi{std::string::npos};
+  while ((sz_semi = str_rest.find(';')) != std::string::npos) {
+    vec_rounds.push_back(autotest_split_commas(str_rest.substr(0, sz_semi)));
+    str_rest = str_rest.substr(sz_semi + 1);
+  }
+  vec_rounds.push_back(autotest_split_commas(std::move(str_rest)));
+  const int int4_current{int4_round++};
+  if (static_cast<std::size_t>(int4_current) >= vec_rounds.size()) return {};
+  std::println("autotest: round {} -> {} steps", int4_current + 1,
+               vec_rounds[static_cast<std::size_t>(int4_current)].size());
+  return vec_rounds[static_cast<std::size_t>(int4_current)];
 }
 
 struct UiState {
@@ -1199,6 +1235,18 @@ int run_lobby_phase(lch::LobbyRuntime& lobby, SDL_Window* ptr_window, unsigned u
   bool b_start{false};
   std::uint32_t u4_next_render{SDL_GetTicks()};
 
+  // ORA_LOBBY_AUTOTEST 驱动面（T28 验收探针，分号轮次表）：
+  // 每轮逗号分隔 wait<n>/shot<name>/cyclemap/start/disconnect；截图落 ORA_FLOW_SHOT_DIR
+  static int int4_lobby_round{0};
+  const std::vector<std::string> vec_autotest{
+      autotest_round_steps(std::getenv("ORA_LOBBY_AUTOTEST"), int4_lobby_round)};
+  std::string str_shot_dir{"."};
+  if (const char* sz_shot{std::getenv("ORA_FLOW_SHOT_DIR")}; sz_shot != nullptr && *sz_shot != '\0')
+    str_shot_dir = sz_shot;
+  std::size_t sz_next_step{0};
+  std::uint64_t u8_frames{0};
+  std::uint64_t u8_step_ready_frame{5};
+
   while (!b_quit && !b_start) {
     if (g_ctrl_c) b_quit = true;
 
@@ -1360,6 +1408,31 @@ int run_lobby_phase(lch::LobbyRuntime& lobby, SDL_Window* ptr_window, unsigned u
     }
 
     SDL_GL_SwapWindow(ptr_window);
+    ++u8_frames;
+    // autotest 步进：wait<n> 定帧，其余步骤每 3 帧一步（画面刷新间隙）
+    if (sz_next_step < vec_autotest.size() && u8_frames >= u8_step_ready_frame) {
+      const std::string& str_step{vec_autotest[sz_next_step]};
+      if (str_step.starts_with("wait")) {
+        u8_step_ready_frame = u8_frames + std::stoull(str_step.substr(4));
+      } else {
+        if (str_step.starts_with("shot")) {
+          const std::string str_path{str_shot_dir + "/" + str_step.substr(4) + ".bmp"};
+          save_screenshot(ptr_window, str_path.c_str());
+          std::println("lobby-autotest: shot {}", str_path);
+        } else if (str_step == "cyclemap") {
+          lch::lobby_cycle_map(lobby, 1);
+        } else if (str_step == "start") {
+          if (lch::lobby_request_start(lobby)) b_start = true;
+        } else if (str_step == "disconnect") {
+          b_quit = true;
+        }
+        u8_step_ready_frame = u8_frames + 3;
+      }
+      ++sz_next_step;
+    }
+    if (sz_next_step >= vec_autotest.size() && !vec_autotest.empty()
+        && u8_frames >= u8_step_ready_frame + 30)
+      b_quit = true;  // 序列放完自动断开（防呆：disconnect 步缺失时也收尾）
   }
 
   // 退出前恢复 color program 顶点布局——对局循环假设 pos(stride24)+col(stride24)
@@ -1376,7 +1449,33 @@ int run_lobby_phase(lch::LobbyRuntime& lobby, SDL_Window* ptr_window, unsigned u
 
 }
 
-int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0) {
+// —— T28 全流程共用装载面前向声明（定义在 menu 相位区，菜单/会话两相位共用）——
+std::optional<std::filesystem::path> find_golden_root(char* sz_argv0);
+std::string menu_settings_path();
+ora::game::SettingsModel flow_settings_load(const char* sz_where);
+std::optional<hotk::HotkeyRegistryModel> flow_hotkey_registry_load(
+    const std::filesystem::path& path_golden, ora::game::SettingsModel& sm);
+std::vector<std::pair<std::string, ora::game::music_info>> flow_music_library(
+    const std::filesystem::path& path_golden);
+inp::Keycode sdl_keycode_to_ora(SDL_Keycode key);
+
+// T28：大堂+对局会话窗口。ptr_flow 非空 = 菜单全流程模式（DISCONNECT 上报后由
+// run_flow 回菜单相位）；nullptr = CLI 直进（--lobby/--map/--demo：DISCONNECT 即退出）。
+int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0,
+               lch::FlowState* ptr_flow) {
+  // 全流程共用装载面：设置（音量/mute/vsync 生效全链）+ 热键（改键重进生效）+
+  // 音乐曲库（对局 BGM；上游 mods/ra/audio/music.yaml 真源语料）
+  ora::game::SettingsModel sm{flow_settings_load("session")};
+  hotk::HotkeyRegistryModel hotkeys{};
+  std::vector<std::pair<std::string, ora::game::music_info>> vec_music_library;
+  if (const auto opt_golden{find_golden_root(sz_argv0)}; opt_golden.has_value()) {
+    if (const auto opt_hotkeys{flow_hotkey_registry_load(*opt_golden, sm)}; opt_hotkeys.has_value())
+      hotkeys = std::move(*opt_hotkeys);
+    vec_music_library = flow_music_library(*opt_golden);
+  } else {
+    std::println("flow: golden corpus not found, hotkeys/music defaults");
+  }
+
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     std::println("ora: SDL_Init failed: {}", SDL_GetError());
     return 1;
@@ -1477,95 +1576,104 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
   gl_vertex_attrib_pointer(idx_col, 4, GL_FLOAT, GL_FALSE, 24,
                            reinterpret_cast<const void*>(8));
 
-  std::optional<lch::LobbyStartConfig> opt_lobby_start;
-  if (args.b_lobby) {
-    const std::string str_maps_dir{args.str_maps_dir.empty() ? "tests/golden/maps"
-                                                             : args.str_maps_dir};
-    const std::string str_chrome_dir{args.str_chrome_dir.empty()
-                                         ? "tests/golden/lobby/fixture"
-                                         : args.str_chrome_dir};
-    lch::LobbyRuntime lobby;
-    const auto res_lobby{lch::lobby_runtime_create(lobby, str_maps_dir, str_chrome_dir)};
-    if (!res_lobby.has_value()) {
-      std::println("ora: lobby setup failed: {}", res_lobby.error());
-      SDL_GL_DeleteContext(ctx);
-      SDL_DestroyWindow(ptr_window);
-      SDL_Quit();
-      return 1;
+  // 音频门面（T28 全链贯通：设置驱动音量/mute；engine 生命周期跨对局轮——
+  // 上游 Game.Sound 进程级单例的会话内等价）
+  ora::game::sound_facade sound{
+      ora::game::make_sound_facade_settings(sm.sound.str_device, sm.sound.b_mute, sm.sound)};
+  std::println("sound: {} engine (sound={:.3f} music={:.3f} mute={})",
+               ora::platforms::engine_dummy(sound.engine) ? "dummy" : "openal",
+               sm.sound.fp_sound_volume, sm.sound.fp_music_volume, sm.sound.b_mute ? 1 : 0);
+
+  // 对局轮出口：kAborted=ESC（上游 ABORT_MISSION→重进大堂）、kWindowClosed=窗口
+  // 关闭/Ctrl+C（进程退出）、kSetupFailed=装载失败（进程退出）
+  enum class GameRoundExit { kAborted, kWindowClosed, kSetupFailed };
+
+  // 对局轮（T28 串联）：session 装配 + 事件音效 + 对局 BGM（上游 MusicPlaylist
+  // .PostWorldLoaded 自动 Play 折叠）+ 输入/渲染循环 + 轮末清理
+  const auto game_round{[&](std::optional<lch::LobbyStartConfig> opt_lobby_start) {
+    lch::SessionEnv env{make_session_env(args, sz_argv0)};
+    if (opt_lobby_start.has_value()) {
+      env.str_map_path = opt_lobby_start->str_map_path;
+      env.int4_seed = opt_lobby_start->int4_seed;
+      opro::LobbyModel lobby_model;
+      lobby_model.vec_playable_factions = opt_lobby_start->vec_factions;
+      lobby_model.int4_starting_cash = 5000;
+      lobby_model.str_techlevel = "unrestricted";
+      lobby_model.b_build_radius = true;
+      env.opt_lobby = std::move(lobby_model);
     }
-    std::println("lobby: {} maps from {} (tree {})", lobby.vec_entries.size(), str_maps_dir,
-                 lobby.b_tree_loaded ? "loaded" : "fallback");
-    if (lob::run_lobby_phase(lobby, ptr_window, u_prog) == 1) {
-      opt_lobby_start = lch::lobby_start_config(lobby);
-      std::println("lobby: start game map={} slots={} seed={}", opt_lobby_start->str_map_path,
-                   opt_lobby_start->vec_factions.size(), opt_lobby_start->int4_seed);
-    } else {
-      std::println("lobby: disconnected before start");
-      SDL_GL_DeleteContext(ctx);
-      SDL_DestroyWindow(ptr_window);
-      SDL_Quit();
-      return 0;
+    auto res_session{lch::session_setup(env)};
+    if (!res_session.has_value()) {
+      std::println("ora: setup failed: {}", res_session.error());
+      return GameRoundExit::kSetupFailed;
     }
-  }
+    lch::GameSession& s{*res_session};
+    ora::game::support::MersenneTwister rng_cosmetic{
+        ora::game::support::make_mersenne_twister(static_cast<std::int32_t>(SDL_GetTicks()))};
+    ora::game::sfx_sound_rules sfx_rules{};
+    ora::game::sfx_context sfx{.ptr_facade = &sound,
+                               .ptr_rules = &sfx_rules,
+                               .ptr_rng_cosmetic = &rng_cosmetic};
+    s.w.ptr_sfx = &sfx;
+    ora::platforms::engine_set_listener_position(
+        sound.engine,
+        ora::platforms::wpos{.int4_x = s.w.econ.map_move.int4_width * 1024 / 2,
+                             .int4_y = s.w.econ.map_move.int4_height * 1024 / 2,
+                             .int4_z = 2133});
+    // 对局 BGM（T20 music_player 接线）：PostWorldLoaded 自动播放（无存档装载恒真）；
+    // 无内容包=曲库全缺（probe 后 0 playable）→ 播放决策发起但引擎层静默
+    //（上游 MusicController.Play 对 !Exists 曲静默 return 的等价，D070/D074 口径）
+    std::optional<ora::game::music_player> opt_music;
+    if (!vec_music_library.empty()) {
+      opt_music = ora::game::make_music_player(sound, sm.sound, vec_music_library, rng_cosmetic,
+                                               ora::game::music_playlist_info{});
+      ora::game::music_player_play(*opt_music);
+      if (opt_music->str_current_song.has_value())
+        std::println("music: autoplay '{}' ({} tracks)",
+                     *opt_music->str_current_song, vec_music_library.size());
+      else
+        std::println("music: autoplay silent ({} tracks, 0 installed content)", 
+                     vec_music_library.size());
+    }
+    lch::session_tick(s);
 
-  lch::SessionEnv env{make_session_env(args, sz_argv0)};
-  if (opt_lobby_start.has_value()) {
-    env.str_map_path = opt_lobby_start->str_map_path;
-    env.int4_seed = opt_lobby_start->int4_seed;
-    opro::LobbyModel lobby_model;
-    lobby_model.vec_playable_factions = opt_lobby_start->vec_factions;
-    lobby_model.int4_starting_cash = 5000;
-    lobby_model.str_techlevel = "unrestricted";
-    lobby_model.b_build_radius = true;
-    env.opt_lobby = std::move(lobby_model);
-  }
-  auto res_session{lch::session_setup(env)};
-  if (!res_session.has_value()) {
-    std::println("ora: setup failed: {}", res_session.error());
-    SDL_GL_DeleteContext(ctx);
-    SDL_DestroyWindow(ptr_window);
-    SDL_Quit();
-    return 1;
-  }
-  lch::GameSession& s{*res_session};
-  ora::game::sound_facade sound{ora::game::make_sound_facade("", false)};
-  std::println("sound: {} engine", ora::platforms::engine_dummy(sound.engine) ? "dummy" : "openal");
-  ora::game::support::MersenneTwister rng_cosmetic{
-      ora::game::support::make_mersenne_twister(static_cast<std::int32_t>(SDL_GetTicks()))};
-  ora::game::sfx_sound_rules sfx_rules{};
-  ora::game::sfx_context sfx{.ptr_facade = &sound,
-                             .ptr_rules = &sfx_rules,
-                             .ptr_rng_cosmetic = &rng_cosmetic};
-  s.w.ptr_sfx = &sfx;
-  ora::platforms::engine_set_listener_position(
-      sound.engine,
-      ora::platforms::wpos{.int4_x = s.w.econ.map_move.int4_width * 1024 / 2,
-                           .int4_y = s.w.econ.map_move.int4_height * 1024 / 2,
-                           .int4_z = 2133});
-  lch::session_tick(s);
+    UiState ui;
+    ui.panel.str_current_type = "Building";
+    DemoState demo;
+    bool b_window_closed{false};
+    std::size_t sz_printed{0};
+    flush_events(s, sz_printed, ptr_log);
 
-  UiState ui;
-  ui.panel.str_current_type = "Building";
-  DemoState demo;
-  std::size_t sz_printed{0};
-  flush_events(s, sz_printed, ptr_log);
+    // ORA_GAME_AUTOTEST 驱动面（T28 验收探针，分号轮次表）：wait<n>/shot<name>/abort
+    static int int4_game_round{0};
+    const std::vector<std::string> vec_game_steps{
+        autotest_round_steps(std::getenv("ORA_GAME_AUTOTEST"), int4_game_round)};
+    std::string str_game_shot_dir{"."};
+    if (const char* sz_shot{std::getenv("ORA_FLOW_SHOT_DIR")}; sz_shot != nullptr && *sz_shot != '\0')
+      str_game_shot_dir = sz_shot;
+    std::size_t sz_game_next_step{0};
+    std::uint64_t u8_game_step_ready_frame{5};
 
-  std::uint64_t u8_frames{0};
-  std::uint32_t u4_next_logic{SDL_GetTicks()};
-  std::uint32_t u4_next_render{SDL_GetTicks()};
+    std::uint64_t u8_frames{0};
+    std::uint32_t u4_next_logic{SDL_GetTicks()};
+    std::uint32_t u4_next_render{SDL_GetTicks()};
 
-  while (!ui.b_quit) {
-    const std::uint32_t u4_now{SDL_GetTicks()};
+    while (!ui.b_quit) {
+      const std::uint32_t u4_now{SDL_GetTicks()};
 
-    if (g_ctrl_c) ui.b_quit = true;
+      if (g_ctrl_c) {
+        ui.b_quit = true;
+        b_window_closed = true;
+      }
 
-    if (u4_now - u4_next_logic > kLogicBehindDropMs) u4_next_logic = u4_now;
-    if (static_cast<std::int32_t>(u4_now - u4_next_logic) >= 0) {
-      u4_next_logic += static_cast<std::uint32_t>(args.int4_tick_ms);
-      ora::game::sfx_context_set_tick(sfx, s.w.int4_world_tick);
-      lch::session_tick(s);
-      static_cast<void>(ora::game::sound_facade_tick(sound));
-      flush_events(s, sz_printed, ptr_log);
+      if (u4_now - u4_next_logic > kLogicBehindDropMs) u4_next_logic = u4_now;
+      if (static_cast<std::int32_t>(u4_now - u4_next_logic) >= 0) {
+        u4_next_logic += static_cast<std::uint32_t>(args.int4_tick_ms);
+        ora::game::sfx_context_set_tick(sfx, s.w.int4_world_tick);
+        lch::session_tick(s);
+        static_cast<void>(ora::game::sound_facade_tick(sound));
+        if (opt_music.has_value()) ora::game::music_player_tick(*opt_music);
+        flush_events(s, sz_printed, ptr_log);
       if (!s.om.str_fatal.empty()) {
         std::println("ora: order manager fatal: {}", s.om.str_fatal);
         ui.b_quit = true;
@@ -1581,18 +1689,25 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
 
       SDL_Event event;
       while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT) ui.b_quit = true;
+        if (event.type == SDL_QUIT) {
+          ui.b_quit = true;
+          b_window_closed = true;
+        }
         if (event.type == SDL_KEYDOWN) {
           const SDL_Keycode key{event.key.keysym.sym};
+          // ESC = ABORT_MISSION 折叠（上游 IngameMenu 确认对话框直通，D087 先例）
           if (key == SDLK_ESCAPE) ui.b_quit = true;
           if (key == SDLK_p && (event.key.keysym.mod & KMOD_CTRL)) ui.b_screenshot = true;
-          if (key >= SDLK_1 && key <= SDLK_9) {
-            const std::size_t idx_group{static_cast<std::size_t>(key - SDLK_1)};
-            if (event.key.keysym.mod & KMOD_CTRL)
-              inp::control_group_create(ui.selection, s.w, s.u4_viewer, idx_group);
-            else
-              inp::control_group_select(ui.selection, idx_group);
-          }
+          // 控制组经热键注册表（上游 ControlGroupsWidget.HandleKeyPress——T22 消费面，
+          // 改键重进生效链；默认 NUMBER_1..9 与原 SDL 硬编码等价）
+          inp::KeyInput ki{};
+          ki.event = inp::KeyInputEvent::kDown;
+          ki.key = sdl_keycode_to_ora(key);
+          ki.mods = mods_from_sdl(event.key.keysym.mod);
+          ki.int4_tap_count = 1;
+          const auto res_group{
+              inp::control_groups_handle_key(hotkeys, ui.selection, s.w, s.u4_viewer, ki)};
+          static_cast<void>(res_group);  // opt_center_group 视口跳转折叠（观感票）
         }
         if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP ||
             event.type == SDL_MOUSEMOTION) {
@@ -1625,61 +1740,130 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
         }
       }
 
-      vec_quads.clear();
-      push_quad(0, 0, kViewW, kViewH, 0.05f, 0.07f, 0.1f, 1);
-      push_world_draw(s, ui);
-      push_panel_draw(s, ui, vec_queues);
-      push_text(lch::session_hud_line(s), 8, 8, 2, 1, 1, 0.4f);
+        vec_quads.clear();
+        push_quad(0, 0, kViewW, kViewH, 0.05f, 0.07f, 0.1f, 1);
+        push_world_draw(s, ui);
+        push_panel_draw(s, ui, vec_queues);
+        push_text(lch::session_hud_line(s), 8, 8, 2, 1, 1, 0.4f);
 
-      std::vector<GLfloat> vec_verts;
-      vec_verts.reserve(vec_quads.size() * 30);
-      for (const Quad& quad : vec_quads) {
-        const GLfloat fp4_verts[]{quad.fp4_x, quad.fp4_y, quad.fp4_r, quad.fp4_g, quad.fp4_b,
-                                  quad.fp4_a,
-                                  quad.fp4_x + quad.fp4_w, quad.fp4_y, quad.fp4_r, quad.fp4_g,
-                                  quad.fp4_b, quad.fp4_a,
-                                  quad.fp4_x, quad.fp4_y + quad.fp4_h, quad.fp4_r, quad.fp4_g,
-                                  quad.fp4_b, quad.fp4_a,
-                                  quad.fp4_x, quad.fp4_y + quad.fp4_h, quad.fp4_r, quad.fp4_g,
-                                  quad.fp4_b, quad.fp4_a,
-                                  quad.fp4_x + quad.fp4_w, quad.fp4_y, quad.fp4_r, quad.fp4_g,
-                                  quad.fp4_b, quad.fp4_a,
-                                  quad.fp4_x + quad.fp4_w, quad.fp4_y + quad.fp4_h, quad.fp4_r,
-                                  quad.fp4_g, quad.fp4_b, quad.fp4_a};
-        vec_verts.insert(vec_verts.end(), fp4_verts, fp4_verts + 36);
+        std::vector<GLfloat> vec_verts;
+        vec_verts.reserve(vec_quads.size() * 30);
+        for (const Quad& quad : vec_quads) {
+          const GLfloat fp4_verts[]{quad.fp4_x, quad.fp4_y, quad.fp4_r, quad.fp4_g, quad.fp4_b,
+                                    quad.fp4_a,
+                                    quad.fp4_x + quad.fp4_w, quad.fp4_y, quad.fp4_r, quad.fp4_g,
+                                    quad.fp4_b, quad.fp4_a,
+                                    quad.fp4_x, quad.fp4_y + quad.fp4_h, quad.fp4_r, quad.fp4_g,
+                                    quad.fp4_b, quad.fp4_a,
+                                    quad.fp4_x, quad.fp4_y + quad.fp4_h, quad.fp4_r, quad.fp4_g,
+                                    quad.fp4_b, quad.fp4_a,
+                                    quad.fp4_x + quad.fp4_w, quad.fp4_y, quad.fp4_r, quad.fp4_g,
+                                    quad.fp4_b, quad.fp4_a,
+                                    quad.fp4_x + quad.fp4_w, quad.fp4_y + quad.fp4_h, quad.fp4_r,
+                                    quad.fp4_g, quad.fp4_b, quad.fp4_a};
+          vec_verts.insert(vec_verts.end(), fp4_verts, fp4_verts + 36);
+        }
+        gl_clear_color(0, 0, 0, 1);
+        gl_clear(GL_COLOR_BUFFER_BIT);
+        gl_buffer_data(GL_ARRAY_BUFFER, static_cast<long>(vec_verts.size() * sizeof(GLfloat)),
+                       vec_verts.data(), GL_STATIC_DRAW);
+        gl_draw_arrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vec_quads.size() * 6));
+        SDL_GL_SwapWindow(ptr_window);
+
+        if (ui.b_screenshot) {
+          save_screenshot(ptr_window, screenshot_path(
+                                         std::format("t{}", s.w.int4_world_tick))
+                                         .c_str());
+          ui.b_screenshot = false;
+        }
+
+        ++u8_frames;
+        // autotest 步进：wait<n> 定帧，其余每 3 帧一步
+        if (sz_game_next_step < vec_game_steps.size()
+            && u8_frames >= u8_game_step_ready_frame) {
+          const std::string& str_step{vec_game_steps[sz_game_next_step]};
+          if (str_step.starts_with("wait")) {
+            u8_game_step_ready_frame = u8_frames + std::stoull(str_step.substr(4));
+          } else {
+            if (str_step.starts_with("shot")) {
+              const std::string str_path{str_game_shot_dir + "/" + str_step.substr(4) + ".bmp"};
+              save_screenshot(ptr_window, str_path.c_str());
+              std::println("game-autotest: shot {}", str_path);
+            } else if (str_step == "abort") {
+              ui.b_quit = true;
+            }
+            u8_game_step_ready_frame = u8_frames + 3;
+          }
+          ++sz_game_next_step;
+        }
+        if (sz_game_next_step >= vec_game_steps.size() && !vec_game_steps.empty()
+            && u8_frames >= u8_game_step_ready_frame + 30)
+          ui.b_quit = true;  // 序列放完自动 abort（防呆）
       }
-      gl_clear_color(0, 0, 0, 1);
-      gl_clear(GL_COLOR_BUFFER_BIT);
-      gl_buffer_data(GL_ARRAY_BUFFER, static_cast<long>(vec_verts.size() * sizeof(GLfloat)),
-                     vec_verts.data(), GL_STATIC_DRAW);
-      gl_draw_arrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vec_quads.size() * 6));
-      SDL_GL_SwapWindow(ptr_window);
 
-      if (ui.b_screenshot) {
-        save_screenshot(ptr_window, screenshot_path(
-                                       std::format("t{}", s.w.int4_world_tick))
-                                       .c_str());
-        ui.b_screenshot = false;
-      }
-
-      ++u8_frames;
+      const std::uint32_t u4_next{std::min(u4_next_logic, u4_next_render)};
+      const std::int32_t int4_sleep{static_cast<std::int32_t>(u4_next - SDL_GetTicks())};
+      if (int4_sleep > 0) SDL_Delay(static_cast<std::uint32_t>(int4_sleep));
     }
 
-    const std::uint32_t u4_next{std::min(u4_next_logic, u4_next_render)};
-    const std::int32_t int4_sleep{static_cast<std::int32_t>(u4_next - SDL_GetTicks())};
-    if (int4_sleep > 0) SDL_Delay(static_cast<std::uint32_t>(int4_sleep));
+    std::println("game round done frames={} ticks={}", u8_frames, s.w.int4_world_tick);
+    flush_events(s, sz_printed, ptr_log);
+
+    // 轮末清理（上游 Game.DisposeWorld 等价：音乐停、世界释放；音频 engine 跨轮存活）
+    if (opt_music.has_value()) ora::game::music_player_stop(*opt_music);
+    opt_music.reset();
+    s.w.ptr_sfx = nullptr;
+    s.vec_bridge_pending.clear();
+    s.vec_movers.clear();
+    s.vec_fighters.clear();
+    s.om = net::OrderManagerModel{};
+    s.w = ww::WorldModel{};
+    return b_window_closed ? GameRoundExit::kWindowClosed : GameRoundExit::kAborted;
+  }};
+
+  // 大堂路径 = --lobby 直进或菜单全流程（ptr_flow 非空）；其余 CLI 直进
+  //（--map/--demo/--record/--replay 窗口模式）单轮直入沙盒对局
+  const bool b_via_lobby{args.b_lobby || ptr_flow != nullptr};
+  if (!b_via_lobby) {
+    // CLI 直进单轮（T15 保留：--map/--demo/--record/--replay 窗口模式，退出即进程结束）
+    game_round(std::nullopt);
+  } else {
+    // 大堂↔对局循环（--lobby 直进与菜单全流程共用；T28 上游语义：对局 ABORT 后
+    // StartSkirmishGame 重连大堂，DISCONNECT 才离场——直进=退出进程、全流程=回菜单）
+    bool b_session_done{false};
+    while (!b_session_done) {
+      const std::string str_maps_dir{args.str_maps_dir.empty() ? "tests/golden/maps"
+                                                               : args.str_maps_dir};
+      const std::string str_chrome_dir{args.str_chrome_dir.empty()
+                                           ? "tests/golden/lobby/fixture"
+                                           : args.str_chrome_dir};
+      lch::LobbyRuntime lobby;
+      const auto res_lobby{lch::lobby_runtime_create(lobby, str_maps_dir, str_chrome_dir)};
+      if (!res_lobby.has_value()) {
+        std::println("ora: lobby setup failed: {}", res_lobby.error());
+        break;
+      }
+      std::println("lobby: {} maps from {} (tree {})", lobby.vec_entries.size(), str_maps_dir,
+                   lobby.b_tree_loaded ? "loaded" : "fallback");
+      if (lob::run_lobby_phase(lobby, ptr_window, u_prog) != 1) {
+        std::println("lobby: disconnected");
+        if (ptr_flow != nullptr)
+          lch::flow_dispatch(*ptr_flow, lch::FlowEvent::kLobbyDisconnect);
+        break;
+      }
+      if (ptr_flow != nullptr) lch::flow_dispatch(*ptr_flow, lch::FlowEvent::kLobbyStart);
+      std::optional<lch::LobbyStartConfig> opt_lobby_start{lch::lobby_start_config(lobby)};
+      std::println("lobby: start game map={} slots={} seed={}", opt_lobby_start->str_map_path,
+                   opt_lobby_start->vec_factions.size(), opt_lobby_start->int4_seed);
+      const GameRoundExit round{game_round(std::move(opt_lobby_start))};
+      if (round == GameRoundExit::kSetupFailed || round == GameRoundExit::kWindowClosed) break;
+      // kAborted：上游 OpenMenuBasedOnLastGame(Skirmish) → StartSkirmishGame 重进大堂
+      if (ptr_flow != nullptr) lch::flow_dispatch(*ptr_flow, lch::FlowEvent::kGameAbort);
+      std::println("game: aborted -> reconnect lobby (StartSkirmishGame)");
+    }
   }
 
-  std::println("exiting clean frames={} ticks={}", u8_frames, s.w.int4_world_tick);
-  flush_events(s, sz_printed, ptr_log);
-
-  s.vec_bridge_pending.clear();
-  s.vec_movers.clear();
-  s.vec_fighters.clear();
-  s.om = net::OrderManagerModel{};
-  s.w = ww::WorldModel{};
   ora::platforms::engine_dispose(sound.engine);
-
   SDL_GL_DeleteContext(ctx);
   SDL_DestroyWindow(ptr_window);
   SDL_Quit();
@@ -1690,7 +1874,6 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0)
 
 namespace menu_ns = ora::game::ui;
 namespace fr = ora::game::render;
-namespace hotk = ora::game::input;
 
 constexpr int kMenuWinW{1024};
 constexpr int kMenuWinH{768};
@@ -1729,12 +1912,130 @@ std::string menu_settings_path() {
   return (path_dir / "settings.yaml").string();
 }
 
-int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
+// —— T28 全流程共用装载面（菜单/大堂/对局三相位同源）——
+
+// 设置装载：落盘文件优先；缺失/坏文件回落全默认（进程不因设置炸——上游低层
+// Load 会炸，探针面折叠为提示+默认，D088 口径顺延）
+ora::game::SettingsModel flow_settings_load(const char* sz_where) {
+  const std::string str_path{menu_settings_path()};
+  auto res{ora::game::settings_load(str_path)};
+  if (!res.has_value()) {
+    std::println("flow[{}]: settings load {} failed ({}), using defaults", sz_where, str_path,
+                 res.error());
+    return ora::game::SettingsModel{};
+  }
+  std::println("flow[{}]: settings={} (windowed={}x{} vsync={} mute={} sound={:.3f})",
+               sz_where, str_path, res->graphics.windowed_size.int4_x,
+               res->graphics.windowed_size.int4_y, res->graphics.b_vsync ? 1 : 0,
+               res->sound.b_mute ? 1 : 0, res->sound.fp_sound_volume);
+  return *res;
+}
+
+// 热键注册表：黄金 9 文件 + settings Keys: 段应用（改键重进生效链——上游
+// HotkeyManager ctor 每次装载先 mod 默认再覆盖 Keys 段）
+std::optional<hotk::HotkeyRegistryModel> flow_hotkey_registry_load(
+    const std::filesystem::path& path_golden, ora::game::SettingsModel& sm) {
+  std::vector<std::vector<ora::game::MiniYamlNode>> vec_hotkey_files;
+  std::ifstream fs_files{path_golden / "hotkeys" / "files.txt"};
+  if (!fs_files.is_open()) {
+    std::println("flow: hotkey corpus files.txt missing");
+    return std::nullopt;
+  }
+  std::string str_line;
+  while (std::getline(fs_files, str_line)) {
+    if (!str_line.empty() && str_line.back() == '\r') str_line.pop_back();
+    if (str_line.empty()) continue;
+    std::replace(str_line.begin(), str_line.end(), '|', '-');
+    std::replace(str_line.begin(), str_line.end(), '/', '-');
+    auto res_nodes{
+        ora::game::miniyaml_from_file((path_golden / "hotkeys" / "yaml" / str_line).string())};
+    if (!res_nodes.has_value()) {
+      std::println("flow: hotkey corpus {}: {}", str_line, res_nodes.error());
+      return std::nullopt;
+    }
+    vec_hotkey_files.push_back(std::move(*res_nodes));
+  }
+  auto res_reg{hotk::hotkey_registry_load(vec_hotkey_files)};
+  if (!res_reg.has_value()) {
+    std::println("flow: hotkey registry load failed: {}", res_reg.error());
+    return std::nullopt;
+  }
+  // settings Keys: 段覆盖（坏值=拒绝装载——D059；流程相位按"装载失败用默认注册表"
+  // 探针口径降级，console 提示）
+  if (ora::game::MiniYamlNode* ptr_keys{ora::game::settings_find_section(sm, "Keys")}) {
+    const auto res_apply{hotk::hotkey_registry_apply_settings(*res_reg, ptr_keys->vec_children)};
+    if (!res_apply.has_value())
+      std::println("flow: hotkey settings apply failed ({}), mod defaults kept", res_apply.error());
+    else
+      std::println("flow: hotkeys={} keys-section applied", res_reg->vec_definitions.size());
+  } else {
+    std::println("flow: hotkeys={} (no Keys section, mod defaults)", res_reg->vec_definitions.size());
+  }
+  return std::move(*res_reg);
+}
+
+// 对局 BGM 曲库：上游 mods/ra/audio/music.yaml 真源语料 + 内容包存在性探测
+//（.aud 在 mix 内不可平铺探测——全部 b_exists=false = 上游无内容包等价：播放
+// 决策照常发起、引擎层静默；D074 AudLoader 缺位顺延）
+std::vector<std::pair<std::string, ora::game::music_info>> flow_music_library(
+    const std::filesystem::path& path_golden) {
+  const std::filesystem::path path_music{path_golden / "music" / "ra-music.yaml"};
+  auto res_tracks{ora::game::load_music_infos(path_music.string())};
+  if (!res_tracks.has_value()) {
+    std::println("flow: music library {}: {}", path_music.string(), res_tracks.error());
+    return {};
+  }
+  const char* sz_appdata{std::getenv("APPDATA")};
+  std::string str_probe_dir;
+  if (sz_appdata != nullptr)
+    str_probe_dir = std::string{sz_appdata} + "/OpenRA/Content/ra/v2/music";
+  ora::game::music_infos_probe_exists(*res_tracks, str_probe_dir);
+  std::size_t sz_exists{};
+  for (const auto& [str_key, info] : *res_tracks)
+    if (info.b_exists) ++sz_exists;
+  std::println("flow: music library {} tracks ({} playable) from {}", res_tracks->size(),
+               sz_exists, path_music.string());
+  return *res_tracks;
+}
+
+// SDL key → ora KeyInput（printable 直转（Keycode 枚举=ASCII 值），功能键表覆盖）
+inp::Keycode sdl_keycode_to_ora(SDL_Keycode key) {
+  if (key >= 0x20 && key <= 0x7E) return static_cast<inp::Keycode>(key);
+  switch (key) {
+    case SDLK_RETURN:
+      return inp::Keycode::kReturn;
+    case SDLK_KP_ENTER:
+      return inp::Keycode::kKpEnter;
+    case SDLK_ESCAPE:
+      return inp::Keycode::kEscape;
+    case SDLK_BACKSPACE:
+      return inp::Keycode::kBackspace;
+    case SDLK_TAB:
+      return inp::Keycode::kTab;
+    case SDLK_UP:
+      return inp::Keycode::kUp;
+    case SDLK_DOWN:
+      return inp::Keycode::kDown;
+    case SDLK_LEFT:
+      return inp::Keycode::kLeft;
+    case SDLK_RIGHT:
+      return inp::Keycode::kRight;
+    default:
+      return inp::Keycode::kUnknown;
+  }
+}
+
+// 菜单相位出口（T28 全流程）：kQuit=QUIT_BUTTON/窗口关闭/语料错误（进程退出），
+// kStartSkirmish=SKIRMISH_BUTTON 出口位（上游 StartSkirmishGame → 流程进大堂）
+enum class MenuPhaseExit { kQuit, kStartSkirmish };
+
+MenuPhaseExit run_menu_phase(const lch::CliArgs& args, char* sz_argv0,
+                             menu_ns::MenuType initial_type) {
   static_cast<void>(args);
   const auto opt_golden{find_golden_root(sz_argv0)};
   if (!opt_golden.has_value()) {
     std::println("ora: main menu corpus not found（ORA_GOLDEN_DIR 或 tests/golden 布局缺失）");
-    return 1;
+    return MenuPhaseExit::kQuit;
   }
   const std::filesystem::path path_golden{*opt_golden};
   const std::filesystem::path path_fixture{path_golden / "mainmenu" / "fixture"};
@@ -1752,7 +2053,7 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
   const auto vec_hotkeys{load_yaml_nodes(path_fixture / "settings-hotkeys.yaml")};
   if (!vec_menu.has_value() || !vec_settings.has_value() || !vec_display.has_value()
       || !vec_audio.has_value() || !vec_hotkeys.has_value())
-    return 1;
+    return MenuPhaseExit::kQuit;
   const auto loader_menu{menu_ns::widget_loader_from_nodes(*vec_menu)};
   const auto loader_settings{menu_ns::widget_loader_from_nodes(*vec_settings)};
   const auto loader_display{menu_ns::widget_loader_from_nodes(*vec_display)};
@@ -1761,7 +2062,7 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
   if (!loader_menu.has_value() || !loader_settings.has_value() || !loader_display.has_value()
       || !loader_audio.has_value() || !loader_hotkeys.has_value()) {
     std::println("ora: menu chrome loader build failed");
-    return 1;
+    return MenuPhaseExit::kQuit;
   }
 
   // chrome 集合/指标（按钮九宫格与配色）
@@ -1788,7 +2089,7 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
   std::ifstream fs_ttf{path_golden / "fonts" / "fixture" / "FreeSans.ttf", std::ios::binary};
   if (!fs_ttf.is_open()) {
     std::println("ora: menu font corpus missing");
-    return 1;
+    return MenuPhaseExit::kQuit;
   }
   const std::string str_ttf{std::istreambuf_iterator<char>{fs_ttf},
                             std::istreambuf_iterator<char>{}};
@@ -1796,7 +2097,7 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
       {reinterpret_cast<const std::uint8_t*>(str_ttf.data()), str_ttf.size()})};
   if (!res_face.has_value()) {
     std::println("ora: font face: {}", res_face.error());
-    return 1;
+    return MenuPhaseExit::kQuit;
   }
   const std::shared_ptr<const fr::FontFace> ptr_face{
       std::make_shared<fr::FontFace>(std::move(*res_face))};
@@ -1806,7 +2107,7 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
   auto res_font{fr::spritefont_create(ptr_face, font_builder, 14, 11, 1.0f)};
   if (!res_font.has_value()) {
     std::println("ora: spritefont: {}", res_font.error());
-    return 1;
+    return MenuPhaseExit::kQuit;
   }
   std::map<std::string, fr::SpriteFont> map_fonts;
   // chrome 字体名折叠到同一 face 同一 sheet 0（观感票再分 Regular/Bold 度量；
@@ -1823,55 +2124,39 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
     chrome_sheets.map_sheets.emplace(
         col.str_image, menu_ns::ChromeSheet{chrome_sheets.u4_next_id++, 1, 1, {0xFFFFFFFFu}});
 
-  // 热键注册表（黄金语料 9 文件）
-  std::vector<std::vector<ora::game::MiniYamlNode>> vec_hotkey_files;
-  {
-    std::ifstream fs_files{path_golden / "hotkeys" / "files.txt"};
-    std::string str_line;
-    while (std::getline(fs_files, str_line)) {
-      if (str_line.empty() || str_line.back() == '\r') {
-        if (!str_line.empty()) str_line.pop_back();
-        if (str_line.empty()) continue;
-      }
-      std::replace(str_line.begin(), str_line.end(), '|', '-');
-      std::replace(str_line.begin(), str_line.end(), '/', '-');
-      auto res_nodes{
-          ora::game::miniyaml_from_file((path_golden / "hotkeys" / "yaml" / str_line).string())};
-      if (!res_nodes.has_value()) {
-        std::println("ora: hotkey corpus {}: {}", str_line, res_nodes.error());
-        return 1;
-      }
-      vec_hotkey_files.push_back(std::move(*res_nodes));
-    }
-  }
-  const auto res_reg{hotk::hotkey_registry_load(vec_hotkey_files)};
-  hotk::HotkeyRegistryModel hotkeys{
-      res_reg.has_value() ? std::move(*res_reg) : hotk::HotkeyRegistryModel{}};
-
-  // 设置模型（落盘文件优先，重进生效验收路径）+ 音频门面
+  // 设置模型（落盘文件优先，重进生效验收路径）+ 音频门面 + 分辨率生效面
   const std::string str_settings_path{menu_settings_path()};
-  auto res_sm{ora::game::settings_load(str_settings_path)};
-  if (!res_sm.has_value()) {
-    std::println("ora: settings load: {}", res_sm.error());
-    return 1;
+  ora::game::SettingsModel sm{flow_settings_load("menu")};
+  int int4_win_w{kMenuWinW};
+  int int4_win_h{kMenuWinH};
+  if (sm.graphics.windowed_size.int4_x >= 640 && sm.graphics.windowed_size.int4_y >= 480) {
+    int4_win_w = sm.graphics.windowed_size.int4_x;
+    int4_win_h = sm.graphics.windowed_size.int4_y;
+  } else {
+    std::println("menu: windowed_size {}x{} out of range, using {}x{}",
+                 sm.graphics.windowed_size.int4_x, sm.graphics.windowed_size.int4_y, int4_win_w,
+                 int4_win_h);
   }
-  ora::game::SettingsModel& sm{*res_sm};
+  // 热键注册表（黄金 9 文件 + settings Keys: 段——改键重进生效链）
+  const auto opt_hotkeys{flow_hotkey_registry_load(path_golden, sm)};
+  hotk::HotkeyRegistryModel hotkeys{opt_hotkeys.has_value() ? std::move(*opt_hotkeys)
+                                                            : hotk::HotkeyRegistryModel{}};
   ora::game::sound_facade sound{
       ora::game::make_sound_facade_settings(sm.sound.str_device, sm.sound.b_mute, sm.sound)};
-  std::println("menu: settings={} sound={} engine", str_settings_path,
+  std::println("menu: window {}x{} sound={} engine", int4_win_w, int4_win_h,
                ora::platforms::engine_dummy(sound.engine) ? "dummy" : "openal");
 
   // UI 树 + 菜单状态
-  menu_ns::WidgetInitCtx ctx_window{kMenuWinW, kMenuWinH, nullptr, "default"};
+  menu_ns::WidgetInitCtx ctx_window{int4_win_w, int4_win_h, nullptr, "default"};
   menu_ns::WidgetModel root;
   root.str_type = "Container";
   root.str_id = "ROOT";
-  root.bounds = menu_ns::WidgetBounds{0, 0, kMenuWinW, kMenuWinH};
+  root.bounds = menu_ns::WidgetBounds{0, 0, int4_win_w, int4_win_h};
   if (const auto res_widget{
           menu_ns::widget_loader_load_widget(*loader_menu, root, ctx_window, "MAINMENU")};
       !res_widget.has_value()) {
     std::println("ora: MAINMENU load: {}", res_widget.error());
-    return 1;
+    return MenuPhaseExit::kQuit;
   }
 
   menu_ns::MainMenuEnv env{};
@@ -1882,6 +2167,10 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
   env.b_has_content_installer = false;
   menu_ns::MainMenuState menu;
   menu_ns::main_menu_setup(menu);
+  // T28 相位重入：大堂 DISCONNECT 后回菜单=SwitchMenu(Singleplayer)（上游
+  // OpenSkirmishLobbyPanel onExit）；首轮 initial=Main（setup 默认）
+  if (initial_type != menu_ns::MenuType::kMain && initial_type != menu_ns::MenuType::kStartupPrompts)
+    menu_ns::main_menu_switch(menu, initial_type);
   menu_ns::main_menu_apply(menu, env, root);
   menu_ns::main_menu_apply_disabled(env, root);
 
@@ -1891,26 +2180,28 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
   // —— 窗口/GL（纹理管线：sheet0=1x1 白供 chrome quad，字体 sheet 1..n）——
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     std::println("ora: SDL_Init failed: {}", SDL_GetError());
-    return 1;
+    return MenuPhaseExit::kQuit;
   }
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
   SDL_Window* ptr_window{SDL_CreateWindow("ora main menu", SDL_WINDOWPOS_CENTERED,
-                                          SDL_WINDOWPOS_CENTERED, kMenuWinW, kMenuWinH,
+                                          SDL_WINDOWPOS_CENTERED, int4_win_w, int4_win_h,
                                           SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI)};
   if (ptr_window == nullptr) {
     std::println("ora: window creation failed: {}", SDL_GetError());
     SDL_Quit();
-    return 1;
+    return MenuPhaseExit::kQuit;
   }
   SDL_GLContext ctx_gl{SDL_GL_CreateContext(ptr_window)};
   if (ctx_gl == nullptr) {
     std::println("ora: GL context failed: {}", SDL_GetError());
     SDL_DestroyWindow(ptr_window);
     SDL_Quit();
-    return 1;
+    return MenuPhaseExit::kQuit;
   }
+  // vsync 设置生效面（上游 Graphics.VSync → Renderer SwapInterval）
+  SDL_GL_SetSwapInterval(sm.graphics.b_vsync ? 1 : 0);
 
   gl_clear_color = gl_load<decltype(gl_clear_color)>("glClearColor");
   gl_clear = gl_load<decltype(gl_clear)>("glClear");
@@ -1963,10 +2254,11 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
                                        "in vec4 aCol;\n"
                                        "out vec2 vUv;\n"
                                        "out vec4 vCol;\n"
+                                       "uniform vec4 uHalf;\n"
                                        "void main() {\n"
                                        "  vUv = aUv;\n"
                                        "  vCol = aCol;\n"
-                                       "  gl_Position = vec4(aPos.x / 512.0 - 1.0, 1.0 - aPos.y / 384.0, 0.0, 1.0);\n"
+                                       "  gl_Position = vec4(aPos.x / uHalf.x - 1.0, 1.0 - aPos.y / uHalf.y, 0.0, 1.0);\n"
                                        "}\n"));
   gl_attach_shader(u_prog, make_shader(GL_FRAGMENT_SHADER,
                                        "#version 150\n"
@@ -1980,6 +2272,10 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
                                        "}\n"));
   gl_link_program(u_prog);
   gl_use_program(u_prog);
+  // 视口半宽高（T28 分辨率生效面：任意 windowed_size 下 NDC 归一化按实际尺寸）
+  const int idx_uhalf{gl_get_uniform_location(u_prog, "uHalf")};
+  gl_uniform4f(idx_uhalf, static_cast<GLfloat>(int4_win_w) / 2.0f,
+               static_cast<GLfloat>(int4_win_h) / 2.0f, 0.0f, 0.0f);
 
   unsigned u_vao{0};
   unsigned u_vbo{0};
@@ -2084,6 +2380,11 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
         b_running = false;
         std::println("menu: quit requested");
       }
+      // T28 出口位：SKIRMISH_BUTTON → StartSkirmishGame（流程进大堂）
+      if (menu.b_start_skirmish) {
+        b_running = false;
+        std::println("menu: start skirmish requested");
+      }
       if (menu.b_settings_open && !b_panel_open) {
         panel = menu_ns::SettingsPanelState{};
         panel.ptr_settings = &sm;
@@ -2139,20 +2440,11 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
     feed_mouse(mi);
   }};
 
-  // ORA_MENU_AUTOTEST 驱动面（验收探针）：逗号分隔步骤 wait<n>/shot<name>/
-  // click<id>/drag<id>:<frac>/print/quit，渲染帧节奏推进；截图落 ORA_MENU_SHOT_DIR
-  std::vector<std::string> vec_autotest;
-  if (const char* sz_autotest{std::getenv("ORA_MENU_AUTOTEST")};
-      sz_autotest != nullptr && *sz_autotest != '\0') {
-    std::string str_rest{sz_autotest};
-    std::size_t sz_comma{std::string::npos};
-    while ((sz_comma = str_rest.find(',')) != std::string::npos) {
-      vec_autotest.push_back(str_rest.substr(0, sz_comma));
-      str_rest = str_rest.substr(sz_comma + 1);
-    }
-    vec_autotest.push_back(std::move(str_rest));
-    std::println("menu-autotest: {} steps", vec_autotest.size());
-  }
+  // ORA_MENU_AUTOTEST 驱动面（验收探针，T28 分号轮次表）：每轮逗号分隔步骤
+  // wait<n>/shot<name>/click<id>/drag<id>:<frac>/print/quit；截图落 ORA_MENU_SHOT_DIR
+  static int int4_menu_round{0};
+  const std::vector<std::string> vec_autotest{
+      autotest_round_steps(std::getenv("ORA_MENU_AUTOTEST"), int4_menu_round)};
   std::string str_shot_dir{"."};
   if (const char* sz_shot{std::getenv("ORA_MENU_SHOT_DIR")}; sz_shot != nullptr && *sz_shot != '\0')
     str_shot_dir = sz_shot;
@@ -2304,7 +2596,7 @@ int run_menu_window(const lch::CliArgs& args, char* sz_argv0) {
   SDL_GL_DeleteContext(ctx_gl);
   SDL_DestroyWindow(ptr_window);
   SDL_Quit();
-  return 0;
+  return menu.b_start_skirmish ? MenuPhaseExit::kStartSkirmish : MenuPhaseExit::kQuit;
 }
 
 std::optional<std::string> detect_content_dir(const lch::CliArgs& args) {
@@ -2316,6 +2608,41 @@ std::optional<std::string> detect_content_dir(const lch::CliArgs& args) {
                                            "/OpenRA/Content/ra/v2"};
   if (std::filesystem::exists(path_content, ec)) return path_content.string();
   return std::nullopt;
+}
+
+// T28 全流程编排：FlowState 驱动菜单↔大堂↔对局相位循环（上游 OpenSkirmishLobby
+// /IngameMenu/ConnectionLogic 回调网的串联折叠；模式互斥与切换序列由 flow_state
+// 状态机保证，无头断言见 ora_full_flow）
+int run_flow(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0) {
+  lch::FlowState flow;
+  lch::flow_setup(flow);
+  for (;;) {
+    if (flow.mode == lch::FlowMode::kExit) return 0;
+    if (flow.mode == lch::FlowMode::kMainMenu) {
+      const MenuPhaseExit res{run_menu_phase(args, sz_argv0, flow.menu_type)};
+      if (res == MenuPhaseExit::kQuit) {
+        lch::flow_dispatch(flow, lch::FlowEvent::kMenuQuit);
+        std::println("flow: exit");
+        return 0;
+      }
+      // SKIRMISH 出口（菜单内 Singleplayer 语境点击；首轮从 Main 补 switch，
+      // disconnect 重入时菜单态已是 Singleplayer 直入）
+      if (flow.menu_type == menu_ns::MenuType::kMain)
+        lch::flow_dispatch(flow, lch::FlowEvent::kMenuSingleplayer);
+      lch::flow_dispatch(flow, lch::FlowEvent::kSkirmish);
+      std::println("flow: menu -> skirmish lobby");
+      continue;
+    }
+    // kLobby：大堂+对局会话窗口（DISCONNECT 上报后回菜单相位继续循环）
+    run_window(args, ptr_log, sz_argv0, &flow);
+    if (flow.mode == lch::FlowMode::kMainMenu) {
+      std::println("flow: lobby disconnected -> back to menu (Singleplayer)");
+      continue;
+    }
+    // 会话硬终止（窗口关闭/Ctrl+C/装载失败，未走 disconnect 流转）→ 进程退出
+    std::println("flow: session terminated (mode={})", static_cast<int>(flow.mode));
+    return 0;
+  }
 }
 
 }
@@ -2365,13 +2692,15 @@ int main(int argc, char** argv) {
   SetConsoleCtrlHandler(console_ctrl_handler, TRUE);
 
   // T26：窗口模式无参（无 --map/--demo/--record/--replay/--lobby）进主菜单；
-  // 沙盒演示/装载图/大堂路径不变（--map、--demo、--lobby、录制回放族）
+  // T28：无参 = 全流程编排（菜单→遭遇战大堂→对局→退出，FlowState 驱动）；
+  // 沙盒演示/装载图/大堂直进路径不变（--map、--demo、--lobby、录制回放族）
   const bool b_menu_mode{!parsed.args.b_headless && parsed.args.str_map.empty()
                          && !parsed.args.b_demo && parsed.args.str_record.empty()
                          && parsed.args.str_replay.empty() && !parsed.args.b_lobby};
   const int int4_result{parsed.args.b_headless ? run_headless(parsed.args, ptr_log, argv[0])
-                          : b_menu_mode        ? run_menu_window(parsed.args, argv[0])
-                                               : run_window(parsed.args, ptr_log, argv[0])};
+                          : b_menu_mode        ? run_flow(parsed.args, ptr_log, argv[0])
+                                               : run_window(parsed.args, ptr_log, argv[0],
+                                                            nullptr)};
   if (ptr_log != nullptr) stream_log.close();
   return int4_result;
 }
