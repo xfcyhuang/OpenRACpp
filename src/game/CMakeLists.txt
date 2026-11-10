@@ -5,7 +5,7 @@ add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.c
   render/palette.cpp render/lcw.cpp render/xor_delta.cpp render/tmp_ra.cpp render/shp_td.cpp render/font.cpp render/png_decode.cpp
   pathfinding/priority_queue.cpp pathfinding/path_graph.cpp pathfinding/astar.cpp pathfinding/wangle.cpp pathfinding/move_sim.cpp
   combat/weapon.cpp combat/warhead_damage.cpp combat/health.cpp combat/armament.cpp combat/projectile.cpp combat/combat_sim.cpp
-  world/actor.cpp world/trait.cpp world/trait_container.cpp world/world.cpp world/sync_hash.cpp
+  world/actor.cpp world/trait.cpp world/trait_container.cpp world/world.cpp world/sync_hash.cpp world/bot.cpp
   network/order.cpp network/order_packet.cpp network/order_manager.cpp network/lobby_session.cpp
   replay/replay_format.cpp replay/replay_record.cpp replay/replay_player.cpp replay/replay_world.cpp
   production/production.cpp
@@ -20,7 +20,7 @@ target_sources(ora_game PRIVATE game.hpp sound/music_player.hpp miniyaml.hpp min
   render/palette.hpp render/lcw.hpp render/xor_delta.hpp render/tmp_ra.hpp render/shp_td.hpp render/font.hpp render/png_decode.hpp render/stb_truetype.h
   pathfinding/priority_queue.hpp pathfinding/path_graph.hpp pathfinding/astar.hpp pathfinding/wangle.hpp pathfinding/move_sim.hpp
   combat/weapon.hpp combat/warhead_damage.hpp combat/health.hpp combat/armament.hpp combat/projectile.hpp combat/combat_sim.hpp
-  world/actor.hpp world/trait.hpp world/trait_container.hpp world/world.hpp world/sync_hash.hpp
+  world/actor.hpp world/trait.hpp world/trait_container.hpp world/world.hpp world/sync_hash.hpp world/bot.hpp
   network/order.hpp network/order_packet.hpp network/order_manager.hpp network/lobby_session.hpp
   replay/replay_format.hpp replay/replay_record.hpp replay/replay_player.hpp replay/replay_world.hpp
   production/production.hpp

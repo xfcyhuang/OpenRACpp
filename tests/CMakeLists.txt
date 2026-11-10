@@ -51,6 +51,10 @@ add_executable(ora_world_tick world_tick.cpp)
 target_link_libraries(ora_world_tick PRIVATE ora_std ora_game)
 add_test(NAME world_tick COMMAND ora_world_tick)
 
+add_executable(ora_bot_framework bot_framework.cpp)
+target_link_libraries(ora_bot_framework PRIVATE ora_std ora_game)
+add_test(NAME bot_framework COMMAND ora_bot_framework)
+
 add_executable(ora_render_decode render_decode.cpp)
 target_link_libraries(ora_render_decode PRIVATE ora_std ora_game)
 target_compile_definitions(ora_render_decode PRIVATE

@@ -163,11 +163,16 @@ std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
 
 std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
                                                     std::int32_t int4_seed,
-                                                    const production::LobbyModel& lobby) {
+                                                    const production::LobbyModel& lobby,
+                                                    const bool b_is_replay) {
   WorldModel w;
   w.lobby = lobby;
+  // IsReplay 是世界构造期属性（上游 World ctor），玩家创建/bot 激活前生效。
+  w.b_is_replay = b_is_replay;
   w.rng_shared = support::make_mersenne_twister(int4_seed);
   w.rng_player = support::make_mersenne_twister(int4_seed);
+  // rng_local 与同步流分开派生（上游无种子墙钟，消耗序本就不对拍；见偏离登记）。
+  w.rng_local = support::make_mersenne_twister(int4_seed ^ 0x35ee9b1);
 
   std::vector<std::vector<MiniYamlNode>> vec_sources;
   vec_sources.reserve(map_syn.vec_rule_texts.size());
@@ -302,6 +307,10 @@ std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
     player.u4_actor_id = *res;
     player.b_playable = true;
     w.vec_players.push_back(std::move(player));
+
+    // Player ctor 尾的 host-only bot 激活（Player.cs:215-223）：单机形态 host 恒真。
+    for (const auto& [str_bot_slot, str_bot_type] : lobby.vec_slot_bots)
+      if (str_bot_slot == str_slot) bot_activate(w, u4_index, str_bot_type);
   }
 
   {
@@ -425,6 +434,10 @@ void world_tick(WorldModel& w) {
     if (ptr_spec != nullptr && ptr_spec->fn_tick)
       ptr_spec->fn_tick(TraitTickCtx{w, actor}, trait);
   }
+
+  // 上游 ModularBot 是 player actor 的 ITick trait（随 actor 遍历序跑）；C++ 合成面
+  // player actor 无 ModularBot trait，bot tick 独立段插在 effects 前（序位见偏离登记）。
+  bot_tick_all(w);
 
   world_tick_effects(w);
 
