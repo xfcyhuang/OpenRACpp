@@ -4,9 +4,11 @@ import std;
 
 #include "game/economy/economy.hpp"
 #include "game/miniyaml.hpp"
+#include "game/network/order.hpp"
 #include "game/production/production.hpp"
 #include "game/support/mersenne_twister.hpp"
 #include "game/world/actor.hpp"
+#include "game/world/bot.hpp"
 #include "game/world/trait.hpp"
 #include "game/world/trait_container.hpp"
 
@@ -55,6 +57,8 @@ struct PlayerModel {
   bool b_non_combatant{};
   bool b_spectating{};
   bool b_playable{};
+  // Player.IsBot = BotType != null（Player.cs:202）的载体：空串 = 非 bot。
+  std::string str_bot_type;
 };
 
 struct ActorTypeDef {
@@ -73,10 +77,18 @@ struct WorldModel {
   production::ProductionWorldState prod;
   economy::EconomyWorldState econ;
   production::LobbyModel lobby;
+  std::vector<BotModel> vec_bots;
+  // bot_tick 出单暂存面（上游 world.IssueOrder 的等价落点，T31 改投订单管道）。
+  std::vector<network::OrderModel> vec_bot_issued_orders;
   support::MersenneTwister rng_shared;
   support::MersenneTwister rng_player;
+  // World.LocalRandom（World.cs:200，无种子墙钟 MT）的等价载体：bot 决策随机
+  // 走此流，不进同步面（种子派生口径见 COVERAGE 登记）。
+  support::MersenneTwister rng_local;
   std::int32_t int4_world_tick{};
   bool b_paused{};
+  // 回放重演世界位（ModularBot.Activate 的 IsReplay 早退）。
+  bool b_is_replay{};
   std::uint32_t u4_net_frame{1};
   std::deque<FrameEndTask> deque_frame_end;
   std::uint32_t u4_next_aid{};
@@ -92,7 +104,7 @@ struct WorldModel {
 
 [[nodiscard]] std::expected<WorldModel, std::string> world_create(
     const SyntheticMap& map_syn, std::int32_t int4_seed,
-    const production::LobbyModel& lobby);
+    const production::LobbyModel& lobby, bool b_is_replay = false);
 
 [[nodiscard]] std::expected<std::uint32_t, std::string> create_actor(
     WorldModel& w, std::string_view str_type, std::uint32_t u4_owner,

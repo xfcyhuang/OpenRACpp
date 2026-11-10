@@ -15,6 +15,9 @@ enum class PowerState : std::uint8_t { kNormal = 0, kLow = 1, kCritical = 2 };
 
 struct LobbyModel {
   std::vector<std::pair<std::string, std::string>> vec_playable_factions;
+  // 槽位 bot 注入面（上游 Session.Client.Bot → Player.BotType 的桥）：
+  // 槽名 → bot 类型（ModularBotInfo.Type，如 normal/rush）。
+  std::vector<std::pair<std::string, std::string>> vec_slot_bots;
   std::int32_t int4_starting_cash{5000};
   std::string str_techlevel{"unrestricted"};
   bool b_build_radius{true};
