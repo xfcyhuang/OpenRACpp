@@ -1,4 +1,6 @@
-#include "utility.hpp"
+module ora.utility;
+
+import std;
 
 namespace ora::utility {
 

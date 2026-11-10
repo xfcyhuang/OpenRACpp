@@ -2,13 +2,14 @@ import std;
 
 #include <algorithm>
 #include <sstream>
+import ora.game;
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
+import ora.game.world;
+import ora.test.util;
 
-#include "game/input/hotkey.hpp"
-#include "game/input/hotkey_actions.hpp"
-#include "game/input/hotkey_registry.hpp"
-#include "game/input/selection.hpp"
-#include "game/world/world.hpp"
-#include "test_util.hpp"
 using ora::test::check;
 
 #ifndef ORA_HOTKEYS_GOLDEN_DIR

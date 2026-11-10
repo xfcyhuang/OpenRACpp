@@ -1,10 +1,11 @@
 import std;
 
-#include "game/network/order.hpp"
-#include "game/world/bot.hpp"
-#include "game/world/sync_hash.hpp"
-#include "game/world/world.hpp"
-#include "test_util.hpp"
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
+import ora.game.world;
+import ora.test.util;
 using ora::test::check;
 
 namespace {

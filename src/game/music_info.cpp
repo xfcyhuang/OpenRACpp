@@ -1,6 +1,6 @@
-#include "music_info.hpp"
+module ora.game;
 
-#include "sound_info.hpp"
+import std;
 
 namespace ora::game {
 

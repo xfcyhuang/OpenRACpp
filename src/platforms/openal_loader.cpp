@@ -1,6 +1,8 @@
-#include "openal_loader.hpp"
-
+module;
 #include <windows.h>
+module ora.platforms;
+
+import std;
 
 namespace ora::platforms {
 

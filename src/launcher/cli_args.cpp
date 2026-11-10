@@ -1,4 +1,6 @@
-#include "launcher/cli_args.hpp"
+module ora.launcher;
+
+import std;
 
 namespace ora::launcher {
 

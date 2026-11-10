@@ -1,4 +1,6 @@
-#include "ra.hpp"
+module ora.mods.ra;
+
+import std;
 
 namespace ora::mods::ra {
 

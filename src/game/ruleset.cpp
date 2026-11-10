@@ -1,4 +1,7 @@
-#include "game/ruleset.hpp"
+module ora.game;
+
+import std;
+import ora.game.miniyaml;
 
 namespace ora::game {
 

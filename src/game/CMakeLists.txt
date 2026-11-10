@@ -10,23 +10,12 @@ add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.c
   replay/replay_format.cpp replay/replay_record.cpp replay/replay_player.cpp replay/replay_world.cpp
   production/production.cpp
   economy/economy.cpp
-  input/input_events.hpp input/screen_map.cpp input/selection.cpp input/selection_logic.cpp input/order_generator.cpp input/production_panel.cpp
+  input/screen_map.cpp input/selection.cpp input/selection_logic.cpp input/order_generator.cpp input/production_panel.cpp
   input/hotkey.cpp input/hotkey_registry.cpp input/tap_history.cpp input/viewport_controller.cpp input/hotkey_actions.cpp
   support/mersenne_twister.cpp support/sha1.cpp filesystem/inflate.cpp filesystem/zip_read.cpp)
-target_sources(ora_game PRIVATE game.hpp sound/music_player.hpp miniyaml.hpp miniyaml_merge.hpp settings.hpp ruleset.hpp sound/sfx.hpp
-  map_bin.hpp map_read.hpp tileset.hpp
-  ui/expression.hpp ui/widget.hpp ui/widget_loader.hpp ui/chrome_provider.hpp ui/widget_render.hpp
-  ui/mainmenu_logic.hpp ui/settings_panel.hpp
-  render/palette.hpp render/lcw.hpp render/xor_delta.hpp render/tmp_ra.hpp render/shp_td.hpp render/font.hpp render/png_decode.hpp render/stb_truetype.h
-  pathfinding/priority_queue.hpp pathfinding/path_graph.hpp pathfinding/astar.hpp pathfinding/wangle.hpp pathfinding/move_sim.hpp
-  combat/weapon.hpp combat/warhead_damage.hpp combat/health.hpp combat/armament.hpp combat/projectile.hpp combat/combat_sim.hpp
-  world/actor.hpp world/trait.hpp world/trait_container.hpp world/world.hpp world/sync_hash.hpp world/bot.hpp
-  network/order.hpp network/order_packet.hpp network/order_manager.hpp network/lobby_session.hpp
-  replay/replay_format.hpp replay/replay_record.hpp replay/replay_player.hpp replay/replay_world.hpp
-  production/production.hpp
-  economy/economy.hpp
-  input/screen_map.hpp input/selection.hpp input/selection_logic.hpp input/order_generator.hpp input/production_panel.hpp
-  input/hotkey.hpp input/hotkey_registry.hpp input/tap_history.hpp input/viewport_controller.hpp input/hotkey_actions.hpp
-  support/mersenne_twister.hpp support/sha1.hpp filesystem/inflate.hpp filesystem/zip_read.hpp)
+target_sources(ora_game PUBLIC FILE_SET cxx_modules TYPE CXX_MODULES FILES
+  game.cppm miniyaml.cppm filesystem/filesystem.cppm support/support.cppm
+  pathfinding/pathfinding.cppm combat/combat.cppm render/render.cppm
+  world/world.cppm sound/sound.cppm input/input.cppm ui/ui.cppm)
 target_include_directories(ora_game PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(ora_game PUBLIC ora_std ora_platforms)

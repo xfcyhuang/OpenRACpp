@@ -1,4 +1,7 @@
-#include "game/network/lobby_session.hpp"
+module ora.game.world;
+
+import std;
+import ora.game.miniyaml;
 
 namespace ora::game::network {
 

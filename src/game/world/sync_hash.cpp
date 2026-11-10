@@ -1,4 +1,10 @@
-#include "game/world/sync_hash.hpp"
+module ora.game.world;
+
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
 
 namespace ora::game::world {
 

@@ -1,15 +1,12 @@
 import std;
 
 #include <cstdio>
+import ora.game;
+import ora.game.filesystem;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.test.util;
 
-#include "game/filesystem/zip_read.hpp"
-#include "game/map_bin.hpp"
-#include "game/map_read.hpp"
-#include "game/miniyaml.hpp"
-#include "game/pathfinding/move_sim.hpp"
-#include "game/pathfinding/path_graph.hpp"
-#include "game/tileset.hpp"
-#include "test_util.hpp"
 using ora::test::check;
 
 #ifndef ORA_PATHFINDING_GOLDEN_DIR

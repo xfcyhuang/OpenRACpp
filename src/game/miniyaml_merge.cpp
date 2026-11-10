@@ -1,4 +1,6 @@
-#include "game/miniyaml_merge.hpp"
+module ora.game.miniyaml;
+
+import std;
 
 namespace ora::game {
 

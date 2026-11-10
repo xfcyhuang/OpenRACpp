@@ -1,4 +1,6 @@
-#include "game/network/order_packet.hpp"
+module ora.game.world;
+
+import std;
 
 namespace ora::game::network {
 

@@ -1,7 +1,9 @@
-#include "game/map_read.hpp"
+module ora.game;
 
-#include "game/miniyaml.hpp"
-#include "game/support/sha1.hpp"
+import std;
+import ora.game.filesystem;
+import ora.game.miniyaml;
+import ora.game.support;
 
 namespace ora::game {
 

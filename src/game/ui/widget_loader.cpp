@@ -1,4 +1,8 @@
-#include "game/ui/widget_loader.hpp"
+module ora.game.ui;
+
+import std;
+import ora.game.input;
+import ora.game.miniyaml;
 
 namespace ora::game::ui {
 

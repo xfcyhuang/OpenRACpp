@@ -1,8 +1,12 @@
-#include "game/production/production.hpp"
+module ora.game.world;
 
-#include "game/network/order.hpp"
-#include "game/sound/sfx.hpp"
-#include "game/world/world.hpp"
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.sound;
+import ora.game.support;
+import ora.platforms;
 
 namespace ora::game::production {
 

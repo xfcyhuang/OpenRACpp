@@ -1,15 +1,11 @@
 import std;
 
-#include "game/network/order.hpp"
-#include "game/network/order_manager.hpp"
-#include "game/network/order_packet.hpp"
-#include "game/production/production.hpp"
-#include "game/replay/replay_format.hpp"
-#include "game/replay/replay_player.hpp"
-#include "game/replay/replay_record.hpp"
-#include "game/world/sync_hash.hpp"
-#include "game/world/world.hpp"
-#include "test_util.hpp"
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
+import ora.game.world;
+import ora.test.util;
 using ora::test::check;
 
 #ifndef ORA_REPLAY_GOLDEN_DIR

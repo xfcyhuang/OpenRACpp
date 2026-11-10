@@ -3,14 +3,10 @@ import std;
 #include <SDL.h>
 #include <cstdlib>
 #include <cstring>
+import ora.game;
+import ora.game.filesystem;
+import ora.game.render;
 
-#include "game/filesystem/zip_read.hpp"
-#include "game/map_bin.hpp"
-#include "game/map_read.hpp"
-#include "game/render/palette.hpp"
-#include "game/render/shp_td.hpp"
-#include "game/render/tmp_ra.hpp"
-#include "game/tileset.hpp"
 
 #ifndef ORA_CONTENT_TEMPERAT_DIR
 #define ORA_CONTENT_TEMPERAT_DIR ""

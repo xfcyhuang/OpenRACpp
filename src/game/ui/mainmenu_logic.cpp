@@ -1,4 +1,7 @@
-#include "game/ui/mainmenu_logic.hpp"
+module ora.game.ui;
+
+import std;
+import ora.game.input;
 
 namespace ora::game::ui {
 

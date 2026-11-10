@@ -1,6 +1,7 @@
-#include "game/tileset.hpp"
+module ora.game;
 
-#include "game/miniyaml.hpp"
+import std;
+import ora.game.miniyaml;
 
 namespace ora::game {
 

@@ -1,4 +1,6 @@
-#include "game.hpp"
+module ora.game;
+
+import std;
 
 namespace ora::game {
 

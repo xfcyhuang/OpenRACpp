@@ -3,10 +3,11 @@ import std;
 #include <SDL.h>
 #include <cstdlib>
 #include <cstring>
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.render;
+import ora.game.ui;
 
-#include "game/render/font.hpp"
-#include "game/ui/widget.hpp"
-#include "game/ui/widget_render.hpp"
 
 #ifndef ORA_FONTS_GOLDEN_DIR
 #define ORA_FONTS_GOLDEN_DIR "tests/golden/fonts"

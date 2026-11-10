@@ -1,10 +1,10 @@
-#include "game/economy/economy.hpp"
+module ora.game.world;
 
-#include "game/miniyaml.hpp"
-#include "game/pathfinding/priority_queue.hpp"
-#include "game/pathfinding/wangle.hpp"
-#include "game/production/production.hpp"
-#include "game/world/world.hpp"
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
 
 namespace ora::game::economy {
 

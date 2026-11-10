@@ -1,9 +1,10 @@
-#include "game/world/trait.hpp"
+module ora.game.world;
 
-#include "game/economy/economy.hpp"
-#include "game/network/order.hpp"
-#include "game/production/production.hpp"
-#include "game/world/world.hpp"
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
 
 namespace ora::game::world {
 

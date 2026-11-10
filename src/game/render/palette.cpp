@@ -1,4 +1,6 @@
-#include "game/render/palette.hpp"
+module ora.game.render;
+
+import std;
 
 namespace ora::game::render {
 

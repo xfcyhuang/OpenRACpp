@@ -1,10 +1,10 @@
-#include "game/network/order_manager.hpp"
+module ora.game.world;
 
-#include "game/network/order_packet.hpp"
-#include "game/replay/replay_player.hpp"
-#include "game/replay/replay_record.hpp"
-#include "game/world/trait.hpp"
-#include "game/world/world.hpp"
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
 
 namespace ora::game::network {
 

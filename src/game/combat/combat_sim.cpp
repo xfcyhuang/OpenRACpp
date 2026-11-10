@@ -1,15 +1,12 @@
-#include "game/combat/combat_sim.hpp"
-
-#include "game/sound/sfx.hpp"
+module ora.game.combat;
 
 import std;
-
-#include "game/combat/armament.hpp"
-#include "game/combat/projectile.hpp"
-#include "game/combat/warhead_damage.hpp"
-#include "game/pathfinding/astar.hpp"
-#include "game/pathfinding/move_sim.hpp"
-#include "game/pathfinding/wangle.hpp"
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.sound;
+import ora.game.support;
+import ora.platforms;
 
 namespace ora::game::combat {
 

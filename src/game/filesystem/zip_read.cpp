@@ -1,5 +1,6 @@
-#include "game/filesystem/inflate.hpp"
-#include "game/filesystem/zip_read.hpp"
+module ora.game.filesystem;
+
+import std;
 
 namespace ora::game::filesystem {
 

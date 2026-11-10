@@ -1,17 +1,14 @@
 import std;
 
 #include <algorithm>
+import ora.game;
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.sound;
+import ora.game.ui;
+import ora.platforms;
+import ora.test.util;
 
-#include "game/input/hotkey_registry.hpp"
-#include "game/miniyaml.hpp"
-#include "game/settings.hpp"
-#include "game/sound/sound.hpp"
-#include "game/ui/mainmenu_logic.hpp"
-#include "game/ui/settings_panel.hpp"
-#include "game/ui/widget.hpp"
-#include "game/ui/widget_loader.hpp"
-#include "platforms/openal_loader.hpp"
-#include "test_util.hpp"
 using ora::test::check;
 
 // 菜单测试不依赖真音频设备：强制 OpenAL 探测失败回落 dummy（dsound 真链在

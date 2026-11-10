@@ -1,6 +1,7 @@
-#include "game/input/hotkey_registry.hpp"
+module ora.game.input;
 
-#include "game/miniyaml_merge.hpp"
+import std;
+import ora.game.miniyaml;
 
 namespace ora::game::input {
 

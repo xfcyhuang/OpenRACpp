@@ -1,4 +1,6 @@
-#include "cnc.hpp"
+module ora.mods.cnc;
+
+import std;
 
 namespace ora::mods::cnc {
 

@@ -1,8 +1,8 @@
 import std;
 
-#include "game/miniyaml.hpp"
-#include "test_util.hpp"
 
+import ora.game.miniyaml;
+import ora.test.util;
 #ifndef ORA_MINIYAML_GOLDEN_DIR
 #define ORA_MINIYAML_GOLDEN_DIR "tests/golden/miniyaml"
 #endif

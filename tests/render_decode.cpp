@@ -1,14 +1,10 @@
 import std;
 
 #include <cstdlib>
+import ora.game;
+import ora.game.render;
+import ora.test.util;
 
-#include "game/render/lcw.hpp"
-#include "game/render/palette.hpp"
-#include "game/render/shp_td.hpp"
-#include "game/tileset.hpp"
-#include "game/render/tmp_ra.hpp"
-#include "game/render/xor_delta.hpp"
-#include "test_util.hpp"
 using ora::test::check;
 
 #ifndef ORA_RENDER_GOLDEN_DIR

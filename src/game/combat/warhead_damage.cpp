@@ -1,6 +1,8 @@
-#include "game/combat/warhead_damage.hpp"
+module ora.game.combat;
 
-#include "game/pathfinding/wangle.hpp"
+import std;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
 
 namespace ora::game::combat {
 

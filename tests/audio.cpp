@@ -1,12 +1,12 @@
 import std;
 
-#include "game/miniyaml.hpp"
-#include "game/music_info.hpp"
-#include "game/sound/sound.hpp"
-#include "game/sound_info.hpp"
-#include "mods/common/wav_loader.hpp"
-#include "platforms/sound_engine.hpp"
-#include "test_util.hpp"
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.sound;
+import ora.game.support;
+import ora.mods.common;
+import ora.platforms;
+import ora.test.util;
 using ora::test::check;
 
 #ifndef ORA_AUDIO_GOLDEN_DIR

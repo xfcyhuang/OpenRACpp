@@ -1,6 +1,9 @@
-#include "game/input/viewport_controller.hpp"
-
+module;
 #include <cmath>
+module ora.game.input;
+
+import std;
+import ora.game.miniyaml;
 
 namespace ora::game::input {
 

@@ -1,8 +1,10 @@
-#include "game/world/world.hpp"
+module ora.game.world;
 
-#include "game/economy/economy.hpp"
-#include "game/miniyaml_merge.hpp"
-#include "game/world/sync_hash.hpp"
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
 
 namespace ora::game::world {
 

@@ -1,4 +1,6 @@
-#include "game/support/mersenne_twister.hpp"
+module ora.game.support;
+
+import std;
 
 namespace ora::game::support {
 

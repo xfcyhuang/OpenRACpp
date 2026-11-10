@@ -1,14 +1,14 @@
 import std;
 
-#include "game/game.hpp"
-#include "mods/common/common.hpp"
-#include "mods/cnc/cnc.hpp"
-#include "mods/d2k/d2k.hpp"
-#include "mods/ra/ra.hpp"
-#include "platforms/platforms.hpp"
-#include "server/server.hpp"
-#include "utility/utility.hpp"
-#include "test_util.hpp"
+import ora.game;
+import ora.mods.cnc;
+import ora.mods.common;
+import ora.mods.d2k;
+import ora.mods.ra;
+import ora.platforms;
+import ora.server;
+import ora.test.util;
+import ora.utility;
 using ora::test::check;
 
 namespace {

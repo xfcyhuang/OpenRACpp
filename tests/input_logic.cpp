@@ -1,20 +1,12 @@
 import std;
 
-#include "game/input/hotkey.hpp"
-#include "game/input/hotkey_actions.hpp"
-#include "game/input/hotkey_registry.hpp"
-#include "game/input/input_events.hpp"
-#include "game/input/order_generator.hpp"
-#include "game/input/production_panel.hpp"
-#include "game/input/screen_map.hpp"
-#include "game/input/selection.hpp"
-#include "game/input/selection_logic.hpp"
-#include "game/input/tap_history.hpp"
-#include "game/input/viewport_controller.hpp"
-#include "game/network/order_manager.hpp"
-#include "game/world/sync_hash.hpp"
-#include "game/world/world.hpp"
-#include "test_util.hpp"
+import ora.game;
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
+import ora.game.world;
+import ora.test.util;
 using ora::test::check;
 
 namespace {

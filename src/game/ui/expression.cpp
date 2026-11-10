@@ -1,4 +1,6 @@
-#include "game/ui/expression.hpp"
+module ora.game.ui;
+
+import std;
 
 namespace ora::game::ui {
 

@@ -1,15 +1,16 @@
 import std;
 
 #include <initializer_list>
+import ora.game;
+import ora.game.combat;
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
+import ora.game.world;
+import ora.launcher;
+import ora.test.util;
 
-#include "game/network/order_packet.hpp"
-#include "game/replay/replay_format.hpp"
-#include "game/replay/replay_player.hpp"
-#include "game/replay/replay_record.hpp"
-#include "launcher/cli_args.hpp"
-#include "launcher/game_session.hpp"
-#include "launcher/sandbox_recipe.hpp"
-#include "test_util.hpp"
 using ora::test::check;
 
 namespace {

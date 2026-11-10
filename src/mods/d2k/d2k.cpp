@@ -1,4 +1,6 @@
-#include "d2k.hpp"
+module ora.mods.d2k;
+
+import std;
 
 namespace ora::mods::d2k {
 
