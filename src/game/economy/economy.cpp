@@ -1138,7 +1138,6 @@ void economy_frame_end_task(world::WorldModel& w, const world::FrameEndTask& tas
       world::TraitSpec{.str_kind = "Targetable"},
       world::TraitSpec{.str_kind = "HitShape"},
       world::TraitSpec{.str_kind = "BodyOrientation"},
-      world::TraitSpec{.str_kind = "Mobile", .str_str_param_key = "Locomotor"},
       world::TraitSpec{.str_kind = "DockHost"},
       world::TraitSpec{.str_kind = "Refinery"},
       world::TraitSpec{.str_kind = "StoresPlayerResources"},

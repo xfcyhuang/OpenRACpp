@@ -33,36 +33,6 @@ const ww::TraitTemplate* actor_template(const ww::WorldModel& w, const ww::Actor
   return nullptr;
 }
 
-std::string_view template_kv(const ww::TraitTemplate& tpl, std::string_view str_key) {
-  for (const auto& [str_k, str_v] : tpl.vec_kv)
-    if (str_k == str_key) return str_v;
-  return {};
-}
-
-std::optional<std::int32_t> template_kv_int(const ww::TraitTemplate& tpl,
-                                            std::string_view str_key) {
-  const std::string_view str_value{template_kv(tpl, str_key)};
-  if (str_value.empty()) return std::nullopt;
-  std::int32_t int4_out{};
-  const auto res{std::from_chars(str_value.data(), str_value.data() + str_value.size(), int4_out)};
-  if (res.ec != std::errc{} || res.ptr != str_value.data() + str_value.size()) return std::nullopt;
-  return int4_out;
-}
-
-std::int32_t cell_x_of_bits(std::int32_t int4_bits) {
-  return static_cast<std::int32_t>(static_cast<std::uint32_t>(int4_bits) >> 20);
-}
-
-std::int32_t cell_y_of_bits(std::int32_t int4_bits) {
-  return (static_cast<std::int16_t>(int4_bits >> 4)) >> 4;
-}
-
-MoverState* mover_of(GameSession& s, std::uint32_t u4_actor) {
-  for (MoverState& mover : s.vec_movers)
-    if (mover.u4_actor == u4_actor) return &mover;
-  return nullptr;
-}
-
 FighterState* fighter_of(GameSession& s, std::uint32_t u4_actor) {
   for (FighterState& fighter : s.vec_fighters)
     if (fighter.unit.u4_id == u4_actor) return &fighter;
@@ -76,14 +46,6 @@ bool actor_alive(const GameSession& s, std::uint32_t u4_actor) {
 }
 
 void bridge_registry_sync(GameSession& s) {
-  std::size_t idx_mover{0};
-  while (idx_mover < s.vec_movers.size()) {
-    if (actor_alive(s, s.vec_movers[idx_mover].u4_actor)) {
-      ++idx_mover;
-    } else {
-      s.vec_movers.erase(s.vec_movers.begin() + static_cast<std::ptrdiff_t>(idx_mover));
-    }
-  }
   std::size_t idx_fighter{0};
   while (idx_fighter < s.vec_fighters.size()) {
     if (actor_alive(s, s.vec_fighters[idx_fighter].unit.u4_id)) {
@@ -96,22 +58,6 @@ void bridge_registry_sync(GameSession& s) {
   for (const std::uint32_t u4_id : s.w.vec_in_world) {
     const ww::ActorModel& actor{s.w.vec_actors_all[u4_id]};
     if (actor.b_disposed) continue;
-    const bool b_harvester{actor_template(s.w, actor, "Harvester") != nullptr};
-    const ww::TraitTemplate* ptr_mobile{actor_template(s.w, actor, "Mobile")};
-
-    if (ptr_mobile != nullptr && !b_harvester && mover_of(s, u4_id) == nullptr) {
-      MoverState mover;
-      mover.u4_actor = u4_id;
-      mover.int4_speed = template_kv_int(*ptr_mobile, "Speed").value_or(113);
-      mover.int4_turn_speed = template_kv_int(*ptr_mobile, "TurnSpeed").value_or(512);
-      mover.move.cell_from = pfg::CPos{actor.int4_pos_x, actor.int4_pos_y};
-      mover.move.cell_to = mover.move.cell_from;
-      mover.move.cell_destination = mover.move.cell_from;
-      mover.move.b_has_destination = false;
-      mover.move.pos_center = pfg::center_of_cell(mover.move.cell_from);
-      mover.move.int4_facing = 0;
-      s.vec_movers.push_back(std::move(mover));
-    }
 
     const bool b_armed{actor_template(s.w, actor, "AttackProbe") != nullptr};
     if (b_armed && fighter_of(s, u4_id) == nullptr) {
@@ -137,6 +83,7 @@ void bridge_registry_sync(GameSession& s) {
   }
 }
 
+// 攻击桥喂单（D044 残留面）：Move 已世界内 resolve（订单管道），桥只消费 Attack。
 void bridge_consume_orders(GameSession& s) {
   std::size_t idx{0};
   while (idx < s.vec_bridge_pending.size()) {
@@ -146,16 +93,7 @@ void bridge_consume_orders(GameSession& s) {
       continue;
     }
 
-    if (order.str_order == "Move" && order.target.kind == net::TargetKind::kTerrain) {
-      if (MoverState* ptr_mover{mover_of(s, order.u4_subject)}; ptr_mover != nullptr) {
-        pfg::move_queue(ptr_mover->move,
-                        pfg::CPos{cell_x_of_bits(order.target.int4_cell_bits),
-                                  cell_y_of_bits(order.target.int4_cell_bits)});
-        s.vec_events.push_back(std::format("order Move id={} -> cell {},{}", order.u4_subject,
-                                           cell_x_of_bits(order.target.int4_cell_bits),
-                                           cell_y_of_bits(order.target.int4_cell_bits)));
-      }
-    } else if (order.str_order == "Attack" && order.target.kind == net::TargetKind::kActor) {
+    if (order.str_order == "Attack" && order.target.kind == net::TargetKind::kActor) {
       if (FighterState* ptr_fighter{fighter_of(s, order.u4_subject)}; ptr_fighter != nullptr) {
         ptr_fighter->u4_target = order.target.u4_actor;
         s.vec_events.push_back(
@@ -223,7 +161,13 @@ void bridge_fire(GameSession& s, FighterState& fighter, FighterState& target) {
 void bridge_tick(GameSession& s) {
   for (FighterState& fighter : s.vec_fighters) {
     if (fighter.arm.ptr_weapon == nullptr) continue;
-    MoverState* ptr_mover{mover_of(s, fighter.unit.u4_id)};
+    // 移动承载已世界内（T31）：战斗侧读上一世界 tick 末的移动状态。
+    ww::MobileState* ptr_mobile{ww::movement_state_of(s.w, fighter.unit.u4_id)};
+    if (ptr_mobile != nullptr) {
+      fighter.unit.pos_center = ptr_mobile->move.pos_center;
+      fighter.unit.cell_from = ptr_mobile->move.cell_from;
+      fighter.unit.cell_to = ptr_mobile->move.cell_to;
+    }
 
     if (fighter.u4_target != 0) {
       FighterState* ptr_target{fighter_of(s, fighter.u4_target)};
@@ -236,39 +180,20 @@ void bridge_tick(GameSession& s) {
         const bool b_in_range{
             horizontal_distance_sq(fighter.unit.pos_center, ptr_target->unit.pos_center) <=
             int8_range_sq};
-        if (ptr_mover != nullptr && b_in_range) {
-          if (ptr_mover->move.b_has_activity)
-            pfg::move_queue(ptr_mover->move, ptr_mover->move.cell_from);
-        } else if (ptr_mover != nullptr) {
+        if (ptr_mobile != nullptr && b_in_range) {
+          if (ptr_mobile->move.b_has_activity)
+            ww::movement_queue_move(s.w, fighter.unit.u4_id, ptr_mobile->move.cell_from);
+        } else if (ptr_mobile != nullptr) {
           const ww::ActorModel& actor_target{s.w.vec_actors_all[fighter.u4_target]};
           const pfg::CPos cell_target{actor_target.int4_pos_x, actor_target.int4_pos_y};
-          if (!ptr_mover->move.b_has_activity || ptr_mover->move.cell_destination != cell_target)
-            pfg::move_queue(ptr_mover->move, cell_target);
+          if (!ptr_mobile->move.b_has_activity || ptr_mobile->move.cell_destination != cell_target)
+            ww::movement_queue_move(s.w, fighter.unit.u4_id, cell_target);
         }
         if (b_in_range) {
           bridge_fire(s, fighter, *ptr_target);
           if (ptr_target->hp.b_dead) fighter.u4_target = 0;
         }
       }
-    }
-
-    if (ptr_mover != nullptr) {
-      if (s.w.econ.map_move.int4_width <= 0 || s.w.econ.map_move.int4_height <= 0) {
-        cmb::armament_tick(fighter.arm);
-        continue;
-      }
-      pfg::MoveSimConfig cfg;
-      cfg.ptr_map = &s.w.econ.map_move;
-      cfg.int4_speed = ptr_mover->int4_speed;
-      cfg.int4_speed_den = 100;
-      cfg.int4_turn_speed = ptr_mover->int4_turn_speed;
-      pfg::move_sim_tick(ptr_mover->move, cfg, s.w.int4_world_tick);
-      fighter.unit.pos_center = ptr_mover->move.pos_center;
-      fighter.unit.cell_from = ptr_mover->move.cell_from;
-      fighter.unit.cell_to = ptr_mover->move.cell_to;
-      ww::ActorModel& actor{s.w.vec_actors_all[ptr_mover->u4_actor]};
-      actor.int4_pos_x = ptr_mover->move.pos_center.int4_x / 1024;
-      actor.int4_pos_y = ptr_mover->move.pos_center.int4_y / 1024;
     }
 
     cmb::armament_tick(fighter.arm);
@@ -391,12 +316,13 @@ void session_tick(GameSession& s) {
 
 std::string session_digest(const GameSession& s) {
   std::string str_out{ww::state_digest(s.w)};
+  // movers 行改读世界侧移动面（D044 移动桥退役，T31 Activity 化）。
   str_out += "movers";
-  for (const MoverState& mover : s.vec_movers) {
-    str_out += std::format(" {}:{},{},{}->{}", mover.u4_actor, mover.move.pos_center.int4_x,
-                           mover.move.pos_center.int4_y, mover.move.cell_from.int4_x,
-                           mover.move.cell_destination.int4_x);
-    str_out += std::format(",{}", mover.move.cell_destination.int4_y);
+  for (const ww::MobileState& mobile : s.w.vec_mobiles) {
+    str_out += std::format(" {}:{},{},{}->{}", mobile.u4_actor, mobile.move.pos_center.int4_x,
+                           mobile.move.pos_center.int4_y, mobile.move.cell_from.int4_x,
+                           mobile.move.cell_destination.int4_x);
+    str_out += std::format(",{}", mobile.move.cell_destination.int4_y);
   }
   str_out += '\n';
   str_out += "fighters";

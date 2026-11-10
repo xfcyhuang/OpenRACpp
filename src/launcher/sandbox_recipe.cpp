@@ -254,6 +254,7 @@ e1:
 		Locomotor: foot
 		Speed: 113
 		TurnSpeed: 512
+	AttackMove:
 	MobileProbe:
 	AttackProbe:
 	Valued:

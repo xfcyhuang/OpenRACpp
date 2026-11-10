@@ -59,6 +59,10 @@ add_executable(ora_bot_framework bot_framework.cpp)
 target_link_libraries(ora_bot_framework PRIVATE ora_std ora_test_util ora_game)
 add_test(NAME bot_framework COMMAND ora_bot_framework)
 
+add_executable(ora_move_orders move_orders.cpp)
+target_link_libraries(ora_move_orders PRIVATE ora_std ora_test_util ora_game ora_launcher_core)
+add_test(NAME move_orders COMMAND ora_move_orders)
+
 add_executable(ora_render_decode render_decode.cpp)
 target_link_libraries(ora_render_decode PRIVATE ora_std ora_test_util ora_game)
 target_compile_definitions(ora_render_decode PRIVATE

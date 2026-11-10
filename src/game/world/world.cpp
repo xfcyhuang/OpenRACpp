@@ -49,7 +49,10 @@ std::optional<std::pair<std::int32_t, std::int32_t>> parse_location(std::string_
   return std::pair{*opt_x, *opt_y};
 }
 
-void world_tick_activities(WorldModel& w) { economy::economy_on_tick(w); }
+void world_tick_activities(WorldModel& w) {
+  economy::economy_on_tick(w);
+  movement_on_tick(w);
+}
 
 void world_tick_effects(WorldModel&) {}
 
@@ -75,6 +78,7 @@ void frame_end_run_task(WorldModel& w, const FrameEndTask& task) {
     if (it != w.vec_in_world.end() && *it == task.u4_actor) w.vec_in_world.erase(it);
     production::production_on_actor_removed(w, task.u4_actor);
     economy::economy_on_actor_removed(w, task.u4_actor);
+    movement_on_actor_removed(w, task.u4_actor);
   }
 
   container_remove_actor(w.container_tick, task.u4_actor);
@@ -407,6 +411,7 @@ std::expected<std::uint32_t, std::string> create_actor(WorldModel& w, std::strin
   if (b_add_to_world) {
     production::production_on_actor_added(w, w.vec_actors_all.back().u4_id);
     economy::economy_on_actor_added(w, w.vec_actors_all.back().u4_id);
+    movement_on_actor_added(w, w.vec_actors_all.back().u4_id);
   }
   return w.vec_actors_all.back().u4_id;
 }
