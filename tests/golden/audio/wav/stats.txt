@@ -1,0 +1,5 @@
+# baseline 1f594e32065615ed1847962c80ecfe6e868a11c3 wav decode stats
+CHAT1REVERSE.WAV: ch=1 bits=16 rate=22050 lenSec=0.531247 pcmBytes=23384 sum=34080 head8=-9,-12,-9,-6,0,0,12,27
+DEVASTATORMELTDOWN.WAV: ch=1 bits=16 rate=44100 lenSec=7.573968 pcmBytes=665366 sum=-189291 head8=41,53,59,67,50,15,-61,-160
+ORNIBOMB.WAV: ch=1 bits=16 rate=44100 lenSec=0.282903 pcmBytes=24492 sum=-347762 head8=1,1,0,1,1,1,-2,-5
+RELEASESARDAUKARS.WAV: ch=1 bits=16 rate=44100 lenSec=1.351020 pcmBytes=118378 sum=1359 head8=-863,-851,-821,-758,-622,-329,302,1478

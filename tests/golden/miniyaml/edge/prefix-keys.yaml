@@ -1,0 +1,5 @@
+-Key: v
+Trait@1: v
+	Child: w
+^BaseX:
+	Foo: bar

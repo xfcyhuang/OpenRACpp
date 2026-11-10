@@ -1,0 +1,16 @@
+t01: Track One
+t02: Track Two
+	VolumeModifier: 0.7
+t03: Track Three
+	Hidden: true
+t04: Track Four
+t05: Track Five
+t06: Track Six
+t07: Track Seven
+	Hidden: true
+t08: Track Eight
+t09: Track Nine
+t10: Track Ten
+	VolumeModifier: 0.6
+t11: Track Eleven
+t12: Track Twelve

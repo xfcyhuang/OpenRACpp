@@ -1,0 +1,143 @@
+# baseline 1f594e32065615ed1847962c80ecfe6e868a11c3 audio soundinfo dump mods\ra\audio\voices.yaml
+type antvoice
+  default_variant .aud
+  default_prefix 
+  voices Action=antbite|vol=1|int=DoNotPlay
+  voices Burned=antdie|vol=1|int=DoNotPlay
+  voices Die=antdie|vol=1|int=DoNotPlay
+  voices Select=antbite|vol=1|int=DoNotPlay
+  voices Zapped=antdie|vol=1|int=DoNotPlay
+type civilianfemalevoice
+  default_variant .aud
+  default_prefix 
+  voices Action=girlokay|vol=1|int=DoNotPlay
+  voices Burned=dedman10|vol=1|int=DoNotPlay
+  voices Die=dedman1,dedman2,dedman3,dedman4,dedman5,dedman7,dedman8|vol=1|int=DoNotPlay
+  voices Select=girlyeah|vol=1|int=DoNotPlay
+  voices Zapped=dedman6|vol=1|int=DoNotPlay
+type civilianmalevoice
+  default_variant .aud
+  default_prefix 
+  voices Action=guyokay1|vol=1|int=DoNotPlay
+  voices Burned=dedman10|vol=1|int=DoNotPlay
+  voices Die=dedman1,dedman2,dedman3,dedman4,dedman5,dedman7,dedman8|vol=1|int=DoNotPlay
+  voices Select=guyyeah1|vol=1|int=DoNotPlay
+  voices Zapped=dedman6|vol=1|int=DoNotPlay
+type dogvoice
+  default_variant .aud
+  default_prefix 
+  voices Attack=dogg5p|vol=1|int=DoNotPlay
+  voices Burned=dogw6|vol=1|int=DoNotPlay
+  voices Die=dogw5,dogw7|vol=1|int=DoNotPlay
+  voices Move=dogy1|vol=1|int=DoNotPlay
+  voices Select=dogw3px|vol=1|int=DoNotPlay
+  voices Zapped=dogw6|vol=1|int=DoNotPlay
+type einsteinvoice
+  default_variant .aud
+  default_prefix 
+  voices Action=einok1,einyes1|vol=1|int=DoNotPlay
+  voices Burned=dedman10|vol=1|int=DoNotPlay
+  voices Die=dedman1,dedman2,dedman3,dedman4,dedman5,dedman7,dedman8|vol=1|int=DoNotPlay
+  voices Select=einah1|vol=1|int=DoNotPlay
+  voices Zapped=dedman6|vol=1|int=DoNotPlay
+type engineervoice
+  default_variant .aud
+  default_prefix 
+  voices Action=eaffirm1,emovout1|vol=1|int=DoNotPlay
+  voices Burned=dedman10|vol=1|int=DoNotPlay
+  voices Die=dedman1,dedman2,dedman3,dedman4,dedman5,dedman7,dedman8|vol=1|int=DoNotPlay
+  voices Select=eengin1,eyessir1|vol=1|int=DoNotPlay
+  voices Zapped=dedman6|vol=1|int=DoNotPlay
+type genericvoice
+  default_variant .aud
+  default_prefix 
+  variants allies=.v01,.v03
+  variants england=.v01,.v03
+  variants france=.v01,.v03
+  variants germany=.v01,.v03
+  variants russia=.r01,.r03
+  variants soviet=.r01,.r03
+  variants ukraine=.r01,.r03
+  disable_variants Burned,Die,Zapped
+  voices Action=ackno,affirm1,noprob,overout,ritaway,roger,ugotit|vol=1|int=DoNotPlay
+  voices Burned=dedman10|vol=1|int=DoNotPlay
+  voices Die=dedman1,dedman2,dedman3,dedman4,dedman5,dedman7,dedman8|vol=1|int=DoNotPlay
+  voices Select=await1,ready,report1,yessir1|vol=1|int=DoNotPlay
+  voices Zapped=dedman6|vol=1|int=DoNotPlay
+type mechanicvoice
+  default_variant .aud
+  default_prefix 
+  voices Action=mhotdig1,mwrench1,myeehaw1|vol=1|int=DoNotPlay
+  voices Burned=dedman10|vol=1|int=DoNotPlay
+  voices Die=dedman1,dedman2,dedman3,dedman4,dedman5,dedman7,dedman8|vol=1|int=DoNotPlay
+  voices Move=mboss1,mhear1,myes1,mrise1|vol=1|int=DoNotPlay
+  voices Select=mhuh1,mhowdy1,mlaff1|vol=1|int=DoNotPlay
+  voices Zapped=dedman6|vol=1|int=DoNotPlay
+type medicvoice
+  default_variant .aud
+  default_prefix 
+  voices Action=maffirm1,mmovout1|vol=1|int=DoNotPlay
+  voices Burned=dedman10|vol=1|int=DoNotPlay
+  voices Die=dedman1,dedman2,dedman3,dedman4,dedman5,dedman7,dedman8|vol=1|int=DoNotPlay
+  voices Select=mrespon1,myessir1|vol=1|int=DoNotPlay
+  voices Zapped=dedman6|vol=1|int=DoNotPlay
+type shokvoice
+  default_variant .aud
+  default_prefix 
+  voices Attack=jburn1,jcrisp1,jshock1,jlight1|vol=1|int=DoNotPlay
+  voices Burned=dedman10|vol=1|int=DoNotPlay
+  voices Die=dedman1,dedman2,dedman3,dedman4,dedman5,dedman7,dedman8|vol=1|int=DoNotPlay
+  voices Move=jdance1,jchrge1,jpower1|vol=1|int=DoNotPlay
+  voices Select=jjuice1,jjump1,jyes1|vol=1|int=DoNotPlay
+  voices Zapped=dedman6|vol=1|int=DoNotPlay
+type spyvoice
+  default_variant .aud
+  default_prefix 
+  voices Action=sking1|vol=1|int=DoNotPlay
+  voices Burned=dedman10|vol=1|int=DoNotPlay
+  voices Die=dedman1,dedman2,dedman3,dedman4,dedman5,dedman7,dedman8|vol=1|int=DoNotPlay
+  voices Move=sonway1,sindeed1|vol=1|int=DoNotPlay
+  voices Select=syessir1,scomnd1|vol=1|int=DoNotPlay
+  voices Zapped=dedman6|vol=1|int=DoNotPlay
+type stavrosvoice
+  default_variant .aud
+  default_prefix 
+  voices Attack=stavcrse,stavyes|vol=1|int=DoNotPlay
+  voices Burned=dedman10|vol=1|int=DoNotPlay
+  voices Die=dedman1,dedman2,dedman3,dedman4,dedman5,dedman7,dedman8|vol=1|int=DoNotPlay
+  voices Move=stavcrse,stavyes,stavmov|vol=1|int=DoNotPlay
+  voices Select=stavcmdr|vol=1|int=DoNotPlay
+  voices Zapped=dedman6|vol=1|int=DoNotPlay
+type tanyavoice
+  default_variant .aud
+  default_prefix 
+  voices Action=tuffguy1,bombit1|vol=1|int=DoNotPlay
+  voices Build=laugh1|vol=1|int=DoNotPlay
+  voices Burned=tandeth1|vol=1|int=DoNotPlay
+  voices Demolish=keepem1,tuffguy1|vol=1|int=DoNotPlay
+  voices Die=tandeth1|vol=1|int=DoNotPlay
+  voices Kill=gotit1,lefty1|vol=1|int=DoNotPlay
+  voices Move=onit1,cmon1,rokroll1|vol=1|int=DoNotPlay
+  voices Select=yo1,yes1,yeah1|vol=1|int=DoNotPlay
+  voices Zapped=tandeth1|vol=1|int=DoNotPlay
+type thiefvoice
+  default_variant .aud
+  default_prefix 
+  voices Action=scandy,sclean1,ssteal1|vol=1|int=DoNotPlay
+  voices Burned=dedman10|vol=1|int=DoNotPlay
+  voices Die=dedman1,dedman2,dedman3,dedman4,dedman5,dedman7,dedman8|vol=1|int=DoNotPlay
+  voices Move=saffirm1,smout1,sokay1|vol=1|int=DoNotPlay
+  voices Select=swhat1,syeah1|vol=1|int=DoNotPlay
+  voices Zapped=dedman6|vol=1|int=DoNotPlay
+type vehiclevoice
+  default_variant .aud
+  default_prefix 
+  variants allies=.v00,.v02
+  variants england=.v00,.v02
+  variants france=.v00,.v02
+  variants germany=.v00,.v02
+  variants russia=.r00,.r02
+  variants soviet=.r00,.r02
+  variants ukraine=.r00,.r02
+  voices Action=ackno,affirm1|vol=1|int=DoNotPlay
+  voices Select=vehic1,yessir1,report1,await1|vol=1|int=DoNotPlay

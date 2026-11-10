@@ -1,0 +1,58 @@
+# baseline 1f594e32065615ed1847962c80ecfe6e868a11c3 sfx sequence dump v1
+# seed 20261107
+local 2
+step 0 playtoplayer name=placedown1.aud player=2 pos=4096,2048,0
+  play2d name=placedown1.aud pos=4096,2048,0 loop=0 rel=0 vol=0.5 atten=1
+  ret sound
+step 1 playtoplayer name=placedown1.aud player=3 pos=4096,2048,0
+  ret null
+step 2 play name=explosion1.aud pos=1024,2048,0 volmod=1
+  play2d name=explosion1.aud pos=1024,2048,0 loop=0 rel=0 vol=0.5 atten=1
+  ret sound
+step 3 play name= pos=0,0,0 volmod=1
+  ret null
+step 4 predefined st=World player=- voiced=-1 selected=0 type=sounds def=RadarUp variant=- rel=1 pos=0,0,0 volmod=1 atten=0
+  play2d name=radaron2.aud pos=0,0,0 loop=0 rel=1 vol=0.5 atten=0
+  ret true
+step 5 predefined st=World player=- voiced=-1 selected=0 type=sounds def=RadarUp variant=- rel=1 pos=0,0,0 volmod=1 atten=0
+  ret false
+step 6 predefined st=World player=- voiced=-1 selected=0 type=sounds def=CashTickUp variant=- rel=1 pos=0,0,0 volmod=1 atten=0
+  play2d name=cashup1.aud pos=0,0,0 loop=0 rel=1 vol=0.165 atten=0
+  ret true
+step 7 predefined st=World player=- voiced=-1 selected=0 type=sounds def=CashTickUp variant=- rel=1 pos=0,0,0 volmod=1 atten=0
+  play2d name=cashup1.aud pos=0,0,0 loop=0 rel=1 vol=0.165 atten=0
+  ret true
+step 8 predefined st=World player=- voiced=-1 selected=0 type=sounds def=ChatLine variant=- rel=1 pos=0,0,0 volmod=1 atten=0
+  play2d name=rabeep1.aud pos=0,0,0 loop=0 rel=1 vol=0.5 atten=0
+  ret true
+step 9 predefined st=World player=- voiced=-1 selected=0 type=sounds def=ChatLine variant=- rel=1 pos=0,0,0 volmod=1 atten=0
+  stopsound
+  play2d name=rabeep1.aud pos=0,0,0 loop=0 rel=1 vol=0.5 atten=0
+  ret true
+step 10 predefined st=World player=- voiced=-1 selected=0 type=speech def=HarvesterAttack variant=- rel=1 pos=0,0,0 volmod=1 atten=0
+  ret false
+step 11 predefined st=World player=- voiced=-1 selected=0 type=speech def=NoSuchDef variant=- rel=1 pos=0,0,0 volmod=1 atten=0
+  ret error Can't find NoSuchDef in notification pool.
+step 12 predefined st=World player=- voiced=-1 selected=0 type=notype def=RadarUp variant=- rel=1 pos=0,0,0 volmod=1 atten=0
+  ret error The given key 'notype' was not present in the dictionary.
+step 13 predefined st=World player=- voiced=5 selected=0 type=genericvoice def=Select variant=allies rel=0 pos=2048,4096,0 volmod=1 atten=1
+  play2d name=report1.v03 pos=2048,4096,0 loop=0 rel=0 vol=0.5 atten=1
+  ret true
+step 14 predefined st=World player=- voiced=7 selected=1 type=genericvoice def=Select variant=allies rel=0 pos=0,0,0 volmod=1 atten=1
+  play2d name=await1.v03 pos=0,0,0 loop=0 rel=0 vol=0.5 atten=1
+  ret true
+step 15 predefined st=World player=- voiced=7 selected=1 type=genericvoice def=Select variant=allies rel=0 pos=0,0,0 volmod=1 atten=1
+  ret false
+step 16 predefined st=World player=- voiced=9 selected=0 type=genericvoice def=Action variant=allies rel=0 pos=0,0,0 volmod=1 atten=1
+  play2d name=ugotit.v03 pos=0,0,0 loop=0 rel=0 vol=0.5 atten=1
+  ret true
+step 17 predefined st=World player=- voiced=5 selected=1 type=genericvoice def=Action variant=allies rel=0 pos=0,0,0 volmod=1 atten=1
+  ret false
+local -
+step 18 predefined st=World player=2 voiced=-1 selected=0 type=sounds def=RadarUp variant=- rel=1 pos=0,0,0 volmod=1 atten=0
+  ret true
+step 19 notification player=2 type=Sounds def=RadarUp variant=-
+  ret true
+local 2
+step 20 notification player=2 type=Sounds def=RadarUp variant=-
+  ret false

@@ -1,0 +1,18 @@
+# Measure oracle: font=FreeSans size=14 deviceScale=1
+# format: <index><TAB><width><TAB><height>
+0	0	14
+1	4	14
+2	9	14
+3	73	14
+4	283	14
+5	59	42
+6	0	28
+7	8	42
+8	103	14
+9	107	14
+10	203	14
+11	209	14
+12	136	14
+13	149	14
+14	479	14
+15	60	14

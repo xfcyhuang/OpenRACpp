@@ -1,0 +1,619 @@
+# chrome widget tree oracle (T24/issue #33)
+# source: mods/ra/chrome/ingame-player.yaml; window=1024x768; top-level mounted on dumb root (PARENT=0)
+# bounds via upstream IntegerExpression.Evaluate with Widget.Initialize substitution order (W/H before X/Y)
+# format: <depth tabs>Type@Id<TAB>x,y,w,h ; field lines indented one deeper
+Container@PLAYER_WIDGETS	0,0,0,0
+	field	Logic	LoadIngameChatLogic
+	Container@CHAT_ROOT	0,0,0,0
+	LogicKeyListener@PLAYER_KEYHANDLER	0,0,0,0
+		field	Logic	RemoveFromControlGroupHotkeyLogic
+	ControlGroups@CONTROLGROUPS	0,0,0,0
+		field	SelectGroupKeyPrefix	ControlGroupSelect
+		field	CreateGroupKeyPrefix	ControlGroupCreate
+		field	AddToGroupKeyPrefix	ControlGroupAddTo
+		field	CombineWithGroupKeyPrefix	ControlGroupCombineWith
+		field	JumpToGroupKeyPrefix	ControlGroupJumpTo
+	LogicTicker@SIDEBAR_TICKER	0,0,0,0
+	Container@SUPPORT_POWERS	10,10,0,0
+		field	Logic	SupportPowerBinLogic
+		field	X	10
+		field	Y	10
+		SupportPowers@SUPPORT_PALETTE	0,0,0,0
+			field	IconSize	62, 46
+			field	IconSpriteOffset	-1, -1
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			field	ReadyText	supportpowers-support-powers-palette.ready
+			field	HoldText	supportpowers-support-powers-palette.hold
+			field	HotkeyPrefix	SupportPower
+			field	HotkeyCount	6
+		Container@PALETTE_FOREGROUND	0,0,0,0
+			Image@ICON_TEMPLATE	-2,-2,62,46
+				field	Logic	AddFactionSuffixLogic
+				field	X	0 - 2
+				field	Y	0 - 2
+				field	Width	62
+				field	Height	46
+				field	IgnoreMouseOver	true
+				field	ImageCollection	sidebar
+				field	ImageName	background-supportoverlay
+	SupportPowerTimer@SUPPORT_POWER_TIMER	80,10,0,0
+		field	X	80
+		field	Y	10
+		field	Order	Descending
+	Image@COMMAND_BAR_BACKGROUND	5,719,434,44
+		field	X	5
+		field	Y	WINDOW_HEIGHT - HEIGHT - 5
+		field	Width	434
+		field	Height	44
+		field	ImageCollection	commandbar
+		field	ImageName	background
+		field	ClickThrough	False
+	Container@COMMAND_BAR	14,728,275,26
+		field	Logic	CommandBarLogic
+		field	X	14
+		field	Y	WINDOW_HEIGHT - HEIGHT - 14
+		field	Width	275
+		field	Height	26
+		LogicKeyListener@MODIFIER_OVERRIDES	0,0,0,0
+		Button@ATTACK_MOVE	0,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	Key	AttackMove
+			field	DisableKeySound	true
+			field	TooltipText	button-command-bar-attack-move.tooltip
+			field	TooltipDesc	button-command-bar-attack-move.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			field	TooltipTemplate	BUTTON_WITH_DESC_HIGHLIGHT_TOOLTIP
+			Image@ICON	5,1,0,0
+				field	X	5
+				field	Y	1
+				field	ImageCollection	command-icons
+				field	ImageName	attack-move
+		Button@FORCE_MOVE	34,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	X	34
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	DisableKeySound	true
+			field	TooltipText	button-command-bar-force-move.tooltip
+			field	TooltipDesc	button-command-bar-force-move.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			field	TooltipTemplate	BUTTON_WITH_DESC_HIGHLIGHT_TOOLTIP
+			Image@ICON	5,1,0,0
+				field	X	5
+				field	Y	1
+				field	ImageCollection	command-icons
+				field	ImageName	force-move
+		Button@FORCE_ATTACK	68,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	X	68
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	DisableKeySound	true
+			field	TooltipText	button-command-bar-force-attack.tooltip
+			field	TooltipDesc	button-command-bar-force-attack.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			field	TooltipTemplate	BUTTON_WITH_DESC_HIGHLIGHT_TOOLTIP
+			Image@ICON	5,1,0,0
+				field	X	5
+				field	Y	1
+				field	ImageCollection	command-icons
+				field	ImageName	force-attack
+		Button@GUARD	102,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	X	102
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	Key	Guard
+			field	DisableKeySound	true
+			field	TooltipText	button-command-bar-guard.tooltip
+			field	TooltipDesc	button-command-bar-guard.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			Image@ICON	5,1,0,0
+				field	X	5
+				field	Y	1
+				field	ImageCollection	command-icons
+				field	ImageName	guard
+		Button@DEPLOY	136,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	X	136
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	Key	Deploy
+			field	DisableKeyRepeat	true
+			field	DisableKeySound	true
+			field	TooltipText	button-command-bar-deploy.tooltip
+			field	TooltipDesc	button-command-bar-deploy.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			Image@ICON	5,1,0,0
+				field	X	5
+				field	Y	1
+				field	ImageCollection	command-icons
+				field	ImageName	deploy
+		Button@SCATTER	170,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	X	170
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	Key	Scatter
+			field	DisableKeyRepeat	true
+			field	DisableKeySound	true
+			field	TooltipText	button-command-bar-scatter.tooltip
+			field	TooltipDesc	button-command-bar-scatter.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			Image@ICON	5,1,0,0
+				field	X	5
+				field	Y	1
+				field	ImageCollection	command-icons
+				field	ImageName	scatter
+		Button@STOP	204,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	X	204
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	Key	Stop
+			field	DisableKeyRepeat	true
+			field	DisableKeySound	true
+			field	TooltipText	button-command-bar-stop.tooltip
+			field	TooltipDesc	button-command-bar-stop.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			Image@ICON	5,1,0,0
+				field	X	5
+				field	Y	1
+				field	ImageCollection	command-icons
+				field	ImageName	stop
+		Button@QUEUE_ORDERS	238,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	X	238
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	DisableKeySound	true
+			field	TooltipText	button-command-bar-queue-orders.tooltip
+			field	TooltipDesc	button-command-bar-queue-orders.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			field	TooltipTemplate	BUTTON_WITH_DESC_HIGHLIGHT_TOOLTIP
+			Image@ICON	5,1,0,0
+				field	X	5
+				field	Y	1
+				field	ImageCollection	command-icons
+				field	ImageName	queue-orders
+	Container@STANCE_BAR	294,728,138,26
+		field	Logic	StanceSelectorLogic
+		field	X	294
+		field	Y	WINDOW_HEIGHT - HEIGHT - 14
+		field	Width	138
+		field	Height	26
+		Button@STANCE_ATTACKANYTHING	0,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	Key	StanceAttackAnything
+			field	DisableKeyRepeat	true
+			field	DisableKeySound	true
+			field	TooltipText	button-stance-bar-attackanything.tooltip
+			field	TooltipDesc	button-stance-bar-attackanything.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			Image@ICON	9,5,0,0
+				field	X	9
+				field	Y	5
+				field	ImageCollection	stance-icons
+				field	ImageName	attack-anything
+		Button@STANCE_DEFEND	34,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	X	34
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	Key	StanceDefend
+			field	DisableKeyRepeat	true
+			field	DisableKeySound	true
+			field	TooltipText	button-stance-bar-defend.tooltip
+			field	TooltipDesc	button-stance-bar-defend.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			Image@ICON	9,5,0,0
+				field	X	9
+				field	Y	5
+				field	ImageCollection	stance-icons
+				field	ImageName	defend
+		Button@STANCE_RETURNFIRE	68,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	X	68
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	Key	StanceReturnFire
+			field	DisableKeyRepeat	true
+			field	DisableKeySound	true
+			field	TooltipText	button-stance-bar-returnfire.tooltip
+			field	TooltipDesc	button-stance-bar-returnfire.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			Image@ICON	9,5,0,0
+				field	X	9
+				field	Y	5
+				field	ImageCollection	stance-icons
+				field	ImageName	return-fire
+		Button@STANCE_HOLDFIRE	102,0,34,26
+			field	Logic	AddFactionSuffixLogic
+			field	X	102
+			field	Width	34
+			field	Height	26
+			field	VisualHeight	0
+			field	Background	command-button
+			field	Key	StanceHoldFire
+			field	DisableKeyRepeat	true
+			field	DisableKeySound	true
+			field	TooltipText	button-stance-bar-holdfire.tooltip
+			field	TooltipDesc	button-stance-bar-holdfire.tooltipdesc
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			Image@ICON	9,5,0,0
+				field	X	9
+				field	Y	5
+				field	ImageCollection	stance-icons
+				field	ImageName	hold-fire
+	Container@MUTE_INDICATOR	564,10,200,25
+		field	Logic	MuteIndicatorLogic
+		field	X	WINDOW_WIDTH - WIDTH - 260
+		field	Y	10
+		field	Width	200
+		field	Height	25
+		Image@ICON	176,1,24,24
+			field	X	PARENT_WIDTH - WIDTH
+			field	Y	1
+			field	Width	24
+			field	Height	24
+			field	ImageCollection	sidebar-bits
+			field	ImageName	indicator-muted
+		Label@LABEL	0,0,170,25
+			field	Width	PARENT_WIDTH - 30
+			field	Height	25
+			field	Align	Right
+			field	Text	label-mute-indicator
+			field	Contrast	true
+	Image@SIDEBAR_BACKGROUND_TOP	774,10,238,262
+		field	Logic	AddFactionSuffixLogic
+		field	X	WINDOW_WIDTH - 250
+		field	Y	10
+		field	Width	238
+		field	Height	262
+		field	ImageCollection	sidebar
+		field	ImageName	background-top
+		field	ClickThrough	false
+		Container@TOP_BUTTONS	9,7,0,0
+			field	Logic	MenuButtonsChromeLogic
+			field	X	9
+			field	Y	7
+			Button@BEACON_BUTTON	0,0,28,28
+				field	Logic	BeaconOrderButtonLogic, AddFactionSuffixLogic
+				field	Width	28
+				field	Height	28
+				field	Background	sidebar-button
+				field	Key	PlaceBeacon
+				field	TooltipText	button-top-buttons-beacon-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	VisualHeight	0
+				Image@ICON	6,6,0,0
+					field	X	6
+					field	Y	6
+					field	ImageCollection	order-icons
+			Button@SELL_BUTTON	32,0,28,28
+				field	Logic	SellOrderButtonLogic, AddFactionSuffixLogic
+				field	X	32
+				field	Width	28
+				field	Height	28
+				field	Background	sidebar-button
+				field	Key	Sell
+				field	TooltipText	button-top-buttons-sell-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	VisualHeight	0
+				Image@ICON	6,6,0,0
+					field	X	6
+					field	Y	6
+					field	ImageCollection	order-icons
+			Button@POWER_BUTTON	64,0,28,28
+				field	Logic	PowerdownOrderButtonLogic, AddFactionSuffixLogic
+				field	X	64
+				field	Width	28
+				field	Height	28
+				field	Background	sidebar-button
+				field	Key	PowerDown
+				field	TooltipText	button-top-buttons-power-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	VisualHeight	0
+				Image@ICON	6,6,0,0
+					field	X	6
+					field	Y	6
+					field	ImageCollection	order-icons
+			Button@REPAIR_BUTTON	96,0,28,28
+				field	Logic	RepairOrderButtonLogic, AddFactionSuffixLogic
+				field	X	96
+				field	Width	28
+				field	Height	28
+				field	Background	sidebar-button
+				field	Key	Repair
+				field	TooltipText	button-top-buttons-repair-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	VisualHeight	0
+				Image@ICON	6,6,0,0
+					field	X	6
+					field	Y	6
+					field	ImageCollection	order-icons
+			MenuButton@OPTIONS_BUTTON	192,0,28,28
+				field	Logic	AddFactionSuffixLogic
+				field	X	192
+				field	Width	28
+				field	Height	28
+				field	Background	sidebar-button
+				field	Key	escape
+				field	TooltipText	button-top-buttons-options-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	DisableWorldSounds	true
+				field	VisualHeight	0
+				Image@ICON	6,6,0,0
+					field	X	6
+					field	Y	6
+					field	ImageCollection	order-icons
+					field	ImageName	options
+		Image@RADAR	8,40,0,0
+			field	Logic	AddFactionSuffixLogic, IngameRadarDisplayLogic
+			field	X	8
+			field	Y	40
+			field	ImageCollection	sidebar
+			field	ImageName	radar
+			LogicTicker@RADAR_TICKER	0,0,0,0
+			ColorBlock@RADAR_FADETOBLACK	0,0,222,222
+				field	Width	222
+				field	Height	222
+			Radar@RADAR_MINIMAP	1,1,220,220
+				field	WorldInteractionController	INTERACTION_CONTROLLER
+				field	X	1
+				field	Y	1
+				field	Width	220
+				field	Height	220
+				field	SoundUp	RadarUp
+				field	SoundDown	RadarDown
+			VideoPlayer@PLAYER	1,1,220,220
+				field	X	1
+				field	Y	1
+				field	Width	220
+				field	Height	220
+				field	Skippable	false
+	Container@SIDEBAR_PRODUCTION	774,300,238,250
+		field	Logic	ClassicProductionLogic
+		field	X	WINDOW_WIDTH - 250
+		field	Y	300
+		field	Width	238
+		field	Height	250
+		Container@PALETTE_BACKGROUND	0,0,0,0
+			Container@ROW_TEMPLATE	0,0,238,47
+				field	Width	238
+				field	Height	47
+				field	ClickThrough	false
+				Image@ROW_BGND	40,0,190,47
+					field	Logic	AddFactionSuffixLogic
+					field	X	40
+					field	Width	190
+					field	Height	47
+					field	ImageCollection	sidebar
+					field	ImageName	background-iconbg
+			Image@BOTTOM_CAP	0,0,238,8
+				field	Logic	AddFactionSuffixLogic
+				field	Width	238
+				field	Height	8
+				field	ClickThrough	false
+				field	ImageCollection	sidebar
+				field	ImageName	background-bottom
+		LogicTicker@PRODUCTION_TICKER	0,0,0,0
+		ProductionPalette@PRODUCTION_PALETTE	42,1,0,0
+			field	X	42
+			field	Y	1
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			field	ReadyText	productionpalette-sidebar-production-palette.ready
+			field	HoldText	productionpalette-sidebar-production-palette.hold
+			field	IconSize	62, 46
+			field	IconMargin	1, 1
+			field	IconSpriteOffset	-1, -1
+			field	HotkeyPrefix	Production
+			field	HotkeyCount	24
+			field	SelectProductionBuildingHotkey	SelectProductionBuilding
+		Container@PALETTE_FOREGROUND	0,0,0,0
+			Image@ROW_TEMPLATE	0,0,238,47
+				field	Logic	AddFactionSuffixLogic
+				field	Width	238
+				field	Height	47
+				field	IgnoreMouseOver	true
+				field	ImageCollection	sidebar
+				field	ImageName	background-iconrow
+		Container@PRODUCTION_TYPES	7,2,29,240
+			field	X	7
+			field	Y	2
+			field	Width	29
+			field	Height	240
+			ProductionTypeButton@BUILDING	0,0,28,28
+				field	Logic	AddFactionSuffixLogic
+				field	Width	28
+				field	Height	28
+				field	VisualHeight	0
+				field	Background	sidebar-button
+				field	TooltipText	button-production-types-building-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	ProductionGroup	Building
+				field	Key	ProductionTypeBuilding
+				Image@ICON	6,6,0,0
+					field	X	6
+					field	Y	6
+					field	ImageCollection	production-icons
+			ProductionTypeButton@DEFENSE	0,31,28,28
+				field	Logic	AddFactionSuffixLogic
+				field	Y	31
+				field	Width	28
+				field	Height	28
+				field	VisualHeight	0
+				field	Background	sidebar-button
+				field	TooltipText	button-production-types-defense-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	ProductionGroup	Defense
+				field	Key	ProductionTypeDefense
+				Image@ICON	6,6,0,0
+					field	X	6
+					field	Y	6
+					field	ImageCollection	production-icons
+			ProductionTypeButton@INFANTRY	0,62,28,28
+				field	Logic	AddFactionSuffixLogic
+				field	Y	62
+				field	Width	28
+				field	Height	28
+				field	VisualHeight	0
+				field	Background	sidebar-button
+				field	TooltipText	button-production-types-infantry-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	ProductionGroup	Infantry
+				field	Key	ProductionTypeInfantry
+				Image@ICON	6,6,0,0
+					field	X	6
+					field	Y	6
+					field	ImageCollection	production-icons
+			ProductionTypeButton@VEHICLE	0,93,28,28
+				field	Logic	AddFactionSuffixLogic
+				field	Y	93
+				field	Width	28
+				field	Height	28
+				field	VisualHeight	0
+				field	Background	sidebar-button
+				field	TooltipText	button-production-types-vehicle-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	ProductionGroup	Vehicle
+				field	Key	ProductionTypeVehicle
+				Image@ICON	6,6,0,0
+					field	X	6
+					field	Y	6
+					field	ImageCollection	production-icons
+			ProductionTypeButton@AIRCRAFT	0,124,28,28
+				field	Logic	AddFactionSuffixLogic
+				field	Y	124
+				field	Width	28
+				field	Height	28
+				field	VisualHeight	0
+				field	Background	sidebar-button
+				field	TooltipText	button-production-types-aircraft-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	ProductionGroup	Aircraft
+				field	Key	ProductionTypeAircraft
+				Image@ICON	6,6,0,0
+					field	X	6
+					field	Y	6
+					field	ImageCollection	production-icons
+			ProductionTypeButton@NAVAL	0,155,28,28
+				field	Logic	AddFactionSuffixLogic
+				field	Y	155
+				field	Width	28
+				field	Height	28
+				field	VisualHeight	0
+				field	Background	sidebar-button
+				field	TooltipText	button-production-types-naval-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				field	ProductionGroup	Ship
+				field	Key	ProductionTypeNaval
+				Image@ICON	6,6,0,0
+					field	X	6
+					field	Y	6
+					field	ImageCollection	production-icons
+			Button@SCROLL_UP_BUTTON	0,186,28,22
+				field	Logic	AddFactionSuffixLogic
+				field	Y	186
+				field	Width	28
+				field	Height	22
+				field	VisualHeight	0
+				field	Background	sidebar-button
+				field	TooltipText	button-production-types-scroll-up-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				Image@ICON	6,3,0,0
+					field	X	6
+					field	Y	3
+					field	ImageCollection	scrollpanel-decorations
+					field	ImageName	up
+			Button@SCROLL_DOWN_BUTTON	0,211,28,22
+				field	Logic	AddFactionSuffixLogic
+				field	Y	211
+				field	Width	28
+				field	Height	22
+				field	VisualHeight	0
+				field	Background	sidebar-button
+				field	TooltipText	button-production-types-scroll-down-tooltip
+				field	TooltipContainer	TOOLTIP_CONTAINER
+				Image@ICON	6,3,0,0
+					field	X	6
+					field	Y	3
+					field	ImageCollection	scrollpanel-decorations
+					field	ImageName	down
+	Image@SIDEBAR_MONEYBIN	774,272,238,28
+		field	Logic	AddFactionSuffixLogic
+		field	X	WINDOW_WIDTH - 250
+		field	Y	272
+		field	Width	238
+		field	Height	28
+		field	ImageCollection	sidebar
+		field	ImageName	background-moneybin
+		field	ClickThrough	false
+		Label@GAME_TIMER	3,3,238,23
+			field	Logic	GameTimerLogic
+			field	X	3
+			field	Y	3
+			field	Width	PARENT_WIDTH
+			field	Height	23
+			field	Align	Center
+			field	Font	TinyBold
+		LabelWithTooltip@CASH	35,2,50,23
+			field	Logic	IngameCashCounterLogic
+			field	X	35
+			field	Y	2
+			field	Width	50
+			field	Height	23
+			field	Font	Bold
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			field	TooltipTemplate	SIMPLE_TOOLTIP
+			Image@CASH_ICON	-21,4,0,0
+				field	X	-21
+				field	Y	4
+				field	ImageCollection	cash-icons
+				field	ImageName	cash-normal
+		LabelWithTooltip@POWER	158,2,50,23
+			field	Logic	IngamePowerCounterLogic
+			field	X	PARENT_WIDTH - WIDTH - 30
+			field	Y	2
+			field	Width	50
+			field	Height	23
+			field	Align	Right
+			field	Font	Bold
+			field	TooltipContainer	TOOLTIP_CONTAINER
+			field	TooltipTemplate	SIMPLE_TOOLTIP
+			Image@POWER_ICON	54,4,0,0
+				field	X	PARENT_WIDTH + 4
+				field	Y	4
+				field	ImageCollection	power-icons
+				field	ImageName	power-normal
+	Container@HPF_ROOT	589,40,175,0
+		field	Logic	LoadIngameHierarchicalPathFinderOverlayLogic
+		field	X	WINDOW_WIDTH - WIDTH - 260
+		field	Y	40
+		field	Width	175

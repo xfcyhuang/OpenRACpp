@@ -1,0 +1,34 @@
+# mainmenu navigation oracle (T26/issue #35)
+# upstream MainMenuLogic driven on real mainmenu.yaml (Renderer stub 1024x768, ra ModData + MapCache)
+# settings tuned: FetchNews=False prompts satisfied CheckVersion=False -> ctor lands on Main
+# panel-opening buttons (SETTINGS/MULTIPLAYER/missions/skirmish/extras panels) not headless-drivable
+# (Game.OpenWindow needs WorldRenderer; StartSkirmishGame starts a local server) - deviation registered
+step	init
+menu	Main
+visible	MAIN_MENU=1	SINGLEPLAYER_MENU=0	EXTRAS_MENU=0	MAP_EDITOR_MENU=0
+disabled	SKIRMISH=0	MISSIONS=0	LOAD=1	CONTENT=0	LOAD_MAP=0
+step	SINGLEPLAYER_BUTTON
+menu	Singleplayer
+visible	MAIN_MENU=0	SINGLEPLAYER_MENU=1	EXTRAS_MENU=0	MAP_EDITOR_MENU=0
+disabled	SKIRMISH=0	MISSIONS=0	LOAD=1	CONTENT=0	LOAD_MAP=0
+step	BACK_BUTTON(singleplayer)
+menu	Main
+visible	MAIN_MENU=1	SINGLEPLAYER_MENU=0	EXTRAS_MENU=0	MAP_EDITOR_MENU=0
+disabled	SKIRMISH=0	MISSIONS=0	LOAD=1	CONTENT=0	LOAD_MAP=0
+step	EXTRAS_BUTTON
+menu	Extras
+visible	MAIN_MENU=0	SINGLEPLAYER_MENU=0	EXTRAS_MENU=1	MAP_EDITOR_MENU=0
+disabled	SKIRMISH=0	MISSIONS=0	LOAD=1	CONTENT=0	LOAD_MAP=0
+step	MAP_EDITOR_BUTTON
+menu	MapEditor
+visible	MAIN_MENU=0	SINGLEPLAYER_MENU=0	EXTRAS_MENU=0	MAP_EDITOR_MENU=1
+disabled	SKIRMISH=0	MISSIONS=0	LOAD=1	CONTENT=0	LOAD_MAP=0
+step	BACK_BUTTON(map-editor)
+menu	Extras
+visible	MAIN_MENU=0	SINGLEPLAYER_MENU=0	EXTRAS_MENU=1	MAP_EDITOR_MENU=0
+disabled	SKIRMISH=0	MISSIONS=0	LOAD=1	CONTENT=0	LOAD_MAP=0
+step	BACK_BUTTON(extras)
+menu	Main
+visible	MAIN_MENU=1	SINGLEPLAYER_MENU=0	EXTRAS_MENU=0	MAP_EDITOR_MENU=0
+disabled	SKIRMISH=0	MISSIONS=0	LOAD=1	CONTENT=0	LOAD_MAP=0
+quit	Success

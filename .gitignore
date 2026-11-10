@@ -1,0 +1,3 @@
+build/
+tools/golden_gen/bin/
+tools/golden_gen/obj/

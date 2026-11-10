@@ -1,0 +1,15 @@
+FreeSans.ttf / FreeSansBold.ttf
+===============================
+
+来源：OpenRA/OpenRA @ 1f594e32065615ed1847962c80ecfe6e868a11c3 mods/common/
+（GNU FreeFont 发行版，由上游仓库原样分发）。
+
+授权：GNU General Public License v3（或更高版本），含字体嵌入例外
+（GNU FreeFont 的 "font exception"：在文档中嵌入本字体不构成 GPL 意义上的
+独立分发义务）。上游 OpenRA 项目本身即以 GPLv3 分发这两个文件；本仓库以
+相同方式 vendoring（tests/golden/fonts/fixture/），授权链与上游等价。
+
+参考：
+- https://www.gnu.org/software/freefont/
+- https://www.openra.net/legal
+- 上游 mods/common/ 内的 README/版权声明

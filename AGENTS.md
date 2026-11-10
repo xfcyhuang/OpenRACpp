@@ -1,3 +1,7 @@
+## 语言约定
+
+思考与回复一律使用**中文**，**包括子代理**（subagent）的提示词、思考与输出。
+
 ## Agent skills
 
 ### Issue tracker

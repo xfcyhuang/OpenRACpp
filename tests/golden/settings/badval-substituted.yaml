@@ -1,0 +1,18 @@
+Sound:
+	SoundVolume: 0
+
+Game:
+	MouseScroll: Disabled
+	SelectionDeadzone: 0
+
+Graphics:
+	Mode: Windowed
+	WindowedSize: 0,0
+
+Player:
+	Color: 00000000
+	CustomColors: C820C8, 00000000
+
+Debug:
+	UUID: <UUID>
+

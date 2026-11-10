@@ -1,6 +1,6 @@
 # PORTING_PLAN —— 分阶段移植计划
 
-**当前状态：Phase 0 未开始（2026-11-02 起草）**
+**当前状态：M2 达成（2026-11-10）—— Phase 0-7 完成；M3（Phase 8 AI）研究先行（#46）**
 
 ## 目标与原则
 
@@ -12,9 +12,17 @@
 - **上游**：`../openra`，基线钉定见 [UPSTREAM.baseline](UPSTREAM.baseline)，同步手动发起。
 - **验证**：ra 为主线 mod；三层验证 = 字节恒等 + oracle 回放逐帧 SyncHash + ctest 三编排（base/asan/hardened）。
 
-## 里程碑 M1：CLI 直进沙盒对局可玩
+## 里程碑 M1：CLI 直进沙盒对局可玩（2026-11-07 达成，Phase 0-5）
 
-加载 ra 固定地图 → 直进对局 → 可框选/移动/建造/生产/交战的基础 HUD 侧栏；静音桩、无 AI、无菜单 UI。
+加载 ra 固定地图 → 直进对局 → 可框选/移动/建造/生产/交战的基础 HUD 侧栏；静音桩、无 AI、无菜单 UI。oracle 真回放 580 帧逐帧 SyncHash 全对收口。
+
+## 里程碑 M2：菜单→大堂→对局全流程可走（2026-11-10 达成，Phase 6-7）
+
+音频去静音（OpenAL/Dummy 一等公民回落）、热键注册表与设置持久化生效面（windowed_size/vsync）；Widget 框架与 chrome 装载、主菜单三页设置、遭遇战大堂（预览/槽位/势力）；FlowState 状态机串联菜单→大堂→对局全流程（abort 重连大堂、disconnect 回菜单）。
+
+## 里程碑 M3：遭遇战完整形态（规划中，Phase 8，研究票 #46）
+
+lua 虚拟机 + NullBot 接入。验收双口径：①无头 bot vs bot 剧本逐帧 SyncHash 黄金全等（语义等价第一原则）②人类 vs bot 经大堂 bot 槽开局可玩。引擎路线三候选（vendored Lua 5.4+垫片 / 自写子集 / 逐语义移植 MoonSharp），研究票量化后决策票 HITL 拍板。
 
 ## 阶段表
 

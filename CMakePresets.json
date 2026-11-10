@@ -1,0 +1,55 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "base",
+      "displayName": "base（-O2 -DNDEBUG）",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O2 -DNDEBUG",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "asan",
+      "displayName": "asan（address+undefined）",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "hardened",
+      "displayName": "hardened（GCC -fhardened 等价集）",
+      "inherits": "base",
+      "cacheVariables": {
+        "ORA_HARDENED": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "base", "configurePreset": "base" },
+    { "name": "asan", "configurePreset": "asan" },
+    { "name": "hardened", "configurePreset": "hardened" }
+  ],
+  "testPresets": [
+    {
+      "name": "base",
+      "configurePreset": "base",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "asan",
+      "configurePreset": "asan",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "hardened",
+      "configurePreset": "hardened",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

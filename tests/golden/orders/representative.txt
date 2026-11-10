@@ -1,0 +1,86 @@
+# baseline 1f594e32065615ed1847962c80ecfe6e868a11c3 OpenRA.Game/Network/Order.cs
+# case <name> / hex <lowercase hex of Order.Serialize()> / fields <key=value ...>
+case empty
+hex ff000000
+fields type=fields orderlen=0 flags=0x0000 subject=- queued=0 targetkind=0 text=- data=0 loc=0 ea=- grouped=-
+case unqueued
+hex ff04546573740000
+fields type=fields orderlen=4 flags=0x0000 subject=- queued=0 targetkind=0 text=- data=0 loc=0 ea=- grouped=-
+case queued
+hex ff04546573740800
+fields type=fields orderlen=4 flags=0x0008 subject=- queued=1 targetkind=0 text=- data=0 loc=0 ea=- grouped=-
+case pos-target
+hex ff04546573740100020000008000000000ffffff7fffff
+fields type=fields orderlen=4 flags=0x0001 subject=- queued=0 targetkind=2 text=- data=0 loc=0 ea=- grouped=-
+case invalid-target
+hex ff04546573740000
+fields type=fields orderlen=4 flags=0x0000 subject=- queued=0 targetkind=0 text=- data=0 loc=0 ea=- grouped=-
+case extra-fields
+hex ff04546573743c000c546172676574537472696e6780fff77fffffffff
+fields type=fields orderlen=4 flags=0x003c subject=- queued=1 targetkind=0 text=12:TargetString data=4294967295 loc=2146959232 ea=- grouped=-
+case target-string-empty
+hex ff0454657374040000
+fields type=fields orderlen=4 flags=0x0004 subject=- queued=0 targetkind=0 text=0: data=0 loc=0 ea=- grouped=-
+case utf8-strings
+hex ff12d0a2d0b5d181d1822de697a5e69cace8aa9e040006cf843d32cf80
+fields type=fields orderlen=8 flags=0x0004 subject=- queued=0 targetkind=0 text=4:τ=2π data=0 loc=0 ea=- grouped=-
+case handshake
+hex fe0454657374077061796c6f6164
+fields type=handshake orderlen=4 flags=handshake subject=- queued=0 targetkind=0 text=7:payload data=0 loc=0 ea=- grouped=-
+case handshake-empty
+hex fe045465737400
+fields type=handshake orderlen=4 flags=handshake subject=- queued=0 targetkind=0 text=0: data=0 loc=0 ea=- grouped=-
+case terrain-multi-pos
+hex ff0641747461636b01000264000000c800000000000000020064000000c8000000000000002c0100009001000000000000
+fields type=fields orderlen=6 flags=0x0001 subject=- queued=0 targetkind=2 text=- data=0 loc=0 ea=- grouped=-
+case extra-actors-empty
+hex ff0454657374020000000000
+fields type=fields orderlen=4 flags=0x0002 subject=- queued=0 targetkind=0 text=- data=0 loc=0 ea=0 grouped=-
+case grouped-empty
+hex ff0b43726561746547726f7570000100000000
+fields type=fields orderlen=11 flags=0x0100 subject=- queued=0 targetkind=0 text=- data=0 loc=0 ea=- grouped=0
+case move-cell
+hex ff044d6f7665c90007000000020005a00002
+fields type=fields orderlen=4 flags=0x00c9 subject=7 queued=1 targetkind=2 text=- data=0 loc=0 ea=- grouped=-
+case actor-target
+hex ff0641747461636b8900080000000109000000feffffff
+fields type=fields orderlen=6 flags=0x0089 subject=8 queued=1 targetkind=0 text=- data=0 loc=0 ea=- grouped=-
+case start-production
+hex ff0f537461727450726f64756374696f6eac000200000002653105000000
+fields type=fields orderlen=15 flags=0x00ac subject=2 queued=1 targetkind=0 text=2:e1 data=5 loc=0 ea=- grouped=-
+case pause-production
+hex ff0f506175736550726f64756374696f6ea4000200000002653101000000
+fields type=fields orderlen=15 flags=0x00a4 subject=2 queued=0 targetkind=0 text=2:e1 data=1 loc=0 ea=- grouped=-
+case cancel-production
+hex ff1043616e63656c50726f64756374696f6ea4000200000002653103000000
+fields type=fields orderlen=16 flags=0x00a4 subject=2 queued=0 targetkind=0 text=2:e1 data=3 loc=0 ea=- grouped=-
+case place-building
+hex ff0d506c6163654275696c64696e67f5000100000002000a4001000466616374000100002a000000
+fields type=fields orderlen=13 flags=0x00f5 subject=1 queued=0 targetkind=2 text=4:fact data=42 loc=256 ea=- grouped=-
+case line-build
+hex ff094c696e654275696c64f5000100000002000fe001000470626f78000010002b000000
+fields type=fields orderlen=9 flags=0x00f5 subject=1 queued=0 targetkind=2 text=4:pbox data=43 loc=1048576 ea=- grouped=-
+case create-group
+hex ff0b43726561746547726f757080010100000003000000030000000400000005000000
+fields type=fields orderlen=11 flags=0x0180 subject=1 queued=0 targetkind=0 text=- data=0 loc=0 ea=- grouped=3
+case set-unit-stance
+hex ff0d536574556e69745374616e6365a0000600000002000000
+fields type=fields orderlen=13 flags=0x00a0 subject=6 queued=0 targetkind=0 text=- data=2 loc=0 ea=- grouped=-
+case extra-actors
+hex ff04546573740200020000000300000004000000
+fields type=fields orderlen=4 flags=0x0002 subject=- queued=0 targetkind=0 text=- data=0 loc=0 ea=2 grouped=-
+case chat
+hex ff044368617404000b48656c6c6f20776f726c64
+fields type=fields orderlen=4 flags=0x0004 subject=- queued=0 targetkind=0 text=11:Hello world data=0 loc=0 ea=- grouped=-
+case chat-team
+hex ff04436861742400097465616d206f6e6c7902000000
+fields type=fields orderlen=4 flags=0x0024 subject=- queued=0 targetkind=0 text=9:team only data=2 loc=0 ea=- grouped=-
+case chat-spectators
+hex ff044368617424000473706563ffffffff
+fields type=fields orderlen=4 flags=0x0024 subject=- queued=0 targetkind=0 text=4:spec data=4294967295 loc=0 ea=- grouped=-
+case command
+hex ff07436f6d6d616e640400052f68656c70
+fields type=fields orderlen=7 flags=0x0004 subject=- queued=0 targetkind=0 text=5:/help data=0 loc=0 ea=- grouped=-
+case pause-game
+hex ff09506175736547616d650400055061757365
+fields type=fields orderlen=9 flags=0x0004 subject=- queued=0 targetkind=0 text=5:Pause data=0 loc=0 ea=- grouped=-
