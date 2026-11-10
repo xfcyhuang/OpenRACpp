@@ -20,9 +20,9 @@
 
 音频去静音（OpenAL/Dummy 一等公民回落）、热键注册表与设置持久化生效面（windowed_size/vsync）；Widget 框架与 chrome 装载、主菜单三页设置、遭遇战大堂（预览/槽位/势力）；FlowState 状态机串联菜单→大堂→对局全流程（abort 重连大堂、disconnect 回菜单）。
 
-## 里程碑 M3：遭遇战完整形态（规划中，Phase 8，研究票 #46）
+## 里程碑 M3：遭遇战完整形态（进行中，Phase 8，研究 #46 / 决策 #47）
 
-lua 虚拟机 + NullBot 接入。验收双口径：①无头 bot vs bot 剧本逐帧 SyncHash 黄金全等（语义等价第一原则）②人类 vs bot 经大堂 bot 槽开局可玩。引擎路线三候选（vendored Lua 5.4+垫片 / 自写子集 / 逐语义移植 MoonSharp），研究票量化后决策票 HITL 拍板。
+bot = ModularBot trait 体系移植（上游无 NullBot）；lua = vendored Lua 5.1.5 + 绑定最小通路（上游 Eluant 实证，ADR-0005）——两正交面。验收双口径：①无头 bot vs bot 逐帧 SyncHash 黄金全等（回放重演先行、live 定种子收口）②人类 vs bot 经大堂 bot 槽开局可玩。切票 T30-T40（#47 认可）。
 
 ## 阶段表
 
@@ -38,7 +38,7 @@ lua 虚拟机 + NullBot 接入。验收双口径：①无头 bot vs bot 剧本�
 | **Phase 5** 确定性关卡 | golden_gen 产真 .orarep（固定地图固定种子 ~150 帧）→ 逐帧 SyncHash 全对 + desync 篡改负向样本；回放/地图读写字节恒等 | **M1 达成** |
 | **Phase 6** 平台层补全 | 音频（去静音桩）、输入全量、显示设置与持久化 | 音效/音乐生效；设置往返一致 |
 | **Phase 7** UI 体系 | Widget 框架、主菜单、遭遇战大堂（地图预览/槽位/设置面板） | 菜单→大堂→对局全流程可走 |
-| **Phase 8** AI | lua 虚拟机、NullBot 接入 | 遭遇战带 AI 对手可玩 |
+| **Phase 8** AI | bot = ModularBot trait 体系移植（上游无 NullBot：12 BotModule、ra 4 类型）+ 三欠账兑现（Move Activity 化/AutoTarget rng/HPF）+ 大堂 bot 槽；lua = vendored Lua 5.1.5 + 绑定最小通路（正交面，ADR-0005） | 遭遇战完整形态：bot vs bot 逐帧 SyncHash 黄金全等 + 人类 vs bot 大堂开局可玩 |
 | **Phase 9** 网络/服务器 | Connection/Server/LobbyCommands 族、回环验收 | 127.0.0.1 回环全链验收 |
 | **Phase 10** utility | OpenRA.Utility 语义（格式转换/地图工具） | 命令行工具集对拍 |
 | **Phase 11** mods 增量 | cnc → d2k → ts | 各 mod 沙盒对局可玩 |
