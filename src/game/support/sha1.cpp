@@ -1,4 +1,6 @@
-#include "game/support/sha1.hpp"
+module ora.game.support;
+
+import std;
 
 namespace ora::game::support {
 

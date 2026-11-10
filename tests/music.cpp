@@ -1,12 +1,11 @@
 import std;
 
-#include "game/music_info.hpp"
-#include "game/settings.hpp"
-#include "game/sound/music_player.hpp"
-#include "game/sound/sound.hpp"
-#include "game/support/mersenne_twister.hpp"
-#include "platforms/sound_engine.hpp"
-#include "test_util.hpp"
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.sound;
+import ora.game.support;
+import ora.platforms;
+import ora.test.util;
 using ora::test::check;
 
 #ifndef ORA_MUSIC_GOLDEN_DIR

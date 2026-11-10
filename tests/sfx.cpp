@@ -1,16 +1,16 @@
-#include "test_util.hpp"
 
 import std;
 
-#include "game/combat/combat_sim.hpp"
-#include "game/network/order.hpp"
-#include "game/network/order_manager.hpp"
-#include "game/production/production.hpp"
-#include "game/sound/sound.hpp"
-#include "game/sound/sfx.hpp"
-#include "game/world/sync_hash.hpp"
-#include "game/world/world.hpp"
 
+import ora.game;
+import ora.game.combat;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.sound;
+import ora.game.support;
+import ora.game.world;
+import ora.platforms;
+import ora.test.util;
 namespace {
 
 using ora::game::make_dummy_facade;

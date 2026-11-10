@@ -1,9 +1,13 @@
-#include "launcher/lobby_ui.hpp"
+module ora.launcher;
 
-#include "game/filesystem/zip_read.hpp"
-#include "game/map_read.hpp"
-#include "game/miniyaml.hpp"
-#include "game/render/png_decode.hpp"
+import std;
+import ora.game;
+import ora.game.filesystem;
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.render;
+import ora.game.ui;
+import ora.game.world;
 
 namespace ora::launcher {
 

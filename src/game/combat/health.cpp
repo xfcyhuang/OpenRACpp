@@ -1,4 +1,6 @@
-#include "game/combat/health.hpp"
+module ora.game.combat;
+
+import std;
 
 namespace ora::game::combat {
 

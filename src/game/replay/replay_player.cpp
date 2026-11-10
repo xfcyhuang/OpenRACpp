@@ -1,7 +1,7 @@
-#include "game/replay/replay_player.hpp"
+module ora.game.world;
 
-#include "game/network/order.hpp"
-#include "game/network/order_packet.hpp"
+import std;
+import ora.game.miniyaml;
 
 namespace ora::game::replay {
 

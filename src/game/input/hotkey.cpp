@@ -1,6 +1,8 @@
-#include "game/input/hotkey.hpp"
-
+module;
 #include <cctype>
+module ora.game.input;
+
+import std;
 
 namespace ora::game::input {
 

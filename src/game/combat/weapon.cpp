@@ -1,6 +1,7 @@
-#include "game/combat/weapon.hpp"
+module ora.game.combat;
 
-#include "game/miniyaml_merge.hpp"
+import std;
+import ora.game.miniyaml;
 
 namespace ora::game::combat {
 

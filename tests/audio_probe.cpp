@@ -1,7 +1,10 @@
 import std;
 
-#include "game/sound/sound.hpp"
-#include "test_util.hpp"
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.sound;
+import ora.platforms;
+import ora.test.util;
 using ora::test::check;
 
 int main() {

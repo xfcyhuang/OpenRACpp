@@ -1,4 +1,10 @@
-#include "game/sound/music_player.hpp"
+module ora.game.sound;
+
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.support;
+import ora.platforms;
 
 namespace ora::game {
 

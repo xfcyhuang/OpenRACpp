@@ -1,10 +1,10 @@
 import std;
 
 #include <cstdio>
+import ora.game.miniyaml;
+import ora.game.render;
+import ora.test.util;
 
-#include "game/miniyaml.hpp"
-#include "game/render/font.hpp"
-#include "test_util.hpp"
 using ora::test::check;
 
 #ifndef ORA_FONTS_GOLDEN_DIR

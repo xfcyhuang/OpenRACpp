@@ -1,12 +1,9 @@
 import std;
 
-#include "game/filesystem/inflate.hpp"
-#include "game/filesystem/zip_read.hpp"
-#include "game/map_bin.hpp"
-#include "game/map_read.hpp"
-#include "game/tileset.hpp"
-#include "game/support/sha1.hpp"
-#include "test_util.hpp"
+import ora.game;
+import ora.game.filesystem;
+import ora.game.support;
+import ora.test.util;
 using ora::test::check;
 
 #ifndef ORA_MAPS_GOLDEN_DIR

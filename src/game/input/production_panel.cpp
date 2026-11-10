@@ -1,6 +1,11 @@
-#include "game/input/production_panel.hpp"
+module ora.game.input;
 
-#include "game/input/order_generator.hpp"
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
+import ora.game.world;
 
 namespace ora::game::input {
 

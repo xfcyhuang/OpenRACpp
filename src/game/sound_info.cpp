@@ -1,4 +1,6 @@
-#include "sound_info.hpp"
+module ora.game;
+
+import std;
 
 namespace ora::game {
 

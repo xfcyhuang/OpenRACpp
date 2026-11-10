@@ -1,7 +1,10 @@
-import std;
+module ora.game.world;
 
-#include "game/world/bot.hpp"
-#include "game/world/world.hpp"
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
 
 namespace ora::game::world {
 

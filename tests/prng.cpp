@@ -1,7 +1,7 @@
 import std;
 
-#include "game/support/mersenne_twister.hpp"
-#include "test_util.hpp"
+import ora.game.support;
+import ora.test.util;
 using ora::test::check;
 
 #ifndef ORA_PRNG_GOLDEN_DIR

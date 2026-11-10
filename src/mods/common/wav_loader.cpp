@@ -1,6 +1,6 @@
-#include "wav_loader.hpp"
+module ora.mods.common;
 
-#include "ima_adpcm.hpp"
+import std;
 
 namespace ora::mods::common {
 

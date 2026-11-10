@@ -1,6 +1,8 @@
-#include "game/ui/chrome_provider.hpp"
+module ora.game.ui;
 
-#include "game/miniyaml_merge.hpp"
+import std;
+import ora.game.miniyaml;
+import ora.game.render;
 
 namespace ora::game::ui {
 

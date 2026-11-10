@@ -1,6 +1,7 @@
-#include "game/ui/widget.hpp"
+module ora.game.ui;
 
-#include "game/ui/expression.hpp"
+import std;
+import ora.game.input;
 
 namespace ora::game::ui {
 

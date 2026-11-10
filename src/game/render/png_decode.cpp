@@ -1,8 +1,7 @@
-#include "game/render/png_decode.hpp"
-
-#include "game/filesystem/inflate.hpp"
+module ora.game.render;
 
 import std;
+import ora.game.filesystem;
 
 namespace ora::game::render {
 

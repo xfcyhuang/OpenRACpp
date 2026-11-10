@@ -1,10 +1,15 @@
-#include "launcher/game_session.hpp"
-#include "game/sound/sfx.hpp"
+module ora.launcher;
 
-#include "game/combat/warhead_damage.hpp"
-#include "game/economy/economy.hpp"
-#include "game/input/production_panel.hpp"
-#include "game/production/production.hpp"
+import std;
+import ora.game;
+import ora.game.combat;
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.sound;
+import ora.game.support;
+import ora.game.world;
+import ora.platforms;
 
 namespace ora::launcher {
 

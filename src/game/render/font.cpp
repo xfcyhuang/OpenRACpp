@@ -1,7 +1,10 @@
-#include "game/render/font.hpp"
-
+module;
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "game/render/stb_truetype.h"
+module ora.game.render;
+
+import std;
+import ora.game.miniyaml;
 
 namespace ora::game::render {
 

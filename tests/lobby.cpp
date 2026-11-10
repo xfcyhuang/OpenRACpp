@@ -1,15 +1,17 @@
 import std;
 
-#include "game/filesystem/zip_read.hpp"
-#include "game/map_read.hpp"
-#include "game/miniyaml.hpp"
-#include "game/network/lobby_session.hpp"
-#include "game/render/png_decode.hpp"
-#include "game/ui/chrome_provider.hpp"
-#include "game/ui/widget_loader.hpp"
-#include "launcher/game_session.hpp"
-#include "launcher/lobby_ui.hpp"
-#include "test_util.hpp"
+import ora.game;
+import ora.game.combat;
+import ora.game.filesystem;
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.render;
+import ora.game.support;
+import ora.game.ui;
+import ora.game.world;
+import ora.launcher;
+import ora.test.util;
 using ora::test::check;
 
 #ifndef ORA_LOBBY_GOLDEN_DIR

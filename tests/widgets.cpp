@@ -1,13 +1,10 @@
 import std;
 
-#include "game/input/input_events.hpp"
-#include "game/miniyaml.hpp"
-#include "game/render/png_decode.hpp"
-#include "game/ui/chrome_provider.hpp"
-#include "game/ui/widget.hpp"
-#include "game/ui/widget_loader.hpp"
-#include "game/ui/widget_render.hpp"
-#include "test_util.hpp"
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.render;
+import ora.game.ui;
+import ora.test.util;
 using ora::test::check;
 
 #ifndef ORA_WIDGETS_GOLDEN_DIR

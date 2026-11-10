@@ -1,4 +1,6 @@
-#include "game/render/tmp_ra.hpp"
+module ora.game.render;
+
+import std;
 
 namespace ora::game::render {
 

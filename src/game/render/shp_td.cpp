@@ -1,7 +1,6 @@
-#include "game/render/shp_td.hpp"
+module ora.game.render;
 
-#include "game/render/lcw.hpp"
-#include "game/render/xor_delta.hpp"
+import std;
 
 namespace ora::game::render {
 

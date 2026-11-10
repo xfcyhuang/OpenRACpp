@@ -1,8 +1,12 @@
-#include "launcher/sandbox_recipe.hpp"
+module ora.launcher;
 
-#include "game/economy/economy.hpp"
-#include "game/filesystem/zip_read.hpp"
-#include "game/map_read.hpp"
+import std;
+import ora.game;
+import ora.game.filesystem;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
+import ora.game.world;
 
 namespace ora::launcher {
 

@@ -1,4 +1,11 @@
-#include "game/ui/settings_panel.hpp"
+module ora.game.ui;
+
+import std;
+import ora.game;
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.sound;
+import ora.platforms;
 
 namespace ora::game::ui {
 

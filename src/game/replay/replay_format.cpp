@@ -1,4 +1,7 @@
-#include "game/replay/replay_format.hpp"
+module ora.game.world;
+
+import std;
+import ora.game.miniyaml;
 
 namespace ora::game::replay {
 

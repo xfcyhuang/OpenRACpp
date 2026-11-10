@@ -1,4 +1,6 @@
-#include "game/input/tap_history.hpp"
+module ora.game.input;
+
+import std;
 
 namespace ora::game::input {
 

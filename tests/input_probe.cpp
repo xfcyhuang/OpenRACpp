@@ -4,15 +4,13 @@ import std;
 #include <cstdlib>
 #include <cstring>
 #include <initializer_list>
+import ora.game;
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
+import ora.game.world;
 
-#include "game/input/input_events.hpp"
-#include "game/input/order_generator.hpp"
-#include "game/input/production_panel.hpp"
-#include "game/input/screen_map.hpp"
-#include "game/input/selection.hpp"
-#include "game/input/selection_logic.hpp"
-#include "game/network/order_manager.hpp"
-#include "game/world/world.hpp"
 
 namespace {
 

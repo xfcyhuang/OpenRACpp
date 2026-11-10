@@ -1,6 +1,10 @@
-#include "game/network/order.hpp"
+module ora.game.world;
 
-#include "game/world/world.hpp"
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
 
 namespace ora::game::network {
 

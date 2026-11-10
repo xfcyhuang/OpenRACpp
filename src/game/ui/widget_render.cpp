@@ -1,6 +1,9 @@
-#include "game/ui/widget_render.hpp"
+module ora.game.ui;
 
 import std;
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.game.render;
 
 namespace ora::game::ui {
 

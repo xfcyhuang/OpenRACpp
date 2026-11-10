@@ -1,10 +1,10 @@
-#include "game/replay/replay_world.hpp"
+module ora.game.world;
 
 import std;
-
-#include "game/filesystem/zip_read.hpp"
-#include "game/miniyaml.hpp"
-#include "game/pathfinding/wangle.hpp"
+import ora.game.filesystem;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
 
 namespace ora::game::replay {
 

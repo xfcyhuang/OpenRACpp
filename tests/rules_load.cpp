@@ -1,9 +1,8 @@
 import std;
 
-#include "game/miniyaml.hpp"
-#include "game/miniyaml_merge.hpp"
-#include "game/ruleset.hpp"
-#include "test_util.hpp"
+import ora.game;
+import ora.game.miniyaml;
+import ora.test.util;
 using ora::test::check;
 
 #ifndef ORA_RULES_GOLDEN_DIR

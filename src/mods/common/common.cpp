@@ -1,4 +1,6 @@
-#include "common.hpp"
+module ora.mods.common;
+
+import std;
 
 namespace ora::mods::common {
 

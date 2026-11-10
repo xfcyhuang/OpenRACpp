@@ -1,12 +1,14 @@
-#include "game/combat/projectile.hpp"
-
-#include "game/sound/sfx.hpp"
-
+module;
 #include <cstdint>
+module ora.game.combat;
 
-#include "game/combat/warhead_damage.hpp"
-#include "game/pathfinding/wangle.hpp"
-#include "game/support/mersenne_twister.hpp"
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.sound;
+import ora.game.support;
+import ora.platforms;
 
 namespace ora::game::combat {
 

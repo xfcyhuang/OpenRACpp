@@ -1,4 +1,6 @@
-#include "platforms.hpp"
+module ora.platforms;
+
+import std;
 
 namespace ora::platforms {
 

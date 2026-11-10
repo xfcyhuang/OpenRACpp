@@ -1,4 +1,8 @@
-#include "game/pathfinding/astar.hpp"
+module ora.game.pathfinding;
+
+import std;
+import ora.game;
+import ora.game.miniyaml;
 
 namespace ora::game::pathfinding {
 

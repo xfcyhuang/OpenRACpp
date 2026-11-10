@@ -1,7 +1,10 @@
-#include "game/combat/armament.hpp"
+module ora.game.combat;
 
-#include "game/combat/combat_sim.hpp"
-#include "game/pathfinding/wangle.hpp"
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
 
 namespace ora::game::combat {
 

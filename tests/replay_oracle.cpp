@@ -1,13 +1,11 @@
 import std;
 #include <cstdio>
 #include <cstdlib>
+import ora.game.miniyaml;
+import ora.game.support;
+import ora.game.world;
+import ora.test.util;
 
-#include "game/network/order.hpp"
-#include "game/network/order_packet.hpp"
-#include "game/replay/replay_format.hpp"
-#include "game/replay/replay_player.hpp"
-#include "game/replay/replay_world.hpp"
-#include "test_util.hpp"
 using ora::test::check;
 
 #ifndef ORA_REPLAY_GOLDEN_DIR

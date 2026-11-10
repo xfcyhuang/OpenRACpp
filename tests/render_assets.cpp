@@ -1,11 +1,9 @@
 import std;
 
 #include <cstdlib>
+import ora.game.render;
+import ora.test.util;
 
-#include "game/render/palette.hpp"
-#include "game/render/shp_td.hpp"
-#include "game/render/tmp_ra.hpp"
-#include "test_util.hpp"
 using ora::test::check;
 
 #ifndef ORA_CONTENT_TEMPERAT_DIR

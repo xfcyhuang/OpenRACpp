@@ -1,12 +1,11 @@
 import std;
 
 #include <algorithm>
+import ora.game;
+import ora.game.input;
+import ora.game.miniyaml;
+import ora.test.util;
 
-#include "game/input/hotkey.hpp"
-#include "game/input/hotkey_registry.hpp"
-#include "game/miniyaml.hpp"
-#include "game/settings.hpp"
-#include "test_util.hpp"
 using ora::test::check;
 
 #ifndef ORA_SETTINGS_GOLDEN_DIR

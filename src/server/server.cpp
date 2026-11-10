@@ -1,4 +1,6 @@
-#include "server.hpp"
+module ora.server;
+
+import std;
 
 namespace ora::server {
 

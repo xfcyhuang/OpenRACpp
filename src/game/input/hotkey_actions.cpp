@@ -1,6 +1,11 @@
-#include "game/input/hotkey_actions.hpp"
+module ora.game.input;
 
-#include "game/world/world.hpp"
+import std;
+import ora.game;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
+import ora.game.world;
 
 namespace ora::game::input {
 

@@ -1,8 +1,9 @@
 import std;
 
-#include "game/ui/mainmenu_logic.hpp"
-#include "launcher/flow_state.hpp"
-#include "test_util.hpp"
+import ora.game.input;
+import ora.game.ui;
+import ora.launcher;
+import ora.test.util;
 using ora::test::check;
 
 namespace {

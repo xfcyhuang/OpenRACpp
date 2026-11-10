@@ -1,4 +1,6 @@
-#include "game/pathfinding/priority_queue.hpp"
+module ora.game.pathfinding;
+
+import std;
 
 namespace ora::game::pathfinding {
 

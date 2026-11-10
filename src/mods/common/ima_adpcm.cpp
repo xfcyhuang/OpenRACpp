@@ -1,4 +1,6 @@
-#include "ima_adpcm.hpp"
+module ora.mods.common;
+
+import std;
 
 namespace ora::mods::common {
 

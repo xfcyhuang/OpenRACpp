@@ -1,4 +1,6 @@
-#include "game/world/trait_container.hpp"
+module ora.game.world;
+
+import std;
 
 namespace ora::game::world {
 

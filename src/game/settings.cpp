@@ -1,7 +1,10 @@
-#include "game/settings.hpp"
-
+module;
 #include <cctype>
 #include <cstring>
+module ora.game;
+
+import std;
+import ora.game.miniyaml;
 
 namespace ora::game {
 

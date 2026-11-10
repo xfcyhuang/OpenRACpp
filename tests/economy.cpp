@@ -1,16 +1,12 @@
 import std;
 
-#include "game/economy/economy.hpp"
-#include "game/filesystem/zip_read.hpp"
-#include "game/map_bin.hpp"
-#include "game/map_read.hpp"
-#include "game/miniyaml.hpp"
-#include "game/network/order.hpp"
-#include "game/network/order_manager.hpp"
-#include "game/tileset.hpp"
-#include "game/world/sync_hash.hpp"
-#include "game/world/world.hpp"
-#include "test_util.hpp"
+import ora.game;
+import ora.game.filesystem;
+import ora.game.miniyaml;
+import ora.game.pathfinding;
+import ora.game.support;
+import ora.game.world;
+import ora.test.util;
 using ora::test::check;
 
 #ifndef ORA_ECONOMY_GOLDEN_DIR

@@ -1,4 +1,6 @@
-#include "game/filesystem/inflate.hpp"
+module ora.game.filesystem;
+
+import std;
 
 namespace ora::game::filesystem {
 
