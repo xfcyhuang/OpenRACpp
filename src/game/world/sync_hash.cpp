@@ -40,6 +40,16 @@ std::int32_t sync_hash_upstream(const WorldModel& w) {
     ++int4_n;
   }
 
+  // 移动活动面贡献（上游 SyncHash 不含位置；C++ 为订单流对拍覆盖并入，见偏离登记）。
+  // 无 Mobile 单位的世界贡献恒 0（合成锚点测试不受影响）。
+  for (const MobileState& mobile : w.vec_mobiles) {
+    int4_ret += int4_n * static_cast<std::int32_t>(1u + mobile.u4_actor) *
+                (mobile.move.pos_center.int4_x + mobile.move.pos_center.int4_y * 3 +
+                 mobile.move.int4_facing * 5 + mobile.move.cell_to.int4_x * 7 +
+                 mobile.move.cell_to.int4_y * 11);
+    ++int4_n;
+  }
+
   int4_ret += w.rng_shared.int4_last;
 
   return int4_ret;
@@ -101,6 +111,16 @@ std::string state_digest(const WorldModel& w) {
             item.int4_remaining_cost, item.int4_resources_paid, item.int4_slowdown,
             item.b_started ? 1 : 0, item.b_paused ? 1 : 0, item.b_done ? 1 : 0);
     }
+  }
+
+  for (const MobileState& mobile : w.vec_mobiles) {
+    str_out += std::format(
+        "mobile {} act {} pos {},{} face {} cells {},{}->{} dest {},{} queued {}\n",
+        mobile.u4_actor, mobile.move.b_has_activity ? 1 : 0, mobile.move.pos_center.int4_x,
+        mobile.move.pos_center.int4_y, mobile.move.int4_facing, mobile.move.cell_from.int4_x,
+        mobile.move.cell_from.int4_y, mobile.move.cell_to.int4_x, mobile.move.cell_to.int4_y,
+        mobile.move.cell_destination.int4_x, mobile.move.cell_destination.int4_y,
+        mobile.vec_queued_destinations.size());
   }
   return str_out;
 }

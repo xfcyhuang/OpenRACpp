@@ -184,18 +184,19 @@ void test_session_setup() {
   bool b_own_e1_mover{false};
   bool b_enemy_e1_mover{false};
   bool b_own_e1_fighter{false};
-  for (const auto& mover : s.vec_movers) {
-    if (mover.u4_actor == u4_e1_own) b_own_e1_mover = true;
-    if (mover.u4_actor == u4_e1_enemy) b_enemy_e1_mover = true;
+  // 移动承载世界内（T31）：mover 登记 = WorldModel.vec_mobiles。
+  for (const auto& mobile : s.w.vec_mobiles) {
+    if (mobile.u4_actor == u4_e1_own) b_own_e1_mover = true;
+    if (mobile.u4_actor == u4_e1_enemy) b_enemy_e1_mover = true;
   }
   for (const auto& fighter : s.vec_fighters)
     if (fighter.unit.u4_id == u4_e1_own) b_own_e1_fighter = true;
-  check(b_own_e1_mover && b_enemy_e1_mover, "setup: e1 units registered as movers");
+  check(b_own_e1_mover && b_enemy_e1_mover, "setup: e1 units registered as world mobiles");
   check(b_own_e1_fighter, "setup: own e1 registered as fighter");
   bool b_harv_mover{false};
-  for (const auto& mover : s.vec_movers)
-    if (mover.u4_actor == u4_harv) b_harv_mover = true;
-  check(!b_harv_mover, "setup: harv not in mover bridge (economy-driven)");
+  for (const auto& mobile : s.w.vec_mobiles)
+    if (mobile.u4_actor == u4_harv) b_harv_mover = true;
+  check(!b_harv_mover, "setup: harv not in world mobiles (economy-driven)");
 
   check(s.weapons.find("carbine") != nullptr, "setup: carbine weapon loaded");
   check(s.weapons.find("carbine")->int4_range == 5120, "setup: carbine range 5c0");

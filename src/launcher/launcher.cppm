@@ -187,13 +187,10 @@ struct SessionEnv {
   std::optional<game::production::LobbyModel> opt_lobby;
 };
 
-struct MoverState {
-  std::uint32_t u4_actor{};
-  game::pathfinding::MoveSimState move;
-  std::int32_t int4_speed{113};
-  std::int32_t int4_turn_speed{512};
-};
-
+// D044 移动桥已退役（T31 移动 Activity 化）：移动承载在世界侧
+// WorldModel.vec_mobiles（Move/AttackMove 订单经订单管道 world 内 resolve）。
+// FighterState 为攻击桥残留面（攻击/HP/开火归 T32/T34 票），其移动接口改接
+// world::movement_queue_move/movement_state_of。
 struct FighterState {
   game::combat::CombatUnit unit;
   game::combat::ArmamentState arm;
@@ -206,8 +203,8 @@ struct GameSession {
   game::world::WorldModel w;
   game::network::OrderManagerModel om;
   game::combat::WeaponTable weapons;
-  std::vector<MoverState> vec_movers;
   std::vector<FighterState> vec_fighters;
+  // 攻击桥喂单面（D044 残留：Attack 订单按 N 发 N+1 应用帧对齐；Move 已世界内）。
   std::vector<std::pair<std::uint32_t, game::network::OrderModel>> vec_bridge_pending;
   std::uint32_t u4_viewer{2};
   std::vector<std::string> vec_events;

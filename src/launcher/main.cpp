@@ -1797,7 +1797,6 @@ int run_window(const lch::CliArgs& args, std::ofstream* ptr_log, char* sz_argv0,
     opt_music.reset();
     s.w.ptr_sfx = nullptr;
     s.vec_bridge_pending.clear();
-    s.vec_movers.clear();
     s.vec_fighters.clear();
     s.om = net::OrderManagerModel{};
     s.w = ww::WorldModel{};

@@ -732,6 +732,43 @@ void production_frame_end_task(world::WorldModel& w, std::uint32_t u4_kind,
 
 namespace ora::game::world {
 
+// T31 移动活动面（Activity.cs/Move.cs/AttackMoveActivity.cs 的最小等价，无阻塞面）：
+// 每 Mobile 单位一份移动状态 = 上游 Actor.CurrentActivity 的 Move 子集，由
+// move_sim（T11 引擎）承载；Move/AttackMove 订单经订单管道 world 内 resolve 驱动。
+struct MobileState {
+  std::uint32_t u4_actor{};
+  pathfinding::MoveSimState move;
+  // Actor.QueueActivity(queued=true)（Activity.cs:227 Queue）的 next 链最小等价：
+  // 当前移动完成后依序起（ActivityUtils.RunActivity 同帧接续语义）。
+  std::vector<pathfinding::CPos> vec_queued_destinations;
+  std::int32_t int4_speed{113};
+  std::int32_t int4_turn_speed{512};
+};
+
+[[nodiscard]] MobileState* movement_state_of(WorldModel& w, std::uint32_t u4_actor);
+
+[[nodiscard]] const MobileState* movement_state_of(const WorldModel& w,
+                                                   std::uint32_t u4_actor);
+
+// Mobile 单位登记/摘除（create_actor/帧尾移除时挂接；harv 归 economy FDA 自治不入面）。
+void movement_on_actor_added(WorldModel& w, std::uint32_t u4_actor_id);
+
+void movement_on_actor_removed(WorldModel& w, std::uint32_t u4_actor_id);
+
+// world_tick 的 Activity 段移动面（上游 Actor.CurrentActivity tick 等价位）。
+void movement_on_tick(WorldModel& w);
+
+// 世界内活动驱动的移动入队（上游 Activity 内部 move：AttackBase 追击停走等，
+// 不经订单管道——launcher 攻击桥的移动承载改接此处）。
+void movement_queue_move(WorldModel& w, std::uint32_t u4_actor, pathfinding::CPos cell);
+
+// 移动域 trait 注册（Mobile=IResolveOrder "Move"、AttackMove=AttackMove/AssaultMove）。
+[[nodiscard]] const std::vector<TraitSpec>& movement_trait_specs();
+
+}
+
+namespace ora::game::world {
+
 [[nodiscard]] std::int32_t sync_hash_upstream(const WorldModel& w);
 
 [[nodiscard]] std::string state_digest(const WorldModel& w);
@@ -798,6 +835,7 @@ struct WorldModel {
   std::vector<PlayerModel> vec_players;
   production::ProductionWorldState prod;
   economy::EconomyWorldState econ;
+  std::vector<MobileState> vec_mobiles;
   production::LobbyModel lobby;
   std::vector<BotModel> vec_bots;
   // bot_tick 出单暂存面（上游 world.IssueOrder 的等价落点，T31 改投订单管道）。
