@@ -387,6 +387,57 @@ void run_golden_paths_check(const pfg::LocomotorMap& map, const GoldenPaths& gol
   }
 }
 
+void run_hpf_paths_check(const pfg::LocomotorMap& map, const GoldenPaths& gold) {
+  std::map<std::string, std::vector<pfg::CPos>> map_gold;
+  for (const GoldenPathCase& cs : gold.vec_hpf) map_gold[cs.str_tag] = cs.vec_cells;
+  check(map_gold.size() == 24, std::format("hpf: golden tag count {}", map_gold.size()));
+
+  struct HpfSpec {
+    pfg::CPos cell_from;
+    pfg::CPos cell_to;
+    std::string_view str_tag;
+  };
+  const HpfSpec vec_specs[]{
+      HpfSpec{pfg::CPos{10, 17}, pfg::CPos{35, 17}, "straight"},
+      HpfSpec{pfg::CPos{10, 17}, pfg::CPos{35, 25}, "diagonal"},
+      HpfSpec{pfg::CPos{55, 8}, pfg::CPos{8, 55}, "cross"},
+      HpfSpec{pfg::CPos{10, 17}, pfg::CPos{50, 45}, "longdiag"},
+      HpfSpec{pfg::CPos{30, 3}, pfg::CPos{30, 58}, "vertical"},
+      HpfSpec{pfg::CPos{10, 17}, pfg::CPos{11, 18}, "adjacent"},
+      HpfSpec{pfg::CPos{10, 17}, pfg::CPos{0, 0}, "outofbounds"},
+      HpfSpec{pfg::CPos{10, 17}, pfg::CPos{5, 3}, "targetimpassable"},
+      HpfSpec{pfg::CPos{5, 3}, pfg::CPos{10, 10}, "unreachable"},
+      HpfSpec{pfg::CPos{55, 8}, pfg::CPos{50, 13}, "nearpair"},
+      HpfSpec{pfg::CPos{35, 17}, pfg::CPos{12, 12}, "movepair"},
+      HpfSpec{pfg::CPos{35, 17}, pfg::CPos{28, 10}, "moveturn"},
+  };
+
+  const pfg::HpfGraph graph{pfg::hpf_build(map)};
+  for (const HpfSpec& spec : vec_specs) {
+    for (const std::string_view str_check : {"none", "all"}) {
+      const std::string str_tag{std::format("{} {}", spec.str_tag, str_check)};
+      const auto it_gold{map_gold.find(str_tag)};
+      if (it_gold == map_gold.end()) {
+        check(false, std::format("hpf: golden lacks case {}", str_tag));
+        continue;
+      }
+      const std::vector<pfg::CPos> vec_path{
+          pfg::hpf_find_path_to_target_cell(graph, spec.cell_from, spec.cell_to, 125)};
+      check(vec_path.size() == it_gold->second.size() &&
+                format_cell_list(vec_path) == format_cell_list(it_gold->second),
+            std::format("hpf {} path mismatch: got [{}] want [{}]", str_tag,
+                        format_cell_list(vec_path), format_cell_list(it_gold->second)));
+    }
+    const auto it_none{map_gold.find(std::format("{} none", spec.str_tag))};
+    const auto it_all{map_gold.find(std::format("{} all", spec.str_tag))};
+    if (it_none != map_gold.end() && it_all != map_gold.end())
+      check(format_cell_list(it_none->second) == format_cell_list(it_all->second),
+            std::format("hpf {}: golden none/all rows differ (actor-free map must agree, "
+                        "D026 scope)",
+                        spec.str_tag));
+  }
+}
+
 void run_hpf_cross_check(const GoldenPaths& gold) {
   std::map<std::string, std::vector<pfg::CPos>> map_gold;
   for (const GoldenPathCase& cs : gold.vec_hpf) map_gold[cs.str_tag] = cs.vec_cells;
@@ -466,6 +517,7 @@ int main() {
   }
 
   run_golden_paths_check(*opt_map, *opt_gold);
+  run_hpf_paths_check(*opt_map, *opt_gold);
   run_hpf_cross_check(*opt_gold);
 
   return ora::test::test_exit_code("pathfind");
