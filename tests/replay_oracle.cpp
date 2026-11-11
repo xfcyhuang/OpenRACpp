@@ -57,7 +57,9 @@ std::int32_t run_oracle_replay(const std::vector<std::uint8_t>& vec_orarep,
          ora::game::network::order_packet_get_orders(opt_orders->vec_order_bytes, nullptr))
       map_orders[opt_orders->int4_frame].push_back(order);
   }
-  const auto res_world{replay_oracle_create(res_feed->session.int4_seed, vec_oramap)};
+  const auto res_world{replay_oracle_create(
+      res_feed->session.int4_seed, vec_oramap,
+      read_file_bytes(std::format("{}/tilesets/temperat.yaml", ORA_MAPS_GOLDEN_DIR)))};
   if (!res_world.has_value()) return -1;
   ReplayOracleWorld w{*res_world};
   for (std::int32_t int4_f{1}; int4_f <= 580; ++int4_f) {
@@ -104,7 +106,9 @@ void test_assembly_and_frame1() {
 
   const std::vector<std::uint8_t> vec_oramap{
       read_file_bytes(std::format("{}/ore-lord.oramap", ORA_MAPS_GOLDEN_DIR))};
-  const auto res_world{replay_oracle_create(session.int4_seed, vec_oramap)};
+  const std::vector<std::uint8_t> vec_tileset{
+      read_file_bytes(std::format("{}/tilesets/temperat.yaml", ORA_MAPS_GOLDEN_DIR))};
+  const auto res_world{replay_oracle_create(session.int4_seed, vec_oramap, vec_tileset)};
   check(res_world.has_value(), "replay world creates");
   if (!res_world.has_value()) {
     std::println("  error: {}", res_world.error());
@@ -336,10 +340,237 @@ void test_assembly_and_frame1() {
   }
 }
 
+// —— T32 skirmish 互射剧本（issue #51）：机制面全语义对拍 ——
+// 无数据面/无 rng 账本补齐：逐帧 SyncHash/rng Last/TotalCount/actors 数/fnv 与
+// skirmish.frames.txt 全等，isync-changes 全行（AutoTarget/TakeCover/Health/
+// GainsExperience/PlayerExperience/Mobile Facing/AttackFrontal）作为字段级断言集
+// （黄金 new 值 == C++ 机制面当前值，逐帧行数一致禁止静默吞行）。
+struct SkirmishFrameGolden {
+  std::int32_t int4_frame{}, int4_sync{}, int4_rng_last{}, int4_rng_total{}, int4_actors{};
+  std::string str_fnv;
+};
+
+std::string skirmish_fnv_of(const ora::game::replay::ReplayOracleWorld& w) {
+  std::uint64_t u8_h{1469598103934665603ull};
+  for (const ora::game::replay::FaceActor& actor : w.vec_actors) {
+    if (!actor.b_in_world) continue;
+    const std::string str_entry{
+        std::format("{}:{}:1\n", actor.u4_id, actor.str_type)};
+    for (const char ch : str_entry) {
+      u8_h ^= static_cast<std::uint8_t>(ch);
+      u8_h *= 1099511628211ull;
+    }
+  }
+  return std::format("{:016x}", u8_h);
+}
+
+void test_skirmish_battle() {
+  using ora::game::replay::FaceActor;
+  using ora::game::replay::ReplayOracleWorld;
+  using ora::game::replay::replay_oracle_create_skirmish;
+  using ora::game::replay::replay_oracle_frame1_skirmish;
+  using ora::game::replay::replay_oracle_frame_skirmish;
+  using ora::game::replay::replay_oracle_sync_hash;
+
+  const std::vector<std::uint8_t> vec_oramap{
+      read_file_bytes(std::format("{}/ore-lord.oramap", ORA_MAPS_GOLDEN_DIR))};
+  const std::vector<std::uint8_t> vec_tileset{
+      read_file_bytes(std::format("{}/tilesets/temperat.yaml", ORA_MAPS_GOLDEN_DIR))};
+  const auto res_world{replay_oracle_create_skirmish(20261103, vec_oramap, vec_tileset)};
+  check(res_world.has_value(), "skirmish world creates");
+  if (!res_world.has_value()) {
+    std::println("  error: {}", res_world.error());
+    return;
+  }
+  ReplayOracleWorld w{*res_world};
+
+  std::vector<SkirmishFrameGolden> vec_golden;
+  std::string str_golden_init;
+  {
+    std::ifstream fs{std::format("{}/skirmish.frames.txt", ORA_REPLAY_GOLDEN_DIR)};
+    std::string str_line;
+    while (std::getline(fs, str_line)) {
+      if (str_line.starts_with("init actors ")) {
+        str_golden_init = str_line;
+        continue;
+      }
+      if (!str_line.starts_with("f ")) continue;
+      // "f N sync S defeat D rng L T actors A fnv F" —— 定位子串取数
+      const auto fn_int{[&](std::string_view str_key, std::int32_t& int4_out) {
+        const std::size_t idx{str_line.find(str_key)};
+        if (idx == std::string::npos) return false;
+        const std::size_t idx_val{idx + str_key.size()};
+        const auto res{std::from_chars(str_line.data() + idx_val,
+                                       str_line.data() + str_line.find(' ', idx_val),
+                                       int4_out)};
+        return res.ec == std::errc{};
+      }};
+      SkirmishFrameGolden g;
+      const std::size_t idx_f{str_line.find(' ')};
+      const std::size_t idx_f_end{str_line.find(' ', idx_f + 1)};
+      if (!fn_int("f ", g.int4_frame) || !fn_int("sync ", g.int4_sync) ||
+          !fn_int("rng ", g.int4_rng_last) || !fn_int("actors ", g.int4_actors)) {
+        check(false, std::format("skirmish frames line parses: {}", str_line));
+        return;
+      }
+      const std::size_t idx_rng{str_line.find("rng ")};
+      const std::size_t idx_total{str_line.find(' ', idx_rng + 4)};
+      const auto res_total{std::from_chars(
+          str_line.data() + idx_total + 1, str_line.data() + str_line.find(' ', idx_total + 1),
+          g.int4_rng_total)};
+      const std::size_t idx_fnv{str_line.find("fnv ")};
+      if (res_total.ec != std::errc{} || idx_fnv == std::string::npos) {
+        check(false, std::format("skirmish frames line parses: {}", str_line));
+        return;
+      }
+      g.str_fnv = str_line.substr(idx_fnv + 4);
+      (void)idx_f;
+      (void)idx_f_end;
+      vec_golden.push_back(g);
+    }
+  }
+  check(vec_golden.size() == 160, std::format("skirmish golden 160 frames (got {})",
+                                              vec_golden.size()));
+
+  // isync-changes 黄金:帧号 → 行列表(字段级断言集)
+  std::map<std::int32_t, std::vector<std::array<std::string, 6>>> map_isync;
+  {
+    std::ifstream fs{std::format("{}/skirmish.isync-changes.txt", ORA_REPLAY_GOLDEN_DIR)};
+    std::string str_line;
+    while (std::getline(fs, str_line)) {
+      if (str_line.empty() || str_line.starts_with("#")) continue;
+      // "f N actor ID TYPE trait TRAIT field FIELD OLD -> NEW" —— 空格分词
+      std::vector<std::string_view> vec_tok;
+      std::size_t idx_pos{};
+      while (idx_pos <= str_line.size()) {
+        const std::size_t idx_space{str_line.find(' ', idx_pos)};
+        vec_tok.push_back(std::string_view{str_line}.substr(
+            idx_pos, (idx_space == std::string::npos ? str_line.size() : idx_space) - idx_pos));
+        if (idx_space == std::string::npos) break;
+        idx_pos = idx_space + 1;
+      }
+      // tok: f / frame / actor / id / type / trait / trait-name / field / field-name /
+      //      old / -> / new
+      std::int32_t int4_frame{};
+      if (vec_tok.size() != 12 || vec_tok[0] != "f" || vec_tok[2] != "actor" ||
+          vec_tok[5] != "trait" || vec_tok[7] != "field" || vec_tok[10] != "->" ||
+          std::from_chars(vec_tok[1].data(), vec_tok[1].data() + vec_tok[1].size(), int4_frame)
+                  .ec != std::errc{}) {
+        check(false, std::format("skirmish isync line parses: {}", str_line));
+        return;
+      }
+      map_isync[int4_frame].push_back({std::string{vec_tok[3]}, std::string{vec_tok[6]},
+                                       std::string{vec_tok[8]}, std::string{vec_tok[11]},
+                                       std::string{}, std::string{}});
+    }
+  }
+  std::size_t sz_isync_total{};
+  for (const auto& [int4_frame, vec_lines] : map_isync) sz_isync_total += vec_lines.size();
+  check(sz_isync_total == 751, std::format("skirmish isync golden 751 lines (got {})",
+                                           sz_isync_total));
+
+  // 字段当前值镜像(isync 断言面;未知组合硬失败)
+  const auto fn_field_value{[&](std::string_view str_actor_id, std::string_view str_trait,
+                                std::string_view str_field) -> std::string {
+    std::int32_t int4_id{};
+    if (std::from_chars(str_actor_id.data(), str_actor_id.data() + str_actor_id.size(), int4_id)
+            .ec != std::errc{})
+      return "<bad-actor>";
+    if (int4_id < 0 || static_cast<std::size_t>(int4_id) >= w.vec_actors.size())
+      return "<bad-actor>";
+    const FaceActor& actor{w.vec_actors[static_cast<std::size_t>(int4_id)]};
+    if (str_trait == "AutoTarget" && str_field == "nextScanTime")
+      return std::to_string(actor.int4_next_scan);
+    if (str_trait == "TakeCover" && str_field == "remainingDuration")
+      return std::to_string(actor.int4_take_cover);
+    if (str_trait == "Health" && str_field == "HP") return std::to_string(actor.int4_hp);
+    if (str_trait == "ChangesHealth" && str_field == "damageTicks")
+      // 上游 damageTicks（受击置 125）在 C++ 由 int4_ch_damage 承载（kChangesHealth
+      // face hash 的 ch_ticks^ch_damage 折叠口径，ore-lord 锚定）。
+      return std::to_string(actor.int4_ch_damage[0]);
+    if (str_trait == "AttackFrontal" && str_field == "IsAiming")
+      return actor.b_aiming ? "True" : "False";
+    if (str_trait == "GainsExperience" && str_field == "Experience")
+      return std::to_string(actor.int4_experience);
+    if (str_trait == "PlayerExperience" && str_field == "Experience")
+      return std::to_string(w.vec_players[actor.u4_owner].int4_pexp);
+    if (str_trait == "Mobile" && str_field == "Facing")
+      return std::to_string(actor.int4_facing);
+    if (str_trait == "FrozenUnderFog" && str_field == "VisibilityHash")
+      return std::to_string(actor.int4_frozen_vis);
+    if (str_trait == "FrozenActorLayer" && str_field == "VisibilityHash")
+      return std::to_string(w.vec_players[actor.u4_owner].int4_frozen_vis);
+    if (str_trait == "FrozenActorLayer" && str_field == "FrozenHash")
+      return std::to_string(w.vec_players[actor.u4_owner].int4_frozen_sum);
+    if (str_trait == "ClassicProductionQueue" && str_field == "Enabled") {
+      for (const bool b : w.vec_players[actor.u4_owner].b_queue_enabled)
+        if (b) return "True";
+      return "False";
+    }
+    return "<unknown>";
+  }};
+
+  // 机制面逐帧驱动 + 全面对拍。sync 包口径:黄金 f N 行的 sync 是 **N-1 帧末**
+  // 状态的 hash（录包 OrderManager 时序，D055 同源）——C++ 帧 n 末与黄金 n+1 行
+  // 对拍；rng Last/TotalCount/actors/fnv 是 dump 时点（帧末）直读，不错位。
+  std::int32_t int4_first_div{-1};
+  for (std::int32_t int4_n{1}; int4_n <= 160; ++int4_n) {
+    if (int4_n == 1)
+      replay_oracle_frame1_skirmish(w);
+    else
+      replay_oracle_frame_skirmish(w, int4_n);
+
+    const SkirmishFrameGolden& g{vec_golden[static_cast<std::size_t>(int4_n - 1)]};
+
+    // isync 字段断言集(先于 sync:字段错位时定位到字段)
+    std::size_t sz_field_fail{};
+    for (const auto& parts : map_isync[int4_n]) {
+      // parts: id / trait / field / new / frame / unused
+      const std::string str_got{fn_field_value(parts[0], parts[1], parts[2])};
+      if (str_got != parts[3]) {
+        ++sz_field_fail;
+        check(false,
+              std::format("skirmish f{} isync actor {} {} {}: got {} want {}", int4_n,
+                          parts[0], parts[1], parts[2], str_got, parts[3]));
+      }
+    }
+    if (sz_field_fail == 0) check(true, std::format("skirmish f{} isync fields ({} lines)",
+                                                    int4_n, map_isync[int4_n].size()));
+
+    if (int4_n < 160) {
+      const SkirmishFrameGolden& g_next{vec_golden[static_cast<std::size_t>(int4_n)]};
+      const std::int32_t int4_hash{replay_oracle_sync_hash(w)};
+      if (int4_hash != g_next.int4_sync) {
+        if (int4_first_div < 0) int4_first_div = int4_n + 1;
+        check(false, std::format("skirmish f{}-end sync: got {} want {}", int4_n, int4_hash,
+                                 g_next.int4_sync));
+      } else {
+        check(true, std::format("skirmish f{}-end sync matches", int4_n));
+      }
+    }
+    check(w.rng_shared.int4_total_count == g.int4_rng_total,
+          std::format("skirmish f{} rng total: got {} want {}", int4_n,
+                      w.rng_shared.int4_total_count, g.int4_rng_total));
+    check(w.rng_shared.int4_last == g.int4_rng_last,
+          std::format("skirmish f{} rng last: got {} want {}", int4_n,
+                      w.rng_shared.int4_last, g.int4_rng_last));
+    std::int32_t int4_alive{};
+    for (const FaceActor& a : w.vec_actors) int4_alive += a.b_in_world ? 1 : 0;
+    check(int4_alive == g.int4_actors, std::format("skirmish f{} actors: got {} want {}",
+                                                   int4_n, int4_alive, g.int4_actors));
+    const std::string str_fnv{skirmish_fnv_of(w)};
+    check(str_fnv == g.str_fnv,
+          std::format("skirmish f{} fnv: got {} want {}", int4_n, str_fnv, g.str_fnv));
+    if (sz_field_fail > 0 || int4_first_div >= 0) break;  // 首分歧帧即停,避免雪崩
+  }
+  check(int4_first_div < 0, "skirmish 160 帧零分歧(机制面全语义)");
+}
+
 }
 
 int main() {
   test_assembly_and_frame1();
+  test_skirmish_battle();
 
   return ora::test::test_exit_code("replay_oracle");
 }

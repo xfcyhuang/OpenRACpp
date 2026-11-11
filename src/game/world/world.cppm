@@ -1033,10 +1033,29 @@ struct FaceActor {
 
   bool b_activity{};
   bool b_moving{};
+  // WithInfantryBody 动画态（T32 语义化，上游 WithInfantryBody.cs 状态机）：
+  // 0=Waiting/1=Idle(idleDelay 递减)/2=Moving(装配后首帧瞬态，次帧 ITick 转
+  // Waiting)/3=Attacking(fire 帧尾 PlayThen shoot，8 帧后 after 转 Waiting)/
+  // 4=IdleAnimating(delay 归零 PlayThen idle1|2，Tick 120 → 48 帧后转 Waiting)。
+  // 无头宿主 Animation.Tick 正常推进（skirmish f49/f54/f97/f98/f145/f158/f159
+  // 七个 WIB 抽样点探针锚定）——PlayThen after 依时序触发，TickIdle 仅
+  // Waiting/Idle 分支抽样，prone（TakeCover）期 AllowIdleAnimation 直接 return。
   std::int32_t int4_wib_state{0};
   std::int32_t int4_wib_delay{};
-  bool b_wib_quirk{};
+  // 3/4 态的 after 帧（段2 检查 frame>=timer → 转 Waiting；Attacking=fire+8，
+  // IdleAnimating=转入帧+47——探针定标）。
+  std::int32_t int4_wib_timer{};
+  // TakeCover IsModifyingSequence 的上帧段2 快照（变化沿 → dirty 无条件打回
+  // Waiting，含 Attacking：受击转 prone 与 prone 到期都触发，wasModifying 机制）。
+  bool b_wib_prone{};
   std::int32_t int4_reload{};
+  // 数据面门（T32）：ore-lord 生产出生的 e1（id≥150）由 isync 黄金垫底（D055 数据面）；
+  // 注入 e1（含 skirmish 剧本全员）走机制面。
+  bool b_dataplane{};
+  // SeedsResource 周期计数（ITick --ticks<=0 → Seed；Interval=75）。ore-lord 剧本
+  // 周期种不驱动（harv 采掘面未移植，rng 账本补齐承载）；skirmish 剧本无 harv，
+  // 资源场演化封闭，周期种全程驱动。
+  std::int32_t int4_seed_ticks{};
   std::int32_t int4_activity_target{-1};
 };
 
@@ -1076,7 +1095,23 @@ struct ReplayOracleWorld {
 
   std::vector<std::pair<std::int32_t, std::int32_t>> vec_delayed_effect;
 
+  // shroud 收缩待处理（T32）：击杀帧尾入队，**次帧段2（ITick 时点）**从受害方
+  // owner 与 Everyone 的 sight 集移除其 RevealsShroud 圈——上游 Shroud 更新滞后
+  // 一拍的等价（skirmish 黄金：145 f46 死、f47 攻击活动仍可见、f48 断）。
+  // ore-lord 剧本不消费（无行为面：受害方阵营无存活扫描者）。
+  std::vector<std::uint32_t> vec_sight_shrink_pending;
+
   std::vector<OracleProdItem> vec_prod_items;
+
+  // SeedsResource 首种的资源场（ResourceLayer.cs 等价，T32）：ore 可加性位图
+  // （图内 + 地形 Clear/Road + 无建筑 footprint）+ 已种格密度。周期种（f76+）
+  // 依赖 harv 采掘面（未移植），保留 rng 账本补齐承载（D054② 部分退役口径）。
+  struct OreField {
+    std::int32_t int4_width{}, int4_height{};
+    std::vector<bool> vec_b_allow;
+    std::map<std::pair<std::int32_t, std::int32_t>, std::int32_t> map_density;
+  };
+  OreField ore;
 
   struct SyncEffect {
     std::int32_t int4_hash{};
@@ -1109,7 +1144,18 @@ struct OracleReplayContext {
 [[nodiscard]] const std::vector<std::string>& replay_oracle_init_manifest();
 
 [[nodiscard]] std::expected<ReplayOracleWorld, std::string> replay_oracle_create(
-    std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap);
+    std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap,
+    std::span<const std::uint8_t> span1u_tileset_yaml);
+
+// T32 skirmish 剧本（issue #51）：敌对互射世界（2v2 e1 + idle 角 + mcv，无生产链/
+// 无 harv）——AutoTarget/TakeCover/Veterancy 机制面全语义驱动（无数据面/无账本补齐）。
+[[nodiscard]] std::expected<ReplayOracleWorld, std::string> replay_oracle_create_skirmish(
+    std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap,
+    std::span<const std::uint8_t> span1u_tileset_yaml);
+
+void replay_oracle_frame1_skirmish(ReplayOracleWorld& w);
+
+void replay_oracle_frame_skirmish(ReplayOracleWorld& w, std::int32_t int4_frame);
 
 void replay_oracle_frame1(ReplayOracleWorld& w);
 

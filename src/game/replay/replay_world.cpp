@@ -1,6 +1,7 @@
 module ora.game.world;
 
 import std;
+import ora.game;
 import ora.game.filesystem;
 import ora.game.miniyaml;
 import ora.game.pathfinding;
@@ -312,8 +313,14 @@ const std::vector<std::string>& replay_oracle_init_manifest() {
   return vec_manifest;
 }
 
-std::expected<ReplayOracleWorld, std::string> replay_oracle_create(
-    std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap) {
+namespace {
+
+// create 公共主体（T32 参数化）：注入表由剧本给定（ore-lord 生产链剧本 / skirmish
+// 互射剧本），装配流程/玩家装配/地图 actor/ore 资源场共享。
+std::expected<ReplayOracleWorld, std::string> oracle_create_common(
+    std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap,
+    std::span<const std::uint8_t> span1u_tileset_yaml,
+    std::span<const InjectEntry> span_injects) {
   ReplayOracleWorld w;
   w.rng_shared = support::make_mersenne_twister(int4_seed);
 
@@ -379,6 +386,15 @@ std::expected<ReplayOracleWorld, std::string> replay_oracle_create(
     actor.int4_px = int4_x * 1024 + 512;
     actor.int4_py = int4_y * 1024 + 512;
     actor.int4_pz = 0;
+
+    // WithInfantryBody.Created（WithInfantryBody.cs:104）：每实例 1 次
+    // SharedRandom.Next(30, 110)（idleDelay 初值，不进 ISync）。e1 规则带两个实例
+    // （主体 + @PARACHUTE——ConditionalTrait 的 Created 无条件执行），故每只 e1
+    // 出生消耗 2 次。D054① 装配期常量 4 的真语义（差分实验：撤注入 e1 后装配期 0 耗）。
+    if (str_type == "e1") {
+      (void)support::next(w.rng_shared);
+      (void)support::next(w.rng_shared);
+    }
     w.vec_actors.push_back(std::move(actor));
     return {};
   }};
@@ -419,7 +435,7 @@ std::expected<ReplayOracleWorld, std::string> replay_oracle_create(
         !res.has_value())
       return std::unexpected(res.error());
 
-  for (const InjectEntry& entry : kInjectedActors)
+  for (const InjectEntry& entry : span_injects)
     if (const auto res{fn_add_actor(entry.str_type, entry.str_owner, entry.int4_x, entry.int4_y, 0)};
         !res.has_value())
       return std::unexpected(res.error());
@@ -427,10 +443,149 @@ std::expected<ReplayOracleWorld, std::string> replay_oracle_create(
   if (const auto res{fn_add_actor("mcv", "Multi0", int4_mpspawn_x, int4_mpspawn_y, 512)}; !res.has_value())
     return std::unexpected(res.error());
 
-  for (std::int32_t idx{}; idx < 4; ++idx) support::next(w.rng_shared);
+  // —— SeedsResource 首种资源场（T32，D054② 退役） ——
+  // 上游 ResourceLayer.AllowResourceAt/CanAddResource 谓词的等价数据面：
+  // 图内 + tileset 地形 ∈ {Clear, Road}（斜坡 tile 的 terrain type 为 Ramp，天然排除）
+  // + 无建筑 footprint（BuildingInfo.TerrainTypes 默认空集 → 建筑格恒不允许）。
+  {
+    const auto vec_map_bin{filesystem::zip_entry_data(*res_zip, "map.bin")};
+    if (!vec_map_bin.has_value()) return std::unexpected("orarep world: map.bin missing in oramap");
+    const auto res_header{map_header_parse(*vec_map_yaml, "map.yaml")};
+    if (!res_header.has_value()) return std::unexpected(res_header.error());
+    const auto res_tileset{tileset_load(
+        std::string_view{reinterpret_cast<const char*>(span1u_tileset_yaml.data()),
+                         span1u_tileset_yaml.size()},
+        "temperat.yaml")};
+    if (!res_tileset.has_value()) return std::unexpected(res_tileset.error());
+    const auto res_bin{map_bin_parse(*vec_map_bin, res_header->int4_size_x, res_header->int4_size_y)};
+    if (!res_bin.has_value()) return std::unexpected(res_bin.error());
+
+    w.ore.int4_width = res_bin->int4_width;
+    w.ore.int4_height = res_bin->int4_height;
+    w.ore.vec_b_allow.assign(static_cast<std::size_t>(res_bin->int4_width) * res_bin->int4_height,
+                             false);
+    for (std::int32_t int4_x{}; int4_x < res_bin->int4_width; ++int4_x)
+      for (std::int32_t int4_y{}; int4_y < res_bin->int4_height; ++int4_y) {
+        const std::string str_terrain{
+            res_tileset->vec_str_types[res_tileset->terrain_index_of_tile(
+                res_bin->tile_at(int4_x, int4_y))]};
+        w.ore.vec_b_allow[static_cast<std::size_t>(int4_x) * res_bin->int4_height
+                          + static_cast<std::size_t>(int4_y)] =
+            str_terrain == "Clear" || str_terrain == "Road";
+      }
+
+    // 已入世界建筑的 footprint 否决（AllowResourceAt 的 BuildingInfluence 面）
+    for (const FaceActor& actor : w.vec_actors) {
+      if (!actor.ptr_face) continue;
+      bool b_building{false};
+      for (const FaceTraitKind kind : actor.ptr_face->vec_traits)
+        if (kind == K::kBuilding) b_building = true;
+      if (!b_building) continue;
+      for (std::int32_t int4_x{actor.int4_x}; int4_x < actor.int4_x + footprint_width(actor.str_type);
+           ++int4_x)
+        for (std::int32_t int4_y{actor.int4_y};
+             int4_y < actor.int4_y + footprint_height(actor.str_type); ++int4_y) {
+          if (int4_x < 0 || int4_x >= w.ore.int4_width || int4_y < 0 || int4_y >= w.ore.int4_height)
+            continue;
+          w.ore.vec_b_allow[static_cast<std::size_t>(int4_x) * w.ore.int4_height
+                            + static_cast<std::size_t>(int4_y)] = false;
+        }
+    }
+  }
 
   return w;
 }
+
+}  // namespace
+
+std::expected<ReplayOracleWorld, std::string> replay_oracle_create(
+    std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap,
+    std::span<const std::uint8_t> span1u_tileset_yaml) {
+  return oracle_create_common(int4_seed, span_oramap, span1u_tileset_yaml, kInjectedActors);
+}
+
+std::expected<ReplayOracleWorld, std::string> replay_oracle_create_skirmish(
+    std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap,
+    std::span<const std::uint8_t> span1u_tileset_yaml) {
+  // T32 互射剧本注入（golden_gen SkirmishGroup 同表）：2v2 敌对 e1 + 远角 idle 单位；
+  // mpspawn 的 mcv 由公共装配尾段注入（与 ore-lord 同源）。
+  constexpr InjectEntry kSkirmishActors[]{
+      InjectEntry{"e1", 25, 10, "Multi0"}, InjectEntry{"e1", 24, 10, "Multi0"},
+      InjectEntry{"e1", 28, 12, "Creeps"}, InjectEntry{"e1", 28, 13, "Creeps"},
+      InjectEntry{"e1", 50, 48, "Multi0"},
+  };
+  auto res{oracle_create_common(int4_seed, span_oramap, span1u_tileset_yaml, kSkirmishActors)};
+  if (!res.has_value()) return res;
+  // 玩家资源/电力初值面（T32 差分定位）：ore-lord 硬编码的 Multi0 capacity 2000
+  // （proc 矿仓）与 power_drained 50（fact/proc/barr 建筑耗电）是其注入建筑的贡献，
+  // skirmish 无建筑——上游 PlayerResources.Capacity 与 PowerManager.DrainedLoad 均 0
+  // （黄金 f1 无 PlayerResources/PowerManager 行 = 初值恒定，sync f1 锚定）。
+  res->vec_players[2].int4_capacity = 0;
+  res->vec_players[2].int4_power_drained = 0;
+  return res;
+}
+
+namespace {
+
+// 上游 SeedsResource.Seed（SeedsResource.cs:44-53）+ Util.RandomWalk（Util.cs:213-226）
+// + ResourceLayer.CanAddResource/AddResource 的等价：每步 dx/dy 各一次 SharedRandom
+// 抽样（(0,0) 重抽不计步）；SkipWhile 停在首个非（Ore 且 !CanAdd）格；Take(100)
+// 上限；候选格 CanAdd 才 AddResource（density+1，clamp 至 MaxDensity=12）。
+void seeds_resource_seed_one(ReplayOracleWorld& w, const FaceActor& mine) {
+  std::int32_t int4_x{mine.int4_x}, int4_y{mine.int4_y};
+  const auto fn_in_map{[&](std::int32_t int4_cx, std::int32_t int4_cy) {
+    return int4_cx >= 0 && int4_cx < w.ore.int4_width && int4_cy >= 0 && int4_cy < w.ore.int4_height;
+  }};
+  const auto fn_can_add{[&](std::int32_t int4_cx, std::int32_t int4_cy) -> bool {
+    if (!fn_in_map(int4_cx, int4_cy)) return false;
+    const auto it_hit{w.ore.map_density.find({int4_cx, int4_cy})};
+    if (it_hit == w.ore.map_density.end())
+      return static_cast<bool>(
+          w.ore.vec_b_allow[static_cast<std::size_t>(int4_cx) * w.ore.int4_height
+                            + static_cast<std::size_t>(int4_cy)]);
+    return it_hit->second + 1 <= 12;
+  }};
+
+  bool b_added{false};
+  for (std::int32_t int4_steps{}; int4_steps < 100 && !b_added;) {
+    const std::int32_t int4_dx{support::next(w.rng_shared, -1, 2)};
+    const std::int32_t int4_dy{support::next(w.rng_shared, -1, 2)};
+    if (int4_dx == 0 && int4_dy == 0) continue;
+    ++int4_steps;
+    int4_x += int4_dx;
+    int4_y += int4_dy;
+
+    // SkipWhile 谓词：Ore 且 !CanAdd（满密度）→ 跳过继续走
+    const auto it_hit{w.ore.map_density.find({int4_x, int4_y})};
+    const bool b_is_ore{it_hit != w.ore.map_density.end()};
+    if (b_is_ore && it_hit->second + 1 > 12) continue;
+
+    // 首个候选：CanAdd 才种（density+1）
+    if (fn_can_add(int4_x, int4_y)) {
+      if (it_hit == w.ore.map_density.end())
+        w.ore.map_density.emplace(std::pair{int4_x, int4_y}, 1);
+      else
+        ++it_hit->second;
+    }
+    b_added = true;
+  }
+}
+
+// SeedsResource.ITick（SeedsResource.cs:38-45）：--ticks<=0 → Seed + ticks=Interval(75)。
+// 初始 ticks=0 → 首个 tick 即首种。ore-lord 剧本仅 f1 调用一次（首种语义化）；周期种
+// （f76+）依赖 harv 采掘后的资源场动态（D055 数据面未移植），由帧末 rng 账本补齐
+// 承载（D054② 部分退役口径）。skirmish 剧本无 harv，资源场演化封闭，每帧驱动。
+void seeds_resource_tick(ReplayOracleWorld& w) {
+  for (FaceActor& mine : w.vec_actors) {
+    if (!mine.b_in_world || mine.ptr_face == nullptr || mine.str_type != "mine") continue;
+    if (--mine.int4_seed_ticks <= 0) {
+      seeds_resource_seed_one(w, mine);
+      mine.int4_seed_ticks = 75;
+    }
+  }
+}
+
+}  // namespace
 
 bool players_hostile(const ReplayOracleWorld& w, std::uint32_t u4_a, std::uint32_t u4_b) {
   const std::string& str_a{w.vec_players[u4_a].str_name};
@@ -469,51 +624,276 @@ std::int32_t autotarget_scan_target(const ReplayOracleWorld& w, const FaceActor&
   return -1;
 }
 
-void replay_oracle_frame1(ReplayOracleWorld& w) {
+namespace {
 
-  for (const std::uint32_t u4_e1 : {146u, 147u}) {
-    FaceActor& e1{w.vec_actors[u4_e1]};
-    e1.b_wib_quirk = true;
-    {
-      const std::int32_t int4_out_seq{support::next(w.rng_shared)};
-      (void)int4_out_seq;
-      e1.int4_wib_state = 1;
-      e1.int4_wib_delay = 30 + support::next(w.rng_shared) % 80;
-    }
-    {
-      const std::int32_t int4_out{support::next(w.rng_shared)};
-      e1.int4_next_scan = 3 + int4_out % 5;
-      (void)autotarget_scan_target(w, e1);
+// WithInfantryBody idle 面（WithInfantryBody.cs TickIdle/ITick 的 rng 等价，T32 探针
+// 全量锚定）：状态机 0=Waiting/1=Idle/2=Moving(瞬态)/3=Attacking/4=IdleAnimating。
+// TickIdle（段1）：prone（TakeCover.IsModifyingSequence）期 AllowIdleAnimation 直接
+// return（不抽不递减）；Waiting→Idle 抽 2 次（IdleSequences.Random + Next(30,110)=
+// idleDelay——差分实验 C：清 IdleSequences 后 f1/f3 的每 e1 2 耗消失）；Idle 递减
+// 到 0 → IdleAnimating。攻击/移动（!IsIdle）期间 ITick 版 PlayStandAnimation 把
+// Idle/IdleAnimating 打回 Waiting（wib_frame_end 的活动打回）；无头宿主
+// Animation.Tick 正常推进（skirmish 探针推翻「Attacking 卡住」旧口径）——shoot
+// （8 帧 Tick 40）与 idle（16 帧 Tick 120=48 世界帧）播完 after → PlayStand →
+// Waiting，次帧 TickIdle 再抽。@PARACHUTE 第二实例 IdleSequences 空/shoot 序列缺，
+// 恒 Waiting 不抽——rng 面与单实例等价。
+void with_infantry_body_idle(ReplayOracleWorld& w, FaceActor& actor,
+                             std::int32_t int4_frame) {
+  // prone gate：TakeCover.IsModifyingSequence → AllowIdleAnimation false。
+  if (actor.int4_take_cover > 0) return;
+  if (actor.int4_wib_state == 0) {
+    (void)support::next(w.rng_shared);
+    actor.int4_wib_state = 1;
+    actor.int4_wib_delay = 30 + support::next(w.rng_shared) % 80;
+  } else if (actor.int4_wib_state == 1 && actor.int4_wib_delay > 0) {
+    // 上游 --idleDelay==0 即转 IdleAnimating（PlayThen frame=0，Tick 120：首推进
+    // +3 帧、16 次推进后 after——after=转入帧+47（段2），探针定标）。
+    if (--actor.int4_wib_delay == 0) {
+      actor.int4_wib_state = 4;
+      actor.int4_wib_timer = int4_frame + 47;
     }
   }
+}
 
-  for (std::int32_t idx{}; idx < 28; ++idx) (void)support::next(w.rng_shared);
-
-  for (const std::uint32_t u4_e1 : {146u, 147u}) {
-    FaceActor& e1{w.vec_actors[u4_e1]};
-    if (e1.int4_next_scan > 0) --e1.int4_next_scan;
-    if (e1.b_wib_quirk) {
-      e1.int4_wib_state = 2;
-      e1.b_wib_quirk = false;
+// AutoTarget idle 面（AutoTarget.cs ScanForTarget:203-208）：nextScanTime<=0 时
+// SharedRandom.Next(3,8)（=3+out%5）+ ChooseTarget（FindActorsInCircle+可见性），
+// 发现敌对目标即进入攻击活动。f1 时 vec_sight 尚未建立（Shroud 首帧未就绪）——
+// 上游 f1 的扫描恒扑空（probe dump：f1 末 activity=null，f6/f7 起才发现）。
+void auto_target_idle(ReplayOracleWorld& w, FaceActor& actor) {
+  if (actor.int4_next_scan <= 0) {
+    const std::int32_t int4_out{support::next(w.rng_shared)};
+    actor.int4_next_scan = 3 + int4_out % 5;
+    const std::int32_t int4_target{autotarget_scan_target(w, actor)};
+    if (int4_target >= 0) {
+      actor.b_activity = true;
+      actor.int4_activity_target = int4_target;
     }
   }
+}
 
-  for (std::size_t idx_player{}; idx_player < w.vec_players.size(); ++idx_player)
-    for (std::size_t idx_queue{}; idx_queue < 6; ++idx_queue)
-      w.vec_players[idx_player].b_queue_enabled[idx_queue] = false;
-  w.vec_players[2].b_queue_enabled[0] = true;
-  w.vec_players[2].b_queue_enabled[1] = true;
-  w.vec_players[2].b_queue_enabled[3] = true;
+// —— e1 战斗面共享段（ore-lord 混合驱动与 skirmish 机制面全语义共用，T32） ——
 
-  w.vec_sight.assign(w.vec_players.size(), {});
-  add_actor_sight(w.vec_sight[0], w.vec_actors[7], {10});
-  add_actor_sight(w.vec_sight[1], w.vec_actors[147], {4});
-  for (const std::uint32_t u4_id : {143u, 144u, 145u})
-    add_actor_sight(w.vec_sight[2], w.vec_actors[u4_id], {5, 4});
-  for (const std::uint32_t u4_id : {146u, 147u, 148u})
-    add_actor_sight(w.vec_sight[2], w.vec_actors[u4_id], {4});
-  w.vec_sight[3] = w.vec_sight[2];
+struct FireDamage {
+  std::uint32_t u4_victim{};
+  std::uint32_t u4_attacker{};
+  std::int32_t int4_damage{};
+  // 该发的 Weapon.Fire 消耗序（4 次，ore-lord 黄金锚定的总账）——消耗时点在
+  // 本帧帧尾的命中链（伤害+INotifyDamage.Damaged 反击扫）之后（skirmish 黄金
+  // f5 锚定：反击扫抽值先于 fire 耗）。
+  std::int32_t int4_pending_cost{};
+};
 
+// 攻击活动 tick（AttackActivity/AttackFrontal 链）：追击朝向（FacingTolerance 0 的
+// 转向在 tick_facing 承载）+ 开火（每发 4 次 SharedRandom——Weapon.Fire 消耗序，
+// ore-lord 黄金锚定）+ ReloadDelay 20 + 延迟特效（+2/+4 帧各 4 耗）。
+// 伤害 = M1Carbine 基伤 1500（prone 50% 减伤 750，TakeCover.DamageModifiers）×
+// FirepowerMultiplier（^GainsExperience: rank1-3/elite=105/110/120/130%）×
+// DamageMultiplier（受方 95/90/85/75%）——等级面数值实现（ore-lord/skirmish 均
+// level 0 无差，等级修正黄金未触达，登记 D093）。
+std::int32_t veterancy_firepower(std::int32_t int4_level) {
+  switch (int4_level) {
+    case 1: return 105;
+    case 2: return 110;
+    case 3: return 120;
+    case 4: return 130;
+  }
+  return 100;
+}
+
+std::int32_t veterancy_damage_mod(std::int32_t int4_level) {
+  switch (int4_level) {
+    case 1: return 95;
+    case 2: return 90;
+    case 3: return 85;
+    case 4: return 75;
+  }
+  return 100;
+}
+
+void e1_attack_tick(ReplayOracleWorld& w, FaceActor& actor, std::int32_t int4_frame,
+                    std::vector<FireDamage>& vec_fires) {
+  FaceActor* ptr_target{nullptr};
+  for (FaceActor& other : w.vec_actors)
+    if (other.b_in_world && static_cast<std::int32_t>(other.u4_id) == actor.int4_activity_target)
+      ptr_target = &other;
+  if (ptr_target == nullptr) {
+    actor.b_activity = false;
+    actor.b_aiming = false;
+    return;
+  }
+
+  const pathfinding::WVec vec_delta{pathfinding::WVec{
+      ptr_target->int4_px - actor.int4_px, ptr_target->int4_py - actor.int4_py, 0}};
+  const std::int32_t int4_desired{pathfinding::wvec_yaw(vec_delta)};
+  // ra 步兵 TurnSpeed 一步到位（skirmish 黄金 Mobile Facing 0→692/672/160/128 单帧）；
+  // ore-lord 中 facing 由数据面先行写位，此步长为 no-op（T32 语义化）。
+  actor.int4_facing = pathfinding::tick_facing(actor.int4_facing, int4_desired, 1024);
+  // Attack.Tick 的 useLastVisibleTarget 面（Attack.cs:150-161，T32）：目标经
+  // Target.Recalculate 对攻击者不可见（shroud 收缩）且在射程内（lastVisibleTarget
+  // IsInRange → return true）即活动 Done——skirmish 黄金：145 f46 死、Creeps 视野
+  // f47 段2 收缩、146 的活动 f48 断（IsAiming False+次帧重扫）。不可见且超程的
+  // 上游分支是 QueueChild(move) 追击——两剧本单位静止不触达（D093 登记项）。
+  if (!actor_visible_to(w, actor.u4_owner, *ptr_target)) {
+    actor.b_activity = false;
+    actor.b_aiming = false;
+    return;
+  }
+  actor.b_aiming = true;
+  if (actor.int4_reload <= 0) {
+    actor.int4_reload = 20;
+    // INotifyAttack.PreparingAttack → 帧尾 FrameEndTask → Attacking（PlayThen
+    // shoot：8 帧 Tick 40，after=fire+8 段2 转 Waiting；受击 dirty 打回会中断——
+    // skirmish f7 a143 探针：Attacking frame=1 即被 prone 沿打回）。
+    actor.int4_wib_state = 3;
+    actor.int4_wib_timer = int4_frame + 8;
+    w.vec_delayed_effect.push_back({int4_frame + 2, 4});
+    w.vec_delayed_effect.push_back({int4_frame + 4, 4});
+    const std::int32_t int4_base{ptr_target->int4_take_cover > 0 ? 750 : 1500};
+    const std::int64_t in8_damage{
+        static_cast<std::int64_t>(int4_base) * veterancy_firepower(actor.int4_level) / 100
+        * veterancy_damage_mod(ptr_target->int4_level) / 100};
+    vec_fires.push_back({ptr_target->u4_id, actor.u4_id,
+                         static_cast<std::int32_t>(in8_damage), 4});
+  }
+}
+
+// 帧尾结算：TakeCover prone（受击 remainingDuration=50，帧尾伤害段）+ 击杀移除 +
+// GivesExperience 经验账本（同 ore-lord 段，含 PlayerExperience）。
+void e1_damage_settle(ReplayOracleWorld& w, const std::vector<FireDamage>& vec_fires,
+                      std::int32_t int4_frame) {
+  for (const FireDamage& fire : vec_fires) {
+    FaceActor& victim{w.vec_actors[fire.u4_victim]};
+    victim.int4_hp -= fire.int4_damage;
+    if (victim.int4_ch_damage[0] == 0) {
+      victim.int4_ch_damage[0] = 125;
+      victim.int4_ch_damage[1] = 125;
+    }
+    if (victim.int4_hp <= 0) {
+      victim.b_in_world = false;
+      victim.b_activity = false;
+      // shroud 收缩入队（T32）：次帧段2 从 owner/Everyone 的 sight 移除 victim 圈
+      // （上游 Shroud 滞后一拍更新；ore-lord 不消费此队列）。
+      w.vec_sight_shrink_pending.push_back(victim.u4_id);
+      // （kill+3/kill+8 各 2 耗的旧「死亡动画面占位」已删——探针正名：那是击杀者
+      // 们 Attacking 播完 after → Waiting → 断活动后首个 TickIdle 的 WIB 抽样
+      //（skirmish f49 a146=fire@29+8 的 after 链、f54 a144=fire@45+8），由
+      // wib 状态机自然产生，D093 注记随改。）
+
+      // GivesExperience.Killed（GivesExperience.cs:60-79，T32 机制面接管）：victim 的
+      // 经验值 = Valued.Cost（e1=100）；killer.GiveExperience(cost × ActorExperienceModifier
+      // 10000% = 10000)；killer owner 的 PlayerExperience += cost × PlayerExperienceModifier
+      // 1% = 1（ra ^ExistsInWorld:GivesExperience{PlayerExperienceModifier:1}）。
+      // 升级阈值 = ^GainsExperience Conditions 200/400/800/1600 × cost（20000/40000/
+      // 80000/160000）。
+      FaceActor& killer{w.vec_actors[fire.u4_attacker]};
+      if (killer.b_in_world && killer.ptr_face != nullptr && killer.str_type == "e1") {
+        constexpr std::int32_t int4_exp_cost{100};
+        killer.int4_experience =
+            std::min(killer.int4_experience + int4_exp_cost * 10000 / 100, 160000);
+        while (killer.int4_level < 4
+               && killer.int4_experience >= int4_exp_cost * 200 << killer.int4_level)
+          ++killer.int4_level;
+        if (killer.u4_owner < w.vec_players.size())
+          w.vec_players[killer.u4_owner].int4_pexp += int4_exp_cost * 1 / 100;
+      }
+    } else {
+      victim.int4_take_cover = 50;
+      // AutoTarget.Damaged 反击面（AutoTarget.cs Damged 段，T32 语义化——skirmish
+      // 黄金 f5 锚定）：受击结算在 World.Tick 的 effects 段（②ITck 之后），受击者
+      // idle（无活动/无移动）且 Stance>=ReturnFire（Defend/AttackAnything 均满足）
+      // 即反击。AttackAnything/Defend > ReturnFire 走 ScanForTarget（ignore=false：
+      // nextScanTime<=0 时抽 Next(3,8) 并写——条件用 ② 后值），选中目标否则回退
+      // 原攻击者，随后无条件建立攻击活动（次帧 ① 首跑 facing+fire）。
+      if (!victim.b_activity && !victim.b_moving && victim.int4_next_scan <= 0) {
+        const std::int32_t int4_out{support::next(w.rng_shared)};
+        victim.int4_next_scan = 3 + int4_out % 5;
+        const std::int32_t int4_target{autotarget_scan_target(w, victim)};
+        victim.b_activity = true;
+        victim.int4_activity_target = int4_target >= 0
+                                          ? int4_target
+                                          : static_cast<std::int32_t>(fire.u4_attacker);
+        // AutoTarget.Aggressor（[VerifySync] Actor 字段——不进 isync dump 值域但进
+        // SyncHash）：Damaged 链置扫中者（TickIdle 扫攻击不置——ore-lord 场景恒
+        // null 的原因）。
+        victim.int4_aggressor = victim.int4_activity_target;
+      }
+    }
+
+    // 该发的 Weapon.Fire 消耗序（帧尾命中链后，skirmish 黄金 f5 rng 序锚定）。
+    for (std::int32_t idx{}; idx < fire.int4_pending_cost; ++idx)
+      (void)support::next(w.rng_shared);
+  }
+}
+
+// 段2 帧尾（ITick 递减面 + WithInfantryBody Moving 瞬态转 Waiting）。
+// WithInfantryBody 段2 面（wib_frame_end 先行）：TakeCover 递减在本函数，故 prone
+// 快照沿在递减前判（上游主体 WIB.Tick 先于 TakeCover.Tick）。
+void e1_frame_end(FaceActor& actor) {
+  if (actor.str_type != "e1") return;
+  if (actor.int4_next_scan > 0) --actor.int4_next_scan;
+  if (actor.int4_take_cover > 0) --actor.int4_take_cover;
+  if (actor.int4_reload > 0) --actor.int4_reload;
+  if (actor.int4_wib_state == 2) actor.int4_wib_state = 0;
+}
+
+// WithInfantryBody.ITick 段2 等价（T32 语义化，探针锚定）。三个打回面：
+// ①dirty：TakeCover IsModifyingSequence 沿（受击转 prone / prone 到期）→ 无条件
+//   PlayStand → Waiting（含 Attacking 中断——skirmish f7 a143 from=Attacking、
+//   f97 a143 from=Idle 双抽实证）；
+// ②after：Attacking（fire+8）/IdleAnimating（转入+47）播完 → PlayStand → Waiting；
+// ③活动/移动（!IsIdle）：Idle/IdleAnimating → Waiting（skirmish f4 a144/f5 a143
+//   扫描建活动同帧打回实证）。
+// 判定用递减前的 take_cover（上游 TakeCover.Tick 在主体 WIB.Tick 之后）。
+void wib_frame_end(FaceActor& actor, std::int32_t int4_frame) {
+  if (actor.str_type != "e1" || actor.b_dataplane) return;
+  const bool b_prone_now{actor.int4_take_cover > 0};
+  if (actor.b_wib_prone != b_prone_now)
+    actor.int4_wib_state = 0;  // ①dirty（PlayStand 无条件）
+  if ((actor.int4_wib_state == 3 || actor.int4_wib_state == 4)
+      && int4_frame >= actor.int4_wib_timer)
+    actor.int4_wib_state = 0;  // ②after
+  if ((actor.int4_wib_state == 1 || actor.int4_wib_state == 4)
+      && (actor.b_activity || actor.b_moving))
+    actor.int4_wib_state = 0;  // ③!IsIdle 打回
+  actor.b_wib_prone = b_prone_now;
+}
+
+// delayed 特效消耗段（warhead 效果创建在命中 +2/+4 帧，各 4 次 SharedRandom——
+// SpriteEffect 家族的消耗序占位，结果弃用；D036③/U051 口径）。
+void delayed_effect_tick(ReplayOracleWorld& w, std::int32_t int4_frame) {
+  for (std::size_t idx{}; idx < w.vec_delayed_effect.size();) {
+    if (w.vec_delayed_effect[idx].first <= int4_frame) {
+      for (std::int32_t idx2{}; idx2 < w.vec_delayed_effect[idx].second; ++idx2)
+        (void)support::next(w.rng_shared);
+      w.vec_delayed_effect.erase(w.vec_delayed_effect.begin() + static_cast<std::ptrdiff_t>(idx));
+    } else {
+      ++idx;
+    }
+  }
+}
+
+// shroud 收缩消费（T32，skirmish 段2 头部=上游 world actor 的 Shroud ITick 位）：
+// 从 victim owner 与 Everyone 的 sight 集减其出生格 RevealsShroud 圈（e1@4c）。
+// 集合差自动保留与其它单位圈重叠的格（上游可见集=存活单位圈的并）。
+void sight_shrink_pending_consume(ReplayOracleWorld& w) {
+  for (const std::uint32_t u4_victim : w.vec_sight_shrink_pending) {
+    if (u4_victim >= w.vec_actors.size()) continue;
+    const FaceActor& victim{w.vec_actors[u4_victim]};
+    if (victim.u4_owner >= w.vec_players.size()) continue;
+    std::set<std::pair<std::int32_t, std::int32_t>> set_circle;
+    add_actor_sight(set_circle, victim, {4});
+    for (const auto& cell : set_circle) {
+      w.vec_sight[victim.u4_owner].erase(cell);
+      w.vec_sight[3].erase(cell);
+    }
+  }
+  w.vec_sight_shrink_pending.clear();
+}
+
+// f1 冻结层重建（T32 提取共享：ore-lord/skirmish 剧本同构）：kFlagFrozen actor 对
+// 各玩家的可见位（Everyone 对 Multi0 自有 actor 恒可见；Creeps 玩家无冻结视野）+
+// FrozenActorLayer 的 VisibilityHash/FrozenHash 聚合。
+void frozen_layer_rebuild(ReplayOracleWorld& w) {
   std::vector<std::uint32_t> vec_frozen;
   for (const FaceActor& actor : w.vec_actors)
     if (actor.b_in_world && actor.ptr_face != nullptr && (actor.ptr_face->u1_flags & kFlagFrozen) != 0)
@@ -552,6 +932,51 @@ void replay_oracle_frame1(ReplayOracleWorld& w) {
     w.vec_players[idx_player].int4_frozen_sum = int4_sum;
     w.vec_players[idx_player].int4_frozen_vis = int4_fog_sum;
   }
+}
+
+}  // namespace
+
+void replay_oracle_frame1(ReplayOracleWorld& w) {
+
+  // f1 段1（World.Tick 段1：actor 序 TickIdle，WithInfantryBody 先于 AutoTarget——
+  // 上游 trait 构造序，D054④ 首扫抽样位 146@6/147@9(0-based) 的自然来源）
+  for (const std::uint32_t u4_e1 : {146u, 147u}) {
+    FaceActor& e1{w.vec_actors[u4_e1]};
+    with_infantry_body_idle(w, e1, 1);
+    auto_target_idle(w, e1);
+  }
+
+  // f1 段2（ITick）：mine SeedsResource 首种（D054② 退役——26/28 常量的真语义；
+  // 差分实验：无 mine 时 f1 少 28 耗）
+  seeds_resource_tick(w);
+
+  for (const std::uint32_t u4_e1 : {146u, 147u}) {
+    FaceActor& e1{w.vec_actors[u4_e1]};
+    // f1 段2：WithInfantryBody ITick 的 Moving 瞬态（f1 末 CurrentMovementTypes
+    // 短暂 Horizontal，probe dump：f1 末 state=Moving）→ f2 TickIdle 不抽、
+    // f2 段2 转 Waiting、f3 再抽 2（D054③"f3 每 e1 2 耗"的真语义）
+    e1.int4_wib_state = 2;
+    // AutoTarget.ITick：nextScanTime>0 → --
+    if (e1.int4_next_scan > 0) --e1.int4_next_scan;
+  }
+
+  for (std::size_t idx_player{}; idx_player < w.vec_players.size(); ++idx_player)
+    for (std::size_t idx_queue{}; idx_queue < 6; ++idx_queue)
+      w.vec_players[idx_player].b_queue_enabled[idx_queue] = false;
+  w.vec_players[2].b_queue_enabled[0] = true;
+  w.vec_players[2].b_queue_enabled[1] = true;
+  w.vec_players[2].b_queue_enabled[3] = true;
+
+  w.vec_sight.assign(w.vec_players.size(), {});
+  add_actor_sight(w.vec_sight[0], w.vec_actors[7], {10});
+  add_actor_sight(w.vec_sight[1], w.vec_actors[147], {4});
+  for (const std::uint32_t u4_id : {143u, 144u, 145u})
+    add_actor_sight(w.vec_sight[2], w.vec_actors[u4_id], {5, 4});
+  for (const std::uint32_t u4_id : {146u, 147u, 148u})
+    add_actor_sight(w.vec_sight[2], w.vec_actors[u4_id], {4});
+  w.vec_sight[3] = w.vec_sight[2];
+
+  frozen_layer_rebuild(w);
 
   FaceActor harv;
   harv.u4_id = static_cast<std::uint32_t>(w.vec_actors.size());
@@ -567,6 +992,77 @@ void replay_oracle_frame1(ReplayOracleWorld& w) {
   harv.int4_px = harv.int4_x * 1024 + 512;
   harv.int4_py = harv.int4_y * 1024 + 512;
   w.vec_actors.push_back(std::move(harv));
+}
+
+// —— skirmish 剧本帧驱动（T32/issue #51）：与 ore-lord frame1 同构、无 harv/无
+// 建筑队列（全 false）、注入面 sight（143/144/147+mcv 为 Multi0、145/146 为 Creeps，
+// 圈半径 4c——143 的圈含 145 格而 144 的圈不含：f4 144 命中/f48 后 143 只扫描不
+// 攻击的黄金可见性根源）。f1 段1 扫描恒扑空（vec_sight 尚未建立，Shroud 首帧未
+// 就绪），f1 末 WithInfantryBody 的 Moving 瞬态同 ore-lord。
+void replay_oracle_frame1_skirmish(ReplayOracleWorld& w) {
+  for (std::uint32_t u4_id{143}; u4_id <= 147; ++u4_id) {
+    FaceActor& e1{w.vec_actors[u4_id]};
+    with_infantry_body_idle(w, e1, 1);
+    auto_target_idle(w, e1);
+  }
+
+  seeds_resource_tick(w);
+
+  for (std::uint32_t u4_id{143}; u4_id <= 147; ++u4_id) {
+    FaceActor& e1{w.vec_actors[u4_id]};
+    e1.int4_wib_state = 2;
+    if (e1.int4_next_scan > 0) --e1.int4_next_scan;
+  }
+
+  for (std::size_t idx_player{}; idx_player < w.vec_players.size(); ++idx_player)
+    for (std::size_t idx_queue{}; idx_queue < 6; ++idx_queue)
+      w.vec_players[idx_player].b_queue_enabled[idx_queue] = false;
+
+  w.vec_sight.assign(w.vec_players.size(), {});
+  add_actor_sight(w.vec_sight[0], w.vec_actors[7], {10});
+  for (const std::uint32_t u4_id : {145u, 146u})
+    add_actor_sight(w.vec_sight[1], w.vec_actors[u4_id], {4});
+  for (const std::uint32_t u4_id : {143u, 144u, 147u, 148u})
+    add_actor_sight(w.vec_sight[2], w.vec_actors[u4_id], {4});
+  w.vec_sight[3] = w.vec_sight[2];
+
+  frozen_layer_rebuild(w);
+}
+
+// skirmish 帧序（上游 World.Tick 逐 actor 的 activities→ITick 交错在 rng 消耗序
+// 上与两段全局等价：ITick 面零 rng 消耗，activities/TickIdle 面按 ActorID 序）：
+// 段1=活动（e1_attack_tick：一步 facing+fire 4 耗+ReloadDelay 20+延迟特效）或
+// TickIdle（WithInfantryBody idle 状态机+AutoTarget 扫描 Next(3,8)）→ 段2=ITick
+// （Shroud 收缩消费→mine SeedsResource 周期种 75→e1 递减面）→ 帧尾=伤害结算
+// （prone 750/站姿 1500、击杀经验 10000/PlayerExperience 1、TakeCover
+// remainingDuration=50）+ delayed 特效消耗。无 rng 账本补齐——消耗序错则 rng
+// total/sync 即分叉。
+void replay_oracle_frame_skirmish(ReplayOracleWorld& w, std::int32_t int4_frame) {
+  std::vector<FireDamage> vec_fires;
+
+  for (FaceActor& actor : w.vec_actors) {
+    if (!actor.b_in_world || actor.ptr_face == nullptr) continue;
+    if (actor.str_type != "e1") continue;
+    if (actor.b_activity) {
+      e1_attack_tick(w, actor, int4_frame, vec_fires);
+    } else {
+      with_infantry_body_idle(w, actor, int4_frame);
+      auto_target_idle(w, actor);
+    }
+  }
+
+  sight_shrink_pending_consume(w);
+  seeds_resource_tick(w);
+
+  for (FaceActor& actor : w.vec_actors) {
+    if (!actor.b_in_world || actor.ptr_face == nullptr) continue;
+    if (actor.str_type != "e1") continue;
+    wib_frame_end(actor, int4_frame);
+    e1_frame_end(actor);
+  }
+
+  e1_damage_settle(w, vec_fires, int4_frame);
+  delayed_effect_tick(w, int4_frame);
 }
 
 void replay_oracle_apply_changes(ReplayOracleWorld& w, const OracleReplayContext& ctx,
@@ -604,18 +1100,16 @@ void replay_oracle_apply_changes(ReplayOracleWorld& w, const OracleReplayContext
     }
 
     // 机制面接管字段显式跳过表（跳过 + 对账计入，禁止静默吞行）：
-    // ClassicProductionQueue/PlayerResources=生产真机制、Health/TakeCover/
-    // AttackFrontal/ChangesHealth=攻击链真机制、FrozenUnderFog=冻结层真机制、
-    // AutoTarget(actor<150)=146/147 攻击链扫描机制。
-    const bool b_skip{(change.str_trait == "TakeCover" && change.str_field == "remainingDuration")
-                      || (change.str_trait == "PlayerResources" && change.str_field == "Cash")
+    // ClassicProductionQueue/PlayerResources=生产真机制、Health/AttackFrontal/
+    // ChangesHealth=攻击链真机制、FrozenUnderFog=冻结层真机制。AutoTarget/TakeCover/
+    // GainsExperience/PlayerExperience 已随 T32 撤列（黄金生成侧 IsyncMechanized 排除，
+    // 机制面全接管：扫描序/prone/击杀经验账本）。
+    const bool b_skip{(change.str_trait == "PlayerResources" && change.str_field == "Cash")
                       || (change.str_trait == "FrozenUnderFog" && change.str_field == "VisibilityHash")
                       || (change.str_trait == "ClassicProductionQueue" && change.str_field == "Enabled")
                       || (change.str_trait == "Health" && change.str_field == "HP")
                       || (change.str_trait == "AttackFrontal" && change.str_field == "IsAiming")
-                      || (change.str_trait == "ChangesHealth" && change.str_field == "damageTicks")
-                      || (change.str_trait == "AutoTarget" && change.str_field == "nextScanTime"
-                          && change.u4_actor < 150)};
+                      || (change.str_trait == "ChangesHealth" && change.str_field == "damageTicks")};
     if (b_skip) {
       ++sz_skipped;
       continue;
@@ -642,10 +1136,6 @@ void replay_oracle_apply_changes(ReplayOracleWorld& w, const OracleReplayContext
       ptr_current = &actor.int4_content_hash;
     } else if (change.str_trait == "AutoTarget" && change.str_field == "nextScanTime") {
       ptr_current = &actor.int4_next_scan;
-    } else if (change.str_trait == "GainsExperience" && change.str_field == "Experience") {
-      ptr_current = &actor.int4_experience;
-    } else if (change.str_trait == "PlayerExperience" && change.str_field == "Experience") {
-      ptr_current = &w.vec_players[actor.u4_owner].int4_pexp;
     } else if (change.str_trait == "PowerManager" && change.str_field == "PowerProvided") {
       ptr_current = &w.vec_players[actor.u4_owner].int4_power_provided;
     } else if (change.str_trait == "FrozenActorLayer" && change.str_field == "VisibilityHash") {
@@ -736,6 +1226,9 @@ void replay_oracle_spawn_e1(ReplayOracleWorld& w) {
   actor.str_type = "e1";
   actor.ptr_face = face_type_find("e1");
   actor.u4_owner = 2;
+  // 生产出生的 e1（id≥150）在 ore-lord 剧本由 isync 黄金垫底（D055 数据面：
+  // AutoTarget/TakeCover/移动面），不走机制面（b_dataplane 门控）。
+  actor.b_dataplane = true;
 
   actor.int4_x = 21;
   actor.int4_y = 10;
@@ -866,10 +1359,6 @@ std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
 
 void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
                          std::int32_t int4_frame) {
-  struct FireDamage {
-    std::uint32_t u4_victim{};
-    std::int32_t int4_damage{};
-  };
   std::vector<FireDamage> vec_fires;
 
   replay_oracle_apply_changes(w, ctx, int4_frame, true);
@@ -878,7 +1367,7 @@ void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
   for (FaceActor& actor : w.vec_actors) {
     if (!actor.b_in_world || actor.ptr_face == nullptr) continue;
     if (actor.str_type != "e1") continue;
-    if (actor.u4_id >= 150) continue;
+    if (actor.b_dataplane) continue;
 
     if (actor.b_moving) {
       if (int4_frame == ctx.int4_146_move_end && actor.int4_activity_target >= 0)
@@ -888,62 +1377,19 @@ void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
     }
 
     if (!actor.b_activity) {
-
-      if (actor.int4_wib_state == 0) {
-        (void)support::next(w.rng_shared);
-        actor.int4_wib_state = 1;
-        actor.int4_wib_delay = 30 + support::next(w.rng_shared) % 80;
-      } else if (actor.int4_wib_state == 1) {
-        if (actor.int4_wib_delay > 0) --actor.int4_wib_delay;
-
-      }
-
-      if (actor.int4_next_scan <= 0) {
-        const std::int32_t int4_out{support::next(w.rng_shared)};
-        actor.int4_next_scan = 3 + int4_out % 5;
-        const std::int32_t int4_target{autotarget_scan_target(w, actor)};
-        if (int4_target >= 0) {
-          actor.b_activity = true;
-          actor.int4_activity_target = int4_target;
-        }
-      }
+      // 段1 idle：WithInfantryBody.TickIdle + AutoTarget.TickIdle（与 f1 同一状态机）
+      with_infantry_body_idle(w, actor, int4_frame);
+      auto_target_idle(w, actor);
     } else {
-
-      FaceActor* ptr_target{nullptr};
-      for (FaceActor& other : w.vec_actors)
-        if (other.b_in_world &&
-            static_cast<std::int32_t>(other.u4_id) == actor.int4_activity_target)
-          ptr_target = &other;
-      if (ptr_target == nullptr) {
-        actor.b_activity = false;
-        actor.b_aiming = false;
-        continue;
-      }
-
-      const pathfinding::WVec vec_delta{pathfinding::WVec{
-          ptr_target->int4_px - actor.int4_px, ptr_target->int4_py - actor.int4_py, 0}};
-      const std::int32_t int4_desired{pathfinding::wvec_yaw(vec_delta)};
-      actor.int4_facing = pathfinding::tick_facing(actor.int4_facing, int4_desired, 512);
-      actor.b_aiming = true;
-      if (actor.int4_reload <= 0) {
-        for (std::int32_t idx{}; idx < 4; ++idx) (void)support::next(w.rng_shared);
-        actor.int4_reload = 20;
-        w.vec_delayed_effect.push_back({int4_frame + 2, 4});
-        w.vec_delayed_effect.push_back({int4_frame + 4, 4});
-        const std::int32_t int4_damage{ptr_target->int4_take_cover > 0 ? 750 : 1500};
-        vec_fires.push_back({ptr_target->u4_id, int4_damage});
-      }
+      e1_attack_tick(w, actor, int4_frame, vec_fires);
     }
   }
 
   for (FaceActor& actor : w.vec_actors) {
     if (!actor.b_in_world || actor.ptr_face == nullptr) continue;
-    if (actor.str_type == "e1" && actor.u4_id < 150) {
-      if (actor.int4_next_scan > 0) --actor.int4_next_scan;
-      if (actor.int4_take_cover > 0) --actor.int4_take_cover;
-      if (actor.int4_reload > 0) --actor.int4_reload;
-
-      if (actor.int4_wib_state == 2) actor.int4_wib_state = 0;
+    if (actor.str_type == "e1" && !actor.b_dataplane) {
+      wib_frame_end(actor, int4_frame);
+      e1_frame_end(actor);
     }
     if (actor.str_type == "harv" && int4_frame >= 2 && int4_frame < 15 && actor.int4_facing < 512) {
 
@@ -983,30 +1429,8 @@ void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
   replay_oracle_apply_changes(w, ctx, int4_frame, false);
   if (!w.str_fatal.empty()) return;
 
-  for (const FireDamage& fire : vec_fires) {
-    FaceActor& victim{w.vec_actors[fire.u4_victim]};
-    victim.int4_hp -= fire.int4_damage;
-    if (victim.int4_ch_damage[0] == 0) {
-      victim.int4_ch_damage[0] = 125;
-      victim.int4_ch_damage[1] = 125;
-    }
-    if (victim.int4_hp <= 0) {
-      victim.b_in_world = false;
-      victim.b_activity = false;
-    } else {
-      victim.int4_take_cover = 50;
-    }
-  }
-
-  for (std::size_t idx{}; idx < w.vec_delayed_effect.size();) {
-    if (w.vec_delayed_effect[idx].first <= int4_frame) {
-      for (std::int32_t idx2{}; idx2 < w.vec_delayed_effect[idx].second; ++idx2)
-        (void)support::next(w.rng_shared);
-      w.vec_delayed_effect.erase(w.vec_delayed_effect.begin() + static_cast<std::ptrdiff_t>(idx));
-    } else {
-      ++idx;
-    }
-  }
+  e1_damage_settle(w, vec_fires, int4_frame);
+  delayed_effect_tick(w, int4_frame);
 
   const auto it_count{ctx.map_rng_count.find(int4_frame)};
   if (it_count != ctx.map_rng_count.end())
@@ -1016,7 +1440,6 @@ void replay_oracle_frame(ReplayOracleWorld& w, const OracleReplayContext& ctx,
 
 void replay_oracle_apply_order(ReplayOracleWorld& w, const network::OrderModel& order) {
   if (order.str_order == "StartProduction" && order.opt_str_target.has_value()) {
-
     std::int32_t int4_cost{}, int4_time{};
     if (*order.opt_str_target == "powr") {
       int4_cost = 300;
