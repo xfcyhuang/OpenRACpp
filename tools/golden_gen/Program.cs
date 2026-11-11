@@ -211,6 +211,14 @@ internal static partial class Program
             ("tests/golden/replay/ore-lord.orarep", "replay", null),
             ("tests/golden/replay/ore-lord.record-stream.bin", "replay", null),
             ("tests/golden/replay/ore-lord.frames.txt", "replay", null),
+            // isync-changes（T32）：重建的 [VerifySync] 逐帧 diff 生成器（T17 一次性
+            // 探针未入库）——机制面接管字段排除集见 IsyncMechanized
+            ("tests/golden/replay/ore-lord.isync-changes.txt", "replay", null),
+            // skirmish 模式（T32/issue #51）：敌对互射剧本（2v2 e1 + idle 角），纯
+            // AutoTarget 自主交战，机制面全语义对拍（无数据面/无账本补齐）；
+            // isync-changes 为证据产物（无排除集：exp/level 直读，kill 归属可核）
+            ("tests/golden/replay/skirmish.frames.txt", "replay-skirmish", null),
+            ("tests/golden/replay/skirmish.isync-changes.txt", "replay-skirmish", null),
             // audio 模式（T18/issue #27）：三 yaml 原样入库（漂移哨兵）+ SoundInfo/MusicInfo
             // 规范化转储 + d2k WAV 语料原样入库（GPL-3，COPYING 同 render）+ 解码统计
             ("tests/golden/audio/notifications.txt", null,
@@ -372,6 +380,7 @@ internal static partial class Program
         "production-negative" => ProductionGroup(openraRoot, positive: false),
         "economy" => EconomyGroup(openraRoot),
         "replay" => ReplayGroup(openraRoot),
+        "replay-skirmish" => SkirmishGroup(openraRoot),
         "widgets" => WidgetsGroup(openraRoot),
         "mainmenu" => MainMenuGroup(openraRoot),
         "lobby" => LobbyGroup(openraRoot),

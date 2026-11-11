@@ -3,9 +3,12 @@ internal static partial class Program
 const int ReplaySeed = 20261103;
 const int ReplayFrames = 580;   // POWR 无电建造 180×3（低电桶）=540 tick + 放置余量
 
-// replay 模式（T16/issue #17）：一次录制运行投影三产物（orarep/记录流/逐帧 dump）。
-// 组运行 = 无头引导 → 自录（RecordingEchoConnection 挂接语义）→ 三投影；
-// orarep 投影内含上游有效性校验 + 自录自放重演对拍 + 规范化（钉死墙钟）。
+// replay 模式（T16/issue #17）：一次录制运行投影四产物（orarep/记录流/逐帧 dump/
+// isync-changes）。组运行 = 无头引导 → 自录（RecordingEchoConnection 挂接语义）→
+// 四投影；orarep 投影内含上游有效性校验 + 自录自放重演对拍 + 规范化（钉死墙钟）。
+// isync-changes（T32/issue #51 重建生成器）：每帧 dump 全部 actor 的 ISync trait 的
+// [VerifySync] 字段（int/bool/CPos/WPos 值域），帧间 diff——机制面接管字段经
+// IsyncMechanized 剔除（C++ replay_world 已语义化，黄金不再垫底）。
 internal static (string RelPath, byte[] Bytes)[] ReplayGroup(string openraRoot)
 {
     HeadlessHost.Boot(openraRoot, soundChannel: true);
@@ -17,15 +20,33 @@ internal static (string RelPath, byte[] Bytes)[] ReplayGroup(string openraRoot)
     var stream = ReplayStreamPart(run);
     var frames = ReplayFramesPart(run);
     var orarep = ReplayOrarepPart(run);
+    var isync = ReplayIsyncPart(run);
     return
     [
         ("tests/golden/replay/ore-lord.orarep", orarep),
         ("tests/golden/replay/ore-lord.record-stream.bin", stream),
         ("tests/golden/replay/ore-lord.frames.txt", frames),
+        ("tests/golden/replay/ore-lord.isync-changes.txt", isync),
     ];
 }
 
-static byte[] ReplayStreamPart((string FilePath, string Dump) run)
+// 机制面接管排除集（T32）：这些 (actor,trait,field) 行不再入黄金——C++ replay_world
+// 语义化机制驱动（AutoTarget 扫描序/TakeCover prone/GainsExperience/PlayerExperience）。
+// actor<150 限定注入 e1（146/147）；生产 e1（150）的 AutoTarget/TakeCover 仍数据面。
+static bool IsyncMechanized(uint actorId, string trait, string field)
+{
+    return (trait == "GainsExperience" && field == "Experience")
+        || (trait == "PlayerExperience" && field == "Experience")
+        || (actorId < 150 && trait == "AutoTarget" && field == "nextScanTime")
+        || (actorId < 150 && trait == "TakeCover" && field == "remainingDuration");
+}
+
+static byte[] ReplayIsyncPart((string FilePath, string Dump, string IsyncDump) run)
+{
+    return new UTF8Encoding(false).GetBytes(run.IsyncDump);
+}
+
+static byte[] ReplayStreamPart((string FilePath, string Dump, string IsyncDump) run)
 {
     var (metaOffset, _) = ReplayReadRecordStream(run.FilePath);
     using var fs = File.OpenRead(run.FilePath);
@@ -34,12 +55,12 @@ static byte[] ReplayStreamPart((string FilePath, string Dump) run)
     return buf;
 }
 
-static byte[] ReplayFramesPart((string FilePath, string Dump) run)
+static byte[] ReplayFramesPart((string FilePath, string Dump, string IsyncDump) run)
 {
     return new UTF8Encoding(false).GetBytes(run.Dump);
 }
 
-static byte[] ReplayOrarepPart((string FilePath, string Dump) run)
+static byte[] ReplayOrarepPart((string FilePath, string Dump, string IsyncDump) run)
 {
     using (var rc = new ReplayConnection(run.FilePath))
     {
@@ -61,7 +82,7 @@ static byte[] ReplayOrarepPart((string FilePath, string Dump) run)
     return normalized;
 }
 
-static (string FilePath, string Dump) ReplayRecordRun()
+static (string FilePath, string Dump, string IsyncDump) ReplayRecordRun()
 {
     var modData = ReplayNewModData(out var map);
 
@@ -105,6 +126,10 @@ static (string FilePath, string Dump) ReplayRecordRun()
 
     var prev = world.Actors.ToDictionary(a => a.ActorID, a => $"{a.Info.Name}");
     var moved = new HashSet<uint>();
+
+    // isync-changes（T32）：首帧前的 [VerifySync] 基线快照 + 逐帧 diff
+    var isyncSb = new StringBuilder();
+    var isyncPrev = IsyncSnapshot(world);
     for (var f = 1; f <= ReplayFrames; f++)
     {
         // 剧本（发单走 OrderManager 正规管道：om.IssueOrder → SendOrders → echo 投影下一帧应用）
@@ -139,6 +164,13 @@ static (string FilePath, string Dump) ReplayRecordRun()
         var s = conn.SentSyncs.LastOrDefault(x => x.Frame == f);
         sb.Append(CultureInfo.InvariantCulture, $"f {f} sync {s.SyncHash} defeat {s.DefeatState} rng {world.SharedRandom.Last} {world.SharedRandom.TotalCount} actors {world.Actors.Count()} fnv {ReplayActorFnv(world)}\n");
 
+        var isyncNow = IsyncSnapshot(world);
+        foreach (var (key, val) in isyncNow)
+            if (isyncPrev.TryGetValue(key, out var old) && old != val)
+                isyncSb.Append(CultureInfo.InvariantCulture,
+                    $"f {f} actor {key.ActorId} {key.TypeName} trait {key.TraitName} field {key.FieldName} {old} -> {val}\n");
+        isyncPrev = isyncNow;
+
         var now = world.Actors.ToDictionary(a => a.ActorID, a => $"{a.Info.Name}");
         foreach (var id in now.Keys.Where(k => !prev.ContainsKey(k)))
             sb.Append(CultureInfo.InvariantCulture, $"actor+ f{f} {id}:{now[id]}\n");
@@ -155,10 +187,10 @@ static (string FilePath, string Dump) ReplayRecordRun()
         modData.Manifest.Metadata.Version, fileName + ".orarep");
     if (!File.Exists(filePath))
         throw new InvalidOperationException($"recorder 未产出 {filePath}");
-    return (filePath, sb.ToString());
+    return (filePath, sb.ToString(), isyncSb.ToString());
 }
 
-static ModData ReplayNewModData(out Map map)
+static ModData ReplayNewModData(out Map map, string actorsYamlOverride = null)
 {
     // 每 run 全新 ModData（t07 障碍 6a：规则剥离污染共享 ActorInfo）
     var mods = new InstalledMods(new[] { Path.Combine(Platform.EngineDir, "mods") }, Array.Empty<string>());
@@ -203,7 +235,8 @@ static ModData ReplayNewModData(out Map map)
         """;
     var adField = typeof(Map).GetField("ActorDefinitions", BindingFlags.Public | BindingFlags.Instance)!;
     var actorNodes = ((IReadOnlyCollection<MiniYamlNode>)adField.GetValue(map)!).ToList();
-    actorNodes.AddRange(MiniYaml.FromString(ActorsYaml, "t16-injected-actors"));
+    var actorsYaml = actorsYamlOverride ?? ActorsYaml;
+    actorNodes.AddRange(MiniYaml.FromString(actorsYaml, "injected-actors"));
     adField.SetValue(map, (IReadOnlyCollection<MiniYamlNode>)actorNodes);
 
     return modData;
@@ -273,6 +306,75 @@ static void ReplaySweepEffects(World world)
     foreach (var e in world.Effects.ToList())
         if (e.GetType().Name is "SpriteEffect" or "FloatingSprite" or "SpriteAnnotation")
             world.Remove(e);
+}
+
+// isync-changes 快照（T32）：全部在世 actor 的 ISync trait 的 [VerifySync] 字段，
+// 值域限 int/bool/CPos/WPos（Actor 引用字段如 AutoTarget.Aggressor 不 dump——与 T17
+// 入库黄金的字段集一致）；机制面接管字段（IsyncMechanized）不入快照。
+sealed record IsyncKey(uint ActorId, string TypeName, string TraitName, int TraitInstance, string FieldName);
+
+static Dictionary<IsyncKey, string> IsyncSnapshot(World world, bool applyMechanizedExclusion = true)
+{
+    var snap = new Dictionary<IsyncKey, string>();
+    foreach (var a in world.Actors)
+    {
+        if (!a.IsInWorld)
+            continue;
+
+        var traitInstanceCounts = new Dictionary<string, int>();
+        foreach (var t in a.TraitsImplementing<ISync>())
+        {
+            var traitType = t.GetType();
+            var instance = traitInstanceCounts.TryGetValue(traitType.Name, out var n) ? n : 0;
+            traitInstanceCounts[traitType.Name] = instance + 1;
+            foreach (var fi in traitType.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                if (!fi.HasAttribute<VerifySyncAttribute>())
+                    continue;
+
+                string val;
+                var v = fi.GetValue(t);
+                switch (v)
+                {
+                    case bool b: val = b ? "True" : "False"; break;
+                    case int i: val = i.ToString(CultureInfo.InvariantCulture); break;
+                    case CPos p: val = $"{p.X.ToString(CultureInfo.InvariantCulture)},{p.Y.ToString(CultureInfo.InvariantCulture)}"; break;
+                    case WPos w: val = $"{w.X.ToString(CultureInfo.InvariantCulture)},{w.Y.ToString(CultureInfo.InvariantCulture)},{w.Z.ToString(CultureInfo.InvariantCulture)}"; break;
+                    default: continue;   // Actor/其它类型不入 dump 集
+                }
+
+                if (applyMechanizedExclusion && IsyncMechanized(a.ActorID, traitType.Name, fi.Name))
+                    continue;
+
+                snap[new IsyncKey(a.ActorID, a.Info.Name, traitType.Name, instance, fi.Name)] = val;
+            }
+
+            foreach (var pi in traitType.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                if (!pi.HasAttribute<VerifySyncAttribute>())
+                    continue;
+
+                string val;
+                var v = pi.GetValue(t);
+                switch (v)
+                {
+                    case bool b: val = b ? "True" : "False"; break;
+                    case int i: val = i.ToString(CultureInfo.InvariantCulture); break;
+                    case WAngle wa: val = wa.Angle.ToString(CultureInfo.InvariantCulture); break;
+                    case CPos p: val = $"{p.X.ToString(CultureInfo.InvariantCulture)},{p.Y.ToString(CultureInfo.InvariantCulture)}"; break;
+                    case WPos w: val = $"{w.X.ToString(CultureInfo.InvariantCulture)},{w.Y.ToString(CultureInfo.InvariantCulture)},{w.Z.ToString(CultureInfo.InvariantCulture)}"; break;
+                    default: continue;
+                }
+
+                if (applyMechanizedExclusion && IsyncMechanized(a.ActorID, traitType.Name, pi.Name))
+                    continue;
+
+                snap[new IsyncKey(a.ActorID, a.Info.Name, traitType.Name, instance, pi.Name)] = val;
+            }
+        }
+    }
+
+    return snap;
 }
 
 static string ReplayActorFnv(World w)
@@ -392,5 +494,92 @@ static bool ReplayVerifyRun2(byte[] normalized, string recordDump)
     {
         File.Delete(tmp);
     }
+}
+
+// —— skirmish 模式（T32/issue #51）：敌对单位互射剧本 ——
+// 注入 1v2 敌对 e1（AutoTarget 扫描序 + TakeCover prone + 击杀经验/Veterancy 路径：
+// A0 双杀 B0/B1 各得 10000 经验 → 20000 达 rank-veteran@200×cost 阈值 → Level 1，
+// FirepowerMultiplier 105% 后续伤害面）+ 远角 idle 单位（WithInfantryBody idle 抽样
+// 循环锚）。无订单：纯 AutoTarget 自主交战。产物 skirmish.frames.txt——C++ 机制面
+// 逐帧 SyncHash/rng 账本对拍（无 isync 数据面垫底、无账本补齐，机制面全语义硬验收）。
+const int SkirmishFrames = 160;
+const string CHARNLCONST = "\n";
+
+internal static (string RelPath, byte[] Bytes)[] SkirmishGroup(string openraRoot)
+{
+    HeadlessHost.Boot(openraRoot, soundChannel: true);
+    Game.Sound = new Sound(new SandboxStubPlatform(), new SoundSettings());
+    Game.Sound.DisableAllSounds = true;
+    ChromeMetricsOnce();
+    var run = SkirmishRecordRun();
+    return
+    [
+        ("tests/golden/replay/skirmish.frames.txt", new UTF8Encoding(false).GetBytes(run.Dump)),
+        ("tests/golden/replay/skirmish.isync-changes.txt", new UTF8Encoding(false).GetBytes(run.IsyncDump)),
+    ];
+}
+
+static (string Dump, string IsyncDump) SkirmishRecordRun()
+{
+    const string SkirmishActors = """
+        t32a0: e1
+            Location: 25,10
+            Owner: Multi0
+        t32a1: e1
+            Location: 24,10
+            Owner: Multi0
+        t32b0: e1
+            Location: 28,12
+            Owner: Creeps
+        t32b1: e1
+            Location: 28,13
+            Owner: Creeps
+        t32c0: e1
+            Location: 50,48
+            Owner: Multi0
+        """;
+    var modData = ReplayNewModData(out var map, SkirmishActors);
+    var session = ReplayBuildSession(map.Uid);
+    var lobby = Session.Deserialize(session.Serialize(), "t32");
+    var conn = new RecordingEchoConnection(() => $"t32-skirmish-{Guid.NewGuid().ToString("N")[..8]}");
+    var om = new OrderManager(conn);
+    om.LobbyInfo = lobby;
+    ReplaySetGameOrderManager(om);
+    var world = ReplayBuildWorld(modData, map, om, lobby);
+    om.StartGame();
+
+    var sb = new StringBuilder();
+    sb.Append(CultureInfo.InvariantCulture, $"# run frames {SkirmishFrames} players {world.Players.Length} actors {world.Actors.Count()}\n");
+    sb.Append("init actors " + string.Join(" ", world.Actors.Select(a => $"{a.ActorID}:{a.Info.Name}:{a.Owner?.InternalName}")) + "\n");
+    var prev = world.Actors.ToDictionary(a => a.ActorID, a => $"{a.Info.Name}");
+    var moved = new HashSet<uint>();
+    var isyncSb = new StringBuilder();
+    var isyncPrev = IsyncSnapshot(world, applyMechanizedExclusion: false);
+    for (var f = 1; f <= SkirmishFrames; f++)
+    {
+        om.TickImmediate();
+        om.TryTick();
+        world.Tick();
+        ReplaySweepEffects(world);
+
+        var isyncNow = IsyncSnapshot(world, applyMechanizedExclusion: false);
+        foreach (var (key, val) in isyncNow)
+            if (isyncPrev.TryGetValue(key, out var old) && old != val)
+                isyncSb.Append($"f {f} actor {key.ActorId} {key.TypeName} trait {key.TraitName} field {key.FieldName} {old} -> {val}" + CHARNLCONST);
+        isyncPrev = isyncNow;
+
+        var sync = conn.SentSyncs.LastOrDefault(x => x.Frame == f);
+        sb.Append(CultureInfo.InvariantCulture, $"f {f} sync {sync.SyncHash} defeat {sync.DefeatState} rng {world.SharedRandom.Last} {world.SharedRandom.TotalCount} actors {world.Actors.Count()} fnv {ReplayActorFnv(world)}\n");
+
+        var now = world.Actors.ToDictionary(a => a.ActorID, a => $"{a.Info.Name}");
+        foreach (var id in now.Keys.Where(k => !prev.ContainsKey(k)))
+            sb.Append(CultureInfo.InvariantCulture, $"actor+ f{f} {id}:{now[id]}\n");
+        foreach (var id in prev.Keys.Where(k => !now.ContainsKey(k)).OrderBy(k => k))
+            if (moved.Add(id))
+                sb.Append(CultureInfo.InvariantCulture, $"actor- f{f} {id}:{prev[id]}\n");
+        prev = now;
+    }
+
+    return (sb.ToString(), isyncSb.ToString());
 }
 }
