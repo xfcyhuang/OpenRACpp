@@ -157,6 +157,33 @@ using CellBlockSet = std::set<std::pair<std::int32_t, std::int32_t>>;
 
 namespace ora::game::pathfinding {
 
+struct HpfGridInfo {
+  bool b_has_single{};
+  CPos cell_single{};
+  std::map<std::pair<std::int32_t, std::int32_t>, CPos> map_local_to_abstract;
+};
+
+struct HpfGraph {
+  const LocomotorMap* ptr_map{};
+  std::int32_t int4_grid_xs{};
+  std::int32_t int4_grid_ys{};
+  std::int32_t int4_min_cost{};
+  std::int32_t int4_diag_cost{};
+  std::vector<HpfGridInfo> vec_grids;
+  std::map<std::pair<std::int32_t, std::int32_t>, std::vector<GraphConnection>> map_abstract_edges;
+  std::map<std::pair<std::int32_t, std::int32_t>, std::uint32_t> map_domains;
+};
+
+[[nodiscard]] HpfGraph hpf_build(const LocomotorMap& map);
+
+[[nodiscard]] std::vector<CPos> hpf_find_path_to_target_cell(const HpfGraph& graph, CPos cell_from,
+                                                             CPos cell_target,
+                                                             std::int32_t int4_weight);
+
+}
+
+namespace ora::game::pathfinding {
+
 enum class PartKind : std::uint8_t {
   kNone = 0,
   kTurn,
