@@ -241,9 +241,18 @@ std::expected<WorldModel, std::string> world_create(const SyntheticMap& map_syn,
                 find_child(node_trait.vec_children, ptr_spec->str_str_param3_key)})
           tpl.str_param3 = to_lower_ascii(node_param->str_value);
       }
-      for (const MiniYamlNode& node_child : node_trait.vec_children)
-        if (!node_child.str_value.empty() && node_child.vec_children.empty())
+      for (const MiniYamlNode& node_child : node_trait.vec_children) {
+        if (!node_child.str_value.empty() && node_child.vec_children.empty()) {
           tpl.vec_kv.emplace_back(node_child.str_key, node_child.str_value);
+        } else if (!node_child.vec_children.empty()) {
+          // 子表展平（ai.yaml 的 UnitsToBuild/UnitLimits/UnitDelays 等）：键=
+          // "表名.子键"，供 bot 模块装载面读取；两级为止（Decisions 三级面不入）。
+          for (const MiniYamlNode& node_grand : node_child.vec_children)
+            if (!node_grand.str_value.empty() && node_grand.vec_children.empty())
+              tpl.vec_kv.emplace_back(node_child.str_key + "." + node_grand.str_key,
+                                      node_grand.str_value);
+        }
+      }
       def.vec_templates.push_back(std::move(tpl));
     }
     w.vec_actor_types.push_back(std::move(def));
@@ -392,14 +401,18 @@ std::expected<std::uint32_t, std::string> create_actor(WorldModel& w, std::strin
     trait.str_param2 = tpl.str_param2;
     trait.str_param3 = tpl.str_param3;
     trait.vec_kv = tpl.vec_kv;
-    if (ptr_spec->fn_create) ptr_spec->fn_create(ctx_create, trait);
+    // 未注册 kind（如 ai.yaml 的 ModularBot/GrantConditionOnBotOwner/BotModule 族——
+    // bot 模块表经数据面装载，无运行钩子）仅入表，不实例化。
+    if (ptr_spec != nullptr && ptr_spec->fn_create) ptr_spec->fn_create(ctx_create, trait);
 
     const std::uint32_t u4_handle{static_cast<std::uint32_t>(w.vec_traits.size())};
     w.vec_traits.push_back(std::move(trait));
     actor.vec_trait_handles.push_back(u4_handle);
 
-    if (ptr_spec->b_implements_tick) container_add(w.container_tick, actor.u4_id, u4_handle);
-    if (ptr_spec->b_implements_sync) container_add(w.container_sync, actor.u4_id, u4_handle);
+    if (ptr_spec != nullptr && ptr_spec->b_implements_tick)
+      container_add(w.container_tick, actor.u4_id, u4_handle);
+    if (ptr_spec != nullptr && ptr_spec->b_implements_sync)
+      container_add(w.container_sync, actor.u4_id, u4_handle);
   }
 
   if (b_add_to_world) {

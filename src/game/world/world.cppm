@@ -412,9 +412,37 @@ namespace ora::game::world {
 
 struct WorldModel;
 
+// ai.yaml Player: 段 BotModule 实例的装载面（D091⑨ 直配等价）：str_kind 为去
+// @instance 的类型名；vec_b_bot_types 是 RequiresCondition（enable-xxx-ai 析取）
+// 经 GrantConditionOnBotOwner Bots 表映射回的 bot 类型集——命中型即启用该模块。
+// 未实现的模块（ResourceMap/SupportPower/BaseBuilder/SquadManager/Mcv×2/Minelayer/
+// Capture）不入 C++ 收集面，rng_local 序位偏离见偏离登记。
+struct BotModuleModel {
+  std::string str_kind;
+  std::string str_instance;
+  std::vector<std::pair<std::string, std::string>> vec_kv;
+  std::vector<std::string> vec_b_bot_types;
+};
+
+// 四生产类 BotModule 的运行态（上游各模块私有字段的并集，按 kind 归位）：
+// UnitBuilder：int4_state=ticks、u1_state2=currentQueueIndex、vec_str_pending=
+//   queuedBuildRequests；Harvester：int4_state=scanForIdle、int4_state2=scanForLow
+//   （NoResourcesCooldown 并入 vec4u_toggled 之外的 int4_state3 per-harv——当前
+//   每 harv 冷却挂 vec_int4_extra 同位）；PowerDown：int4_state=toggleTick、
+//   vec4u_toggled/vec4_toggled_power=ToggledPowerWrapper 列表；BuildingRepair：
+//   int4_state=prevTicks（无 tick 态，仅 RespondToAttack）。
+struct BotModuleState {
+  std::string str_kind;
+  std::int32_t int4_state{};
+  std::int32_t int4_state2{};
+  std::vector<std::string> vec_str_pending;
+  std::vector<std::uint32_t> vec4u_toggled;
+  std::vector<std::int32_t> vec4_toggled_power;
+};
+
 // ModularBot（ModularBot.cs:43-121）的数据面等价：IBot 激活态、待发订单队列与
-// MinOrderQuotientPerTick 节流参数。BotModule 收集面（IBotTick/IBotRespondToAttack）
-// 本票为空集，T34 起接入。
+// MinOrderQuotientPerTick 节流参数。vec_modules 为按 bot 类型过滤后的启用模块
+// （ai.yaml 声明序），vec_module_states 为对应运行态（含未实现模块的序位空缺）。
 struct BotModel {
   std::string str_type;
   std::uint32_t u4_player{};
@@ -422,7 +450,29 @@ struct BotModel {
   std::deque<network::OrderModel> deque_orders;
   std::int32_t int4_min_order_quotient{5};
   std::uint32_t u4_issued_total{};
+  // Harvester 的 respondToAttackCooldown（初始 40，回港触发置 30，逐 tick 递减）。
+  std::int32_t int4_harv_attack_cooldown{40};
+  std::vector<BotModuleState> vec_module_states;
 };
+
+// ai.yaml Player: 段的 BotModule 表装载（GrantConditionOnBotOwner 条件名→Bots
+// 映射 + 各模块 RequiresCondition 析取求值）。命中 bot 类型的模块按声明序入表。
+[[nodiscard]] std::vector<BotModuleModel> bot_modules_from_actor_types(
+    const WorldModel& w, std::string_view str_bot_type);
+
+// ModularBot 声明表校验（Player.cs:220-221 Invalid bot type 诊断面）：无该 type
+// 的 ModularBot 声明即 Invalid（不激活）。
+[[nodiscard]] bool bot_type_declared(const WorldModel& w, std::string_view str_bot_type);
+
+// 模块 tick 序与激活抽（bot_modules.cpp）——BotModel 运行态按声明序驱动。
+void bot_modules_tick(WorldModel& w, BotModel& bot,
+                      const std::vector<BotModuleModel>& vec_modules);
+
+void bot_modules_trait_enabled(WorldModel& w, BotModel& bot,
+                               const std::vector<BotModuleModel>& vec_modules);
+
+// ai.yaml bot 族 trait 的装载占位（无钩子，规则装载面 + vec_kv 数据面）。
+[[nodiscard]] const std::vector<TraitSpec>& bot_trait_specs();
 
 // 每 tick 至少发出待发订单的 ceil(pending / quotient) 分之一（ModularBot.cs:101-103）。
 [[nodiscard]] std::size_t bot_orders_to_issue(std::size_t u_pending,
@@ -433,14 +483,25 @@ void bot_queue_order(WorldModel& w, std::uint32_t u4_player, network::OrderModel
 
 // ModularBot.Activate（ModularBot.cs:60-74）等价：回放重演世界不激活
 // （bot 订单已在录包内，Player.cs:217 host-only 激活在单机形态下恒真）。
-// Invalid bot type 诊断面（Player.cs:220-221）待 ai.yaml 规则表接入（T34），本票透传。
+// Invalid bot type 诊断（Player.cs:220-221）：str_bot_type 无 ModularBot 声明时
+// 不激活（vec_modules 空 = logic == null 的 C++ 等价——空 bot 沿 T30 口径保留）。
 void bot_activate(WorldModel& w, std::uint32_t u4_player, std::string_view str_bot_type);
 
-// ModularBot.ITick.Tick（ModularBot.cs:93-106）等价：模块 tick（本票空）+
-// 节流出单。出单暂存 vec_bot_issued_orders（上游 world.IssueOrder 进订单管道，
-// T31 订单世界内 resolve 时改投）。RunUnsynced 包装不移植——bot 代码不得影响
-// 同步面由测试侧 rng_shared 账本断言承担（D071 音效隔离断言同款口径）。
+// ModularBot.ITick.Tick（ModularBot.cs:93-106）等价：模块 tick（D091① 兑现——
+// tick 序=ai.yaml 声明序中已实现的 Harvester→PowerDown→UnitBuilder）+ 节流出单。
+// 出单投订单管道（D091⑤ 兑现——world.IssueOrder 等价）：ptr_order_manager 挂接时
+// issue_order 进 om.vec_local（录包/回环随 run_frame），vec_bot_issued_orders 转为
+// 已发订单账本（测试观察面）。RunUnsynced 包装不移植——bot 代码不得影响同步面
+// 由测试侧 rng_shared 账本断言承担（D071 音效隔离断言同款口径）。
 void bot_tick_all(WorldModel& w);
+
+// IBotRespondToAttack 触发面（Health.cs:108-112 notifyDamagePlayer → ModularBot.
+// Damaged → attackResponseModules）：通用世界无武器链，决策函数直供测试/后续
+// 战斗世界化票接线。u4_self 受击 actor、int4_prev_ds/int4_ds 为 DamageState 枚举
+// 值（Undamaged=0..Dead=4）。
+void bot_respond_to_attack_all(WorldModel& w, std::uint32_t u4_player, std::uint32_t u4_self,
+                               std::uint32_t u4_attacker, std::int32_t int4_prev_ds,
+                               std::int32_t int4_ds);
 
 }
 
@@ -519,6 +580,12 @@ struct HarvState {
   pathfinding::MoveSimState move;
   std::vector<HarvActivity> vec_activities;
   std::int32_t int4_root{-1};
+  // Harvest 订单注入的首轮搜索中心（FindAndDeliverResources(self, loc) 的 loc——
+  // Harvester.cs:276）：首轮 closest_harvestable_pos 优先并消费。
+  std::optional<pathfinding::CPos> opt_order_loc;
+  // HarvesterBotModule 的 NoResourcesCooldown（寻矿失败后的扫描间隔倍增，
+  // HarvesterBotModule.cs:289——ScanIntervalMultiplerWhenNoResources=5）。
+  std::int32_t int4_no_res_cooldown{};
   HarvCargoState cargo;
   std::optional<pathfinding::CPos> opt_last_harvested;
   bool b_last_search_failed{};
@@ -594,6 +661,10 @@ void economy_on_actor_removed(world::WorldModel& w, std::uint32_t u4_actor_id);
 void economy_frame_end_task(world::WorldModel& w, const world::FrameEndTask& task);
 
 [[nodiscard]] std::int32_t harv_cargo_sum(const HarvCargoState& cargo);
+
+// FindNextResource 等价入口（HarvesterBotModule 寻矿单的 target 源）。
+[[nodiscard]] std::optional<pathfinding::CPos> harv_find_next_resource(
+    world::WorldModel& w, HarvState& harv);
 
 [[nodiscard]] bool harv_is_full(const EconomyWorldState& econ, const HarvState& harv);
 
@@ -838,8 +909,11 @@ struct WorldModel {
   std::vector<MobileState> vec_mobiles;
   production::LobbyModel lobby;
   std::vector<BotModel> vec_bots;
-  // bot_tick 出单暂存面（上游 world.IssueOrder 的等价落点，T31 改投订单管道）。
+  // bot_tick 出单账本（上游 world.IssueOrder 落点的观察面；真管道=ptr_order_manager）。
   std::vector<network::OrderModel> vec_bot_issued_orders;
+  // world.IssueOrder（ModularBot.cs:103 出单入口）的订单管道挂接：非空时 bot 出单
+  // 投 issue_order 进 om.vec_local（发送/录包/回环由 run_frame 承担）。
+  network::OrderManagerModel* ptr_order_manager{};
   support::MersenneTwister rng_shared;
   support::MersenneTwister rng_player;
   // World.LocalRandom（World.cs:200，无种子墙钟 MT）的等价载体：bot 决策随机
@@ -993,6 +1067,8 @@ enum class FaceTraitKind : std::uint8_t {
   kChronoshiftable,
   kStoresResources,
   kHarvester,
+  kAttackTesla,
+  kToggleConditionOnOrder,
 };
 
 struct FaceTypeSpec {
@@ -1030,6 +1106,13 @@ struct FaceActor {
   std::int32_t int4_unload_ticks{};
   std::int32_t int4_ch_ticks[2]{};
   std::int32_t int4_ch_damage[2]{};
+  // AttackTesla（Mods.Cnc/Traits/Attack/AttackTesla.cs:45-50）的 [VerifySync] 双字段
+  //（charges/timeToRecharge，bot 剧本 tsla 面数据垫底）。
+  std::int32_t int4_ts_charges{};
+  std::int32_t int4_ts_recharge{};
+  // ToggleConditionOnOrder.enabled（^DisableOnLowPowerOrPowerDown 的 PowerDown 单
+  // 翻转位，bot 剧本 PowerDownBotModule 面）。
+  bool b_powerdown{};
 
   bool b_activity{};
   bool b_moving{};
@@ -1147,9 +1230,16 @@ struct OracleReplayContext {
     std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap,
     std::span<const std::uint8_t> span1u_tileset_yaml);
 
+// T34 bot 剧本（issue #53）：normal bot 生产类行为世界（t34 注入集 + 5 玩家 +
+// 双 mcv）——数据垫底+机制面混合推进（完整逐帧全等随 T35 收口，D095）。
+[[nodiscard]] std::expected<ReplayOracleWorld, std::string> replay_oracle_create_bot(
+    std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap,
+    std::span<const std::uint8_t> span1u_tileset_yaml);
+
 // T32 skirmish 剧本（issue #51）：敌对互射世界（2v2 e1 + idle 角 + mcv，无生产链/
 // 无 harv）——AutoTarget/TakeCover/Veterancy 机制面全语义驱动（无数据面/无账本补齐）。
-[[nodiscard]] std::expected<ReplayOracleWorld, std::string> replay_oracle_create_skirmish(
+
+std::expected<ReplayOracleWorld, std::string> replay_oracle_create_skirmish(
     std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap,
     std::span<const std::uint8_t> span1u_tileset_yaml);
 

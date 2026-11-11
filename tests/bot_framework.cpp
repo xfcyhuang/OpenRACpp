@@ -19,7 +19,11 @@ constexpr std::string_view kRules{
     "\tFactionInfo@allies:\n"
     "\tFactionInfo@soviet:\n"
     "\tRngProbe:\n"
-    "player:\n"};
+    // T34 起 Invalid bot type 诊断面接入（D091② 兑现）：激活需 ModularBot 声明。
+    // 本测试保持空模块集（T30 空 bot 口径：无 BotModule 声明）。
+    "player:\n"
+    "\tModularBot@NormalAI:\n"
+    "\t\tType: normal\n"};
 
 constexpr std::string_view kMapYaml{
     "Title: bot-framework\n"

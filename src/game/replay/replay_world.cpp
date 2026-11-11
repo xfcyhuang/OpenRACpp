@@ -113,6 +113,21 @@ const std::vector<FaceTypeSpec>& type_faces()
                    .vec_traits = {K::kClassicFacingBodyOrientation, K::kMobile, K::kChronoshiftable, K::kStoresResources, K::kHealth, K::kRevealsShroud, K::kHarvester, K::kChangesHealth}},
       FaceTypeSpec{.str_type = "powr", .int4_hp = 40000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
                    .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kFrozenUnderFog, K::kRepairableBuilding}},
+      // —— bot 剧本（T34）面：weap/dome/tsla/sam/apwr/e3/e2 ——
+      FaceTypeSpec{.str_type = "weap", .int4_hp = 60000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
+                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kFrozenUnderFog, K::kRepairableBuilding}},
+      FaceTypeSpec{.str_type = "dome", .int4_hp = 40000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
+                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kFrozenUnderFog, K::kRepairableBuilding, K::kToggleConditionOnOrder}},
+      FaceTypeSpec{.str_type = "tsla", .int4_hp = 40000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
+                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kAttackTesla, K::kAutoTarget, K::kRepairableBuilding, K::kToggleConditionOnOrder, K::kFrozenUnderFog}},
+      FaceTypeSpec{.str_type = "sam", .int4_hp = 40000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
+                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kAutoTarget, K::kRepairableBuilding, K::kToggleConditionOnOrder, K::kFrozenUnderFog}},
+      FaceTypeSpec{.str_type = "apwr", .int4_hp = 60000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
+                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kFrozenUnderFog, K::kRepairableBuilding}},
+      FaceTypeSpec{.str_type = "e3", .int4_hp = 4500, .int4_facings = 8, .u1_flags = kFlagReveals,
+                   .vec_traits = {K::kGainsExperience, K::kBodyOrientation, K::kHealth, K::kRevealsShroud, K::kMobile, K::kChangesHealth, K::kChangesHealth, K::kTakeCover, K::kAttackFrontal, K::kAutoTarget}},
+      FaceTypeSpec{.str_type = "e2", .int4_hp = 5000, .int4_facings = 8, .u1_flags = kFlagReveals,
+                   .vec_traits = {K::kGainsExperience, K::kBodyOrientation, K::kHealth, K::kRevealsShroud, K::kMobile, K::kChangesHealth, K::kChangesHealth, K::kTakeCover, K::kAttackFrontal, K::kAutoTarget}},
   };
   return vec;
 }
@@ -121,7 +136,8 @@ std::int32_t footprint_width(std::string_view str_type) {
   if (str_type == "v01" || str_type == "v02" || str_type == "v04") return 2;
   if (str_type == "v05" || str_type == "v06" || str_type == "v07") return 2;
   if (str_type == "fact" || str_type == "proc") return 3;
-  if (str_type == "barr" || str_type == "powr") return 2;
+  if (str_type == "barr" || str_type == "powr" || str_type == "weap" || str_type == "apwr") return 2;
+  if (str_type == "dome") return 2;
   return 1;
 }
 
@@ -129,7 +145,8 @@ std::int32_t footprint_height(std::string_view str_type) {
   if (str_type == "v01" || str_type == "v02" || str_type == "v04") return 2;
   if (str_type == "rushouse") return 2;
   if (str_type == "fact" || str_type == "proc") return 4;
-  if (str_type == "barr" || str_type == "powr") return 3;
+  if (str_type == "barr" || str_type == "powr" || str_type == "weap") return 3;
+  if (str_type == "dome" || str_type == "apwr") return 2;
   return 1;
 }
 
@@ -211,6 +228,8 @@ const char* trait_kind_name(FaceTraitKind kind) {
     case K::kAutoTarget: return "AutoTarget";
     case K::kChronoshiftable: return "Chronoshiftable";
     case K::kStoresResources: return "StoresResources";
+    case K::kAttackTesla: return "AttackTesla";
+    case K::kToggleConditionOnOrder: return "ToggleConditionOnOrder";
     case K::kHarvester: return "Harvester";
   }
   return "?";
@@ -261,6 +280,10 @@ std::int32_t face_trait_hash(const ReplayOracleWorld& w, const FaceActor& actor,
       return actor.int4_next_scan ^
              (actor.int4_aggressor == kNoAggressor ? 0
                                                    : wrap32(static_cast<std::int64_t>(actor.int4_aggressor) << 16));
+    case K::kAttackTesla:
+      return actor.int4_ts_charges ^ actor.int4_ts_recharge;
+    case K::kToggleConditionOnOrder:
+      return actor.b_powerdown ? 1 : 0;
     case K::kStoresResources:
       return actor.int4_content_hash;
     case K::kHarvester:
@@ -320,7 +343,7 @@ namespace {
 std::expected<ReplayOracleWorld, std::string> oracle_create_common(
     std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap,
     std::span<const std::uint8_t> span1u_tileset_yaml,
-    std::span<const InjectEntry> span_injects) {
+    std::span<const InjectEntry> span_injects, const bool b_bot_script = false) {
   ReplayOracleWorld w;
   w.rng_shared = support::make_mersenne_twister(int4_seed);
 
@@ -334,6 +357,7 @@ std::expected<ReplayOracleWorld, std::string> oracle_create_common(
 
   std::vector<MapActorEntry> vec_map_actors;
   std::int32_t int4_mpspawn_x{15}, int4_mpspawn_y{15};
+  std::int32_t int4_mpspawn2_x{-1}, int4_mpspawn2_y{-1};
   bool b_mpspawn_seen{};
   if (const MiniYamlNode* node_actors{child_find(*res_map, "Actors")}) {
     for (const MiniYamlNode& node : node_actors->vec_children) {
@@ -355,11 +379,15 @@ std::expected<ReplayOracleWorld, std::string> oracle_create_common(
       }
       if (const MiniYamlNode* node_owner{child_find(node.vec_children, "Owner")})
         entry.str_owner = node_owner->str_value;
-      if (entry.str_type == "mpspawn" && !b_mpspawn_seen) {
-
-        int4_mpspawn_x = entry.int4_x;
-        int4_mpspawn_y = entry.int4_y;
-        b_mpspawn_seen = true;
+      if (entry.str_type == "mpspawn") {
+        if (!b_mpspawn_seen) {
+          int4_mpspawn_x = entry.int4_x;
+          int4_mpspawn_y = entry.int4_y;
+          b_mpspawn_seen = true;
+        } else if (int4_mpspawn2_x < 0) {
+          int4_mpspawn2_x = entry.int4_x;
+          int4_mpspawn2_y = entry.int4_y;
+        }
       }
       vec_map_actors.push_back(std::move(entry));
     }
@@ -411,10 +439,19 @@ std::expected<ReplayOracleWorld, std::string> oracle_create_common(
     std::int32_t int4_capacity{};
     std::int32_t int4_power_drained{};
   };
-  const PlayerInit vec_player_init[]{
+  // bot 剧本（T34）：t34 注入集的电力/矿仓贡献——fact(-15)+proc(-30)+barr(-10)+
+  // weap(-15)+tsla(-150)+dome(-15) 耗 235、powr(+100)；proc 矿仓 2000。Multi1
+  // human 对照位（无建筑）。ore-lord 面不变。
+  const PlayerInit vec_player_init_orelord[]{
       PlayerInit{"Neutral", 0, 0}, PlayerInit{"Creeps", 0, 0},
-      PlayerInit{"Multi0", 2000, 50},
+      PlayerInit{"Multi0", 2000, 50}, PlayerInit{"Everyone", 0, 0}};
+  const PlayerInit vec_player_init_bot[]{
+      PlayerInit{"Neutral", 0, 0}, PlayerInit{"Creeps", 0, 0},
+      PlayerInit{"Multi0", 2000, 235}, PlayerInit{"Multi1", 0, 0},
       PlayerInit{"Everyone", 0, 0}};
+  const std::span<const PlayerInit> vec_player_init{
+      b_bot_script ? std::span<const PlayerInit>{vec_player_init_bot}
+                   : std::span<const PlayerInit>{vec_player_init_orelord}};
   for (const PlayerInit& init : vec_player_init) {
     FacePlayer player;
     player.str_name = std::string{init.str_name};
@@ -442,6 +479,10 @@ std::expected<ReplayOracleWorld, std::string> oracle_create_common(
 
   if (const auto res{fn_add_actor("mcv", "Multi0", int4_mpspawn_x, int4_mpspawn_y, 512)}; !res.has_value())
     return std::unexpected(res.error());
+  if (b_bot_script && int4_mpspawn2_x >= 0)
+    if (const auto res{fn_add_actor("mcv", "Multi1", int4_mpspawn2_x, int4_mpspawn2_y, 512)};
+        !res.has_value())
+      return std::unexpected(res.error());
 
   // —— SeedsResource 首种资源场（T32，D054② 退役） ——
   // 上游 ResourceLayer.AllowResourceAt/CanAddResource 谓词的等价数据面：
@@ -502,6 +543,32 @@ std::expected<ReplayOracleWorld, std::string> replay_oracle_create(
     std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap,
     std::span<const std::uint8_t> span1u_tileset_yaml) {
   return oracle_create_common(int4_seed, span_oramap, span1u_tileset_yaml, kInjectedActors);
+}
+
+std::expected<ReplayOracleWorld, std::string> replay_oracle_create_bot(
+    std::int32_t int4_seed, std::span<const std::uint8_t> span_oramap,
+    std::span<const std::uint8_t> span1u_tileset_yaml) {
+  // T34 bot 剧本注入（golden_gen BotGroup 的 BotActors 同表）：bot 生产基地 +
+  // 低电欠额（powr 100 vs 耗 235）+ harv 采矿链 + Creeps e1 攻击源；双 mpspawn
+  // 的 mcv（Multi0 bot / Multi1 human）由公共装配尾段注入。
+  constexpr InjectEntry kBotInjectedActors[]{
+      InjectEntry{"fact", 21, 6, "Multi0"},  InjectEntry{"proc", 33, 5, "Multi0"},
+      InjectEntry{"barr", 21, 9, "Multi0"},  InjectEntry{"weap", 24, 9, "Multi0"},
+      InjectEntry{"powr", 19, 6, "Multi0"},  InjectEntry{"dome", 19, 8, "Multi0"},
+      InjectEntry{"tsla", 27, 8, "Multi0"},  InjectEntry{"harv", 30, 7, "Multi0"},
+      InjectEntry{"harv", 31, 9, "Multi0"},  InjectEntry{"e1", 28, 11, "Creeps"},
+      InjectEntry{"e1", 29, 12, "Creeps"},
+  };
+  auto res{oracle_create_common(int4_seed, span_oramap, span1u_tileset_yaml,
+                                kBotInjectedActors, true)};
+  if (!res.has_value()) return res;
+  // tsla 的 AttackTesla 初值（AttackTesla.cs:55：charges=MaxCharges、recharge 0）。
+  for (FaceActor& actor : res->vec_actors)
+    if (actor.str_type == "tsla") {
+      actor.int4_ts_charges = 3;
+      actor.int4_ts_recharge = 0;
+    }
+  return res;
 }
 
 std::expected<ReplayOracleWorld, std::string> replay_oracle_create_skirmish(
@@ -761,6 +828,7 @@ void e1_attack_tick(ReplayOracleWorld& w, FaceActor& actor, std::int32_t int4_fr
 // GivesExperience 经验账本（同 ore-lord 段，含 PlayerExperience）。
 void e1_damage_settle(ReplayOracleWorld& w, const std::vector<FireDamage>& vec_fires,
                       std::int32_t int4_frame) {
+  (void)int4_frame;
   for (const FireDamage& fire : vec_fires) {
     FaceActor& victim{w.vec_actors[fire.u4_victim]};
     victim.int4_hp -= fire.int4_damage;
@@ -1104,12 +1172,20 @@ void replay_oracle_apply_changes(ReplayOracleWorld& w, const OracleReplayContext
     // ChangesHealth=攻击链真机制、FrozenUnderFog=冻结层真机制。AutoTarget/TakeCover/
     // GainsExperience/PlayerExperience 已随 T32 撤列（黄金生成侧 IsyncMechanized 排除，
     // 机制面全接管：扫描序/prone/击杀经验账本）。
+    // 机制面真机制跳过（ore-lord/skirmish 的 e1 互射面——HP/aiming/damageTicks 由
+    // e1_attack_tick 链承载）；bot 剧本的非 e1 actor（tsla/harv/e3 等数据垫底模式）
+    // 的同名字段不跳过——走下方的数据应用分支。
+    const bool b_is_e1{actor.str_type == "e1"};
     const bool b_skip{(change.str_trait == "PlayerResources" && change.str_field == "Cash")
                       || (change.str_trait == "FrozenUnderFog" && change.str_field == "VisibilityHash")
                       || (change.str_trait == "ClassicProductionQueue" && change.str_field == "Enabled")
-                      || (change.str_trait == "Health" && change.str_field == "HP")
-                      || (change.str_trait == "AttackFrontal" && change.str_field == "IsAiming")
-                      || (change.str_trait == "ChangesHealth" && change.str_field == "damageTicks")};
+                      || (change.str_trait == "Health" && change.str_field == "HP" && b_is_e1)
+                      || (change.str_trait == "AttackFrontal" && change.str_field == "IsAiming" && b_is_e1)
+                      || (change.str_trait == "ChangesHealth" && change.str_field == "damageTicks" && b_is_e1)
+                      // hash 恒 0 的 ISync（face_trait_hash 返回 0 面）：数据行对拍账
+                      // 计（黄金生成侧 IsyncMechanized 未排除者）但不应用。
+                      || (change.str_trait == "RepairableBuilding")
+                      || (change.str_trait == "RevealsShroud")};
     if (b_skip) {
       ++sz_skipped;
       continue;
@@ -1136,6 +1212,27 @@ void replay_oracle_apply_changes(ReplayOracleWorld& w, const OracleReplayContext
       ptr_current = &actor.int4_content_hash;
     } else if (change.str_trait == "AutoTarget" && change.str_field == "nextScanTime") {
       ptr_current = &actor.int4_next_scan;
+    } else if (change.str_trait == "AttackTesla" && change.str_field == "charges") {
+      ptr_current = &actor.int4_ts_charges;
+    } else if (change.str_trait == "AttackTesla" && change.str_field == "timeToRecharge") {
+      ptr_current = &actor.int4_ts_recharge;
+    } else if (change.str_trait == "Health" && change.str_field == "HP") {
+      // bot 剧本非 e1 面（tsla 受击/维修回血、harv 被击）：数据垫底。
+      ptr_current = &actor.int4_hp;
+    } else if (change.str_trait == "AttackFrontal" && change.str_field == "IsAiming") {
+      actor.b_aiming = change.str_new == "True";
+      ++sz_applied;
+      continue;
+    } else if (change.str_trait == "ChangesHealth" && change.str_field == "damageTicks") {
+      ptr_current = &actor.int4_ch_ticks[0];
+    } else if (change.str_trait == "PlayerResources" && change.str_field == "Ore") {
+      // player actor 的 Ore（bot 剧本采矿收入/生产扣款面，owner=actor 所有者）。
+      if (actor.u4_owner < w.vec_players.size())
+        ptr_current = &w.vec_players[actor.u4_owner].int4_resources;
+    } else if (change.str_trait == "ToggleConditionOnOrder" && change.str_field == "enabled") {
+      actor.b_powerdown = change.str_new == "True";
+      ++sz_applied;
+      continue;
     } else if (change.str_trait == "PowerManager" && change.str_field == "PowerProvided") {
       ptr_current = &w.vec_players[actor.u4_owner].int4_power_provided;
     } else if (change.str_trait == "FrozenActorLayer" && change.str_field == "VisibilityHash") {

@@ -105,6 +105,8 @@ static class State
         "LoadWidgetAtGameStartInfo",
         "ObjectivesPanelInfo",
         "StartGameNotificationInfo",
+        // T34：v2rl/v2 爆炸 Shake 的 ScreenShaker.Tick 依赖 gameRenderer（无头 null）。
+        "ScreenShakerInfo",
     ];
 }
 

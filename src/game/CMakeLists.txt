@@ -5,7 +5,7 @@ add_library(ora_game STATIC game.cpp sound_info.cpp music_info.cpp sound/sound.c
   render/palette.cpp render/lcw.cpp render/xor_delta.cpp render/tmp_ra.cpp render/shp_td.cpp render/font.cpp render/png_decode.cpp
   pathfinding/priority_queue.cpp pathfinding/path_graph.cpp pathfinding/astar.cpp pathfinding/hpf.cpp pathfinding/wangle.cpp pathfinding/move_sim.cpp
   combat/weapon.cpp combat/warhead_damage.cpp combat/health.cpp combat/armament.cpp combat/projectile.cpp combat/combat_sim.cpp
-  world/actor.cpp world/trait.cpp world/trait_container.cpp world/world.cpp world/sync_hash.cpp world/bot.cpp world/movement.cpp
+  world/actor.cpp world/trait.cpp world/trait_container.cpp world/world.cpp world/sync_hash.cpp world/bot.cpp world/bot_modules.cpp world/movement.cpp
   network/order.cpp network/order_packet.cpp network/order_manager.cpp network/lobby_session.cpp
   replay/replay_format.cpp replay/replay_record.cpp replay/replay_player.cpp replay/replay_world.cpp
   production/production.cpp

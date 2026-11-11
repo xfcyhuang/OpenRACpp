@@ -465,7 +465,13 @@ std::optional<CPos> closest_harvestable_pos(world::WorldModel& w, HarvState& har
   CPos cell_search_from{};
   std::int32_t int4_radius{};
   const bool b_has_dock{harv.u4_last_reserved_host != kNoActor};
-  if (harv.opt_last_harvested.has_value()) {
+  if (harv.opt_order_loc.has_value()) {
+    // Harvest 订单注入的 loc（FindAndDeliverResources(self, loc) 首轮搜索中心，
+    // Harvester.cs:276）：首轮优先并消费（上游 FDA ctor 一次性参数）。
+    int4_radius = econ.cfg.int4_search_from_harvester_radius;
+    cell_search_from = *harv.opt_order_loc;
+    harv.opt_order_loc.reset();
+  } else if (harv.opt_last_harvested.has_value()) {
     int4_radius = econ.cfg.int4_search_from_harvester_radius;
     cell_search_from = *harv.opt_last_harvested;
   } else {
@@ -1117,6 +1123,36 @@ void economy_frame_end_task(world::WorldModel& w, const world::FrameEndTask& tas
   return str_out;
 }
 
+// Harvester.IResolveOrder.ResolveOrder 的 "Harvest"（Harvester.cs:258-277）：
+// target cell → QueueActivity(FindAndDeliverResources(self, loc))。NearestCell 的
+// claim/邻格退化面不在最小面（D038 裁面——目标格直取）；bot 单 target=FromCell。
+void harvester_resolve(const world::TraitResolveCtx& ctx, world::TraitModel&) {
+  const network::OrderModel& order{ctx.ref_order};
+  if (order.str_order != "Harvest") return;
+  HarvState* ptr_harv{harv_state_of(ctx.ref_world.econ, ctx.ref_actor.u4_id)};
+  if (ptr_harv == nullptr) return;
+
+  CPos cell_loc{ptr_harv->move.cell_from};
+  if (order.target.kind == network::TargetKind::kTerrain && order.target.b_cell)
+    cell_loc = CPos{static_cast<std::int32_t>(static_cast<std::uint32_t>(
+                        order.target.int4_cell_bits) >> 20),
+                    (static_cast<std::int16_t>(order.target.int4_cell_bits >> 4)) >> 4};
+
+  // QueueActivity(queued=false, ...)：bot 单恒非 queued——当前活动链整体替换
+  // （上游 QueueActivity(queued=false) 走 CancelAndCancelActivityTriggers 链语义）。
+  ptr_harv->vec_activities.clear();
+  ptr_harv->int4_root = act_alloc(*ptr_harv, ActKind::kFindAndDeliver);
+  ptr_harv->opt_order_loc = cell_loc;
+}
+
+// FindNextResource（HarvesterBotModule.cs:295-345）的 C++ 等价入口：多源寻矿
+// （closest_harvestable_pos——无敌人时威胁规避 bin 成本恒 0，HarvesterEnemyAvoidance
+// 面在无敌对单位场景与上游等价）。返回 path[0]（Target.FromCell 的格）。
+[[nodiscard]] std::optional<CPos> harv_find_next_resource(world::WorldModel& w,
+                                                          HarvState& harv) {
+  return closest_harvestable_pos(w, harv);
+}
+
 [[nodiscard]] const std::vector<world::TraitSpec>& economy_trait_specs() {
   static const std::vector<world::TraitSpec> vec_specs{
       world::TraitSpec{.str_kind = "Locomotor", .str_str_param_key = "Name"},
@@ -1143,7 +1179,11 @@ void economy_frame_end_task(world::WorldModel& w, const world::FrameEndTask& tas
       world::TraitSpec{.str_kind = "StoresPlayerResources"},
       world::TraitSpec{.str_kind = "FreeActor"},
       world::TraitSpec{.str_kind = "StoresResources"},
-      world::TraitSpec{.str_kind = "Harvester"},
+      world::TraitSpec{.str_kind = "Harvester",
+                       .b_implements_resolve = true,
+                       .str_order_id = "Harvest",
+                       .b_order_terrain_target = true,
+                       .fn_resolve = harvester_resolve},
       world::TraitSpec{.str_kind = "DockClientManager"},
   };
   return vec_specs;

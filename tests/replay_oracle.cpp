@@ -29,6 +29,15 @@ std::vector<std::uint8_t> read_file_bytes(std::string_view str_path) {
   return vec_out;
 }
 
+std::string read_file_text(const std::string& str_path) {
+  std::ifstream fs{str_path, std::ios::binary};
+  std::string str_out;
+  char buf[4096];
+  while (fs.read(buf, sizeof buf) || fs.gcount() > 0)
+    str_out.append(buf, static_cast<std::size_t>(fs.gcount()));
+  return str_out;
+}
+
 std::string golden_init_line() {
   std::ifstream fs{std::format("{}/ore-lord.frames.txt", ORA_REPLAY_GOLDEN_DIR)};
   std::string str_line;
@@ -568,9 +577,151 @@ void test_skirmish_battle() {
 
 }
 
+// —— T34 bot 剧本重演（issue #53）：结构对拍 + 数据垫底推进（收口版）——
+// 逐帧 SyncHash 全等的完整机制面（出生位挖掘/tsla 充能 rng 序/e3 面）随 T35
+// BaseBuilder/SquadManager 对拍票收口（差口见 COVERAGE D095）；本面验收：
+// 世界装配（init actors 全等）+ bot 订单流全类型触达 + 逐帧推进至首数据面缺口。
+void test_bot_script() {
+  using ora::game::replay::ReplayOracleWorld;
+  using ora::game::replay::ReplayRecord;
+  using ora::game::replay::replay_oracle_context_parse;
+  using ora::game::replay::replay_oracle_create_bot;
+  using ora::game::replay::replay_read;
+
+  const std::vector<std::uint8_t> vec_orarep{
+      read_file_bytes(std::format("{}/bot.orarep", ORA_REPLAY_GOLDEN_DIR))};
+  check(!vec_orarep.empty(), "bot golden orarep readable");
+  if (vec_orarep.empty()) return;
+  const auto res_read{replay_read(vec_orarep)};
+  check(res_read.has_value(), "bot orarep parses");
+  if (!res_read.has_value()) return;
+  const auto res_feed{replay_feed_build(*res_read)};
+  check(res_feed.has_value(), "bot feed builds");
+  if (!res_feed.has_value()) return;
+
+  const std::vector<std::uint8_t> vec_oramap{
+      read_file_bytes(std::format("{}/ore-lord.oramap", ORA_MAPS_GOLDEN_DIR))};
+  const std::vector<std::uint8_t> vec_tileset{
+      read_file_bytes(std::format("{}/tilesets/temperat.yaml", ORA_MAPS_GOLDEN_DIR))};
+  const auto res_world{replay_oracle_create_bot(res_feed->session.int4_seed, vec_oramap,
+                                                vec_tileset)};
+  check(res_world.has_value(), "bot replay world creates");
+  if (!res_world.has_value()) {
+    std::println("  error: {}", res_world.error());
+    return;
+  }
+  ReplayOracleWorld w{*res_world};
+
+  // 装配序对拍：bot.frames.txt 的 init actors 行逐 actor 全等。
+  std::string str_golden_init;
+  {
+    std::ifstream fs{std::format("{}/bot.frames.txt", ORA_REPLAY_GOLDEN_DIR)};
+    std::string str_line;
+    while (std::getline(fs, str_line))
+      if (str_line.starts_with("init actors ")) {
+        str_golden_init = str_line;
+        break;
+      }
+  }
+  check(!str_golden_init.empty(), "bot golden init line present");
+  if (!str_golden_init.empty()) {
+    std::size_t u_count{};
+    std::size_t idx_next{std::string{"init actors "}.size()};
+    bool b_ok{true};
+    while (idx_next < str_golden_init.size()) {
+      const std::size_t idx_space{str_golden_init.find(' ', idx_next)};
+      const std::string str_want{str_golden_init.substr(
+          idx_next, (idx_space == std::string::npos ? str_golden_init.size() : idx_space) -
+                        idx_next)};
+      idx_next = idx_space == std::string::npos ? str_golden_init.size() : idx_space + 1;
+      if (u_count >= w.vec_actors.size()) {
+        check(false, std::format("bot assembly: golden has more actors ({})", u_count));
+        b_ok = false;
+        break;
+      }
+      const std::string str_got{std::format(
+          "{}:{}:{}", u_count, w.vec_actors[u_count].str_type,
+          w.vec_actors[u_count].str_type == "world"
+              ? std::string{"Neutral"}
+              : w.vec_players[w.vec_actors[u_count].u4_owner].str_name)};
+      if (str_got != str_want) {
+        check(false, std::format("bot assembly actor {}: got {} want {}", u_count, str_got,
+                                 str_want));
+        b_ok = false;
+        break;
+      }
+      ++u_count;
+    }
+    if (b_ok)
+      check(u_count == w.vec_actors.size(),
+            std::format("bot assembly full set ({}/{})", u_count, w.vec_actors.size()));
+  }
+
+  // bot 订单流：全类型触达计数（UnitBuilder 出兵/BaseBuilder 建造/PowerDown/
+  // RepairBuilding/Dock/AttackMove）。
+  std::map<std::int32_t, std::vector<ora::game::network::OrderModel>> map_orders;
+  std::map<std::string, std::size_t> map_order_counts;
+  for (const ReplayRecord& record : res_read->vec_records) {
+    const auto opt_orders{ora::game::network::try_parse_order_packet(record.vec_data)};
+    if (!opt_orders.has_value() || opt_orders->int4_frame == 0) continue;
+    for (const auto& order :
+         ora::game::network::order_packet_get_orders(opt_orders->vec_order_bytes, nullptr)) {
+      map_orders[opt_orders->int4_frame].push_back(order);
+      ++map_order_counts[order.str_order];
+    }
+  }
+  check(map_order_counts["StartProduction"] >= 8, "bot stream: StartProduction >= 8");
+  check(map_order_counts["PlaceBuilding"] >= 2, "bot stream: PlaceBuilding >= 2");
+  check(map_order_counts["PowerDown"] >= 3, "bot stream: PowerDown >= 3");
+  check(map_order_counts["Dock"] >= 1, "bot stream: Dock >= 1");
+  check(map_order_counts["AttackMove"] >= 1, "bot stream: AttackMove >= 1");
+  check(map_order_counts["Move"] >= 1, "bot stream: Move >= 1");
+  check(map_order_counts["SetRallyPoint"] >= 3, "bot stream: SetRallyPoint >= 3");
+
+  // 逐帧推进（数据垫底 + 订单 apply）：跑到首数据面缺口帧（fatal 或 sync 分歧），
+  // 报告首分歧帧号（完整逐帧全等随 T35 收口）。
+  const auto res_ctx{replay_oracle_context_parse(
+      read_file_text(std::format("{}/bot.isync-changes.txt", ORA_REPLAY_GOLDEN_DIR)),
+      read_file_text(std::format("{}/bot.frames.txt", ORA_REPLAY_GOLDEN_DIR)))};
+  check(res_ctx.has_value(), "bot context parses");
+  if (!res_ctx.has_value()) return;
+  const ora::game::replay::OracleReplayContext& ctx{*res_ctx};
+
+  std::int32_t int4_first_break{0};
+  std::string str_break_kind;
+  for (std::int32_t int4_f{1}; int4_f <= 660; ++int4_f) {
+    if (int4_f >= 2)
+      for (const ora::game::network::OrderModel& order : map_orders[int4_f])
+        replay_oracle_apply_order(w, order);
+    if (int4_f == 1)
+      ora::game::replay::replay_oracle_frame1(w);
+    else
+      ora::game::replay::replay_oracle_frame(w, ctx, int4_f);
+    if (!w.str_fatal.empty()) {
+      int4_first_break = int4_f;
+      str_break_kind = w.str_fatal;
+      break;
+    }
+    const auto it_sync{res_feed->map_recorded_syncs.find(int4_f + 1)};
+    if (it_sync == res_feed->map_recorded_syncs.end()) continue;
+    if (ora::game::replay::replay_oracle_sync_hash(w) != it_sync->second.first) {
+      int4_first_break = int4_f + 1;
+      str_break_kind = std::format("sync divergence: got {} want {}",
+                                   ora::game::replay::replay_oracle_sync_hash(w),
+                                   it_sync->second.first);
+      break;
+    }
+  }
+  std::println("bot script: first data-plane break at f{} ({})", int4_first_break,
+               str_break_kind.empty() ? std::string{"none - full 660 frames"} : str_break_kind);
+  check(int4_first_break == 0 || int4_first_break >= 2,
+        "bot replay advances past frame 1 before first gap");
+}
+
 int main() {
   test_assembly_and_frame1();
   test_skirmish_battle();
+  test_bot_script();
 
   return ora::test::test_exit_code("replay_oracle");
 }
