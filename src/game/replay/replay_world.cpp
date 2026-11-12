@@ -244,7 +244,9 @@ const char* trait_kind_name(FaceTraitKind kind) {
 
 std::int32_t face_trait_hash(const ReplayOracleWorld& w, const FaceActor& actor, FaceTraitKind kind,
                              std::int32_t int4_instance) {
-  const FaceTypeSpec& face{*actor.ptr_face};
+  // face 指针延迟解引用：player/world actor 无 face 表项（ptr_face 为 null），仅
+  // 类型面分支（kBodyOrientation/kTurreted——均 face 表 actor）触达。
+  const FaceTypeSpec* ptr_face{actor.ptr_face};
   switch (kind) {
     case K::kClassicProductionQueue:
     case K::kDebugPauseState:
@@ -271,7 +273,7 @@ std::int32_t face_trait_hash(const ReplayOracleWorld& w, const FaceActor& actor,
              wpos_hash(actor.int4_x * 1024 + 512, actor.int4_y * 1024 + 512, 0);
     case K::kBodyOrientation:
     case K::kClassicFacingBodyOrientation:
-      return face.int4_facings;
+      return ptr_face->int4_facings;
     case K::kBuilding:
       return cpos_bits(actor.int4_x, actor.int4_y);
     case K::kHealth:
@@ -301,7 +303,7 @@ std::int32_t face_trait_hash(const ReplayOracleWorld& w, const FaceActor& actor,
     case K::kHarvester:
       return actor.int4_unload_ticks;
     case K::kTurreted:
-      return face.int4_turret_facings;
+      return ptr_face->int4_turret_facings;
     case K::kAttackTurreted:
       return 0;
     case K::kPlayerResources:
@@ -2126,7 +2128,7 @@ std::int32_t replay_oracle_sync_hash(const ReplayOracleWorld& w) {
       fn_add(K::kFrozenActorLayer, face_trait_hash(w, actor, K::kFrozenActorLayer, 0));
       continue;
     }
-    std::uint8_t u1_seen[32]{};
+    std::uint8_t u1_seen[64]{};
     for (const FaceTraitKind kind : actor.ptr_face->vec_traits)
       fn_add(kind, face_trait_hash(w, actor, kind, u1_seen[std::size_t(kind)]++));
   }
@@ -2176,7 +2178,7 @@ std::string replay_oracle_pertrait_dump(const ReplayOracleWorld& w) {
       fn_add(K::kPowerManager, face_trait_hash(w, actor, K::kPowerManager, 0));
       fn_add(K::kFrozenActorLayer, face_trait_hash(w, actor, K::kFrozenActorLayer, 0));
     } else {
-      std::uint8_t u1_seen[32]{};
+      std::uint8_t u1_seen[64]{};
       for (const FaceTraitKind kind : actor.ptr_face->vec_traits)
         fn_add(kind, face_trait_hash(w, actor, kind, u1_seen[std::size_t(kind)]++));
     }
