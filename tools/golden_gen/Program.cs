@@ -120,22 +120,35 @@ internal static partial class Program
         string verb = null;
         string repoRootArg = null;
         string openraArg = null;
+        string diagOutArg = null;
         for (var i = 0; i < args.Length; i++)
         {
             switch (args[i])
             {
                 case "--repo-root": repoRootArg = NextArg(args, ref i); break;
                 case "--openra": openraArg = NextArg(args, ref i); break;
+                case "--diag-out": diagOutArg = NextArg(args, ref i); break;
                 default:
-                    if (verb == null && args[i] is "gen" or "verify" or "check") verb = args[i];
+                    if (verb == null && args[i] is "gen" or "verify" or "check" or "bot-diag") verb = args[i];
                     else throw new ArgumentException(
-                        $"未知参数或动作：{args[i]}（用法：golden-gen gen|verify|check [--repo-root DIR] [--openra DIR]）");
+                        $"未知参数或动作：{args[i]}（用法：golden-gen gen|verify|check|bot-diag [--repo-root DIR] [--openra DIR] [--diag-out FILE]）");
                     break;
             }
         }
 
         if (verb == null)
-            throw new ArgumentException("缺少动作。用法：golden-gen gen|verify|check [--repo-root DIR] [--openra DIR]");
+            throw new ArgumentException("缺少动作。用法：golden-gen gen|verify|check|bot-diag [--repo-root DIR] [--openra DIR] [--diag-out FILE]");
+
+        // 路径解析先行（bot-diag 需要两根路径）
+        var repoRoot0 = ResolveRepoRoot(repoRootArg);
+        var openraRoot0 = ResolveOpenRaRoot(openraArg, repoRoot0);
+        AssertUpstreamBaseline(openraRoot0, repoRoot0);
+
+        if (verb == "bot-diag")
+        {
+            diagOutArg ??= Path.Combine(Path.GetTempPath(), $"bot-diag-{Environment.ProcessId}.txt");
+            return BotDiag(openraRoot0, diagOutArg);
+        }
 
         // —— 路径解析 ——
         var repoRoot = ResolveRepoRoot(repoRootArg);

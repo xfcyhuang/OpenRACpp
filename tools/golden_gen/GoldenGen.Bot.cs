@@ -112,12 +112,65 @@ static Session BotBuildSession(string mapUid)
 
 static void BotSeedLocalRandom(World world)
 {
-    // World.cs:52 `public readonly MersenneTwister LocalRandom` 无参构造（:200 墙钟）。
+    // World.cs:52 `public readonly MersenneTwister LocalRandom` 无参构造（:200 墙钟：
+    // MersenneTwister.cs:25 `: this(Environment.TickCount)`）。
     // 录包可复现前提：反射替换为定种子实例（bot 决策随机源的宿主侧钉死）。
     typeof(World).GetField("LocalRandom")!.SetValue(world, new MersenneTwister(BotSeed));
 }
 
-static (byte[] Orarep, string Dump, string IsyncDump) BotRecordRun()
+// 激活抽重放（T34 打回·f3 跨进程 sync 分歧根因修复）：PlayerActor.Initialize 在
+// World ctor 期被 CreatePlayers→Player ctor 同步触发，GrantConditionOnBotOwner@normal
+// 的 INotifyCreated 链在此时授 enable-normal-ai → 各 bot 模块 TraitEnabled 的节奏抽
+//（HarvesterBotModule.cs:140-141/PowerDownBotManager.cs:79 等）落在**墙钟种子**的
+// LocalRandom 上（ctor 先于 BotSeedLocalRandom 的反射替换）——Environment.TickCount
+// 跨进程不同 → toggleTick 等激活节奏值跨进程分歧 → PowerDown 停电时机/state 分歧
+// → SyncHash f3 起分歧（bot-diag 双进程实证：PowerManager h 52 vs 172、dome/tsla
+// ToggleConditionOnOrder h 1 vs 0）。修法=LocalRandom 定种子后，对该条件 token 做
+// revoke→grant 重放：TraitDisabled 无 override（全模块无副作用，grep 实证），重授走
+// 同一 cs.Notifiers（Actor.cs:229-231 List 装配序）→ 全部模块 TraitEnabled 在定种子
+// MT 上按 ctor 期同序重抽——等价「ctor 期即用 BotSeed」的终态。
+static void BotReplayActivationRolls(Actor playerActor)
+{
+    var tokenField = default(System.Reflection.FieldInfo);
+    object granted = null;
+    foreach (var t in playerActor.TraitsImplementing<INotifyCreated>())
+    {
+        if (t.GetType().Name != "GrantConditionOnBotOwner")
+            continue;
+        var f = t.GetType().GetField("conditionToken", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var tok = (int)f.GetValue(t)!;
+        if (tok == Actor.InvalidConditionToken)
+            continue;   // 未授予（Bots 不含 normal 的 @rush/@turtle/@naval）
+        tokenField = f;
+        granted = t;
+        break;
+    }
+
+    if (granted == null)
+        throw new InvalidOperationException("GrantConditionOnBotOwner 授予面缺失：bot 未条件激活");
+
+    // 幂等清理：SupportPowerBotModule.TraitEnabled 无条件 Add powerDecisions
+    //（SupportPowerBotModule.cs:63-66，TraitDisabled 无清理）——重放前清空避免撞 key。
+    //（ConditionalTrait 实现 INotifyCreated，ConditionalTrait.cs:41——INotifyCreated
+    // 遍历可达全部条件模块；Mods.Common 类型经 ALC 隔离，宿主只按类型名匹配。）
+    foreach (var t in playerActor.TraitsImplementing<INotifyCreated>())
+        if (t.GetType().Name == "SupportPowerBotModule")
+        {
+            var pd = t.GetType().GetField("powerDecisions",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(t)!;
+            pd.GetType().GetMethod("Clear")!.Invoke(pd, null);
+        }
+
+    var oldToken = (int)tokenField.GetValue(granted)!;
+    var info = granted.GetType().GetField("info",
+        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(granted)!;
+    var condition = (string)info.GetType().GetField("Condition")!.GetValue(info)!;
+    playerActor.RevokeCondition(oldToken);
+    var newToken = playerActor.GrantCondition(condition);
+    tokenField.SetValue(granted, newToken);
+}
+
+static (byte[] Orarep, string Dump, string IsyncDump) BotRecordRun(System.IO.TextWriter diag = null)
 {
     var modData = ReplayNewModData(out var map, BotActors);
 
@@ -133,12 +186,15 @@ static (byte[] Orarep, string Dump, string IsyncDump) BotRecordRun()
 
     var world = ReplayBuildWorld(modData, map, om, lobby);
     BotSeedLocalRandom(world);
+    if (diag != null)
+        conn.OnSendSync = (f, h, d) => BotDiagSegments(world, f, h, diag);
 
     // 激活链宿主改造（票面「Player.cs:217 host-only 激活的 oracle 侧」）：无头宿主
     // 的 Game.IsHost 在 World ctor 期不可达（Game.OrderManager.Connection 的
     // LocalClient 上下文在 ctor 期未装配）——ctor 后手动补激活（等价 host 客户端
     // 的 Player.cs:217-223 路径，Activate 内自带 IBotTick/IBotRespondToAttack 收集）。
     var botPlayer = world.Players.First(p => p.InternalName == "Multi0");
+    BotReplayActivationRolls(botPlayer.PlayerActor);
 
     // 宿主改造（订单链）：OrderValidators 对「host client(1) 发出的 bot 玩家单」按
     // 跨玩家权限拒单（上游真服务器上 bot 单由服务器内嵌 bot client 连接以自己的
@@ -222,5 +278,75 @@ om.TickImmediate();
         if (!rc.IsValid || rc.LobbyInfo == null)
             throw new InvalidOperationException("上游 ReplayConnection 判定 bot 回放无效");
     return (normalized, sb.ToString(), isyncSb.ToString());
+}
+
+// —— bot-diag（T34 打回）：跨进程 sync 分歧分段定位 ——
+// SendSync 时刻（ProcessOrders 后、world.Tick 前）逐项复刻 World.SyncHash() 的四段
+// 聚合（actors 段/ISync 段/effects 段/rng+players 段），明细行带 n 序与单 trait hash。
+// 两独立进程各跑一次 bot-diag，diff 明细即得首分歧贡献项（actor/trait/hash 三元组）。
+const int BotDiagDetailFrames = 48;   // 明细行帧窗（首分歧 f22 实证位附近；总值行全帧）
+
+static readonly Func<ISync, int> BotSyncHashOf = MakeBotSyncHashOf();
+
+static Func<ISync, int> MakeBotSyncHashOf()
+{
+    var m = typeof(Sync).GetMethod("Hash", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static,
+        [typeof(ISync)]) ?? throw new InvalidOperationException("Sync.Hash 反射失败");
+    return (Func<ISync, int>)Delegate.CreateDelegate(typeof(Func<ISync, int>), m);
+}
+
+static void BotDiagSegments(World world, int frame, int sentHash, System.IO.TextWriter diag)
+{
+    var n = 0;
+    var ret = 0;
+    var detail = frame <= BotDiagDetailFrames;
+
+    // 段1：actors（World.cs:490-491）
+    foreach (var a in world.Actors)
+        ret += n++ * (int)(1 + a.ActorID) * Sync.HashActor(a);
+    diag.WriteLine($"D f{frame} seg1 {ret} n {n}");
+
+    // 段2：ISync trait（World.cs:494-496；TraitsImplementing<ISync> 序=SyncHashes 数组序——
+    // 同一 ctor 循环构建，见 Actor.cs:193/207）
+    foreach (var actor in world.ActorsHavingTrait<ISync>())
+        foreach (var t in actor.TraitsImplementing<ISync>())
+        {
+            var h = BotSyncHashOf(t);
+            if (detail)
+                diag.WriteLine($"D f{frame} a {actor.ActorID} {actor.Info.Name} t {t.GetType().Name} h {h} n {n}");
+            ret += n++ * (int)(1 + actor.ActorID) * h;
+        }
+    diag.WriteLine($"D f{frame} seg12 {ret} n {n}");
+
+    // 段3：synced effects（World.cs:499-500）
+    foreach (var se in world.SyncedEffects)
+    {
+        var h = BotSyncHashOf(se);
+        if (detail)
+            diag.WriteLine($"D f{frame} e {se.GetType().Name} h {h} n {n}");
+        ret += n++ * h;
+    }
+
+    // 段4：SharedRandom.Last（World.cs:503）+ UnlockedRenderPlayer 段（:506-508）
+    var players = 0;
+    foreach (var p in world.Players)
+        if (p.UnlockedRenderPlayer)
+            players += Sync.HashPlayer(p);
+    var total = ret + world.SharedRandom.Last + players;
+    diag.WriteLine($"D f{frame} seg123 {ret} n {n} rng {world.SharedRandom.Last} players {players} total {total} sent {sentHash} {(total == sentHash ? "OK" : "MISMATCH")}");
+}
+
+internal static int BotDiag(string openraRoot, string diagOut)
+{
+    HeadlessHost.Boot(openraRoot, soundChannel: true);
+    Game.Sound = new Sound(new SandboxStubPlatform(), new SoundSettings());
+    Game.Sound.DisableAllSounds = true;
+    ChromeMetricsOnce();
+    using var w = new System.IO.StreamWriter(diagOut, false, new UTF8Encoding(false));
+    // seed 探针：.NET string.GetHashCode per-process 随机化的直接存在性证据
+    w.WriteLine($"# bot-diag seed-probe \"openra\".GetHashCode={"openra".GetHashCode()} \"units\".GetHashCode={"units".GetHashCode()}");
+    BotRecordRun(diag: w);
+    Console.WriteLine($"bot-diag: {diagOut}");
+    return ExitOk;
 }
 }

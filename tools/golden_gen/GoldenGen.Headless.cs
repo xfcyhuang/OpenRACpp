@@ -166,6 +166,10 @@ sealed class RecordingEchoConnection : IConnection
     public ReplayRecorder Recorder { get; }
     public List<(int Frame, int SyncHash, ulong DefeatState)> SentSyncs { get; } = [];
 
+    // bot-diag（T34 打回）：SendSync 时刻（ProcessOrders 后、world.Tick 前）的诊断 hook
+    // ——跨进程 sync 分歧的分段定位采样点（World.SyncHash 同一时刻复刻）。
+    public Action<int, int, ulong> OnSendSync;
+
     public RecordingEchoConnection(Func<string> chooseFilename)
     {
         Recorder = new ReplayRecorder(chooseFilename);
@@ -202,6 +206,7 @@ sealed class RecordingEchoConnection : IConnection
         sync.Enqueue(s);
         SentSyncs.Add(s);
         Recorder.Receive(LocalClient, OrderIO.SerializeSync(s));   // Connection.cs:302
+        OnSendSync?.Invoke(frame, syncHash, defeatState);
     }
 
     void IConnection.Receive(OrderManager orderManager)
