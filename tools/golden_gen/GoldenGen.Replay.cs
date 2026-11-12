@@ -313,7 +313,8 @@ static void ReplaySweepEffects(World world)
 // 入库黄金的字段集一致）；机制面接管字段（IsyncMechanized）不入快照。
 sealed record IsyncKey(uint ActorId, string TypeName, string TraitName, int TraitInstance, string FieldName);
 
-static Dictionary<IsyncKey, string> IsyncSnapshot(World world, bool applyMechanizedExclusion = true)
+static Dictionary<IsyncKey, string> IsyncSnapshot(World world, bool applyMechanizedExclusion = true,
+    bool includeActorRefs = false)
 {
     var snap = new Dictionary<IsyncKey, string>();
     foreach (var a in world.Actors)
@@ -340,7 +341,17 @@ static Dictionary<IsyncKey, string> IsyncSnapshot(World world, bool applyMechani
                     case int i: val = i.ToString(CultureInfo.InvariantCulture); break;
                     case CPos p: val = $"{p.X.ToString(CultureInfo.InvariantCulture)},{p.Y.ToString(CultureInfo.InvariantCulture)}"; break;
                     case WPos w: val = $"{w.X.ToString(CultureInfo.InvariantCulture)},{w.Y.ToString(CultureInfo.InvariantCulture)},{w.Z.ToString(CultureInfo.InvariantCulture)}"; break;
-                    default: continue;   // Actor/其它类型不入 dump 集
+                    // bot 剧本（T34 打回）：Actor 引用字段（AutoTarget.Aggressor——SyncHash
+                    // 段2 进面 a<<16*0x567 面）以 a{id} 文本入 dump（C++ 垫底）。
+                    // null 走独立 case（类型模式不匹配 null——否则 null 不入快照、
+                    // 首变帧 prev 缺 key 无行）。
+                    case null when includeActorRefs:
+                        val = "a-1";
+                        break;
+                    case Actor ar when includeActorRefs:
+                        val = $"a{ar.ActorID}";
+                        break;
+                    default: continue;   // 其它类型不入 dump 集
                 }
 
                 if (applyMechanizedExclusion && IsyncMechanized(a.ActorID, traitType.Name, fi.Name))

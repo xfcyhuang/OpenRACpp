@@ -113,6 +113,7 @@ const std::vector<TraitSpec>& trait_registry() {
         for (const TraitSpec& spec : production::production_trait_specs()) vec.push_back(spec);
         for (const TraitSpec& spec : economy::economy_trait_specs()) vec.push_back(spec);
         for (const TraitSpec& spec : movement_trait_specs()) vec.push_back(spec);
+        for (const TraitSpec& spec : bot_trait_specs()) vec.push_back(spec);
         return vec;
       }()};
   return vec_registry;

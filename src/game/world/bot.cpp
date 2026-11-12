@@ -34,25 +34,52 @@ void bot_activate(WorldModel& w, const std::uint32_t u4_player,
   if (u4_player >= w.vec_players.size()) return;
   for (const BotModel& bot : w.vec_bots)
     if (bot.u4_player == u4_player) return;
+
+  // Player.cs:220-221：Invalid bot type 诊断（ModularBot 声明表无该 type → 不激活）。
+  if (!bot_type_declared(w, str_bot_type)) return;
+
   BotModel bot;
   bot.str_type = std::string(str_bot_type);
   bot.u4_player = u4_player;
   bot.b_enabled = true;
   w.vec_players[u4_player].str_bot_type = std::string(str_bot_type);
+
+  // 模块收集面（ModularBot.Activate 的 TraitsImplementing<IBotTick>/<IBotRespondToAttack>
+  // 等价，D091① 兑现）+ TraitEnabled 激活抽（rng_local，声明序）。
+  const std::vector<BotModuleModel> vec_modules{
+      bot_modules_from_actor_types(w, str_bot_type)};
+  for (const BotModuleModel& module : vec_modules) {
+    BotModuleState state;
+    state.str_kind = module.str_kind;
+    bot.vec_module_states.push_back(std::move(state));
+  }
+  bot_modules_trait_enabled(w, bot, vec_modules);
   w.vec_bots.push_back(std::move(bot));
 }
 
 void bot_tick_all(WorldModel& w) {
   for (BotModel& bot : w.vec_bots) {
     if (!bot.b_enabled) continue;
+
+    // 模块 tick（RunUnsynced 内的 BotTick 循环，ModularBot.cs:93-99）。
+    const std::vector<BotModuleModel> vec_modules{
+        bot_modules_from_actor_types(w, bot.str_type)};
+    bot_modules_tick(w, bot, vec_modules);
+
+    // 节流出单（ModularBot.cs:101-103）→ world.IssueOrder（D091⑤ 兑现）：
+    // 挂接订单管道时投 issue_order（录包/回环随 run_frame），vec_bot_issued_orders
+    // 转为已发订单账本。
     const std::size_t u_issue{
         bot_orders_to_issue(bot.deque_orders.size(), bot.int4_min_order_quotient)};
     for (std::size_t idx{0}; idx < u_issue; ++idx) {
-      w.vec_bot_issued_orders.push_back(std::move(bot.deque_orders.front()));
+      network::OrderModel order{std::move(bot.deque_orders.front())};
       bot.deque_orders.pop_front();
+      if (w.ptr_order_manager != nullptr)
+        network::issue_order(*w.ptr_order_manager, order);
+      w.vec_bot_issued_orders.push_back(std::move(order));
       ++bot.u4_issued_total;
     }
   }
 }
 
-}
+}  // namespace ora::game::world

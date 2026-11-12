@@ -120,22 +120,35 @@ internal static partial class Program
         string verb = null;
         string repoRootArg = null;
         string openraArg = null;
+        string diagOutArg = null;
         for (var i = 0; i < args.Length; i++)
         {
             switch (args[i])
             {
                 case "--repo-root": repoRootArg = NextArg(args, ref i); break;
                 case "--openra": openraArg = NextArg(args, ref i); break;
+                case "--diag-out": diagOutArg = NextArg(args, ref i); break;
                 default:
-                    if (verb == null && args[i] is "gen" or "verify" or "check") verb = args[i];
+                    if (verb == null && args[i] is "gen" or "verify" or "check" or "bot-diag") verb = args[i];
                     else throw new ArgumentException(
-                        $"未知参数或动作：{args[i]}（用法：golden-gen gen|verify|check [--repo-root DIR] [--openra DIR]）");
+                        $"未知参数或动作：{args[i]}（用法：golden-gen gen|verify|check|bot-diag [--repo-root DIR] [--openra DIR] [--diag-out FILE]）");
                     break;
             }
         }
 
         if (verb == null)
-            throw new ArgumentException("缺少动作。用法：golden-gen gen|verify|check [--repo-root DIR] [--openra DIR]");
+            throw new ArgumentException("缺少动作。用法：golden-gen gen|verify|check|bot-diag [--repo-root DIR] [--openra DIR] [--diag-out FILE]");
+
+        // 路径解析先行（bot-diag 需要两根路径）
+        var repoRoot0 = ResolveRepoRoot(repoRootArg);
+        var openraRoot0 = ResolveOpenRaRoot(openraArg, repoRoot0);
+        AssertUpstreamBaseline(openraRoot0, repoRoot0);
+
+        if (verb == "bot-diag")
+        {
+            diagOutArg ??= Path.Combine(Path.GetTempPath(), $"bot-diag-{Environment.ProcessId}.txt");
+            return BotDiag(openraRoot0, diagOutArg);
+        }
 
         // —— 路径解析 ——
         var repoRoot = ResolveRepoRoot(repoRootArg);
@@ -219,6 +232,14 @@ internal static partial class Program
             // isync-changes 为证据产物（无排除集：exp/level 直读，kill 归属可核）
             ("tests/golden/replay/skirmish.frames.txt", "replay-skirmish", null),
             ("tests/golden/replay/skirmish.isync-changes.txt", "replay-skirmish", null),
+
+            // bot 剧本模式（T34/issue #53）：normal bot 无头自走录包（宿主 admin 化 +
+            // bot client 注入 + LocalRandom 定种子 + 激活抽重放），C++ 重演侧吃录包
+            // 逐帧对拍。跨进程 sync 分歧已修（BotReplayActivationRolls——墙钟种子
+            // 根因见 GoldenGen.Bot.cs 注记），oracle check 双跑恒等恢复。
+            ("tests/golden/replay/bot.orarep", "replay-bot", null),
+            ("tests/golden/replay/bot.frames.txt", "replay-bot", null),
+            ("tests/golden/replay/bot.isync-changes.txt", "replay-bot", null),
             // audio 模式（T18/issue #27）：三 yaml 原样入库（漂移哨兵）+ SoundInfo/MusicInfo
             // 规范化转储 + d2k WAV 语料原样入库（GPL-3，COPYING 同 render）+ 解码统计
             ("tests/golden/audio/notifications.txt", null,
@@ -317,6 +338,7 @@ internal static partial class Program
         }
 
         var failures = 0;
+
         foreach (var (relPath, mode, produce) in artifacts)
         {
             var artifactPath = Path.Combine(repoRoot, relPath.Replace('/', Path.DirectorySeparatorChar));
@@ -381,6 +403,7 @@ internal static partial class Program
         "economy" => EconomyGroup(openraRoot),
         "replay" => ReplayGroup(openraRoot),
         "replay-skirmish" => SkirmishGroup(openraRoot),
+        "replay-bot" => BotGroup(openraRoot),
         "widgets" => WidgetsGroup(openraRoot),
         "mainmenu" => MainMenuGroup(openraRoot),
         "lobby" => LobbyGroup(openraRoot),
