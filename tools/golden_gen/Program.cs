@@ -234,9 +234,9 @@ internal static partial class Program
             ("tests/golden/replay/skirmish.isync-changes.txt", "replay-skirmish", null),
 
             // bot 剧本模式（T34/issue #53）：normal bot 无头自走录包（宿主 admin 化 +
-            // bot client 注入 + LocalRandom 定种子），C++ 重演侧吃录包逐帧对拍。
-            // gen-only（genOnly 集）：跨进程 sync 分歧实证（rng/actors/isync 全同、
-            // 非 dump 的 ISync 字段差异），check/verify 跳过——见偏离登记。
+            // bot client 注入 + LocalRandom 定种子 + 激活抽重放），C++ 重演侧吃录包
+            // 逐帧对拍。跨进程 sync 分歧已修（BotReplayActivationRolls——墙钟种子
+            // 根因见 GoldenGen.Bot.cs 注记），oracle check 双跑恒等恢复。
             ("tests/golden/replay/bot.orarep", "replay-bot", null),
             ("tests/golden/replay/bot.frames.txt", "replay-bot", null),
             ("tests/golden/replay/bot.isync-changes.txt", "replay-bot", null),
@@ -338,19 +338,9 @@ internal static partial class Program
         }
 
         var failures = 0;
-        var genOnly = new HashSet<string>
-        {
-            "tests/golden/replay/bot.orarep",
-            "tests/golden/replay/bot.frames.txt",
-            "tests/golden/replay/bot.isync-changes.txt",
-        };
 
         foreach (var (relPath, mode, produce) in artifacts)
         {
-            // gen-only 产物（bot 剧本，T34）：gen 单跑入库；check/verify 跳过
-            //（跨进程 sync 分歧——C++ 重演对拍以入库 orarep 为准，独立于 oracle 复现）。
-            if (genOnly.Contains(relPath) && verb != "gen")
-                continue;
             var artifactPath = Path.Combine(repoRoot, relPath.Replace('/', Path.DirectorySeparatorChar));
 
             byte[] first;
