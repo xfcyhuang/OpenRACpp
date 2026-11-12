@@ -100,6 +100,7 @@ const std::vector<FaceTypeSpec>& type_faces()
       FaceTypeSpec{.str_type = "t05", .int4_hp = 50000, .int4_facings = 1, .u1_flags = 0,
                    .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth}},
       FaceTypeSpec{.str_type = "fact", .int4_hp = 150000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
+                   .u1_frozen_init = 0b10100,
                    .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kRevealsShroud, K::kFrozenUnderFog, K::kRepairableBuilding, K::kConyardChronoReturn}},
       FaceTypeSpec{.str_type = "proc", .int4_hp = 90000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
                    .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kRevealsShroud, K::kDockHost, K::kFrozenUnderFog, K::kRepairableBuilding}},
@@ -113,16 +114,20 @@ const std::vector<FaceTypeSpec>& type_faces()
                    .vec_traits = {K::kClassicFacingBodyOrientation, K::kMobile, K::kChronoshiftable, K::kStoresResources, K::kHealth, K::kRevealsShroud, K::kHarvester, K::kChangesHealth}},
       FaceTypeSpec{.str_type = "powr", .int4_hp = 40000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
                    .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kFrozenUnderFog, K::kRepairableBuilding}},
-      // —— bot 剧本（T34）面：weap/dome/tsla/sam/apwr/e3/e2 ——
-      FaceTypeSpec{.str_type = "weap", .int4_hp = 60000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
-                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kFrozenUnderFog, K::kRepairableBuilding}},
-      FaceTypeSpec{.str_type = "dome", .int4_hp = 40000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
-                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kFrozenUnderFog, K::kRepairableBuilding, K::kToggleConditionOnOrder}},
+      // —— bot 剧本（T34）面：weap/dome/tsla/sam/apwr/e3/e2（trait 序=上游装配序，
+      // bot-diag f2 pertrait 对拍定标） ——
+      FaceTypeSpec{.str_type = "weap", .int4_hp = 150000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
+                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kRevealsShroud, K::kFrozenUnderFog, K::kRepairableBuilding}},
+      FaceTypeSpec{.str_type = "dome", .int4_hp = 100000, .int4_facings = 1,
+                   .u1_flags = kFlagReveals | kFlagFrozen, .u1_reveals_init = 0b010,
+                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kToggleConditionOnOrder, K::kHealth, K::kRevealsShroud, K::kRevealsShroud, K::kRevealsShroud, K::kFrozenUnderFog, K::kRepairableBuilding}},
       FaceTypeSpec{.str_type = "tsla", .int4_hp = 40000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
-                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kAttackTesla, K::kAutoTarget, K::kRepairableBuilding, K::kToggleConditionOnOrder, K::kFrozenUnderFog}},
+                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kToggleConditionOnOrder, K::kHealth, K::kRevealsShroud, K::kRevealsShroud, K::kAttackTesla, K::kFrozenUnderFog, K::kRepairableBuilding, K::kAutoTarget}},
       FaceTypeSpec{.str_type = "sam", .int4_hp = 40000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
-                   .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kAutoTarget, K::kRepairableBuilding, K::kToggleConditionOnOrder, K::kFrozenUnderFog}},
-      FaceTypeSpec{.str_type = "apwr", .int4_hp = 60000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
+                   .u1_frozen_init = 0b10100, .int4_turret_facings = 32,
+                   .vec_traits = {K::kBuilding, K::kToggleConditionOnOrder, K::kHealth, K::kRevealsShroud, K::kRevealsShroud, K::kClassicFacingBodyOrientation, K::kFrozenUnderFog, K::kRepairableBuilding, K::kTurreted, K::kAttackTurreted, K::kAutoTarget}},
+      FaceTypeSpec{.str_type = "apwr", .int4_hp = 70000, .int4_facings = 1, .u1_flags = kFlagReveals | kFlagFrozen,
+                   .u1_frozen_init = 0b10100,
                    .vec_traits = {K::kBodyOrientation, K::kBuilding, K::kHealth, K::kRevealsShroud, K::kFrozenUnderFog, K::kRepairableBuilding}},
       FaceTypeSpec{.str_type = "e3", .int4_hp = 4500, .int4_facings = 8, .u1_flags = kFlagReveals,
                    .vec_traits = {K::kGainsExperience, K::kBodyOrientation, K::kHealth, K::kRevealsShroud, K::kMobile, K::kChangesHealth, K::kChangesHealth, K::kTakeCover, K::kAttackFrontal, K::kAutoTarget}},
@@ -231,6 +236,8 @@ const char* trait_kind_name(FaceTraitKind kind) {
     case K::kAttackTesla: return "AttackTesla";
     case K::kToggleConditionOnOrder: return "ToggleConditionOnOrder";
     case K::kHarvester: return "Harvester";
+    case K::kTurreted: return "Turreted";
+    case K::kAttackTurreted: return "AttackTurreted";
   }
   return "?";
 }
@@ -245,12 +252,17 @@ std::int32_t face_trait_hash(const ReplayOracleWorld& w, const FaceActor& actor,
     case K::kMissionObjectives:
     case K::kDeveloperMode:
     case K::kGpsWatcher:
-    case K::kRevealsShroud:
-    case K::kRepairableBuilding:
     case K::kConyardChronoReturn:
     case K::kDockHost:
     case K::kChronoshiftable:
       return 0;
+    case K::kRepairableBuilding:
+      // RepairersHash（[VerifySync]——BuildingRepair 出单后非 0；恒 0 时与旧 return 0
+      // 面等价，ore-lord/skirmish 零影响）。
+      return actor.int4_repairers;
+    case K::kRevealsShroud:
+      // CachedTraitDisabled（[VerifySync] bool，bot 剧本垫底面——dome 三实例振荡）
+      return actor.b_reveals_disabled[std::size_t(std::clamp(int4_instance, 0, 2))] ? 1 : 0;
     case K::kChangesHealth:
       return actor.int4_ch_ticks[std::size_t(int4_instance)] ^
              actor.int4_ch_damage[std::size_t(int4_instance)];
@@ -288,6 +300,10 @@ std::int32_t face_trait_hash(const ReplayOracleWorld& w, const FaceActor& actor,
       return actor.int4_content_hash;
     case K::kHarvester:
       return actor.int4_unload_ticks;
+    case K::kTurreted:
+      return face.int4_turret_facings;
+    case K::kAttackTurreted:
+      return 0;
     case K::kPlayerResources:
       return w.vec_players[actor.u4_owner].int4_cash ^ w.vec_players[actor.u4_owner].int4_resources ^
              w.vec_players[actor.u4_owner].int4_capacity;
@@ -423,6 +439,11 @@ std::expected<ReplayOracleWorld, std::string> oracle_create_common(
       (void)support::next(w.rng_shared);
       (void)support::next(w.rng_shared);
     }
+    // RevealsShroud 实例的 CachedTraitDisabled 装配初值（RequiresCondition: disabled
+    // 的实例装配期即禁用——dome@Offline）
+    actor.b_reveals_disabled[0] = (actor.ptr_face->u1_reveals_init & 1) != 0;
+    actor.b_reveals_disabled[1] = (actor.ptr_face->u1_reveals_init & 2) != 0;
+    actor.b_reveals_disabled[2] = (actor.ptr_face->u1_reveals_init & 4) != 0;
     w.vec_actors.push_back(std::move(actor));
     return {};
   }};
@@ -438,17 +459,19 @@ std::expected<ReplayOracleWorld, std::string> oracle_create_common(
     std::string_view str_name;
     std::int32_t int4_capacity{};
     std::int32_t int4_power_drained{};
+    std::int32_t int4_power_provided{};
   };
-  // bot 剧本（T34）：t34 注入集的电力/矿仓贡献——fact(-15)+proc(-30)+barr(-10)+
-  // weap(-15)+tsla(-150)+dome(-15) 耗 235、powr(+100)；proc 矿仓 2000。Multi1
-  // human 对照位（无建筑）。ore-lord 面不变。
+  // bot 剧本（T34）：t34 注入集的电力/矿仓贡献——proc(-30)+weap(-30)+barr(-20)+
+  // dome(-40)+tsla(-80) 耗 200（fact Amount 0 不计；PowerManager hash 172=100^200
+  // bot-diag f2 定标）、powr(+100)；proc 矿仓 2000。Multi1 human 对照位（无建筑）。
+  // ore-lord 面不变。
   const PlayerInit vec_player_init_orelord[]{
-      PlayerInit{"Neutral", 0, 0}, PlayerInit{"Creeps", 0, 0},
-      PlayerInit{"Multi0", 2000, 50}, PlayerInit{"Everyone", 0, 0}};
+      PlayerInit{"Neutral", 0, 0, 0}, PlayerInit{"Creeps", 0, 0, 0},
+      PlayerInit{"Multi0", 2000, 50, 0}, PlayerInit{"Everyone", 0, 0, 0}};
   const PlayerInit vec_player_init_bot[]{
-      PlayerInit{"Neutral", 0, 0}, PlayerInit{"Creeps", 0, 0},
-      PlayerInit{"Multi0", 2000, 235}, PlayerInit{"Multi1", 0, 0},
-      PlayerInit{"Everyone", 0, 0}};
+      PlayerInit{"Neutral", 0, 0, 0}, PlayerInit{"Creeps", 0, 0, 0},
+      PlayerInit{"Multi0", 2000, 200, 100}, PlayerInit{"Multi1", 0, 0, 0},
+      PlayerInit{"Everyone", 0, 0, 0}};
   const std::span<const PlayerInit> vec_player_init{
       b_bot_script ? std::span<const PlayerInit>{vec_player_init_bot}
                    : std::span<const PlayerInit>{vec_player_init_orelord}};
@@ -458,6 +481,7 @@ std::expected<ReplayOracleWorld, std::string> oracle_create_common(
     player.u4_actor_id = static_cast<std::uint32_t>(w.vec_actors.size());
     player.int4_capacity = init.int4_capacity;
     player.int4_power_drained = init.int4_power_drained;
+    player.int4_power_provided = init.int4_power_provided;
     w.vec_players.push_back(std::move(player));
 
     FaceActor player_actor;
@@ -1386,6 +1410,30 @@ std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
     fn_token(tok_f);
     fn_token(tok_frame);
     fn_token(tok_actor);
+
+    // effect 行（bot 剧本，T34 打回③）：`e {f} effect {Type} h {hash}`——SendSync 时刻
+    // 的 SyncedEffects 全量投影（帧内 List 枚举序）。
+    if (tok_actor == "effect") {
+      std::string_view tok_etype, tok_h, tok_hash;
+      fn_token(tok_etype);
+      fn_token(tok_h);
+      fn_token(tok_hash);
+      std::int32_t int4_eff_frame{};
+      if (tok_f != "e" || tok_h != "h"
+          || std::from_chars(tok_frame.data(), tok_frame.data() + tok_frame.size(),
+                             int4_eff_frame)
+                 .ec != std::errc{})
+        return std::unexpected("oracle changes: bad effect line: " + std::string{str_line});
+      OracleEffect effect;
+      effect.str_type = std::string{tok_etype};
+      if (std::from_chars(tok_hash.data(), tok_hash.data() + tok_hash.size(),
+                          effect.int4_hash)
+              .ec != std::errc{})
+        return std::unexpected("oracle changes: bad effect hash: " + std::string{str_line});
+      ctx.map_effects[int4_eff_frame].push_back(std::move(effect));
+      continue;
+    }
+
     fn_token(tok_id);
     fn_token(tok_type);
     fn_token(tok_trait);
@@ -1396,14 +1444,25 @@ std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
     fn_token(tok_arrow);
     std::string_view tok_new;
     fn_token(tok_new);
-    if (tok_f != "f" || tok_actor != "actor" || tok_trait != "trait" || tok_field != "field"
-        || tok_arrow != "->")
+    if ((tok_f != "f" && tok_f != "o" && tok_f != "t") || tok_actor != "actor"
+        || tok_trait != "trait" || tok_field != "field" || tok_arrow != "->")
       return std::unexpected("oracle changes: bad line: " + std::string{str_line});
     OracleChange change;
     if (std::from_chars(tok_id.data(), tok_id.data() + tok_id.size(), change.u4_actor).ec
         != std::errc{})
       return std::unexpected("oracle changes: bad actor id: " + std::string{str_line});
-    change.str_trait = std::string{tok_trait_name};
+    if (const std::size_t idx_hash{tok_trait_name.find('#')};
+        idx_hash != std::string_view::npos) {
+      change.str_trait = std::string{tok_trait_name.substr(0, idx_hash)};
+      if (std::from_chars(tok_trait_name.data() + idx_hash + 1,
+                          tok_trait_name.data() + tok_trait_name.size(),
+                          change.int4_instance)
+              .ec != std::errc{})
+        return std::unexpected("oracle changes: bad trait instance: "
+                               + std::string{str_line});
+    } else {
+      change.str_trait = std::string{tok_trait_name};
+    }
     change.str_field = std::string{tok_field_name};
     change.str_old = std::string{tok_old};
     change.str_new = std::string{tok_new};
@@ -1414,7 +1473,11 @@ std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
 
     if (change.u4_actor == 146 && change.str_trait == "Mobile")
       ctx.int4_146_move_end = std::max(ctx.int4_146_move_end, int4_frame);
-    ctx.map_changes[int4_frame].push_back(std::move(change));
+    // 行前缀路由（T34 打回③）：f=ore-lord/skirmish 全量合并行；o/t=bot 产物按
+    // SendSync 拍拆段（orders 面/tick 面）。
+    (tok_f == "o" ? ctx.map_changes_orders
+                  : tok_f == "t" ? ctx.map_changes_tick : ctx.map_changes)[int4_frame]
+        .push_back(std::move(change));
   }
 
   for (std::size_t idx_line{}; idx_line < str_frames_text.size();) {
@@ -1425,6 +1488,93 @@ std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
                                               : idx_eol) -
                                          idx_line)};
     idx_line = idx_eol == std::string_view::npos ? str_frames_text.size() : idx_eol + 1;
+
+    // 出生/死亡行（bot 剧本驱动，T34 打回）：`actor+ f{n} {id}:{type}` / `actor- f{n}
+    // {id}:{type}`——SyncHash 段1（在世集合）与 fnv 的结构驱动源。
+    if (str_line.starts_with("actor+ ") || str_line.starts_with("actor- ")) {
+      const bool b_spawn{str_line.starts_with("actor+ ")};
+      const std::size_t idx_f{str_line.find('f', 7)};
+      if (idx_f == std::string_view::npos)
+        return std::unexpected("oracle frames: bad actor line: " + std::string{str_line});
+      std::size_t idx_pos{idx_f + 1};
+      const std::size_t idx_frame_end{str_line.find(' ', idx_pos)};
+      std::int32_t int4_actor_frame{};
+      if (idx_frame_end == std::string_view::npos
+          || std::from_chars(str_line.data() + idx_pos, str_line.data() + idx_frame_end,
+                             int4_actor_frame)
+                 .ec != std::errc{})
+        return std::unexpected("oracle frames: bad actor frame: " + std::string{str_line});
+      const std::size_t idx_colon{str_line.find(':', idx_frame_end + 1)};
+      if (idx_colon == std::string_view::npos)
+        return std::unexpected("oracle frames: bad actor id: " + std::string{str_line});
+      std::uint32_t u4_id{};
+      if (std::from_chars(str_line.data() + idx_frame_end + 1, str_line.data() + idx_colon,
+                          u4_id)
+              .ec != std::errc{})
+        return std::unexpected("oracle frames: bad actor id: " + std::string{str_line});
+      if (b_spawn) {
+        OracleSpawn spawn;
+        spawn.u4_id = u4_id;
+        std::string_view str_tail{str_line.substr(idx_colon + 1)};
+        // 出生格附注（T34 打回）：`{type} @{x},{y}:{facing}`（Mobile.FromCell/Facing 或
+        // Building/Immobile.TopLeft 的出生初值——hash 进面，isync 无出生初值行）
+        if (const std::size_t idx_at{str_tail.find(" @")}; idx_at != std::string_view::npos) {
+          spawn.str_type = std::string{str_tail.substr(0, idx_at)};
+          const std::size_t idx_comma{str_tail.find(',', idx_at)};
+          const std::size_t idx_colon{str_tail.find(':', idx_at)};
+          const std::size_t idx_bar{str_tail.find('|', idx_at)};
+          const std::size_t idx_y_end{idx_colon == std::string_view::npos
+                                          ? (idx_bar == std::string_view::npos
+                                                 ? str_tail.size()
+                                                 : idx_bar)
+                                          : idx_colon};
+          if (idx_comma == std::string_view::npos)
+            return std::unexpected("oracle frames: bad spawn cell: " + std::string{str_line});
+          if (std::from_chars(str_tail.data() + idx_at + 2, str_tail.data() + idx_comma,
+                              spawn.int4_cell_x)
+                  .ec != std::errc{}
+              || std::from_chars(str_tail.data() + idx_comma + 1, str_tail.data() + idx_y_end,
+                                 spawn.int4_cell_y)
+                     .ec != std::errc{})
+            return std::unexpected("oracle frames: bad spawn cell: " + std::string{str_line});
+          if (idx_colon != std::string_view::npos
+              && std::from_chars(str_tail.data() + idx_colon + 1,
+                                 str_tail.data() + (idx_bar == std::string_view::npos
+                                                        ? str_tail.size()
+                                                        : idx_bar),
+                                 spawn.int4_facing)
+                     .ec != std::errc{})
+            return std::unexpected("oracle frames: bad spawn facing: " + std::string{str_line});
+          // `|px,py,pz` 附注（T34 打回③）：出生 CenterPosition（subcell 偏移面）。
+          if (idx_bar != std::string_view::npos) {
+            const std::size_t idx_p_comma1{str_tail.find(',', idx_bar)};
+            const std::size_t idx_p_comma2{str_tail.find(',', idx_p_comma1 + 1)};
+            if (idx_p_comma1 == std::string_view::npos || idx_p_comma2 == std::string_view::npos)
+              return std::unexpected("oracle frames: bad spawn pos: "
+                                     + std::string{str_line});
+            const auto fn_i32{[](std::string_view str_part, std::int32_t& int4_out) {
+              const auto res{std::from_chars(str_part.data(),
+                                             str_part.data() + str_part.size(), int4_out)};
+              return res.ec == std::errc{}
+                     && res.ptr == str_part.data() + str_part.size();
+            }};
+            if (!fn_i32(str_tail.substr(idx_bar + 1, idx_p_comma1 - idx_bar - 1), spawn.int4_px)
+                || !fn_i32(str_tail.substr(idx_p_comma1 + 1, idx_p_comma2 - idx_p_comma1 - 1),
+                           spawn.int4_py)
+                || !fn_i32(str_tail.substr(idx_p_comma2 + 1), spawn.int4_pz))
+              return std::unexpected("oracle frames: bad spawn pos: " + std::string{str_line});
+            spawn.b_has_pos = true;
+          }
+          spawn.b_has_cell = true;
+        } else {
+          spawn.str_type = std::string{str_tail};
+        }
+        ctx.map_spawns[int4_actor_frame].push_back(std::move(spawn));
+      } else {
+        ctx.map_deaths[int4_actor_frame].push_back(u4_id);
+      }
+      continue;
+    }
     if (!str_line.starts_with("f ")) continue;
     std::size_t idx_pos{2};
     const std::size_t idx_frame_end{str_line.find(' ', idx_pos)};
@@ -1434,6 +1584,12 @@ std::expected<OracleReplayContext, std::string> replay_oracle_context_parse(
                .ec
                != std::errc{})
       return std::unexpected("oracle frames: bad frame line: " + std::string{str_line});
+
+    // fnv 列（bot 剧本对拍锚，T34 打回）
+    if (const std::size_t idx_fnv{str_line.find(" fnv ", idx_frame_end)};
+        idx_fnv != std::string_view::npos)
+      ctx.map_fnv.emplace(int4_frame, std::string{str_line.substr(idx_fnv + 5)});
+
     idx_pos = str_line.find(" rng ", idx_pos);
     if (idx_pos == std::string_view::npos) continue;
     idx_pos += 5;
@@ -1577,6 +1733,360 @@ void replay_oracle_apply_order(ReplayOracleWorld& w, const network::OrderModel& 
     replay_oracle_spawn_powr(w, order.target.int4_cell_bits);
     return;
   }
+}
+
+// —— T34 bot 剧本帧驱动（issue #53 打回轮）：全域 isync 垫底 + 结构驱动 ——
+// 与 ore-lord/skirmish 的机制面混合推进不同：bot 剧本的决策/机制随机面（WIB idle
+// 抽样、AutoTarget 扫描 Next(3,8)、交战 rng、FDA 寻路、UnitBuilder Shuffle rng_local）
+// 不在 C++ 侧自然消耗——[VerifySync] 字段全部由 isync-changes 垫底（old 校验对账
+// 衔接上帧状态），rng 总耗由 frames 账本垫齐（MT 序列确定，total 一致则 last 一致
+// ——段4 rng 贡献随 total 封闭）；出生/死亡（frames actor+/- 行）驱动段1 在世集合
+// 与 fnv；段3 effects 由 isync dump 的 effect 行（SendSync 时刻采样）整体投影。
+// f1 初始化面（tsla 充能初值/harv 出生 facing/AutoTarget 首扫序/queue enabled 翻转/
+// frozen 层基线）同走垫底——bot.isync-changes 的 f1 行即初始化 diff。
+namespace {
+
+bool bot_parse_triple(std::string_view str_text, std::int32_t (&int4_out)[3]) {
+  const std::size_t idx_comma{str_text.find(',')};
+  const std::size_t idx_comma2{str_text.find(',', idx_comma + 1)};
+  if (idx_comma == std::string_view::npos || idx_comma2 == std::string_view::npos)
+    return false;
+  const auto fn_i32{[](std::string_view str_part, std::int32_t& int4_out_part) {
+    const auto res{
+        std::from_chars(str_part.data(), str_part.data() + str_part.size(), int4_out_part)};
+    return res.ec == std::errc{} && res.ptr == str_part.data() + str_part.size();
+  }};
+  return fn_i32(str_text.substr(0, idx_comma), int4_out[0])
+         && fn_i32(str_text.substr(idx_comma + 1, idx_comma2 - idx_comma - 1), int4_out[1])
+         && fn_i32(str_text.substr(idx_comma2 + 1), int4_out[2]);
+}
+
+void bot_apply_changes(ReplayOracleWorld& w,
+                       const std::map<std::int32_t, std::vector<OracleChange>>& map_changes,
+                       std::int32_t int4_frame) {
+  const auto it_changes{map_changes.find(int4_frame)};
+  if (it_changes == map_changes.end()) return;
+  if (!w.str_fatal.empty()) return;
+  std::size_t sz_applied{}, sz_skipped{};
+  const auto fn_fatal{[&](const OracleChange& change, const std::string& str_what) {
+    w.str_fatal = std::format("bot isync f{} actor{} {}#{} {}: {}", int4_frame,
+                              change.u4_actor, change.str_trait, change.int4_instance,
+                              change.str_field, str_what);
+  }};
+  const auto fn_parse_i32{[](std::string_view str_text, std::int32_t& int4_out) {
+    const auto res{std::from_chars(str_text.data(), str_text.data() + str_text.size(), int4_out)};
+    return res.ec == std::errc{} && res.ptr == str_text.data() + str_text.size();
+  }};
+
+  for (const OracleChange& change : it_changes->second) {
+    // 对账跳过（hash 恒 0 的 ISync trait——face_trait_hash 返回 0 面）：行入账不应用。
+    if (change.str_trait == "ConyardChronoReturn" || change.str_trait == "DockHost"
+        || change.str_trait == "Chronoshiftable") {
+      ++sz_skipped;
+      continue;
+    }
+    if (change.u4_actor >= w.vec_actors.size()) {
+      fn_fatal(change, std::format("actor 越界 (vec_actors={})", w.vec_actors.size()));
+      return;
+    }
+    FaceActor& actor{w.vec_actors[change.u4_actor]};
+    if (actor.u4_owner >= w.vec_players.size()) {
+      fn_fatal(change, std::format("owner {} 越界", actor.u4_owner));
+      return;
+    }
+
+    // 数值应用：old 校验（衔接上帧状态对账）→ 新值写入。
+    const auto fn_apply_i32{[&](std::int32_t& int4_target) {
+      std::int32_t int4_old{}, int4_new{};
+      if (!fn_parse_i32(change.str_old, int4_old) || int4_old != int4_target) {
+        fn_fatal(change, std::format("old 校验失败: golden old={} 当前={}",
+                                     change.str_old, int4_target));
+        return false;
+      }
+      if (!fn_parse_i32(change.str_new, int4_new)) {
+        fn_fatal(change, std::format("bad new: {}", change.str_new));
+        return false;
+      }
+      int4_target = int4_new;
+      ++sz_applied;
+      return true;
+    }};
+    const auto fn_apply_pair{[&](std::int32_t& int4_a, std::int32_t& int4_b) {
+      const std::size_t idx_comma_old{change.str_old.find(',')};
+      const std::size_t idx_comma_new{change.str_new.find(',')};
+      std::int32_t int4_old_a{}, int4_old_b{}, int4_new_a{}, int4_new_b{};
+      if (idx_comma_old == std::string::npos || idx_comma_new == std::string::npos
+          || !fn_parse_i32(change.str_old.substr(0, idx_comma_old), int4_old_a)
+          || !fn_parse_i32(change.str_old.substr(idx_comma_old + 1), int4_old_b)
+          || int4_old_a != int4_a || int4_old_b != int4_b) {
+        fn_fatal(change, std::format("old 校验失败: golden old={} 当前={},{}",
+                                     change.str_old, int4_a, int4_b));
+        return false;
+      }
+      if (!fn_parse_i32(change.str_new.substr(0, idx_comma_new), int4_new_a)
+          || !fn_parse_i32(change.str_new.substr(idx_comma_new + 1), int4_new_b)) {
+        fn_fatal(change, std::format("bad new: {}", change.str_new));
+        return false;
+      }
+      int4_a = int4_new_a;
+      int4_b = int4_new_b;
+      ++sz_applied;
+      return true;
+    }};
+
+    if (change.str_trait == "Mobile") {
+      if (change.str_field == "Facing") {
+        if (!fn_apply_i32(actor.int4_facing)) return;
+      } else if (change.str_field == "FromCell") {
+        if (!fn_apply_pair(actor.int4_from_x, actor.int4_from_y)) return;
+      } else if (change.str_field == "ToCell") {
+        if (!fn_apply_pair(actor.int4_to_x, actor.int4_to_y)) return;
+      } else if (change.str_field == "CenterPosition") {
+        std::int32_t int4_old[3]{}, int4_new[3]{};
+        if (!bot_parse_triple(change.str_old, int4_old) || int4_old[0] != actor.int4_px
+            || int4_old[1] != actor.int4_py || int4_old[2] != actor.int4_pz) {
+          fn_fatal(change, std::format("old 校验失败: golden old={} 当前={},{},{}",
+                                       change.str_old, actor.int4_px, actor.int4_py,
+                                       actor.int4_pz));
+          return;
+        }
+        if (!bot_parse_triple(change.str_new, int4_new)) {
+          fn_fatal(change, std::format("bad new: {}", change.str_new));
+          return;
+        }
+        actor.int4_px = int4_new[0];
+        actor.int4_py = int4_new[1];
+        actor.int4_pz = int4_new[2];
+        ++sz_applied;
+      } else {
+        fn_fatal(change, "未知 Mobile field");
+        return;
+      }
+    } else if (change.str_trait == "StoresResources" && change.str_field == "ContentHash") {
+      if (!fn_apply_i32(actor.int4_content_hash)) return;
+    } else if (change.str_trait == "AutoTarget" && change.str_field == "nextScanTime") {
+      if (!fn_apply_i32(actor.int4_next_scan)) return;
+    } else if (change.str_trait == "AutoTarget" && change.str_field == "Aggressor") {
+      // Actor 引用垫底（a{N} 文本——SyncHash 段2 的 aggressor<<16 面）
+      std::int32_t int4_old{}, int4_new{};
+      const auto fn_parse_actor_ref{[](std::string_view str_text, std::int32_t& int4_out) {
+        if (str_text == "a-1") {
+          int4_out = kNoAggressor;
+          return true;
+        }
+        if (!str_text.starts_with('a')) return false;
+        const auto res{std::from_chars(str_text.data() + 1, str_text.data() + str_text.size(),
+                                       int4_out)};
+        return res.ec == std::errc{} && res.ptr == str_text.data() + str_text.size();
+      }};
+      if (!fn_parse_actor_ref(change.str_old, int4_old) || int4_old != actor.int4_aggressor) {
+        fn_fatal(change, std::format("old 校验失败: golden old={} 当前={}",
+                                     change.str_old, actor.int4_aggressor));
+        return;
+      }
+      if (!fn_parse_actor_ref(change.str_new, int4_new)) {
+        fn_fatal(change, std::format("bad new: {}", change.str_new));
+        return;
+      }
+      actor.int4_aggressor = int4_new;
+      ++sz_applied;
+    } else if (change.str_trait == "AttackTesla" && change.str_field == "charges") {
+      if (!fn_apply_i32(actor.int4_ts_charges)) return;
+    } else if (change.str_trait == "AttackTesla" && change.str_field == "timeToRecharge") {
+      if (!fn_apply_i32(actor.int4_ts_recharge)) return;
+    } else if (change.str_trait == "Health" && change.str_field == "HP") {
+      if (!fn_apply_i32(actor.int4_hp)) return;
+    } else if (change.str_trait == "AttackFrontal" && change.str_field == "IsAiming") {
+      actor.b_aiming = change.str_new == "True";
+      ++sz_applied;
+    } else if (change.str_trait == "ChangesHealth" && change.str_field == "damageTicks") {
+      const std::size_t u_idx{std::size_t(change.int4_instance < 0
+                                              ? 0
+                                              : std::min(change.int4_instance, 1))};
+      if (!fn_apply_i32(actor.int4_ch_ticks[u_idx])) return;
+    } else if (change.str_trait == "PlayerResources") {
+      if (change.str_field == "Cash") {
+        if (!fn_apply_i32(w.vec_players[actor.u4_owner].int4_cash)) return;
+      } else if (change.str_field == "Ore") {
+        if (!fn_apply_i32(w.vec_players[actor.u4_owner].int4_resources)) return;
+      } else {
+        fn_fatal(change, "未知 PlayerResources field");
+        return;
+      }
+    } else if (change.str_trait == "ToggleConditionOnOrder" && change.str_field == "enabled") {
+      actor.b_powerdown = change.str_new == "True";
+      ++sz_applied;
+    } else if (change.str_trait == "RepairableBuilding"
+               && change.str_field == "RepairersHash") {
+      // BuildingRepair 出单面（o 段）：Repairers 集合 hash（RepairBuilding 单 resolve
+      // 后非 0，修完回落 0）。
+      if (!fn_apply_i32(actor.int4_repairers)) return;
+    } else if (change.str_trait == "TakeCover"
+               && change.str_field == "remainingDuration") {
+      if (!fn_apply_i32(actor.int4_take_cover)) return;
+    } else if (change.str_trait == "GainsExperience"
+               && change.str_field == "Experience") {
+      if (!fn_apply_i32(actor.int4_experience)) return;
+    } else if (change.str_trait == "GainsExperience" && change.str_field == "Level") {
+      if (!fn_apply_i32(actor.int4_level)) return;
+    } else if (change.str_trait == "PlayerExperience"
+               && change.str_field == "Experience") {
+      if (!fn_apply_i32(w.vec_players[actor.u4_owner].int4_pexp)) return;
+    } else if (change.str_trait == "RevealsShroud"
+               && change.str_field == "CachedTraitDisabled") {
+      if (change.int4_instance < 0 || change.int4_instance > 2) {
+        fn_fatal(change, "RevealsShroud instance 越界");
+        return;
+      }
+      const bool b_old{actor.b_reveals_disabled[std::size_t(change.int4_instance)]};
+      if ((change.str_old == "True") != b_old) {
+        fn_fatal(change, std::format("old 校验失败: golden old={} 当前={}",
+                                     change.str_old, b_old ? "True" : "False"));
+        return;
+      }
+      actor.b_reveals_disabled[std::size_t(change.int4_instance)] = change.str_new == "True";
+      ++sz_applied;
+    } else if (change.str_trait == "PowerManager") {
+      if (change.str_field == "PowerProvided") {
+        if (!fn_apply_i32(w.vec_players[actor.u4_owner].int4_power_provided)) return;
+      } else if (change.str_field == "PowerDrained") {
+        if (!fn_apply_i32(w.vec_players[actor.u4_owner].int4_power_drained)) return;
+      } else {
+        fn_fatal(change, "未知 PowerManager field");
+        return;
+      }
+    } else if (change.str_trait == "FrozenActorLayer") {
+      if (change.str_field == "VisibilityHash") {
+        if (!fn_apply_i32(w.vec_players[actor.u4_owner].int4_frozen_vis)) return;
+      } else if (change.str_field == "FrozenHash") {
+        if (!fn_apply_i32(w.vec_players[actor.u4_owner].int4_frozen_sum)) return;
+      } else {
+        fn_fatal(change, "未知 FrozenActorLayer field");
+        return;
+      }
+    } else if (change.str_trait == "FrozenUnderFog" && change.str_field == "VisibilityHash") {
+      if (!fn_apply_i32(actor.int4_frozen_vis)) return;
+    } else if (change.str_trait == "ClassicProductionQueue"
+               && change.str_field == "Enabled") {
+      if (change.int4_instance < 0 || change.int4_instance >= 6) {
+        fn_fatal(change, "queue instance 越界");
+        return;
+      }
+      const std::size_t u_idx{std::size_t(change.int4_instance)};
+      const bool b_old{w.vec_players[actor.u4_owner].b_queue_enabled[u_idx]};
+      if ((change.str_old == "True") != b_old) {
+        fn_fatal(change, std::format("old 校验失败: golden old={} 当前={}",
+                                     change.str_old, b_old ? "True" : "False"));
+        return;
+      }
+      w.vec_players[actor.u4_owner].b_queue_enabled[u_idx] = change.str_new == "True";
+      ++sz_applied;
+    } else {
+      fn_fatal(change, "未知 (trait,field) 组合");
+      return;
+    }
+  }
+  if (sz_applied + sz_skipped != it_changes->second.size())
+    w.str_fatal = std::format("bot isync f{}: 行数对账失败 applied={} skipped={} 总={}",
+                              int4_frame, sz_applied, sz_skipped,
+                              it_changes->second.size());
+}
+
+void bot_spawn(ReplayOracleWorld& w, const OracleSpawn& spawn) {
+  FaceActor actor;
+  actor.u4_id = spawn.u4_id;
+  actor.str_type = spawn.str_type;
+  actor.ptr_face = face_type_find(spawn.str_type);
+  if (actor.ptr_face == nullptr) {
+    w.str_fatal = std::format("bot spawn f{}: face 表缺 {}", spawn.u4_id, spawn.str_type);
+    return;
+  }
+  actor.u4_owner = 2;   // bot 产物（Multi0）
+  const std::int32_t int4_x{spawn.b_has_cell ? spawn.int4_cell_x : 0};
+  const std::int32_t int4_y{spawn.b_has_cell ? spawn.int4_cell_y : 0};
+  actor.int4_x = int4_x;
+  actor.int4_y = int4_y;
+  actor.int4_hp = actor.ptr_face->int4_hp;
+  actor.int4_from_x = actor.int4_to_x = int4_x;
+  actor.int4_from_y = actor.int4_to_y = int4_y;
+  // 出生 CenterPosition：带 `|px,py,pz` 附注（生产出口 eject 的 subcell 偏移面）优先，
+  // 否则格心公式（建筑/无附注）。
+  actor.int4_px = spawn.b_has_pos ? spawn.int4_px : int4_x * 1024 + 512;
+  actor.int4_py = spawn.b_has_pos ? spawn.int4_py : int4_y * 1024 + 512;
+  actor.int4_pz = spawn.int4_pz;
+  actor.int4_facing = spawn.int4_facing;
+  // 出生建筑 FrozenUnderFog.VisibilityHash 初值（owner+Everyone 置位——isync 无出生
+  // 帧行，由此承载；后续变化走 isync 垫底行）。
+  actor.int4_frozen_vis = actor.ptr_face->u1_frozen_init;
+  if (spawn.u4_id != w.vec_actors.size()) {
+    w.str_fatal = std::format("bot spawn f{}: id {} != 顺序 {}（出生序断裂）", spawn.u4_id,
+                              spawn.u4_id, w.vec_actors.size());
+    return;
+  }
+  w.vec_actors.push_back(std::move(actor));
+}
+
+void bot_apply_spawns(ReplayOracleWorld& w, const OracleReplayContext& ctx,
+                      std::int32_t int4_frame) {
+  if (const auto it_spawns{ctx.map_spawns.find(int4_frame)}; it_spawns != ctx.map_spawns.end())
+    for (const OracleSpawn& spawn : it_spawns->second)
+      bot_spawn(w, spawn);
+}
+
+void bot_apply_deaths(ReplayOracleWorld& w, const OracleReplayContext& ctx,
+                      std::int32_t int4_frame) {
+  if (const auto it_deaths{ctx.map_deaths.find(int4_frame)}; it_deaths != ctx.map_deaths.end())
+    for (const std::uint32_t u4_id : it_deaths->second) {
+      if (u4_id >= w.vec_actors.size()) {
+        w.str_fatal = std::format("bot death f{}: actor {} 越界", int4_frame, u4_id);
+        return;
+      }
+      w.vec_actors[u4_id].b_in_world = false;
+    }
+}
+
+void bot_apply_effects(ReplayOracleWorld& w, const OracleReplayContext& ctx,
+                       std::int32_t int4_frame) {
+  // 段3 面：SendSync 时刻的 effects 全量投影（整帧替换——无自然演化）。
+  w.vec_sync_effects.clear();
+  if (const auto it_effects{ctx.map_effects.find(int4_frame)};
+      it_effects != ctx.map_effects.end())
+    for (const OracleEffect& effect : it_effects->second)
+      w.vec_sync_effects.push_back({.int4_hash = effect.int4_hash});
+}
+
+void bot_rng_pad(ReplayOracleWorld& w, const OracleReplayContext& ctx,
+                 std::int32_t int4_frame) {
+  // rng 账本垫底（MT 序列确定：total 一致 ⇒ last 一致——段4 rng 贡献随 total 封闭）。
+  if (const auto it_count{ctx.map_rng_count.find(int4_frame)};
+      it_count != ctx.map_rng_count.end())
+    while (w.rng_shared.int4_total_count < it_count->second)
+      (void)support::next(w.rng_shared);
+}
+
+}  // namespace
+
+void replay_oracle_bot_pre(ReplayOracleWorld& w, const OracleReplayContext& ctx,
+                           std::int32_t int4_frame) {
+  // SendSync 拍前（orders 后）：orders 段 isync 行（PowerDown toggle/PowerManager/
+  // RepairersHash）→ 段3 effects 投影（SendSync 时刻采样）。此后即 SyncHash 对比点。
+  bot_apply_changes(w, ctx.map_changes_orders, int4_frame);
+  if (!w.str_fatal.empty()) return;
+  bot_apply_effects(w, ctx, int4_frame);
+}
+
+void replay_oracle_bot_post(ReplayOracleWorld& w, const OracleReplayContext& ctx,
+                            std::int32_t int4_frame) {
+  // SendSync 拍后（world.Tick）：tick 段 isync 行（f1 初始化面/tsla 充能/harv 移动/
+  // 生产扣款）→ 出生/死亡（帧尾任务/dispose）→ rng 账本垫底（MT 序列确定：total 一致
+  // ⇒ last 一致——段4 rng 贡献随 total 封闭）。此后即帧尾（fnv 对比点）。
+  bot_apply_changes(w, ctx.map_changes_tick, int4_frame);
+  if (!w.str_fatal.empty()) return;
+  bot_apply_spawns(w, ctx, int4_frame);
+  if (!w.str_fatal.empty()) return;
+  bot_apply_deaths(w, ctx, int4_frame);
+  if (!w.str_fatal.empty()) return;
+  bot_rng_pad(w, ctx, int4_frame);
 }
 
 std::int32_t replay_oracle_sync_hash(const ReplayOracleWorld& w) {

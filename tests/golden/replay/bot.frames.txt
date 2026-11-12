@@ -1,7 +1,7 @@
 # run frames 660 players 5 actors 157
 init actors 0:world:Neutral 1:player:Neutral 2:player:Creeps 3:player:Multi0 4:player:Multi1 5:player:Everyone 6:mpspawn:Neutral 7:mpspawn:Neutral 8:v01:Neutral 9:v10:Neutral 10:v08:Neutral 11:brl3:Neutral 12:v11:Neutral 13:v16:Neutral 14:v16:Neutral 15:v16:Neutral 16:v16:Neutral 17:v11:Neutral 18:v05:Neutral 19:v18:Neutral 20:v17:Neutral 21:v17:Neutral 22:v17:Neutral 23:rushouse:Neutral 24:v04:Neutral 25:v06:Neutral 26:v09:Neutral 27:v08:Neutral 28:barl:Neutral 29:v02:Neutral 30:v07:Neutral 31:t01:Neutral 32:tc03:Neutral 33:tc02:Neutral 34:tc01:Neutral 35:t15:Neutral 36:utilpol1:Neutral 37:utilpol1:Neutral 38:utilpol2:Neutral 39:utilpol2:Neutral 40:utilpol2:Neutral 41:tc04:Neutral 42:t10:Neutral 43:t11:Neutral 44:t14:Neutral 45:t13:Neutral 46:tc01:Neutral 47:t16:Neutral 48:t01:Neutral 49:tc04:Neutral 50:tanktrap2:Neutral 51:tanktrap2:Neutral 52:tanktrap2:Neutral 53:tanktrap2:Neutral 54:fenc:Neutral 55:fenc:Neutral 56:fenc:Neutral 57:fenc:Neutral 58:fenc:Neutral 59:fenc:Neutral 60:fenc:Neutral 61:fenc:Neutral 62:fenc:Neutral 63:fenc:Neutral 64:t06:Neutral 65:fenc:Neutral 66:t06:Neutral 67:tc02:Neutral 68:tc03:Neutral 69:tc03:Neutral 70:tc01:Neutral 71:t02:Neutral 72:t03:Neutral 73:tc05:Neutral 74:tc01:Neutral 75:t12:Neutral 76:t08:Neutral 77:t08:Neutral 78:t08:Neutral 79:tc04:Neutral 80:tc04:Neutral 81:tc04:Neutral 82:tc04:Neutral 83:tc01:Neutral 84:t01:Neutral 85:t12:Neutral 86:t08:Neutral 87:t08:Neutral 88:tc04:Neutral 89:tc01:Neutral 90:tc04:Neutral 91:tc01:Neutral 92:tc02:Neutral 93:tc05:Neutral 94:t08:Neutral 95:t08:Neutral 96:t08:Neutral 97:t08:Neutral 98:tc03:Neutral 99:tc03:Neutral 100:t02:Neutral 101:t06:Neutral 102:v07:Neutral 103:t11:Neutral 104:t13:Neutral 105:mine:Neutral 106:mine:Neutral 107:mine:Neutral 108:mine:Neutral 109:mine:Neutral 110:mine:Neutral 111:mine:Neutral 112:mine:Neutral 113:mine:Neutral 114:mine:Neutral 115:tc04:Neutral 116:mine:Neutral 117:mine:Neutral 118:tc01:Neutral 119:tc02:Neutral 120:t13:Neutral 121:t06:Neutral 122:tc04:Neutral 123:tc04:Neutral 124:tc04:Neutral 125:tc03:Neutral 126:tc01:Neutral 127:t06:Neutral 128:t15:Neutral 129:t11:Neutral 130:t15:Neutral 131:tc03:Neutral 132:tc03:Neutral 133:t05:Neutral 134:tc02:Neutral 135:tc05:Neutral 136:tc05:Neutral 137:v05:Neutral 138:t01:Neutral 139:t01:Neutral 140:t12:Neutral 141:t08:Neutral 142:t08:Neutral 143:t02:Neutral 144:fact:Multi0 145:proc:Multi0 146:barr:Multi0 147:weap:Multi0 148:powr:Multi0 149:dome:Multi0 150:tsla:Multi0 151:harv:Multi0 152:harv:Multi0 153:e1:Creeps 154:e1:Creeps 155:mcv:Multi0 156:mcv:Multi1
 f 1 sync 1477891057 defeat 0 rng 1867897881 41 actors 158 fnv b9b5cd57f6a11bd0
-actor+ f1 157:harv
+actor+ f1 157:harv @34,7:256|35328,7680,0
 f 2 sync -1841759512 defeat 0 rng 1867897881 41 actors 158 fnv b9b5cd57f6a11bd0
 f 3 sync -1841757761 defeat 0 rng 72527646 45 actors 158 fnv b9b5cd57f6a11bd0
 f 4 sync 657841051 defeat 0 rng 72527646 45 actors 158 fnv b9b5cd57f6a11bd0
@@ -12,7 +12,7 @@ f 8 sync -647691240 defeat 0 rng 107751303 60 actors 158 fnv b9b5cd57f6a11bd0
 f 9 sync -945539458 defeat 0 rng 2112990667 64 actors 158 fnv b9b5cd57f6a11bd0
 f 10 sync 1057629125 defeat 0 rng 42803641 68 actors 158 fnv b9b5cd57f6a11bd0
 f 11 sync -1013258802 defeat 0 rng 1311764374 72 actors 158 fnv ca433333e590b745
-actor+ f11 158:fact
+actor+ f11 158:fact @14,14
 actor- f11 155:mcv
 f 12 sync 1876417668 defeat 0 rng 622293537 73 actors 158 fnv ca433333e590b745
 f 13 sync 1188246638 defeat 0 rng 622293537 73 actors 158 fnv ca433333e590b745
@@ -117,7 +117,7 @@ f 111 sync -1652365297 defeat 0 rng 2035629585 245 actors 158 fnv ca433333e590b7
 f 112 sync -1146866874 defeat 0 rng 2035629585 245 actors 158 fnv ca433333e590b745
 f 113 sync -1144713439 defeat 0 rng 2035629585 245 actors 158 fnv ca433333e590b745
 f 114 sync -1143389836 defeat 0 rng 1112147229 247 actors 159 fnv 222672b77cbfbe4f
-actor+ f114 159:e1
+actor+ f114 159:e1 @21,11:550|21803,10880,0
 f 115 sync -1064588330 defeat 0 rng 1112147229 247 actors 159 fnv 222672b77cbfbe4f
 f 116 sync -1062430367 defeat 0 rng 1112147229 247 actors 159 fnv 222672b77cbfbe4f
 f 117 sync -1057214108 defeat 0 rng 1898440542 248 actors 159 fnv 222672b77cbfbe4f
@@ -321,7 +321,7 @@ f 314 sync 315510660 defeat 0 rng 465731986 651 actors 159 fnv 222672b77cbfbe4f
 f 315 sync 315416225 defeat 0 rng 1176111062 652 actors 159 fnv 222672b77cbfbe4f
 f 316 sync 1026211969 defeat 0 rng 1176111062 652 actors 159 fnv 222672b77cbfbe4f
 f 317 sync 1026165918 defeat 0 rng 1254735356 654 actors 160 fnv c9096f8829a94c13
-actor+ f317 160:e3
+actor+ f317 160:e3 @21,11:550|21803,10880,0
 f 318 sync -1456765601 defeat 0 rng 1254735356 654 actors 160 fnv c9096f8829a94c13
 f 319 sync -1456882890 defeat 0 rng 1254735356 654 actors 160 fnv c9096f8829a94c13
 f 320 sync -1453827549 defeat 0 rng 810301348 655 actors 160 fnv c9096f8829a94c13
@@ -356,7 +356,7 @@ f 348 sync 647094924 defeat 0 rng 495402387 724 actors 160 fnv c9096f8829a94c13
 f 349 sync 57457163 defeat 0 rng 1598180576 730 actors 160 fnv c9096f8829a94c13
 f 350 sync 1102517062 defeat 0 rng 1797377111 734 actors 160 fnv c9096f8829a94c13
 f 351 sync 1308292629 defeat 0 rng 1904271243 739 actors 161 fnv 43abce552f503890
-actor+ f351 161:apwr
+actor+ f351 161:apwr @12,18
 f 352 sync 49222640 defeat 0 rng 1904271243 739 actors 161 fnv 43abce552f503890
 f 353 sync 57282451 defeat 0 rng 1022743776 740 actors 161 fnv 43abce552f503890
 f 354 sync -1710762025 defeat 0 rng 1713787005 741 actors 161 fnv 43abce552f503890
@@ -414,7 +414,7 @@ f 404 sync 1077697323 defeat 0 rng 1838431326 861 actors 160 fnv 1443869bf9ba316
 f 405 sync 1077532670 defeat 0 rng 1461510634 865 actors 160 fnv 1443869bf9ba3160
 f 406 sync 431692732 defeat 0 rng 981513215 868 actors 160 fnv 1443869bf9ba3160
 f 407 sync -126235358 defeat 0 rng 1067518088 874 actors 161 fnv 7b0debc3cc34a60a
-actor+ f407 162:e1
+actor+ f407 162:e1 @21,11:550|21803,10880,0
 f 408 sync -2089535998 defeat 0 rng 572476313 875 actors 161 fnv 7b0debc3cc34a60a
 f 409 sync 1718003814 defeat 0 rng 572476313 875 actors 161 fnv 7b0debc3cc34a60a
 f 410 sync 1601902826 defeat 0 rng 572476313 875 actors 161 fnv 7b0debc3cc34a60a
@@ -484,7 +484,7 @@ f 473 sync -646731548 defeat 0 rng 1775990288 992 actors 160 fnv e30b521d6b04a21
 actor- f473 154:e1
 f 474 sync 427096206 defeat 0 rng 1568803298 997 actors 160 fnv e30b521d6b04a21b
 f 475 sync 226574046 defeat 0 rng 1568803298 997 actors 161 fnv ca05490ef8c9414d
-actor+ f475 163:sam
+actor+ f475 163:sam @24,8
 f 476 sync 2015629157 defeat 0 rng 1618727692 1000 actors 161 fnv ca05490ef8c9414d
 f 477 sync 1968474529 defeat 0 rng 676259100 1001 actors 161 fnv ca05490ef8c9414d
 f 478 sync 980163175 defeat 0 rng 676259100 1001 actors 161 fnv ca05490ef8c9414d
@@ -537,7 +537,7 @@ f 524 sync -1366415801 defeat 0 rng 730463817 1043 actors 161 fnv ca05490ef8c941
 f 525 sync -1352167150 defeat 0 rng 730463817 1043 actors 161 fnv ca05490ef8c9414d
 f 526 sync -162058579 defeat 0 rng 947456155 1069 actors 161 fnv ca05490ef8c9414d
 f 527 sync 343963794 defeat 0 rng 591077654 1073 actors 162 fnv c9b68ed9847bcb6c
-actor+ f527 164:e2
+actor+ f527 164:e2 @21,11:550|21803,10880,0
 f 528 sync -271478479 defeat 0 rng 591077654 1073 actors 162 fnv c9b68ed9847bcb6c
 f 529 sync -254028266 defeat 0 rng 591077654 1073 actors 162 fnv c9b68ed9847bcb6c
 f 530 sync -228152002 defeat 0 rng 563757417 1074 actors 162 fnv c9b68ed9847bcb6c
@@ -628,7 +628,7 @@ f 614 sync 257971333 defeat 0 rng 1733621281 1155 actors 162 fnv c9b68ed9847bcb6
 f 615 sync 329474223 defeat 0 rng 1733621281 1155 actors 162 fnv c9b68ed9847bcb6c
 f 616 sync 322342748 defeat 0 rng 1428595663 1156 actors 162 fnv c9b68ed9847bcb6c
 f 617 sync 104671855 defeat 0 rng 139620044 1159 actors 163 fnv cb77c3b0c30afaf3
-actor+ f617 165:e1
+actor+ f617 165:e1 @22,11:635|22358,11050,0
 f 618 sync -619884793 defeat 0 rng 619670973 1160 actors 163 fnv cb77c3b0c30afaf3
 f 619 sync -132896986 defeat 0 rng 619670973 1160 actors 163 fnv cb77c3b0c30afaf3
 f 620 sync -137402810 defeat 0 rng 619670973 1160 actors 163 fnv cb77c3b0c30afaf3

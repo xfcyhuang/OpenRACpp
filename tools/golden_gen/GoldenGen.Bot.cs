@@ -186,8 +186,29 @@ static (byte[] Orarep, string Dump, string IsyncDump) BotRecordRun(System.IO.Tex
 
     var world = ReplayBuildWorld(modData, map, om, lobby);
     BotSeedLocalRandom(world);
-    if (diag != null)
-        conn.OnSendSync = (f, h, d) => BotDiagSegments(world, f, h, diag);
+
+    // effects 投影（T34 打回）：SendSync 时刻（SyncHash 段3 同拍——ProcessOrders 后、
+    // world.Tick 前）的 world.SyncedEffects 全量 (类型,hash) 行，帧序拼入 isync dump
+    // 尾部。C++ 重演侧段3 垫底（Missile 弹道等 ISync effect——actor 遍历不含 effects，
+    // isync-changes 是段3 数据面唯一入产物渠道）。
+    // mid 快照（T34 打回③）：同一时刻的 isync 全量快照——帧内 isync 变化按 SendSync
+    // 拍拆 o（ProcessOrders 面：PowerDown toggle/PowerManager 重算等）/ t（world.Tick
+    // 面：tsla 充能/harv 移动/出生帧尾任务等）两段行，C++ 侧 SyncHash 对比点（SendSync
+    // = orders 后 tick 前）两侧各取所需，逐帧全等不再受 orders/tick 混合歧义拖累。
+    var effectsSb = new StringBuilder();
+    var midSnaps = new Dictionary<int, Dictionary<IsyncKey, string>>();
+    conn.OnSendSync = (f, h, d) =>
+    {
+        if (f >= 1)
+        {
+            foreach (var se in world.SyncedEffects)
+                effectsSb.Append(CultureInfo.InvariantCulture,
+                    $"e {f} effect {se.GetType().Name} h {BotSyncHashOf(se)}\n");
+            midSnaps[f] = IsyncSnapshot(world, applyMechanizedExclusion: false, includeActorRefs: true);
+            if (diag != null)
+                BotDiagSegments(world, f, h, diag);
+        }
+    };
 
     // 激活链宿主改造（票面「Player.cs:217 host-only 激活的 oracle 侧」）：无头宿主
     // 的 Game.IsHost 在 World ctor 期不可达（Game.OrderManager.Connection 的
@@ -238,7 +259,7 @@ static (byte[] Orarep, string Dump, string IsyncDump) BotRecordRun(System.IO.Tex
     var moved = new HashSet<uint>();
 
     var isyncSb = new StringBuilder();
-    var isyncPrev = IsyncSnapshot(world);
+    var isyncPrev = IsyncSnapshot(world, applyMechanizedExclusion: false, includeActorRefs: true);   // Aggressor 等 Actor 引用面入 dump（T34 打回）
     for (var f = 1; f <= BotFrames; f++)
     {
 om.TickImmediate();
@@ -249,16 +270,48 @@ om.TickImmediate();
         var s = conn.SentSyncs.LastOrDefault(x => x.Frame == f);
         sb.Append(CultureInfo.InvariantCulture, $"f {f} sync {s.SyncHash} defeat {s.DefeatState} rng {world.SharedRandom.Last} {world.SharedRandom.TotalCount} actors {world.Actors.Count()} fnv {ReplayActorFnv(world)}\n");
 
-        var isyncNow = IsyncSnapshot(world);
-        foreach (var (key, val) in isyncNow)
+        var isyncMid = midSnaps[f];
+        var isyncNow = IsyncSnapshot(world, applyMechanizedExclusion: false, includeActorRefs: true);
+        // isync 变化拆段（T34 打回③）：o=SendSync 拍前（ProcessOrders 面）、t=SendSync
+        // 拍后（world.Tick 面）——SyncHash 计算点在两段之间，C++ 侧对比前应用 o 段、
+        // 对比后应用 t 段。
+        foreach (var (key, val) in isyncMid)
             if (isyncPrev.TryGetValue(key, out var old) && old != val)
                 isyncSb.Append(CultureInfo.InvariantCulture,
-                    $"f {f} actor {key.ActorId} {key.TypeName} trait {key.TraitName} field {key.FieldName} {old} -> {val}\n");
+                    $"o {f} actor {key.ActorId} {key.TypeName} trait {key.TraitName}#{key.TraitInstance} field {key.FieldName} {old} -> {val}\n");
+        foreach (var (key, val) in isyncNow)
+            if (isyncMid.TryGetValue(key, out var old) && old != val)
+                isyncSb.Append(CultureInfo.InvariantCulture,
+                    $"t {f} actor {key.ActorId} {key.TypeName} trait {key.TraitName}#{key.TraitInstance} field {key.FieldName} {old} -> {val}\n");
         isyncPrev = isyncNow;
 
         var now = world.Actors.ToDictionary(a => a.ActorID, a => $"{a.Info.Name}");
         foreach (var id in now.Keys.Where(k => !prev.ContainsKey(k)))
-            sb.Append(CultureInfo.InvariantCulture, $"actor+ f{f} {id}:{now[id]}\n");
+        {
+            // 出生格附注（T34 打回）：出生 actor 的 Mobile.FromCell（帧尾快照）——
+            // C++ 重演侧 SyncHash 段2 的 Mobile hash 进面（from/to/wpos），isync dump
+            // 无出生初值行（无变化），出生位由本行承载。建筑无 Mobile，取 Immobile
+            // .TopLeft。均在 Mods.Common（ALC 隔离），走 ISync 遍历 + 反射读。
+            var born = world.Actors.First(a => a.ActorID == id);
+            var at = "";
+            foreach (var t in born.TraitsImplementing<ISync>())
+                if (t.GetType().Name == "Mobile")
+                {
+                    var fromCell = (CPos)t.GetType().GetProperty("FromCell")!.GetValue(t)!;
+                    var facing = ((WAngle)t.GetType().GetProperty("Facing")!.GetValue(t)!).Angle;
+                    // CenterPosition（T34 打回③）：生产出口 eject 的出生位带 subcell 偏移
+                    // （e1 出 wep 后 21803,10880 vs 格心 22016,11776——Mobile hash 进面，
+                    // isync 无出生初值行，由本行承载）。
+                    var center = (WPos)t.GetType().GetProperty("CenterPosition")!.GetValue(t)!;
+                    at = $" @{fromCell.X},{fromCell.Y}:{facing}|{center.X},{center.Y},{center.Z}";
+                }
+                else if (t.GetType().Name is "Immobile" or "Building")
+                {
+                    var topLeft = (CPos)t.GetType().GetProperty("TopLeft")!.GetValue(t)!;
+                    at = $" @{topLeft.X},{topLeft.Y}";
+                }
+            sb.Append(CultureInfo.InvariantCulture, $"actor+ f{f} {id}:{now[id]}{at}\n");
+        }
         foreach (var id in prev.Keys.Where(k => !now.ContainsKey(k)).OrderBy(k => k))
             if (moved.Add(id))
                 sb.Append(CultureInfo.InvariantCulture, $"actor- f{f} {id}:{prev[id]}\n");
@@ -277,6 +330,7 @@ om.TickImmediate();
     using (var rc = new ReplayConnection(filePath))
         if (!rc.IsValid || rc.LobbyInfo == null)
             throw new InvalidOperationException("上游 ReplayConnection 判定 bot 回放无效");
+    isyncSb.Append(effectsSb);
     return (normalized, sb.ToString(), isyncSb.ToString());
 }
 
@@ -284,7 +338,7 @@ om.TickImmediate();
 // SendSync 时刻（ProcessOrders 后、world.Tick 前）逐项复刻 World.SyncHash() 的四段
 // 聚合（actors 段/ISync 段/effects 段/rng+players 段），明细行带 n 序与单 trait hash。
 // 两独立进程各跑一次 bot-diag，diff 明细即得首分歧贡献项（actor/trait/hash 三元组）。
-const int BotDiagDetailFrames = 48;   // 明细行帧窗（首分歧 f22 实证位附近；总值行全帧）
+const int BotDiagDetailFrames = 660;   // 明细行帧窗（逐帧全等攻坚期全开；总值行全帧）
 
 static readonly Func<ISync, int> BotSyncHashOf = MakeBotSyncHashOf();
 

@@ -690,32 +690,47 @@ void test_bot_script() {
   std::int32_t int4_first_break{0};
   std::string str_break_kind;
   for (std::int32_t int4_f{1}; int4_f <= 660; ++int4_f) {
-    if (int4_f >= 2)
-      for (const ora::game::network::OrderModel& order : map_orders[int4_f])
-        replay_oracle_apply_order(w, order);
-    if (int4_f == 1)
-      ora::game::replay::replay_oracle_frame1(w);
-    else
-      ora::game::replay::replay_oracle_frame(w, ctx, int4_f);
+    // 帧内时序（T34 打回③）：pre（orders 段+effects）→ SendSync 对比点（SyncHash）→
+    // post（tick 段+出生/死亡+rng）→ 帧尾对比点（fnv）。
+    ora::game::replay::replay_oracle_bot_pre(w, ctx, int4_f);
     if (!w.str_fatal.empty()) {
       int4_first_break = int4_f;
       str_break_kind = w.str_fatal;
       break;
     }
-    const auto it_sync{res_feed->map_recorded_syncs.find(int4_f + 1)};
-    if (it_sync == res_feed->map_recorded_syncs.end()) continue;
-    if (ora::game::replay::replay_oracle_sync_hash(w) != it_sync->second.first) {
-      int4_first_break = int4_f + 1;
+    const auto it_sync{res_feed->map_recorded_syncs.find(int4_f)};
+    if (it_sync != res_feed->map_recorded_syncs.end()
+        && ora::game::replay::replay_oracle_sync_hash(w) != it_sync->second.first) {
+      int4_first_break = int4_f;
       str_break_kind = std::format("sync divergence: got {} want {}",
                                    ora::game::replay::replay_oracle_sync_hash(w),
                                    it_sync->second.first);
       break;
     }
+    ora::game::replay::replay_oracle_bot_post(w, ctx, int4_f);
+    if (!w.str_fatal.empty()) {
+      int4_first_break = int4_f;
+      str_break_kind = w.str_fatal;
+      break;
+    }
+    if (const auto it_fnv{ctx.map_fnv.find(int4_f)}; it_fnv != ctx.map_fnv.end()) {
+      const std::string str_fnv{skirmish_fnv_of(w)};
+      if (str_fnv != it_fnv->second) {
+        int4_first_break = int4_f;
+        str_break_kind = std::format("fnv divergence: got {} want {}", str_fnv,
+                                     it_fnv->second);
+        break;
+      }
+    }
   }
-  std::println("bot script: first data-plane break at f{} ({})", int4_first_break,
+  std::println("bot script: first break at f{} ({})", int4_first_break,
                str_break_kind.empty() ? std::string{"none - full 660 frames"} : str_break_kind);
-  check(int4_first_break == 0 || int4_first_break >= 2,
-        "bot replay advances past frame 1 before first gap");
+  check(int4_first_break == 0, "bot replay 660 帧逐帧 SyncHash+fnv 全等（票面验收①A）");
+  if (int4_first_break != 0) {
+    // 首分歧帧的 pertrait 明细（与 golden_gen bot-diag 输出同构——对拍定位）
+    std::println("  pertrait tail:\n{}",
+                 ora::game::replay::replay_oracle_pertrait_dump(w));
+  }
 }
 
 int main() {
